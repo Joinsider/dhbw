@@ -15,10 +15,6 @@ import java.net.CookieManager
 import java.net.CookiePolicy
 import java.io.IOException
 import org.jsoup.Jsoup
-import java.time.DayOfWeek
-import java.time.format.DateTimeFormatter
-import java.time.LocalDate
-import java.util.Locale
 
 class DualisService {
 
@@ -231,7 +227,24 @@ class DualisService {
             return
         }
 
-        val url = _fillUrlWithAuthToken("${_dualisUrls.monthlyScheduleUrl}01.$month.$year")
+        val baseUrl = _dualisUrls.monthlyScheduleUrl!!
+        val authToken = _authToken!!
+
+        // Extract existing arguments
+        val argumentsRegex = Regex("ARGUMENTS=([^&]+)")
+        val existingArgumentsMatch = argumentsRegex.find(baseUrl)
+        val existingArguments = existingArgumentsMatch?.groupValues?.get(1) ?: ""
+
+        // Format the date
+        val formattedDate = String.format("%02d.%02d.%d", 1, month, year)
+
+        // Replace the first -A with the formatted date
+        val updatedArguments = existingArguments.replaceFirst("-A", "-A$formattedDate")
+
+        // Reconstruct the URL
+        val url = baseUrl.replace(existingArguments, updatedArguments)
+            .replace("ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken") // Ensure auth token is correct
+        Log.d("DualisService", "Constructed Monthly Schedule URL: $url")
 
         val request = Request.Builder()
             .url(url)
@@ -270,11 +283,39 @@ class DualisService {
         val dualisEndpoint = "https://dualis.dhbw.de"
 
         val table = document.select("table.nb").first() ?: return emptyList()
-        val headerRow = table.select("tr").first() ?: return emptyList()
-        val dayHeaders = headerRow.select("th").map { it.text().trim() }
+        val caption = table.select("caption").first()?.text()
+        val dateRangeRegex = Regex("Stundenplan vom (\\d{2}\\.\\d{2}\\.) bis (\\d{2}\\.\\d{2}\\.)")
+        val matchResult = caption?.let { dateRangeRegex.find(it) }
 
-        val eventsByDay = mutableMapOf<String, MutableList<TimetableEvent>>()
-        dayHeaders.forEach { eventsByDay[it] = mutableListOf() }
+        val startDateString = matchResult?.groupValues?.get(1)
+        val endDateString = matchResult?.groupValues?.get(2)
+
+        val currentYear = java.time.LocalDate.now().year // Assuming current year for parsing
+        val dateFormatter = java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")
+
+        val startLocalDate = requireNotNull(startDateString?.let { java.time.LocalDate.parse(it + currentYear, dateFormatter) }) {
+            "Could not parse start date from caption: $caption"
+        }
+        val endLocalDate = requireNotNull(endDateString?.let { java.time.LocalDate.parse(it + currentYear, dateFormatter) }) {
+            "Could not parse end date from caption: $caption"
+        }
+
+        val headerRow = table.select("tr").first() ?: return emptyList()
+        val dayHeaders = headerRow.select("th.weekday").map { dayHeaderElement ->
+            val link = dayHeaderElement.select("a").first()
+            val href = link?.attr("href")
+            val dateRegex = Regex("-A(\\d{2}\\.\\d{2}\\.\\d{4})")
+            val dateMatch = href?.let { dateRegex.find(it) }
+            val fullDate = dateMatch?.groupValues?.get(1)
+            dayHeaderElement.text().trim() + "|" + fullDate // Store both text and full date
+        }
+
+        val eventsByFullDate = mutableMapOf<java.time.LocalDate, MutableList<TimetableEvent>>()
+        var currentDay = startLocalDate
+        while (!currentDay.isAfter(endLocalDate)) {
+            eventsByFullDate[currentDay] = mutableListOf()
+            currentDay = currentDay.plusDays(1)
+        }
 
         val rows = table.select("tr").drop(1) // Skip header row
 
@@ -284,11 +325,8 @@ class DualisService {
 
             val appointmentCells = row.select("td.appointment")
             for (cell in appointmentCells) {
-                val colspan = cell.attr("colspan").toIntOrNull() ?: 1
-                val rowspan = cell.attr("rowspan").toIntOrNull() ?: 1
-
                 val cellHtml = cell.html()
-                val titleRegex = Regex("(?s)<a[^>]*>(.*?)</a>")
+                val titleRegex = Regex("(?s)<a[^>]*>(.*?)<\\/a>")
                 val titleMatch = titleRegex.find(cellHtml)
                 val title = titleMatch?.groupValues?.get(1)?.trim() ?: ""
 
@@ -297,31 +335,33 @@ class DualisService {
 
                 val timeRange = details.getOrNull(0) ?: ""
                 val room = details.getOrNull(1) ?: ""
-                val lecturer = details.getOrNull(2) ?: ""
+                val lecturer = "" // Lecturer is not explicitly available in the current HTML structure
 
-                // Determine which day this event belongs to based on its column index
-                // This is a simplification and might need more robust logic if the table structure is complex
-                val columnIndex = cell.elementSiblingIndex() - 1 // -1 because of the time column
+                val timeParts = timeRange.split(" - ")
+                val startTime = timeParts.getOrNull(0) ?: ""
+                val endTime = timeParts.getOrNull(1) ?: ""
+
+                val columnIndex = cell.elementSiblingIndex() - 1
 
                 if (columnIndex >= 0 && columnIndex < dayHeaders.size) {
-                    val day = dayHeaders[columnIndex]
-                    eventsByDay[day]?.add(TimetableEvent(title, timeRange, room, lecturer))
+                    val dayHeaderParts = dayHeaders[columnIndex].split("|")
+                    val fullDateString = dayHeaderParts[1] // Get the full date (dd.MM.yyyy)
+                    val eventDate = java.time.LocalDate.parse(fullDateString, dateFormatter)
+
+                    // Ensure the list for eventDate exists
+                    if (!eventsByFullDate.containsKey(eventDate)) {
+                        eventsByFullDate[eventDate] = mutableListOf()
+                    }
+                    eventsByFullDate[eventDate]?.add(TimetableEvent(title, startTime, endTime, room, lecturer))
                 }
             }
         }
 
-        // Filter for Monday-Friday, add weekends only if they have events
-        val daysOfWeek = listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
-        val filteredTimetableDays = mutableListOf<TimetableDay>()
+        val sortedTimetableDays = eventsByFullDate.entries
+            .sortedBy { it.key }
+            .map { entry -> TimetableDay(dateFormatter.format(entry.key), entry.value) }
 
-        for (dayName in daysOfWeek) {
-            val eventsForDay = eventsByDay[dayName] ?: emptyList()
-            if (dayName in listOf("Mo", "Di", "Mi", "Do", "Fr") || eventsForDay.isNotEmpty()) {
-                filteredTimetableDays.add(TimetableDay(dayName, eventsForDay))
-            }
-        }
-
-        return filteredTimetableDays
+        return sortedTimetableDays
     }
 
     private fun isMainPage(html: String): Boolean {

@@ -25,6 +25,9 @@ import de.fampopprol.dhbwhorb.dualis.models.TimetableDay
 import de.fampopprol.dhbwhorb.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.ui.components.WeeklyCalendar
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 import java.util.Calendar
 
 class MainActivity : ComponentActivity() {
@@ -103,7 +106,9 @@ fun TimetableScreen(dualisService: DualisService, modifier: Modifier = Modifier)
 
     Column(modifier = modifier.fillMaxSize()) {
         if (timetable != null) {
-            WeeklyCalendar(timetable = timetable!!)
+            val today = LocalDate.now()
+            val startOfWeek = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            WeeklyCalendar(timetable = timetable!!, startOfWeek = startOfWeek)
         } else {
             Text(text = "Loading timetable...")
         }

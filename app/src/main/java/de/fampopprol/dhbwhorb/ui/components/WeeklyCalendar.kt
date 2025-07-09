@@ -24,12 +24,9 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 
 @Composable
-fun WeeklyCalendar(timetable: List<TimetableDay>, modifier: Modifier = Modifier) {
-    val today = LocalDate.now()
-    val startOfWeek = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-
+fun WeeklyCalendar(timetable: List<TimetableDay>, startOfWeek: LocalDate, modifier: Modifier = Modifier) {
     val weekDays = (0..6).map { startOfWeek.plusDays(it.toLong()) }
-    val dateFormatter = DateTimeFormatter.ofPattern("dd/MM")
+    val dateFormatter = DateTimeFormatter.ofPattern("dd.MM")
     val dayOfWeekFormatter = DateTimeFormatter.ofPattern("EEE") // Mon, Tue, etc.
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -98,7 +95,7 @@ fun DayCell(day: LocalDate, timetableDay: TimetableDay?) {
 fun EventItem(event: TimetableEvent) {
     Column(modifier = Modifier.padding(vertical = 2.dp)) {
         Text(text = event.title, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-        Text(text = "${event.time} - ${event.location}", fontSize = 12.sp, color = Color.DarkGray)
+        Text(text = "${event.startTime} - ${event.endTime} ${event.room}", fontSize = 12.sp, color = Color.DarkGray)
         // Optionally display lecturer if space allows
         // Text(text = event.lecturer, fontSize = 10.sp, color = Color.Gray)
     }
