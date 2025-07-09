@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import de.fampopprol.dhbwhorb.dualis.models.TimetableDay
 import de.fampopprol.dhbwhorb.dualis.network.DualisService
+import de.fampopprol.dhbwhorb.ui.components.WeeklyCalendar
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
 import java.util.Calendar
 
@@ -102,12 +103,7 @@ fun TimetableScreen(dualisService: DualisService, modifier: Modifier = Modifier)
 
     Column(modifier = modifier.fillMaxSize()) {
         if (timetable != null) {
-            timetable?.forEach { day ->
-                Text(text = day.date)
-                day.events.forEach { event ->
-                    Text(text = "  ${event.title} - ${event.time} - ${event.location} - ${event.lecturer}")
-                }
-            }
+            WeeklyCalendar(timetable = timetable!!)
         } else {
             Text(text = "Loading timetable...")
         }

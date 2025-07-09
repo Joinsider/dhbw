@@ -15,6 +15,10 @@ import java.net.CookieManager
 import java.net.CookiePolicy
 import java.io.IOException
 import org.jsoup.Jsoup
+import java.time.DayOfWeek
+import java.time.format.DateTimeFormatter
+import java.time.LocalDate
+import java.util.Locale
 
 class DualisService {
 
@@ -210,7 +214,7 @@ class DualisService {
         _dualisUrls.courseResultUrl = courseResultElement?.attr("href")?.let { if (it.startsWith("/")) dualisEndpoint + it else it }
 
         // Extracting monthly schedule URL
-        val monthlyScheduleElement = document.select("a:contains(Stundenplan)").first()
+        val monthlyScheduleElement = document.select("a:contains(diese Woche)").first()
         _dualisUrls.monthlyScheduleUrl = monthlyScheduleElement?.attr("href")?.let { if (it.startsWith("/")) dualisEndpoint + it else it }
 
         // Extracting logout URL
@@ -263,33 +267,61 @@ class DualisService {
     private fun parseMonthlySchedule(html: String): List<TimetableDay> {
         val document = Jsoup.parse(html)
         val timetableDays = mutableListOf<TimetableDay>()
+        val dualisEndpoint = "https://dualis.dhbw.de"
 
-        val dayElements = document.select("table.plan_table tr")
+        val table = document.select("table.nb").first() ?: return emptyList()
+        val headerRow = table.select("tr").first() ?: return emptyList()
+        val dayHeaders = headerRow.select("th").map { it.text().trim() }
 
-        var currentDate = ""
-        for (element in dayElements) {
-            val dateHeader = element.select("td.plan_header").first()
-            if (dateHeader != null) {
-                currentDate = dateHeader.text().trim()
-            }
+        val eventsByDay = mutableMapOf<String, MutableList<TimetableEvent>>()
+        dayHeaders.forEach { eventsByDay[it] = mutableListOf() }
 
-            val eventElements = element.select("td.plan_item")
-            if (eventElements.isNotEmpty()) {
-                val events = mutableListOf<TimetableEvent>()
-                for (eventElement in eventElements) {
-                    val title = eventElement.select("b").first()?.text() ?: ""
-                    val details = eventElement.html().replace("<b>" + title + "</b><br>", "").split("<br>")
+        val rows = table.select("tr").drop(1) // Skip header row
 
-                    val time = details.getOrNull(0)?.trim() ?: ""
-                    val location = details.getOrNull(1)?.trim() ?: ""
-                    val lecturer = details.getOrNull(2)?.trim() ?: ""
+        for (row in rows) {
+            val timeElement = row.select("th.time").first()
+            val time = timeElement?.text()?.trim() ?: ""
 
-                    events.add(TimetableEvent(title, time, location, lecturer))
+            val appointmentCells = row.select("td.appointment")
+            for (cell in appointmentCells) {
+                val colspan = cell.attr("colspan").toIntOrNull() ?: 1
+                val rowspan = cell.attr("rowspan").toIntOrNull() ?: 1
+
+                val cellHtml = cell.html()
+                val titleRegex = Regex("(?s)<a[^>]*>(.*?)</a>")
+                val titleMatch = titleRegex.find(cellHtml)
+                val title = titleMatch?.groupValues?.get(1)?.trim() ?: ""
+
+                val detailsHtml = cellHtml.replace(titleRegex.find(cellHtml)?.value ?: "", "")
+                val details = Jsoup.parse(detailsHtml).text().split("\n").map { it.trim() }.filter { it.isNotBlank() }
+
+                val timeRange = details.getOrNull(0) ?: ""
+                val room = details.getOrNull(1) ?: ""
+                val lecturer = details.getOrNull(2) ?: ""
+
+                // Determine which day this event belongs to based on its column index
+                // This is a simplification and might need more robust logic if the table structure is complex
+                val columnIndex = cell.elementSiblingIndex() - 1 // -1 because of the time column
+
+                if (columnIndex >= 0 && columnIndex < dayHeaders.size) {
+                    val day = dayHeaders[columnIndex]
+                    eventsByDay[day]?.add(TimetableEvent(title, timeRange, room, lecturer))
                 }
-                timetableDays.add(TimetableDay(currentDate, events))
             }
         }
-        return timetableDays
+
+        // Filter for Monday-Friday, add weekends only if they have events
+        val daysOfWeek = listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
+        val filteredTimetableDays = mutableListOf<TimetableDay>()
+
+        for (dayName in daysOfWeek) {
+            val eventsForDay = eventsByDay[dayName] ?: emptyList()
+            if (dayName in listOf("Mo", "Di", "Mi", "Do", "Fr") || eventsForDay.isNotEmpty()) {
+                filteredTimetableDays.add(TimetableDay(dayName, eventsForDay))
+            }
+        }
+
+        return filteredTimetableDays
     }
 
     private fun isMainPage(html: String): Boolean {
