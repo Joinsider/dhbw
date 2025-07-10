@@ -49,6 +49,7 @@ fun App() {
                             Log.e("MainActivity", "Auto-login failed")
                             scope.launch {
                                 credentialManager.logout() // Clear invalid credentials
+                                timetableCacheManager.clearCache() // Clear cached data on logout
                             }
                         }
                     }
@@ -74,7 +75,13 @@ fun App() {
                     dualisService = dualisService,
                     credentialManager = credentialManager,
                     timetableCacheManager = timetableCacheManager,
-                    onLogout = { isLoggedIn = false },
+                    onLogout = {
+                        isLoggedIn = false
+                        scope.launch {
+                            timetableCacheManager.clearCache() // Clear cached data on logout
+                            Log.d("MainActivity", "Cleared cache during logout")
+                        }
+                    },
                     modifier = Modifier.padding(innerPadding)
                 )
             }

@@ -398,7 +398,7 @@ fun EventDetailPopup(
                         .padding(24.dp)
                         .padding(
                             bottom = WindowInsets.navigationBars.asPaddingValues()
-                                .calculateBottomPadding() + 80.dp
+                                .calculateBottomPadding()
                         ) // Add extra 32dp padding
                 ) {
                     // Header with close button
@@ -495,7 +495,7 @@ fun formatEventDate(dateString: String): String {
         val dayOfWeek = date.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }
         val formattedDate = date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
         "$dayOfWeek, $formattedDate"
-    } catch (_: Exception) {
+    } catch (e: Exception) {
         dateString // Return original if parsing fails
     }
 }
