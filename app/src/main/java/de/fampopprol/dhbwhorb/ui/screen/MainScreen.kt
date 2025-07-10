@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -44,15 +45,22 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import de.fampopprol.dhbwhorb.R
 import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import kotlinx.coroutines.launch
 
 // Navigation destinations
-sealed class NavigationDestination(val route: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    object Timetable : NavigationDestination("timetable", "Timetable", Icons.Default.DateRange)
-    object Grades : NavigationDestination("grades", "Grades", Icons.Default.Star)
+sealed class NavigationDestination(
+    val route: String,
+    val titleResource: Int,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    object Timetable :
+        NavigationDestination("timetable", R.string.timetable, Icons.Default.DateRange)
+
+    object Grades : NavigationDestination("grades", R.string.grades, Icons.Default.Star)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,15 +84,11 @@ fun MainScreen(
         NavigationDestination.Grades
     )
 
-    var currentTitle by remember { mutableStateOf("Timetable") }
-
-    // Update title based on current destination
-    LaunchedEffect(currentDestination) {
-        currentTitle = when (currentDestination?.route) {
-            NavigationDestination.Timetable.route -> NavigationDestination.Timetable.title
-            NavigationDestination.Grades.route -> NavigationDestination.Grades.title
-            else -> "Timetable"
-        }
+    // Get localized title based on current destination
+    val currentTitle = when (currentDestination?.route) {
+        NavigationDestination.Timetable.route -> stringResource(R.string.timetable)
+        NavigationDestination.Grades.route -> stringResource(R.string.grades)
+        else -> stringResource(R.string.timetable)
     }
 
     ModalNavigationDrawer(
@@ -99,7 +103,7 @@ fun MainScreen(
                         .padding(16.dp)
                 ) {
                     Text(
-                        text = "DHBW Horb",
+                        text = stringResource(R.string.app_name),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -118,10 +122,10 @@ fun MainScreen(
                         icon = {
                             Icon(
                                 imageVector = destination.icon,
-                                contentDescription = destination.title
+                                contentDescription = stringResource(destination.titleResource)
                             )
                         },
-                        label = { Text(destination.title) },
+                        label = { Text(stringResource(destination.titleResource)) },
                         selected = currentDestination?.hierarchy?.any { it.route == destination.route } == true,
                         onClick = {
                             navController.navigate(destination.route) {
@@ -156,10 +160,10 @@ fun MainScreen(
                     icon = {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Logout"
+                            contentDescription = stringResource(R.string.logout)
                         )
                     },
-                    label = { Text("Logout") },
+                    label = { Text(stringResource(R.string.logout)) },
                     selected = false,
                     onClick = {
                         scope.launch {
@@ -192,7 +196,7 @@ fun MainScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Menu,
-                                contentDescription = "Open menu"
+                                contentDescription = stringResource(R.string.open_menu)
                             )
                         }
                     },

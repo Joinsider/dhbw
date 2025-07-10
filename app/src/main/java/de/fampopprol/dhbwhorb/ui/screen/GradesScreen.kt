@@ -36,9 +36,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import de.fampopprol.dhbwhorb.R
 import de.fampopprol.dhbwhorb.data.dualis.models.StudyGrades
 import de.fampopprol.dhbwhorb.data.dualis.models.Module
 import de.fampopprol.dhbwhorb.data.dualis.models.ExamState
@@ -60,6 +62,12 @@ fun GradesScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     val pullRefreshState = rememberPullToRefreshState()
 
+    // Store string resources in variables that can be accessed from non-composable functions
+    val failedToLoadGradesMessage = stringResource(R.string.failed_to_load_grades)
+    val authenticationFailedMessage = stringResource(R.string.authentication_failed)
+    val noCredentialsFoundMessage = stringResource(R.string.no_credentials_found)
+    val pleaseLoginMessage = stringResource(R.string.please_login)
+
     // Function to fetch grades data
     fun fetchGrades(updateLoadingState: Boolean = true) {
         if (updateLoadingState && !isRefreshing) {
@@ -76,7 +84,7 @@ fun GradesScreen(
                 errorMessage = null
                 Log.d("GradesScreen", "Fetched grades: $result")
             } else {
-                errorMessage = "Failed to load grades. Please try again."
+                errorMessage = failedToLoadGradesMessage
                 Log.e("GradesScreen", "Failed to fetch grades")
             }
         }
@@ -107,20 +115,20 @@ fun GradesScreen(
                             } else {
                                 isLoading = false
                                 isRefreshing = false
-                                errorMessage = "Authentication failed. Please login again."
+                                errorMessage = authenticationFailedMessage
                                 Log.e("GradesScreen", "Authentication failed")
                             }
                         }
                     } else {
                         isLoading = false
                         isRefreshing = false
-                        errorMessage = "No credentials found. Please login again."
+                        errorMessage = noCredentialsFoundMessage
                         Log.e("GradesScreen", "No stored credentials found")
                     }
                 } else {
                     isLoading = false
                     isRefreshing = false
-                    errorMessage = "Please login to view your grades."
+                    errorMessage = pleaseLoginMessage
                     Log.e("GradesScreen", "No stored credentials found")
                 }
             }
@@ -167,7 +175,7 @@ fun GradesScreen(
                                 modifier = Modifier.padding(16.dp)
                             )
                             Text(
-                                text = "Loading grades...",
+                                text = stringResource(R.string.loading_grades),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
@@ -193,10 +201,10 @@ fun GradesScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
-                                contentDescription = "Retry"
+                                contentDescription = stringResource(R.string.retry)
                             )
                             Spacer(modifier = Modifier.padding(horizontal = 4.dp))
-                            Text("Retry")
+                            Text(stringResource(R.string.retry))
                         }
                     }
                 } else {
@@ -235,7 +243,7 @@ fun GradesContent(
 
         // Grades Header
         Text(
-            text = "Your Study Performance",
+            text = stringResource(R.string.your_study_performance),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(8.dp)
@@ -255,7 +263,7 @@ fun GradesContent(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Grade Point Average (GPA)",
+                    text = stringResource(R.string.grade_point_average),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -265,11 +273,11 @@ fun GradesContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Overall GPA",
+                        text = stringResource(R.string.overall_gpa),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
-                        text = studyGrades?.gpaTotal?.toString() ?: "N/A",
+                        text = studyGrades?.gpaTotal?.toString() ?: stringResource(R.string.not_available),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -280,11 +288,11 @@ fun GradesContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Main Modules GPA",
+                        text = stringResource(R.string.main_modules_gpa),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
-                        text = studyGrades?.gpaMainModules?.toString() ?: "N/A",
+                        text = studyGrades?.gpaMainModules?.toString() ?: stringResource(R.string.not_available),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -306,7 +314,7 @@ fun GradesContent(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Credit Points",
+                    text = stringResource(R.string.credit_points),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -316,11 +324,11 @@ fun GradesContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Credits Gained",
+                        text = stringResource(R.string.credits_gained),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
-                        text = studyGrades?.creditsGained?.toString() ?: "N/A",
+                        text = studyGrades?.creditsGained?.toString() ?: stringResource(R.string.not_available),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -331,11 +339,11 @@ fun GradesContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Credits Total",
+                        text = stringResource(R.string.credits_total),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
-                        text = studyGrades?.creditsTotal?.toString() ?: "N/A",
+                        text = studyGrades?.creditsTotal?.toString() ?: stringResource(R.string.not_available),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -357,7 +365,7 @@ fun GradesContent(
                         )
 
                         Text(
-                            text = "${String.format("%.1f", progress * 100)}% completed",
+                            text = stringResource(R.string.progress_completed, String.format("%.1f", progress * 100)),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -384,7 +392,7 @@ fun GradesContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Individual Modules",
+                        text = stringResource(R.string.individual_modules),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -416,7 +424,7 @@ fun GradesContent(
                 )
 
                 Text(
-                    text = "For detailed module information including individual exams, please visit the Dualis website.",
+                    text = stringResource(R.string.detailed_module_info),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -477,7 +485,7 @@ fun ModuleCard(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = if (module.grade == "noch nicht gesetzt") "Not graded" else module.grade,
+                        text = if (module.grade == "noch nicht gesetzt") stringResource(R.string.not_graded) else module.grade,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = when (module.state) {
@@ -487,7 +495,7 @@ fun ModuleCard(
                         }
                     )
                     Text(
-                        text = "${module.credits} CP",
+                        text = "${module.credits} ${stringResource(R.string.credit_points_short)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -496,9 +504,9 @@ fun ModuleCard(
 
             // Status indicator
             val statusText = when (module.state) {
-                ExamState.PASSED -> "Passed"
-                ExamState.FAILED -> "Failed"
-                ExamState.PENDING -> "Pending"
+                ExamState.PASSED -> stringResource(R.string.passed)
+                ExamState.FAILED -> stringResource(R.string.failed)
+                ExamState.PENDING -> stringResource(R.string.pending)
             }
 
             val statusIcon = when (module.state) {

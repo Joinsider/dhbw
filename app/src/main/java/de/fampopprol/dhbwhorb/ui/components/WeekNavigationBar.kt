@@ -17,7 +17,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import de.fampopprol.dhbwhorb.R
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -55,7 +58,7 @@ fun WeekNavigationBar(
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth(),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                textAlign = TextAlign.Center
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -72,7 +75,7 @@ fun WeekNavigationBar(
                     enabled = !isLoading,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("← Previous")
+                    Text(stringResource(R.string.previous_week))
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -84,7 +87,7 @@ fun WeekNavigationBar(
                         enabled = !isLoading,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Today")
+                        Text(stringResource(R.string.current_week))
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
@@ -96,7 +99,7 @@ fun WeekNavigationBar(
                     enabled = !isLoading,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Next →")
+                    Text(stringResource(R.string.next_week))
                 }
             }
         }

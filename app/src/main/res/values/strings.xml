@@ -41,12 +41,16 @@
     <!-- Timetable -->
     <string name="no_classes">No classes</string>
     <string name="event_details">Event Details</string>
+    <string name="previous_week">← Previous</string>
+    <string name="next_week">Next →</string>
+    <string name="current_week">Today</string>
 
     <!-- Error Messages -->
     <string name="authentication_failed">Authentication failed. Please login again.</string>
     <string name="no_credentials_found">No credentials found. Please login again.</string>
     <string name="please_login_to_view_grades">Please login to view your grades.</string>
     <string name="failed_to_load_grades">Failed to load grades. Please try again.</string>
+    <string name="please_login">Please login to view your grades.</string>
 
     <!-- Days of week -->
     <string name="monday">Monday</string>

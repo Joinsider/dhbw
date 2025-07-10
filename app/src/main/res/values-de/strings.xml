@@ -21,9 +21,9 @@
     <string name="grade_point_average">Notendurchschnitt</string>
     <string name="overall_gpa">Gesamtnotendurchschnitt</string>
     <string name="main_modules_gpa">Hauptmodule Notendurchschnitt</string>
-    <string name="credit_points">Kreditpunkte</string>
-    <string name="credits_gained">Erreichte Kreditpunkte</string>
-    <string name="credits_total">Gesamte Kreditpunkte</string>
+    <string name="credit_points">Credits</string>
+    <string name="credits_gained">Erreichte Credits</string>
+    <string name="credits_total">Gesamte Credits</string>
     <string name="progress_completed">%s%% abgeschlossen</string>
     <string name="individual_modules">Einzelne Module</string>
     <string name="detailed_module_info">Für detaillierte Modulinformationen einschließlich einzelner Prüfungen besuchen Sie bitte die Dualis-Website.</string>
@@ -41,12 +41,16 @@
     <!-- Timetable -->
     <string name="no_classes">Keine Vorlesungen</string>
     <string name="event_details">Veranstaltungsdetails</string>
+    <string name="previous_week">← Letzte</string>
+    <string name="next_week">Nächste →</string>
+    <string name="current_week">Heute</string>
 
     <!-- Error Messages -->
     <string name="authentication_failed">Authentifizierung fehlgeschlagen. Bitte melden Sie sich erneut an.</string>
     <string name="no_credentials_found">Keine Anmeldedaten gefunden. Bitte melden Sie sich erneut an.</string>
     <string name="please_login_to_view_grades">Bitte melden Sie sich an, um Ihre Noten anzuzeigen.</string>
     <string name="failed_to_load_grades">Noten konnten nicht geladen werden. Bitte versuchen Sie es erneut.</string>
+    <string name="please_login">Bitte melden Sie sich an, um Ihre Noten anzuzeigen.</string>
 
     <!-- Days of week -->
     <string name="monday">Montag</string>
@@ -71,4 +75,3 @@
     <string name="november">November</string>
     <string name="december">Dezember</string>
 </resources>
-

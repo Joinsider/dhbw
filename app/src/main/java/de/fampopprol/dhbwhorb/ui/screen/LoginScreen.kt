@@ -25,9 +25,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import de.fampopprol.dhbwhorb.R
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import kotlinx.coroutines.launch
@@ -67,7 +69,7 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "DHBW Horb Login",
+            text = stringResource(R.string.login_title),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(bottom = 32.dp)
@@ -76,7 +78,7 @@ fun LoginScreen(
         OutlinedTextField(
             value = username,
             onValueChange = { username = it },
-            label = { Text("Username") },
+            label = { Text(stringResource(R.string.username)) },
             singleLine = true,
             enabled = !isLoading,
             modifier = Modifier.fillMaxWidth()
@@ -87,7 +89,7 @@ fun LoginScreen(
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("Password") },
+            label = { Text(stringResource(R.string.password)) },
             singleLine = true,
             enabled = !isLoading,
             visualTransformation = PasswordVisualTransformation(),
@@ -107,7 +109,7 @@ fun LoginScreen(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Remember credentials",
+                text = stringResource(R.string.remember_credentials),
                 style = MaterialTheme.typography.bodyMedium
             )
         }
@@ -141,7 +143,7 @@ fun LoginScreen(
             enabled = !isLoading && username.isNotBlank() && password.isNotBlank(),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(if (isLoading) "Logging in..." else "Login")
+            Text(if (isLoading) stringResource(R.string.logging_in) else stringResource(R.string.login))
         }
 
         errorMessage?.let { error ->
