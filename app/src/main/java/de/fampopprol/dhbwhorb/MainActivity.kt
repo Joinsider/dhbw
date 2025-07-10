@@ -9,13 +9,27 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,9 +38,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.dualis.models.TimetableDay
 import de.fampopprol.dhbwhorb.dualis.network.DualisService
+import de.fampopprol.dhbwhorb.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.components.WeeklyCalendar
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
 import java.time.DayOfWeek
@@ -41,19 +60,43 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             DHBWHorbTheme {
-                var isLoggedIn by remember { mutableStateOf(false) }
+                val context = LocalContext.current
+                val credentialManager = remember { CredentialManager(context) }
+                var isLoggedIn by remember { mutableStateOf(credentialManager.isLoggedIn()) }
                 val dualisService = remember { DualisService() }
+
+                // Auto-login if credentials are stored
+                LaunchedEffect(Unit) {
+                    if (credentialManager.hasStoredCredentials() && !isLoggedIn) {
+                        val username = credentialManager.getUsername()
+                        val password = credentialManager.getPassword()
+                        if (username != null && password != null) {
+                            dualisService.login(username, password) { result ->
+                                if (result != null) {
+                                    isLoggedIn = true
+                                    Log.d("MainActivity", "Auto-login successful")
+                                } else {
+                                    Log.e("MainActivity", "Auto-login failed")
+                                    credentialManager.logout() // Clear invalid credentials
+                                }
+                            }
+                        }
+                    }
+                }
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     if (!isLoggedIn) {
                         LoginScreen(
                             dualisService = dualisService,
+                            credentialManager = credentialManager,
                             onLoginSuccess = { isLoggedIn = true },
                             modifier = Modifier.padding(innerPadding)
                         )
                     } else {
                         TimetableScreen(
                             dualisService = dualisService,
+                            credentialManager = credentialManager,
+                            onLogout = { isLoggedIn = false },
                             modifier = Modifier.padding(innerPadding)
                         )
                     }
@@ -64,50 +107,172 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun LoginScreen(dualisService: DualisService, onLoginSuccess: () -> Unit, modifier: Modifier = Modifier) {
-    var username by remember { mutableStateOf("") }
+fun LoginScreen(
+    dualisService: DualisService,
+    credentialManager: CredentialManager,
+    onLoginSuccess: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var username by remember { mutableStateOf(credentialManager.getUsername() ?: "") }
     var password by remember { mutableStateOf("") }
+    var rememberCredentials by remember { mutableStateOf(credentialManager.hasStoredCredentials()) }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Column(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        TextField(
+        Text(
+            text = "DHBW Horb Login",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        OutlinedTextField(
             value = username,
             onValueChange = { username = it },
-            label = { Text("Username") }
+            label = { Text("Username") },
+            singleLine = true,
+            enabled = !isLoading,
+            modifier = Modifier.fillMaxWidth()
         )
-        TextField(
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("Password") }
+            label = { Text("Password") },
+            singleLine = true,
+            enabled = !isLoading,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            modifier = Modifier.fillMaxWidth()
         )
-        Button(onClick = {
-            dualisService.login(username, password) { redirectUrl ->
-                if (redirectUrl != null) {
-                    onLoginSuccess()
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = rememberCredentials,
+                onCheckedChange = { rememberCredentials = it }
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Remember credentials",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = {
+                isLoading = true
+                errorMessage = null
+                dualisService.login(username, password) { result ->
+                    isLoading = false
+                    if (result != null) {
+                        if (rememberCredentials) {
+                            credentialManager.saveCredentials(username, password)
+                        } else {
+                            credentialManager.logout() // Clear any existing credentials
+                        }
+                        onLoginSuccess()
+                        Log.d("LoginScreen", "Login successful")
+                    } else {
+                        errorMessage = "Login failed. Please check your credentials."
+                        Log.e("LoginScreen", "Login failed")
+                    }
                 }
-                Log.d("LoginScreen", "Redirect URL: $redirectUrl")
-            }
-        }) {
-            Text("Login")
+            },
+            enabled = !isLoading && username.isNotBlank() && password.isNotBlank(),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (isLoading) "Logging in..." else "Login")
+        }
+
+        errorMessage?.let { error ->
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimetableScreen(dualisService: DualisService, modifier: Modifier = Modifier) {
+fun TimetableScreen(
+    dualisService: DualisService,
+    credentialManager: CredentialManager,
+    onLogout: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     var timetable by remember { mutableStateOf<List<TimetableDay>?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
+    // Function to fetch timetable
+    fun fetchTimetable() {
+        isLoading = true
+        errorMessage = null
         val calendar = Calendar.getInstance()
         val year = calendar.get(Calendar.YEAR)
         val month = calendar.get(Calendar.MONTH) + 1 // Month is 0-indexed
 
         dualisService.getMonthlySchedule(year, month) { fetchedTimetable ->
-            Log.d("TimetableScreen", "Fetched Timetable: $fetchedTimetable")
-            timetable = fetchedTimetable
+            isLoading = false
+            if (fetchedTimetable != null) {
+                Log.d("TimetableScreen", "Fetched Timetable: $fetchedTimetable")
+                timetable = fetchedTimetable
+                errorMessage = null
+            } else {
+                Log.e("TimetableScreen", "Failed to fetch timetable")
+                errorMessage = "Failed to load timetable. Please try logging in again."
+            }
+        }
+    }
+
+    // Ensure login and then fetch timetable
+    LaunchedEffect(Unit) {
+        if (credentialManager.hasStoredCredentials()) {
+            val username = credentialManager.getUsername()
+            val password = credentialManager.getPassword()
+
+            if (username != null && password != null) {
+                Log.d("TimetableScreen", "Re-authenticating with stored credentials")
+                dualisService.login(username, password) { result ->
+                    if (result != null) {
+                        Log.d("TimetableScreen", "Re-authentication successful, fetching timetable")
+                        fetchTimetable()
+                    } else {
+                        Log.e("TimetableScreen", "Re-authentication failed")
+                        isLoading = false
+                        errorMessage = "Authentication failed. Please log in again."
+                        credentialManager.logout() // Clear invalid credentials
+                        onLogout()
+                    }
+                }
+            } else {
+                Log.e("TimetableScreen", "No stored credentials found")
+                isLoading = false
+                errorMessage = "No stored credentials found."
+                onLogout()
+            }
+        } else {
+            // If no stored credentials, try to fetch directly (user might have just logged in)
+            fetchTimetable()
         }
     }
 
@@ -116,23 +281,106 @@ fun TimetableScreen(dualisService: DualisService, modifier: Modifier = Modifier)
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        if (timetable != null && timetable!!.isNotEmpty()) {
-            // Use the first date from the timetable to determine the week to display
-            val firstTimetableDate = LocalDate.parse(timetable!!.first().date, DateTimeFormatter.ofPattern("dd.MM.yyyy"))
-            val startOfWeek = firstTimetableDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        // Top App Bar with Logout button
+        TopAppBar(
+            title = { Text("Timetable") },
+            actions = {
+                OutlinedButton(
+                    onClick = {
+                        credentialManager.logout()
+                        onLogout()
+                    },
+                    modifier = Modifier.padding(end = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ExitToApp,
+                        contentDescription = "Logout",
+                        modifier = Modifier.padding(end = 4.dp)
+                    )
+                    Text("Logout")
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+                titleContentColor = MaterialTheme.colorScheme.onSurface
+            )
+        )
 
-            Log.d("TimetableScreen", "First timetable date: $firstTimetableDate, Start of week: $startOfWeek")
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Loading timetable...",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            }
 
-            WeeklyCalendar(timetable = timetable!!, startOfWeek = startOfWeek)
-        } else {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Loading timetable...",
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+            errorMessage != null -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = errorMessage!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { fetchTimetable() }
+                        ) {
+                            Text("Retry")
+                        }
+                    }
+                }
+            }
+
+            timetable != null && timetable!!.isNotEmpty() -> {
+                // Use the first date from the timetable to determine the week to display
+                val firstTimetableDate = LocalDate.parse(timetable!!.first().date, DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+                val startOfWeek = firstTimetableDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+
+                Log.d("TimetableScreen", "First timetable date: $firstTimetableDate, Start of week: $startOfWeek")
+
+                WeeklyCalendar(timetable = timetable!!, startOfWeek = startOfWeek)
+            }
+
+            else -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "No timetable data available",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { fetchTimetable() }
+                        ) {
+                            Text("Retry")
+                        }
+                    }
+                }
             }
         }
     }
@@ -142,7 +390,7 @@ fun TimetableScreen(dualisService: DualisService, modifier: Modifier = Modifier)
 @Composable
 fun LoginScreenPreview() {
     DHBWHorbTheme {
-        LoginScreen(dualisService = DualisService(), onLoginSuccess = {})
+        LoginScreen(dualisService = DualisService(), credentialManager = CredentialManager(LocalContext.current), onLoginSuccess = {})
     }
 }
 
@@ -150,6 +398,6 @@ fun LoginScreenPreview() {
 @Composable
 fun TimetableScreenPreview() {
     DHBWHorbTheme {
-        TimetableScreen(dualisService = DualisService())
+        TimetableScreen(dualisService = DualisService(), credentialManager = CredentialManager(LocalContext.current), onLogout = {})
     }
 }
