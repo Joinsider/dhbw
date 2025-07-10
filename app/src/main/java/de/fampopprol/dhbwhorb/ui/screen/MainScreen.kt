@@ -1,6 +1,7 @@
 package de.fampopprol.dhbwhorb.ui.screen
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +24,8 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -32,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -73,6 +77,10 @@ fun MainScreen(
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val configuration = LocalConfiguration.current
+
+    // Use NavigationRail for wider screens (tablets/desktop)
+    val useNavigationRail = configuration.screenWidthDp >= 600
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -89,34 +97,17 @@ fun MainScreen(
         else -> stringResource(R.string.timetable)
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet(
-                modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars)
+    if (useNavigationRail) {
+        // Use NavigationRail for medium and large screens
+        Row(modifier = modifier.fillMaxSize()) {
+            NavigationRail(
+                modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(vertical = 16.dp)
-                    )
+                Spacer(modifier = Modifier.weight(1f))
 
-                    HorizontalDivider(
-                        modifier = Modifier.padding(bottom = 16.dp),
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
-
-                // Navigation items
                 destinations.forEach { destination ->
-                    NavigationDrawerItem(
+                    NavigationRailItem(
                         icon = {
                             Icon(
                                 imageVector = destination.icon,
@@ -133,100 +124,215 @@ fun MainScreen(
                                 launchSingleTop = true
                                 restoreState = true
                             }
-                            scope.launch {
-                                drawerState.close()
-                            }
-                        },
-                        colors = NavigationDrawerItemDefaults.colors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        ),
-                        modifier = Modifier.padding(horizontal = 12.dp)
+                        }
                     )
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Logout item at bottom
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.outline
-                )
-
-                NavigationDrawerItem(
+                // Logout rail item
+                NavigationRailItem(
                     icon = {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = stringResource(R.string.logout)
+                            contentDescription = stringResource(R.string.logout),
+                            tint = MaterialTheme.colorScheme.error
                         )
                     },
-                    label = { Text(stringResource(R.string.logout)) },
+                    label = {
+                        Text(
+                            text = stringResource(R.string.logout),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    },
                     selected = false,
                     onClick = {
                         scope.launch {
                             credentialManager.logout()
                             onLogout()
-                            drawerState.close()
                         }
-                    },
-                    colors = NavigationDrawerItemDefaults.colors(
-                        unselectedIconColor = MaterialTheme.colorScheme.error,
-                        unselectedTextColor = MaterialTheme.colorScheme.error
-                    ),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    }
                 )
             }
-        }
-    ) {
-        Scaffold(
-            modifier = modifier.fillMaxSize(),
-            topBar = {
-                TopAppBar(
-                    title = { Text(currentTitle) },
-                    navigationIcon = {
-                        IconButton(
-                            onClick = {
-                                scope.launch {
-                                    drawerState.open()
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = stringResource(R.string.open_menu)
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+
+            // Main content area
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text(currentTitle) },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            titleContentColor = MaterialTheme.colorScheme.onSurface
+                        )
                     )
-                )
-            },
-            contentWindowInsets = WindowInsets(0.dp)
-        ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = NavigationDestination.Timetable.route,
-                modifier = Modifier.padding(innerPadding)
-            ) {
-                composable(NavigationDestination.Timetable.route) {
-                    TimetableScreen(
-                        dualisService = dualisService,
-                        credentialManager = credentialManager,
-                        timetableCacheManager = timetableCacheManager,
-                        onLogout = onLogout
+                },
+                contentWindowInsets = WindowInsets(0.dp)
+            ) { innerPadding ->
+                NavHost(
+                    navController = navController,
+                    startDestination = NavigationDestination.Timetable.route,
+                    modifier = Modifier.padding(innerPadding)
+                ) {
+                    composable(NavigationDestination.Timetable.route) {
+                        TimetableScreen(
+                            dualisService = dualisService,
+                            credentialManager = credentialManager,
+                            timetableCacheManager = timetableCacheManager,
+                            onLogout = onLogout
+                        )
+                    }
+
+                    composable(NavigationDestination.Grades.route) {
+                        GradesScreen(
+                            dualisService = dualisService,
+                            credentialManager = credentialManager,
+                            gradesCacheManager = gradesCacheManager
+                        )
+                    }
+                }
+            }
+        }
+    } else {
+        // Use Modal Navigation Drawer for compact screens
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                ModalDrawerSheet(
+                    modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(bottom = 16.dp),
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+
+                    // Navigation items
+                    destinations.forEach { destination ->
+                        NavigationDrawerItem(
+                            icon = {
+                                Icon(
+                                    imageVector = destination.icon,
+                                    contentDescription = stringResource(destination.titleResource)
+                                )
+                            },
+                            label = { Text(stringResource(destination.titleResource)) },
+                            selected = currentDestination?.hierarchy?.any { it.route == destination.route } == true,
+                            onClick = {
+                                navController.navigate(destination.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                                scope.launch {
+                                    drawerState.close()
+                                }
+                            },
+                            colors = NavigationDrawerItemDefaults.colors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // Logout item at bottom
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outline
+                    )
+
+                    NavigationDrawerItem(
+                        icon = {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                                contentDescription = stringResource(R.string.logout)
+                            )
+                        },
+                        label = { Text(stringResource(R.string.logout)) },
+                        selected = false,
+                        onClick = {
+                            scope.launch {
+                                credentialManager.logout()
+                                onLogout()
+                                drawerState.close()
+                            }
+                        },
+                        colors = NavigationDrawerItemDefaults.colors(
+                            unselectedIconColor = MaterialTheme.colorScheme.error,
+                            unselectedTextColor = MaterialTheme.colorScheme.error
+                        ),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }
-
-                composable(NavigationDestination.Grades.route) {
-                    GradesScreen(
-                        dualisService = dualisService,
-                        credentialManager = credentialManager,
-                        gradesCacheManager = gradesCacheManager
+            }
+        ) {
+            Scaffold(
+                modifier = modifier.fillMaxSize(),
+                topBar = {
+                    TopAppBar(
+                        title = { Text(currentTitle) },
+                        navigationIcon = {
+                            IconButton(
+                                onClick = {
+                                    scope.launch {
+                                        drawerState.open()
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = stringResource(R.string.open_menu)
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            titleContentColor = MaterialTheme.colorScheme.onSurface,
+                            navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                        )
                     )
+                },
+                contentWindowInsets = WindowInsets(0.dp)
+            ) { innerPadding ->
+                NavHost(
+                    navController = navController,
+                    startDestination = NavigationDestination.Timetable.route,
+                    modifier = Modifier.padding(innerPadding)
+                ) {
+                    composable(NavigationDestination.Timetable.route) {
+                        TimetableScreen(
+                            dualisService = dualisService,
+                            credentialManager = credentialManager,
+                            timetableCacheManager = timetableCacheManager,
+                            onLogout = onLogout
+                        )
+                    }
+
+                    composable(NavigationDestination.Grades.route) {
+                        GradesScreen(
+                            dualisService = dualisService,
+                            credentialManager = credentialManager,
+                            gradesCacheManager = gradesCacheManager
+                        )
+                    }
                 }
             }
         }
