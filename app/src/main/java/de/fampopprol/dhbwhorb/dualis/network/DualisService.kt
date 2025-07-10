@@ -2,9 +2,9 @@ package de.fampopprol.dhbwhorb.dualis.network
 
 import android.annotation.SuppressLint
 import android.util.Log
-import de.fampopprol.dhbwhorb.dualis.models.dualis.DualisUrl
-import de.fampopprol.dhbwhorb.dualis.models.timetable.TimetableDay
-import de.fampopprol.dhbwhorb.dualis.models.timetable.TimetableEvent
+import de.fampopprol.dhbwhorb.dualis.models.DualisUrl
+import de.fampopprol.dhbwhorb.dualis.models.TimetableDay
+import de.fampopprol.dhbwhorb.dualis.models.TimetableEvent
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.FormBody

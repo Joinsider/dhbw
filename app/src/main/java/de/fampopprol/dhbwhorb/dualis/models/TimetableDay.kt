@@ -1,4 +1,4 @@
-package de.fampopprol.dhbwhorb.dualis.models.timetable
+package de.fampopprol.dhbwhorb.dualis.models
 
 data class TimetableDay(
     val date: String,

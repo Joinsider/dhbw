@@ -34,7 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.cache.TimetableCacheManager
-import de.fampopprol.dhbwhorb.dualis.models.timetable.TimetableDay
+import de.fampopprol.dhbwhorb.dualis.models.TimetableDay
 import de.fampopprol.dhbwhorb.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.components.WeekNavigationBar
