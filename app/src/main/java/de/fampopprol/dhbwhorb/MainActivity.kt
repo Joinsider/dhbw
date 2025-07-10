@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -32,6 +32,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -224,6 +225,7 @@ fun TimetableScreen(
     var timetable by remember { mutableStateOf<List<TimetableDay>?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     // Current week state - start with current week
     var currentWeekStart by remember {
@@ -233,14 +235,19 @@ fun TimetableScreen(
     }
 
     // Function to fetch timetable for a specific week
-    fun fetchTimetableForWeek(weekStart: LocalDate) {
-        isLoading = true
+    fun fetchTimetableForWeek(weekStart: LocalDate, isRefresh: Boolean = false) {
+        if (isRefresh) {
+            isRefreshing = true
+        } else {
+            isLoading = true
+        }
         errorMessage = null
 
-        Log.d("TimetableScreen", "Fetching timetable for week starting: $weekStart")
+        Log.d("TimetableScreen", "Fetching timetable for week starting: $weekStart (refresh: $isRefresh)")
 
         dualisService.getWeeklySchedule(weekStart) { fetchedTimetable ->
             isLoading = false
+            isRefreshing = false
             if (fetchedTimetable != null) {
                 Log.d("TimetableScreen", "Fetched Timetable for week starting $weekStart: $fetchedTimetable")
                 timetable = fetchedTimetable
@@ -250,6 +257,12 @@ fun TimetableScreen(
                 errorMessage = "Failed to load timetable. Please try logging in again."
             }
         }
+    }
+
+    // Function to refresh current week data
+    fun refreshCurrentWeek() {
+        Log.d("TimetableScreen", "Pull-to-refresh triggered for week: $currentWeekStart")
+        fetchTimetableForWeek(currentWeekStart, isRefresh = true)
     }
 
     // Function to navigate to previous week
@@ -319,7 +332,7 @@ fun TimetableScreen(
                     modifier = Modifier.padding(end = 8.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ExitToApp,
+                        imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                         contentDescription = "Logout",
                         modifier = Modifier.padding(end = 4.dp)
                     )
@@ -338,79 +351,86 @@ fun TimetableScreen(
             onPreviousWeek = ::goToPreviousWeek,
             onNextWeek = ::goToNextWeek,
             onCurrentWeek = ::goToCurrentWeek,
-            isLoading = isLoading
+            isLoading = isLoading || isRefreshing
         )
 
-        when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+        // Pull-to-refresh wrapper for the content
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = ::refreshCurrentWeek,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            when {
+                isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "Loading timetable...",
-                            color = MaterialTheme.colorScheme.onBackground,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                }
-            }
-
-            errorMessage != null -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = errorMessage!!,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = { fetchTimetableForWeek(currentWeekStart) }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("Retry")
+                            Text(
+                                text = "Loading timetable...",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
                         }
                     }
                 }
-            }
 
-            timetable != null && timetable!!.isNotEmpty() -> {
-                WeeklyCalendar(
-                    timetable = timetable!!,
-                    startOfWeek = currentWeekStart
-                )
-            }
-
-            else -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(16.dp)
+                errorMessage != null -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "No timetable data available for this week",
-                            color = MaterialTheme.colorScheme.onBackground,
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = { fetchTimetableForWeek(currentWeekStart) }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(16.dp)
                         ) {
-                            Text("Retry")
+                            Text(
+                                text = errorMessage!!,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyLarge,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { fetchTimetableForWeek(currentWeekStart) }
+                            ) {
+                                Text("Retry")
+                            }
+                        }
+                    }
+                }
+
+                timetable != null && timetable!!.isNotEmpty() -> {
+                    WeeklyCalendar(
+                        timetable = timetable!!,
+                        startOfWeek = currentWeekStart
+                    )
+                }
+
+                else -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text(
+                                text = "No timetable data available for this week",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.bodyLarge,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { fetchTimetableForWeek(currentWeekStart) }
+                            ) {
+                                Text("Retry")
+                            }
                         }
                     }
                 }
