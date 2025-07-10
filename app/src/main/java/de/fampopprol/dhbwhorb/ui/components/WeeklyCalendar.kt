@@ -59,7 +59,8 @@ fun WeeklyCalendar(
     var selectedEvent by remember { mutableStateOf<TimetableEvent?>(null) }
     var selectedEventDate by remember { mutableStateOf<String?>(null) }
 
-    val weekDays = (0..6).map { startOfWeek.plusDays(it.toLong()) }
+    // Only show Monday through Friday (0-4 days from start of week)
+    val weekDays = (0..4).map { startOfWeek.plusDays(it.toLong()) }
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM")
     val dayOfWeekFormatter = DateTimeFormatter.ofPattern("EEE")
     val timetableDateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
