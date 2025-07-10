@@ -54,6 +54,7 @@
     <string name="please_login">Bitte melden Sie sich an, um Ihre Noten anzuzeigen.</string>
 
     <!-- Days of week -->
+    <string name="loading_semesters">Semester werden geladen...</string>
     <string name="monday">Montag</string>
     <string name="tuesday">Dienstag</string>
     <string name="wednesday">Mittwoch</string>
@@ -75,4 +76,8 @@
     <string name="october">Oktober</string>
     <string name="november">November</string>
     <string name="december">Dezember</string>
+    <string name="widget_description">Zeigt den aktuellen und die nächsten Events</string>
+    <string name="widget_small_description">Kompakte Anzeige von heutigen Stunden und wenn heute nichts mehr stattfindet, dann von morgen</string>
+    <string name="select_semester">Semester auswählen</string>
+    <string name="semester">Semester</string>
 </resources>

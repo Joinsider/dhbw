@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container_small"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="12dp">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:id="@+id/widget_small_date"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Today"
+            android:textColor="@color/widget_text_primary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/widget_small_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Now"
+            android:textColor="@color/widget_status_text"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"
+            android:background="@drawable/widget_status_background"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp" />
+
+    </LinearLayout>
+
+    <!-- First Event -->
+    <LinearLayout
+        android:id="@+id/widget_small_event1_container"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_small_title1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Software Engineering"
+            android:textColor="@color/widget_text_primary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/widget_small_time1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="09:00 - 12:00"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="11sp"
+            android:fontFamily="sans-serif"
+            android:layout_marginTop="2dp" />
+
+        <TextView
+            android:id="@+id/widget_small_location1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Room A101"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="10sp"
+            android:fontFamily="sans-serif"
+            android:layout_marginTop="1dp"
+            android:drawablePadding="3dp"
+            android:drawableLeft="@drawable/ic_location_small"
+            android:drawableTint="@color/widget_text_secondary" />
+
+    </LinearLayout>
+
+    <!-- Second Event (optional) -->
+    <LinearLayout
+        android:id="@+id/widget_small_event2_container"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:layout_marginTop="6dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_small_title2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Mathematics"
+            android:textColor="@color/widget_text_primary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/widget_small_time2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="13:00 - 16:00"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="11sp"
+            android:fontFamily="sans-serif"
+            android:layout_marginTop="2dp" />
+
+        <TextView
+            android:id="@+id/widget_small_location2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Room B201"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="10sp"
+            android:fontFamily="sans-serif"
+            android:layout_marginTop="1dp"
+            android:drawablePadding="3dp"
+            android:drawableLeft="@drawable/ic_location_small"
+            android:drawableTint="@color/widget_text_secondary" />
+
+    </LinearLayout>
+
+</LinearLayout>

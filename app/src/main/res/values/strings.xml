@@ -79,4 +79,9 @@
     <string name="october">October</string>
     <string name="november">November</string>
     <string name="december">December</string>
+
+    <!-- Widget -->
+    <string name="widget_description">Shows your current and next timetable events</string>
+    <string name="widget_small_description">Compact view of today\'s schedule or tomorrow if today is free</string>
+    <string name="please_login_to_view_grades">Please login to view your grades</string>
 </resources>
