@@ -9,6 +9,7 @@ import de.fampopprol.dhbwhorb.data.dualis.models.Module
 import de.fampopprol.dhbwhorb.data.dualis.models.ExamState
 import de.fampopprol.dhbwhorb.data.dualis.models.TimetableDay
 import de.fampopprol.dhbwhorb.data.dualis.models.TimetableEvent
+import de.fampopprol.dhbwhorb.data.dualis.models.Semester
 import de.fampopprol.dhbwhorb.data.dualis.parser.StudyGradesParser
 import okhttp3.Call
 import okhttp3.Callback
@@ -542,9 +543,116 @@ class DualisService {
     }
 
     /**
+     * Fetches available semesters from Dualis
+     */
+    fun getAvailableSemesters(callback: (List<Semester>?) -> Unit) {
+        Log.d("DualisService", "=== FETCHING AVAILABLE SEMESTERS ===")
+
+        // Return demo data if in demo mode
+        if (_isDemoMode) {
+            Log.d("DualisService", "Demo mode: returning demo semesters")
+            callback(Semester.getDefaultSemesters())
+            return
+        }
+
+        if (_authToken == null) {
+            Log.e("DualisService", "Auth Token is null. Authentication required.")
+            callback(null)
+            return
+        }
+
+        // Use the base URL for course results to get the semester selection page
+        val baseUrl = "https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307,"
+
+        val request = Request.Builder().url(baseUrl).get().build()
+
+        Log.d("DualisService", "Fetching semesters from: $baseUrl")
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("DualisService", "Get available semesters request failed", e)
+                callback(null)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body.string()
+                Log.d("DualisService", "Semesters Response: ${response.code}")
+
+                if (response.isSuccessful) {
+                    try {
+                        val semesters = parseSemestersFromHtml(responseBody)
+                        Log.d("DualisService", "Parsed ${semesters.size} semesters")
+                        callback(semesters)
+                    } catch (e: Exception) {
+                        Log.e("DualisService", "Error parsing semesters", e)
+                        // Fallback to default semesters if parsing fails
+                        callback(Semester.getDefaultSemesters())
+                    }
+                } else {
+                    Log.e("DualisService", "Get semesters failed with code: ${response.code}")
+                    // Fallback to default semesters if request fails
+                    callback(Semester.getDefaultSemesters())
+                }
+            }
+        })
+    }
+
+    /**
+     * Parse semesters from the HTML response containing the semester dropdown
+     */
+    private fun parseSemestersFromHtml(html: String): List<Semester> {
+        Log.d("DualisService", "=== PARSING SEMESTERS FROM HTML ===")
+
+        val document = Jsoup.parse(html)
+        val semesters = mutableListOf<Semester>()
+
+        // Look for semester select dropdown
+        val semesterSelect = document.select("select#semester").first()
+
+        if (semesterSelect != null) {
+            Log.d("DualisService", "Found semester select dropdown")
+
+            val options = semesterSelect.select("option")
+            Log.d("DualisService", "Found ${options.size} semester options")
+
+            options.forEach { option ->
+                val value = option.attr("value")
+                val displayName = option.text().trim()
+                val isSelected = option.hasAttr("selected")
+
+                if (value.isNotEmpty() && displayName.isNotEmpty()) {
+                    semesters.add(Semester(value, displayName, isSelected))
+                    Log.d("DualisService", "Added semester: $displayName (value: $value, selected: $isSelected)")
+                }
+            }
+        } else {
+            Log.w("DualisService", "No semester select dropdown found, using default semesters")
+            return Semester.getDefaultSemesters()
+        }
+
+        // If no semesters were found, use defaults
+        if (semesters.isEmpty()) {
+            Log.w("DualisService", "No semesters parsed, using default semesters")
+            return Semester.getDefaultSemesters()
+        }
+
+        Log.d("DualisService", "Successfully parsed ${semesters.size} semesters")
+        return semesters
+    }
+
+    /**
+     * Fetches the study grades for a specific semester
+     */
+    fun getStudyGradesForSemester(semester: Semester, callback: (StudyGrades?) -> Unit) {
+        val semesterArgument = Semester.formatSemesterArgument(semester.value)
+        Log.d("DualisService", "Fetching grades for semester: ${semester.displayName} with argument: $semesterArgument")
+        getStudyGrades(semesterArgument, callback)
+    }
+
+    /**
      * Fetches the study grades (GPA and credits information) from Dualis for a specific semester
      */
-    fun getStudyGrades(semesterArgument: String = "-N000307,", callback: (StudyGrades?) -> Unit) {
+    fun getStudyGrades(semesterArgument: String = "", callback: (StudyGrades?) -> Unit) {
         Log.d("DualisService", "=== STARTING STUDY GRADES FETCH ===")
         Log.d("DualisService", "Semester argument: $semesterArgument")
 
@@ -573,7 +681,7 @@ class DualisService {
                             state = ExamState.PENDING
                         )
                     ),
-                    semester = if (semesterArgument == "-N000307,") "current" else "previous"
+                    semester = if (semesterArgument.isEmpty()) "current" else "previous"
                 )
             )
             return
@@ -607,7 +715,8 @@ class DualisService {
         }
 
         // Construct URL with semester-specific argument
-        val baseUrl = "https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,$semesterArgument"
+        // Base format: https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N{authToken},-N000307{semesterArgument}
+        val baseUrl = "https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307$semesterArgument"
 
         Log.d("DualisService", "=== URL PREPARATION COMPLETE ===")
         Log.d("DualisService", "Auth Token: $_authToken")

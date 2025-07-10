@@ -11,19 +11,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -44,6 +50,7 @@ import de.fampopprol.dhbwhorb.R
 import de.fampopprol.dhbwhorb.data.dualis.models.StudyGrades
 import de.fampopprol.dhbwhorb.data.dualis.models.Module
 import de.fampopprol.dhbwhorb.data.dualis.models.ExamState
+import de.fampopprol.dhbwhorb.data.dualis.models.Semester
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import kotlinx.coroutines.launch
@@ -62,36 +69,66 @@ fun GradesScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     val pullRefreshState = rememberPullToRefreshState()
 
+    // Semester selection state
+    var availableSemesters by remember { mutableStateOf<List<Semester>>(emptyList()) }
+    var selectedSemester by remember { mutableStateOf<Semester?>(null) }
+    var isLoadingSemesters by remember { mutableStateOf(true) }
+
     // Store string resources in variables that can be accessed from non-composable functions
     val failedToLoadGradesMessage = stringResource(R.string.failed_to_load_grades)
     val authenticationFailedMessage = stringResource(R.string.authentication_failed)
     val noCredentialsFoundMessage = stringResource(R.string.no_credentials_found)
     val pleaseLoginMessage = stringResource(R.string.please_login)
 
-    // Function to fetch grades data
-    fun fetchGrades(updateLoadingState: Boolean = true) {
+    // Function to fetch grades data for a specific semester
+    fun fetchGradesForSemester(semester: Semester, updateLoadingState: Boolean = true) {
         if (updateLoadingState && !isRefreshing) {
             isLoading = true
         }
         errorMessage = null
 
-        dualisService.getStudyGrades { result ->
+        dualisService.getStudyGradesForSemester(semester) { result ->
             isLoading = false
             isRefreshing = false
 
             if (result != null) {
                 studyGrades = result
                 errorMessage = null
-                Log.d("GradesScreen", "Fetched grades: $result")
+                Log.d("GradesScreen", "Fetched grades for semester ${semester.displayName}: $result")
             } else {
                 errorMessage = failedToLoadGradesMessage
-                Log.e("GradesScreen", "Failed to fetch grades")
+                Log.e("GradesScreen", "Failed to fetch grades for semester ${semester.displayName}")
             }
         }
     }
 
-    // Function to ensure authentication before fetching grades
-    fun ensureAuthAndFetchGrades() {
+    // Function to fetch available semesters
+    fun fetchSemesters() {
+        isLoadingSemesters = true
+        dualisService.getAvailableSemesters { semesters ->
+            isLoadingSemesters = false
+            if (semesters != null && semesters.isNotEmpty()) {
+                availableSemesters = semesters
+                // Select the first semester that is marked as selected, or the first one if none are selected
+                val defaultSemester = semesters.find { it.isSelected } ?: semesters.first()
+                selectedSemester = defaultSemester
+                // Fetch grades for the default semester
+                fetchGradesForSemester(defaultSemester, false)
+                Log.d("GradesScreen", "Fetched ${semesters.size} semesters, selected: ${defaultSemester.displayName}")
+            } else {
+                // Fallback to default semester selection if fetching fails
+                val defaultSemesters = Semester.getDefaultSemesters()
+                availableSemesters = defaultSemesters
+                val defaultSemester = defaultSemesters.find { it.isSelected } ?: defaultSemesters.first()
+                selectedSemester = defaultSemester
+                fetchGradesForSemester(defaultSemester, false)
+                Log.w("GradesScreen", "Failed to fetch semesters, using defaults")
+            }
+        }
+    }
+
+    // Function to ensure authentication before fetching data
+    fun ensureAuthAndFetchData() {
         if (!isRefreshing) {
             isLoading = true
         }
@@ -106,12 +143,12 @@ fun GradesScreen(
                     val password = credentialManager.getPassword()
 
                     if (username != null && password != null) {
-                        Log.d("GradesScreen", "Re-authenticating before fetching grades")
+                        Log.d("GradesScreen", "Re-authenticating before fetching data")
                         dualisService.login(username, password) { result ->
                             if (result != null) {
-                                Log.d("GradesScreen", "Authentication successful, now fetching grades")
-                                // Now we can fetch grades after successful authentication
-                                fetchGrades(false)
+                                Log.d("GradesScreen", "Authentication successful, now fetching semesters")
+                                // Now we can fetch semesters and grades after successful authentication
+                                fetchSemesters()
                             } else {
                                 isLoading = false
                                 isRefreshing = false
@@ -133,14 +170,14 @@ fun GradesScreen(
                 }
             }
         } else {
-            // Already authenticated, fetch grades directly
-            fetchGrades(false)
+            // Already authenticated, fetch semesters and grades directly
+            fetchSemesters()
         }
     }
 
     // Initial data loading
     LaunchedEffect(Unit) {
-        ensureAuthAndFetchGrades()
+        ensureAuthAndFetchData()
     }
 
     Box(
@@ -152,7 +189,9 @@ fun GradesScreen(
             state = pullRefreshState,
             onRefresh = {
                 isRefreshing = true
-                ensureAuthAndFetchGrades()
+                selectedSemester?.let { semester ->
+                    fetchGradesForSemester(semester, false)
+                } ?: ensureAuthAndFetchData()
             },
             isRefreshing = isRefreshing,
             modifier = Modifier.fillMaxSize(),
@@ -175,7 +214,11 @@ fun GradesScreen(
                                 modifier = Modifier.padding(16.dp)
                             )
                             Text(
-                                text = stringResource(R.string.loading_grades),
+                                text = if (isLoadingSemesters) {
+                                    stringResource(R.string.loading_semesters)
+                                } else {
+                                    stringResource(R.string.loading_grades)
+                                },
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
@@ -197,7 +240,7 @@ fun GradesScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
-                            onClick = { ensureAuthAndFetchGrades() }
+                            onClick = { ensureAuthAndFetchData() }
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
@@ -208,10 +251,16 @@ fun GradesScreen(
                         }
                     }
                 } else {
-                    // Show grades content
+                    // Show grades content with semester selection
                     GradesContent(
                         studyGrades = studyGrades,
                         isRefreshing = isRefreshing,
+                        availableSemesters = availableSemesters,
+                        selectedSemester = selectedSemester,
+                        onSemesterSelected = { semester ->
+                            selectedSemester = semester
+                            fetchGradesForSemester(semester)
+                        },
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -224,6 +273,9 @@ fun GradesScreen(
 fun GradesContent(
     studyGrades: StudyGrades?,
     isRefreshing: Boolean,
+    availableSemesters: List<Semester>,
+    selectedSemester: Semester?,
+    onSemesterSelected: (Semester) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -248,6 +300,77 @@ fun GradesContent(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(8.dp)
         )
+
+        // Semester Selection
+        Column {
+            Text(
+                text = stringResource(R.string.select_semester),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+
+            // Semester dropdown
+            var expanded by remember { mutableStateOf(false) }
+
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Selected semester
+                    Text(
+                        text = selectedSemester?.displayName ?: stringResource(R.string.select_semester),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    // Dropdown icon
+                    IconButton(
+                        onClick = { expanded = !expanded },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null
+                        )
+                    }
+                }
+            }
+
+            // Dropdown menu for semesters
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Menu items for each available semester
+                availableSemesters.forEach { semester ->
+                    DropdownMenuItem(
+                        onClick = {
+                            onSemesterSelected(semester)
+                            expanded = false
+                        },
+                        text = {
+                            Text(
+                                text = semester.displayName,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    )
+                }
+            }
+        }
 
         // GPA Card
         Card(

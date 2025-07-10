@@ -45,7 +45,9 @@ fun WeekNavigationBar(
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val isCurrentWeek = currentWeekStart == LocalDate.now().with(
         TemporalAdjusters.previousOrSame(
-            DayOfWeek.MONDAY))
+            DayOfWeek.MONDAY
+        )
+    )
 
     Card(
         modifier = modifier

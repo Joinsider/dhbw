@@ -49,9 +49,13 @@
     <!-- Error Messages -->
     <string name="authentication_failed">Authentication failed. Please login again.</string>
     <string name="no_credentials_found">No credentials found. Please login again.</string>
-    <string name="please_login_to_view_grades">Please login to view your grades.</string>
     <string name="failed_to_load_grades">Failed to load grades. Please try again.</string>
-    <string name="please_login">Please login to view your grades.</string>
+    <string name="please_login">Please login to view grades.</string>
+
+    <!-- Semester Selection -->
+    <string name="select_semester">Select Semester</string>
+    <string name="semester">Semester</string>
+    <string name="loading_semesters">Loading semesters…</string>
 
     <!-- Days of week -->
     <string name="monday">Monday</string>
