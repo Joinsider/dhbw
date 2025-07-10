@@ -53,13 +53,6 @@ fun TimetableScreen(
     val scope = rememberCoroutineScope()
     val pullRefreshState = rememberPullToRefreshState()
 
-    LaunchedEffect(Unit) {
-        val activity = context as ComponentActivity
-        activity.onBackPressedDispatcher.addCallback {
-            // Intercept back press - do nothing to disable it
-        }
-        // The callback will be automatically removed when this composable is disposed
-    }
 
     var timetable by remember { mutableStateOf<List<TimetableDay>?>(null) }
     var isFetchingFromApi by remember { mutableStateOf(false) }

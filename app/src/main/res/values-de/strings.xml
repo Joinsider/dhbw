@@ -80,4 +80,5 @@
     <string name="widget_small_description">Kompakte Anzeige von heutigen Stunden und wenn heute nichts mehr stattfindet, dann von morgen</string>
     <string name="select_semester">Semester auswählen</string>
     <string name="semester">Semester</string>
+    <string name="settings">Einstellungen</string>
 </resources>

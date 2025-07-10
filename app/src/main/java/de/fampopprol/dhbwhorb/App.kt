@@ -21,6 +21,8 @@ import de.fampopprol.dhbwhorb.data.cache.GradesCacheManager
 import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
+import de.fampopprol.dhbwhorb.data.notification.NotificationScheduler
+import de.fampopprol.dhbwhorb.data.notification.RequestNotificationPermission
 import de.fampopprol.dhbwhorb.ui.screen.LoginScreen
 import de.fampopprol.dhbwhorb.ui.screen.MainScreen
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
@@ -32,10 +34,27 @@ fun App() {
         val context = LocalContext.current
         val credentialManager = remember { CredentialManager(context) }
         var isLoggedIn by remember { mutableStateOf(credentialManager.isLoggedInBlocking()) }
+        var shouldRequestNotificationPermission by remember { mutableStateOf(false) }
         val dualisService = remember { DualisService() }
         val timetableCacheManager = remember { TimetableCacheManager(context) }
         val gradesCacheManager = remember { GradesCacheManager(context) }
+        val notificationScheduler = remember { NotificationScheduler(context) }
         val scope = rememberCoroutineScope()
+
+        // Request notification permission when user is logged in
+        if (isLoggedIn && shouldRequestNotificationPermission) {
+            RequestNotificationPermission { permissionGranted ->
+                Log.d("MainActivity", "Notification permission result: $permissionGranted")
+                shouldRequestNotificationPermission = false
+                if (permissionGranted) {
+                    // Permission granted, start notifications
+                    notificationScheduler.schedulePeriodicNotifications()
+                } else {
+                    // Permission denied, notifications will be silently skipped
+                    Log.w("MainActivity", "Notification permission denied - notifications will be disabled")
+                }
+            }
+        }
 
         // Auto-login if credentials are stored
         LaunchedEffect(Unit) {
@@ -47,6 +66,8 @@ fun App() {
                         if (result != null) {
                             isLoggedIn = true
                             Log.d("MainActivity", "Auto-login successful")
+                            // Request notification permission after successful auto-login
+                            shouldRequestNotificationPermission = true
                         } else {
                             Log.e("MainActivity", "Auto-login failed")
                             scope.launch {
@@ -68,7 +89,11 @@ fun App() {
                 LoginScreen(
                     dualisService = dualisService,
                     credentialManager = credentialManager,
-                    onLoginSuccess = { isLoggedIn = true },
+                    onLoginSuccess = {
+                        isLoggedIn = true
+                        // Request notification permission after successful manual login
+                        shouldRequestNotificationPermission = true
+                    },
                     modifier = Modifier
                         .padding(innerPadding)
                         .windowInsetsPadding(WindowInsets.systemBars)
@@ -79,8 +104,12 @@ fun App() {
                     credentialManager = credentialManager,
                     timetableCacheManager = timetableCacheManager,
                     gradesCacheManager = gradesCacheManager,
+                    notificationScheduler = notificationScheduler,
                     onLogout = {
                         isLoggedIn = false
+                        shouldRequestNotificationPermission = false
+                        // Stop notifications when user logs out
+                        notificationScheduler.cancelPeriodicNotifications()
                         scope.launch {
                             timetableCacheManager.clearCache() // Clear cached data on logout
                             gradesCacheManager.clearCache() // Clear grades cache on logout

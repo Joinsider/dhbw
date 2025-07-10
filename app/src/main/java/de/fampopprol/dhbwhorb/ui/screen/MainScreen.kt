@@ -1,5 +1,6 @@
 package de.fampopprol.dhbwhorb.ui.screen
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,9 +35,11 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,6 +54,8 @@ import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.data.cache.GradesCacheManager
+import de.fampopprol.dhbwhorb.data.notification.NotificationScheduler
+import de.fampopprol.dhbwhorb.data.notification.NotificationPreferencesManager
 import kotlinx.coroutines.launch
 
 // Navigation destinations
@@ -62,6 +68,9 @@ sealed class NavigationDestination(
         NavigationDestination("timetable", R.string.timetable, Icons.Default.DateRange)
 
     object Grades : NavigationDestination("grades", R.string.grades, Icons.Default.Star)
+
+    object NotificationSettings :
+        NavigationDestination("notification_settings", R.string.settings, Icons.Default.Settings)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,6 +80,7 @@ fun MainScreen(
     credentialManager: CredentialManager,
     timetableCacheManager: TimetableCacheManager,
     gradesCacheManager: GradesCacheManager,
+    notificationScheduler: NotificationScheduler,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -87,13 +97,22 @@ fun MainScreen(
 
     val destinations = listOf(
         NavigationDestination.Timetable,
-        NavigationDestination.Grades
+        NavigationDestination.Grades,
+        NavigationDestination.NotificationSettings
     )
+
+    // Handle back gesture for navigation drawer (only when drawer is open)
+    BackHandler(enabled = !useNavigationRail && drawerState.isOpen) {
+        scope.launch {
+            drawerState.close()
+        }
+    }
 
     // Get localized title based on current destination
     val currentTitle = when (currentDestination?.route) {
         NavigationDestination.Timetable.route -> stringResource(R.string.timetable)
         NavigationDestination.Grades.route -> stringResource(R.string.grades)
+        NavigationDestination.NotificationSettings.route -> stringResource(R.string.settings)
         else -> stringResource(R.string.timetable)
     }
 
@@ -187,6 +206,15 @@ fun MainScreen(
                             dualisService = dualisService,
                             credentialManager = credentialManager,
                             gradesCacheManager = gradesCacheManager
+                        )
+                    }
+
+                    composable(NavigationDestination.NotificationSettings.route) {
+                        val context = LocalContext.current
+                        val notificationPreferencesManager = remember { NotificationPreferencesManager(context) }
+                        NotificationSettingsScreen(
+                            notificationScheduler = notificationScheduler,
+                            notificationPreferencesManager = notificationPreferencesManager
                         )
                     }
                 }
@@ -331,6 +359,15 @@ fun MainScreen(
                             dualisService = dualisService,
                             credentialManager = credentialManager,
                             gradesCacheManager = gradesCacheManager
+                        )
+                    }
+
+                    composable(NavigationDestination.NotificationSettings.route) {
+                        val context = LocalContext.current
+                        val notificationPreferencesManager = remember { NotificationPreferencesManager(context) }
+                        NotificationSettingsScreen(
+                            notificationScheduler = notificationScheduler,
+                            notificationPreferencesManager = notificationPreferencesManager
                         )
                     }
                 }
