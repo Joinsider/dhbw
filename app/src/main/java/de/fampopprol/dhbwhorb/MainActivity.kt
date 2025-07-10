@@ -5,11 +5,14 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -108,7 +111,11 @@ fun TimetableScreen(dualisService: DualisService, modifier: Modifier = Modifier)
         }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         if (timetable != null && timetable!!.isNotEmpty()) {
             // Use the first date from the timetable to determine the week to display
             val firstTimetableDate = LocalDate.parse(timetable!!.first().date, DateTimeFormatter.ofPattern("dd.MM.yyyy"))
@@ -118,7 +125,15 @@ fun TimetableScreen(dualisService: DualisService, modifier: Modifier = Modifier)
 
             WeeklyCalendar(timetable = timetable!!, startOfWeek = startOfWeek)
         } else {
-            Text(text = "Loading timetable...")
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Loading timetable...",
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
         }
     }
 }
