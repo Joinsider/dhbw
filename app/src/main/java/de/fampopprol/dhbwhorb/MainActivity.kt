@@ -20,6 +20,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -223,28 +225,52 @@ fun TimetableScreen(
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Function to fetch timetable
-    fun fetchTimetable() {
+    // Current week state - start with current week
+    var currentWeekStart by remember {
+        mutableStateOf(
+            LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        )
+    }
+
+    // Function to fetch timetable for a specific week
+    fun fetchTimetableForWeek(weekStart: LocalDate) {
         isLoading = true
         errorMessage = null
-        val calendar = Calendar.getInstance()
-        val year = calendar.get(Calendar.YEAR)
-        val month = calendar.get(Calendar.MONTH) + 1 // Month is 0-indexed
 
-        dualisService.getMonthlySchedule(year, month) { fetchedTimetable ->
+        Log.d("TimetableScreen", "Fetching timetable for week starting: $weekStart")
+
+        dualisService.getWeeklySchedule(weekStart) { fetchedTimetable ->
             isLoading = false
             if (fetchedTimetable != null) {
-                Log.d("TimetableScreen", "Fetched Timetable: $fetchedTimetable")
+                Log.d("TimetableScreen", "Fetched Timetable for week starting $weekStart: $fetchedTimetable")
                 timetable = fetchedTimetable
                 errorMessage = null
             } else {
-                Log.e("TimetableScreen", "Failed to fetch timetable")
+                Log.e("TimetableScreen", "Failed to fetch timetable for week starting $weekStart")
                 errorMessage = "Failed to load timetable. Please try logging in again."
             }
         }
     }
 
-    // Ensure login and then fetch timetable
+    // Function to navigate to previous week
+    fun goToPreviousWeek() {
+        currentWeekStart = currentWeekStart.minusWeeks(1)
+        fetchTimetableForWeek(currentWeekStart)
+    }
+
+    // Function to navigate to next week
+    fun goToNextWeek() {
+        currentWeekStart = currentWeekStart.plusWeeks(1)
+        fetchTimetableForWeek(currentWeekStart)
+    }
+
+    // Function to go to current week
+    fun goToCurrentWeek() {
+        currentWeekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        fetchTimetableForWeek(currentWeekStart)
+    }
+
+    // Initial data loading and re-authentication logic
     LaunchedEffect(Unit) {
         if (credentialManager.hasStoredCredentials()) {
             val username = credentialManager.getUsername()
@@ -255,12 +281,12 @@ fun TimetableScreen(
                 dualisService.login(username, password) { result ->
                     if (result != null) {
                         Log.d("TimetableScreen", "Re-authentication successful, fetching timetable")
-                        fetchTimetable()
+                        fetchTimetableForWeek(currentWeekStart)
                     } else {
                         Log.e("TimetableScreen", "Re-authentication failed")
                         isLoading = false
                         errorMessage = "Authentication failed. Please log in again."
-                        credentialManager.logout() // Clear invalid credentials
+                        credentialManager.logout()
                         onLogout()
                     }
                 }
@@ -272,7 +298,7 @@ fun TimetableScreen(
             }
         } else {
             // If no stored credentials, try to fetch directly (user might have just logged in)
-            fetchTimetable()
+            fetchTimetableForWeek(currentWeekStart)
         }
     }
 
@@ -304,6 +330,15 @@ fun TimetableScreen(
                 containerColor = MaterialTheme.colorScheme.surface,
                 titleContentColor = MaterialTheme.colorScheme.onSurface
             )
+        )
+
+        // Week Navigation Controls
+        WeekNavigationBar(
+            currentWeekStart = currentWeekStart,
+            onPreviousWeek = ::goToPreviousWeek,
+            onNextWeek = ::goToNextWeek,
+            onCurrentWeek = ::goToCurrentWeek,
+            isLoading = isLoading
         )
 
         when {
@@ -341,7 +376,7 @@ fun TimetableScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
-                            onClick = { fetchTimetable() }
+                            onClick = { fetchTimetableForWeek(currentWeekStart) }
                         ) {
                             Text("Retry")
                         }
@@ -350,13 +385,10 @@ fun TimetableScreen(
             }
 
             timetable != null && timetable!!.isNotEmpty() -> {
-                // Use the first date from the timetable to determine the week to display
-                val firstTimetableDate = LocalDate.parse(timetable!!.first().date, DateTimeFormatter.ofPattern("dd.MM.yyyy"))
-                val startOfWeek = firstTimetableDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-
-                Log.d("TimetableScreen", "First timetable date: $firstTimetableDate, Start of week: $startOfWeek")
-
-                WeeklyCalendar(timetable = timetable!!, startOfWeek = startOfWeek)
+                WeeklyCalendar(
+                    timetable = timetable!!,
+                    startOfWeek = currentWeekStart
+                )
             }
 
             else -> {
@@ -369,17 +401,96 @@ fun TimetableScreen(
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Text(
-                            text = "No timetable data available",
+                            text = "No timetable data available for this week",
                             color = MaterialTheme.colorScheme.onBackground,
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
-                            onClick = { fetchTimetable() }
+                            onClick = { fetchTimetableForWeek(currentWeekStart) }
                         ) {
                             Text("Retry")
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WeekNavigationBar(
+    currentWeekStart: LocalDate,
+    onPreviousWeek: () -> Unit,
+    onNextWeek: () -> Unit,
+    onCurrentWeek: () -> Unit,
+    isLoading: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val weekEnd = currentWeekStart.plusDays(6)
+    val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+    val isCurrentWeek = currentWeekStart == LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
+            // Date range display
+            Text(
+                text = "${dateFormatter.format(currentWeekStart)} - ${dateFormatter.format(weekEnd)}",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Navigation buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Previous week button
+                Button(
+                    onClick = onPreviousWeek,
+                    enabled = !isLoading,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("← Previous")
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Current week button (only show if not already on current week)
+                if (!isCurrentWeek) {
+                    OutlinedButton(
+                        onClick = onCurrentWeek,
+                        enabled = !isLoading,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Today")
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+
+                // Next week button
+                Button(
+                    onClick = onNextWeek,
+                    enabled = !isLoading,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Next →")
                 }
             }
         }

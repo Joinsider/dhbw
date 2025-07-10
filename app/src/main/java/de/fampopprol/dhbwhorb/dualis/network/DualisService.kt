@@ -1,5 +1,6 @@
 package de.fampopprol.dhbwhorb.dualis.network
 
+import android.annotation.SuppressLint
 import android.util.Log
 import de.fampopprol.dhbwhorb.dualis.models.DualisUrl
 import de.fampopprol.dhbwhorb.dualis.models.TimetableDay
@@ -221,6 +222,7 @@ class DualisService {
         Log.d("DualisService", "Parsed Dualis URLs: $_dualisUrls")
     }
 
+    @SuppressLint("DefaultLocale")
     fun getMonthlySchedule(year: Int, month: Int, callback: (List<TimetableDay>?) -> Unit) {
         if (_dualisUrls.monthlyScheduleUrl == null || _authToken == null) {
             Log.e("DualisService", "Monthly schedule URL or Auth Token is null. Cannot fetch timetable.")
@@ -236,7 +238,7 @@ class DualisService {
         val existingArgumentsMatch = argumentsRegex.find(baseUrl)
         val existingArguments = existingArgumentsMatch?.groupValues?.get(1) ?: ""
 
-        // Format the date
+        // Format the date as dd.MM.yyyy for the first day of the month
         val formattedDate = String.format("%02d.%02d.%d", 1, month, year)
 
         // Replace the first -A with the formatted date
@@ -272,6 +274,65 @@ class DualisService {
                     }
                 } else {
                     Log.e("DualisService", "Get monthly schedule failed with code: ${response.code}")
+                    callback(null)
+                }
+            }
+        })
+    }
+
+    fun getWeeklySchedule(targetDate: java.time.LocalDate, callback: (List<TimetableDay>?) -> Unit) {
+        if (_dualisUrls.monthlyScheduleUrl == null || _authToken == null) {
+            Log.e("DualisService", "Monthly schedule URL or Auth Token is null. Cannot fetch weekly timetable.")
+            callback(null)
+            return
+        }
+
+        val baseUrl = _dualisUrls.monthlyScheduleUrl!!
+        val authToken = _authToken!!
+
+        // Extract existing arguments
+        val argumentsRegex = Regex("ARGUMENTS=([^&]+)")
+        val existingArgumentsMatch = argumentsRegex.find(baseUrl)
+        val existingArguments = existingArgumentsMatch?.groupValues?.get(1) ?: ""
+
+        // Format the target date as dd.MM.yyyy
+        val dateFormatter = java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")
+        val formattedDate = targetDate.format(dateFormatter)
+
+        // Replace the first -A with the formatted target date
+        val updatedArguments = existingArguments.replaceFirst("-A", "-A$formattedDate")
+
+        // Reconstruct the URL
+        val url = baseUrl.replace(existingArguments, updatedArguments)
+            .replace("ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken") // Ensure auth token is correct
+        Log.d("DualisService", "Constructed Weekly Schedule URL for $targetDate: $url")
+
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("DualisService", "Get weekly schedule request failed", e)
+                callback(null)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string()
+                Log.d("DualisService", "Weekly Schedule Response: ${response.code}")
+
+                if (response.isSuccessful) {
+                    try {
+                        val timetableDays = parseMonthlySchedule(responseBody ?: "")
+                        Log.d("DualisService", "Parsed weekly schedule for $targetDate: ${timetableDays.size} days")
+                        callback(timetableDays)
+                    } catch (e: Exception) {
+                        Log.e("DualisService", "Error parsing weekly schedule", e)
+                        callback(null)
+                    }
+                } else {
+                    Log.e("DualisService", "Get weekly schedule failed with code: ${response.code}")
                     callback(null)
                 }
             }
