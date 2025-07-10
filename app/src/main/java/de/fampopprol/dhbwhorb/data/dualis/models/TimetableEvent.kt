@@ -1,4 +1,4 @@
-package de.fampopprol.dhbwhorb.dualis.models
+package de.fampopprol.dhbwhorb.data.dualis.models
 
 data class TimetableEvent(
     val title: String,
@@ -6,9 +6,4 @@ data class TimetableEvent(
     val endTime: String,
     val room: String,
     val lecturer: String
-)
-
-data class TimetableDay(
-    val date: String,
-    val events: List<TimetableEvent>
 )

@@ -12,15 +12,20 @@ android {
         applicationId = "de.fampopprol.dhbwhorb"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 3
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Enables code-related app optimization.
+            isMinifyEnabled = true
+
+            // Enables resource shrinking.
+            isShrinkResources = true
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -61,8 +66,9 @@ dependencies {
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.okhttp.urlconnection)
     implementation(libs.jsoup)
+    implementation(libs.androidx.datastore.preferences)
 
     // Security library for encrypted storage
-    implementation("androidx.security:security-crypto:1.1.0-beta01")
-    implementation("com.google.code.gson:gson:2.10.1")
+    implementation(libs.androidx.security.crypto)
+    implementation(libs.gson)
 }

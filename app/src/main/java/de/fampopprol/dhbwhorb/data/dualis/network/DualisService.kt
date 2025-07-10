@@ -1,10 +1,11 @@
-package de.fampopprol.dhbwhorb.dualis.network
+package de.fampopprol.dhbwhorb.data.dualis.network
 
 import android.annotation.SuppressLint
 import android.util.Log
-import de.fampopprol.dhbwhorb.dualis.models.DualisUrl
-import de.fampopprol.dhbwhorb.dualis.models.TimetableDay
-import de.fampopprol.dhbwhorb.dualis.models.TimetableEvent
+import de.fampopprol.dhbwhorb.data.demo.DemoDataProvider
+import de.fampopprol.dhbwhorb.data.dualis.models.DualisUrl
+import de.fampopprol.dhbwhorb.data.dualis.models.TimetableDay
+import de.fampopprol.dhbwhorb.data.dualis.models.TimetableEvent
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.FormBody
@@ -15,8 +16,8 @@ import okhttp3.JavaNetCookieJar
 import java.net.CookieManager
 import java.net.CookiePolicy
 import java.io.IOException
+
 import org.jsoup.Jsoup
-import java.net.URLDecoder
 
 class DualisService {
 
@@ -30,8 +31,22 @@ class DualisService {
     private var _dualisUrls: DualisUrl = DualisUrl()
     private var _lastLoginCredentials: Pair<String, String>? = null
     private var _isReAuthenticating = false
+    private var _isDemoMode = false
 
     fun login(user: String, pass: String, callback: (String?) -> Unit) {
+        // Check if this is a demo user
+        if (DemoDataProvider.isDemoUser(user) && pass == DemoDataProvider.DEMO_PASSWORD) {
+            Log.d("DualisService", "Demo user detected, enabling demo mode")
+            _isDemoMode = true
+            _lastLoginCredentials = Pair(user, pass)
+            // Simulate successful login for demo user
+            callback("Demo login successful")
+            return
+        }
+
+        // Reset demo mode for regular users
+        _isDemoMode = false
+
         // Store credentials for potential re-authentication
         _lastLoginCredentials = Pair(user, pass)
 
@@ -60,7 +75,7 @@ class DualisService {
             }
 
             override fun onResponse(call: Call, response: Response) {
-                val responseBody = response.body?.string()
+                val responseBody = response.body.string()
                 Log.d("DualisService", "Login Response: ${response.code} - $responseBody")
 
                 if (response.isSuccessful) {
@@ -113,10 +128,10 @@ class DualisService {
             }
 
             override fun onResponse(call: Call, response: Response) {
-                val responseBody = response.body?.string()
+                val responseBody = response.body.string()
                 Log.d("DualisService", "Follow Redirects Response: ${response.code} - $responseBody")
 
-                if (response.isSuccessful && responseBody != null) {
+                if (response.isSuccessful) {
                     val document = Jsoup.parse(responseBody)
                     val isRedirectPage = document.select("div#sessionId").first() != null
                     Log.d("DualisService", "isRedirectPage check: $isRedirectPage")
@@ -229,6 +244,17 @@ class DualisService {
 
     @SuppressLint("DefaultLocale")
     fun getMonthlySchedule(year: Int, month: Int, callback: (List<TimetableDay>?) -> Unit) {
+        // Return demo data if in demo mode
+        if (_isDemoMode) {
+            Log.d("DualisService", "Demo mode: returning demo timetable data for month $month/$year")
+            // For monthly view, generate demo data for the first week of the month
+            val firstDayOfMonth = java.time.LocalDate.of(year, month, 1)
+            val firstMonday = firstDayOfMonth.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+            val demoData = DemoDataProvider.getDemoTimetableForWeek(firstMonday)
+            callback(demoData)
+            return
+        }
+
         if (_dualisUrls.monthlyScheduleUrl == null || _authToken == null) {
             Log.e("DualisService", "Monthly schedule URL or Auth Token is null. Cannot fetch timetable.")
             callback(null)
@@ -266,12 +292,12 @@ class DualisService {
             }
 
             override fun onResponse(call: Call, response: Response) {
-                val responseBody = response.body?.string()
+                val responseBody = response.body.string()
                 Log.d("DualisService", "Monthly Schedule Response: ${response.code} - $responseBody")
 
                 if (response.isSuccessful) {
                     try {
-                        val timetableDays = parseMonthlySchedule(responseBody ?: "")
+                        val timetableDays = parseMonthlySchedule(responseBody)
                         callback(timetableDays)
                     } catch (e: Exception) {
                         Log.e("DualisService", "Error parsing monthly schedule", e)
@@ -286,6 +312,14 @@ class DualisService {
     }
 
     fun getWeeklySchedule(targetDate: java.time.LocalDate, callback: (List<TimetableDay>?) -> Unit) {
+        // Return demo data if in demo mode
+        if (_isDemoMode) {
+            Log.d("DualisService", "Demo mode: returning demo timetable data for week starting $targetDate")
+            val demoData = DemoDataProvider.getDemoTimetableForWeek(targetDate)
+            callback(demoData)
+            return
+        }
+
         getWeeklyScheduleWithRetry(targetDate, callback, retryCount = 0)
     }
 
@@ -328,10 +362,10 @@ class DualisService {
             }
 
             override fun onResponse(call: Call, response: Response) {
-                val responseBody = response.body?.string()
+                val responseBody = response.body.string()
                 Log.d("DualisService", "Weekly Schedule Response: ${response.code}")
 
-                if (response.isSuccessful && responseBody != null) {
+                if (response.isSuccessful) {
                     // Check if the response indicates an invalid token
                     if (isTokenInvalidResponse(responseBody)) {
                         Log.w("DualisService", "Token appears to be invalid, attempting re-authentication")
