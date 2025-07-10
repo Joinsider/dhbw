@@ -1,5 +1,6 @@
 package de.fampopprol.dhbwhorb.ui.components
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -53,7 +54,7 @@ fun WeeklyCalendar(
     startOfWeek: LocalDate,
     onPreviousWeek: () -> Unit = {},
     onNextWeek: () -> Unit = {},
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
     var selectedEvent by remember { mutableStateOf<TimetableEvent?>(null) }
     var selectedEventDate by remember { mutableStateOf<String?>(null) }
@@ -72,7 +73,6 @@ fun WeeklyCalendar(
 
     // Improved swipe detection parameters
     val swipeThreshold = 50f // Reduced threshold for more responsive swipes
-    val minSwipeVelocity = 200f // Minimum velocity for swipe detection
 
     // State for tracking swipe
     var totalDragAmount by remember { mutableFloatStateOf(0f) }
