@@ -2,6 +2,7 @@ package de.fampopprol.dhbwhorb.ui.components
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,6 +40,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.max
 import android.util.Log
 import androidx.compose.foundation.layout.WindowInsets
@@ -46,7 +49,13 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 
 @Composable
-fun WeeklyCalendar(timetable: List<TimetableDay>, startOfWeek: LocalDate, modifier: Modifier = Modifier) {
+fun WeeklyCalendar(
+    timetable: List<TimetableDay>,
+    startOfWeek: LocalDate,
+    onPreviousWeek: () -> Unit = {},
+    onNextWeek: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     var selectedEvent by remember { mutableStateOf<TimetableEvent?>(null) }
     var selectedEventDate by remember { mutableStateOf<String?>(null) }
 
@@ -61,9 +70,31 @@ fun WeeklyCalendar(timetable: List<TimetableDay>, startOfWeek: LocalDate, modifi
     val hourHeight = 60.dp
     val totalHeight = (endHour - startHour) * hourHeight.value
 
+    // Swipe threshold - minimum distance to trigger swipe
+    val swipeThreshold = 100f
+
     Log.d("WeeklyCalendar", "Rendering time-based calendar with ${timetable.size} timetable days")
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = { /* Optional: Add haptic feedback here */ }
+                ) { _, dragAmount ->
+                    // Only trigger swipe if the drag amount exceeds threshold
+                    if (abs(dragAmount) > swipeThreshold) {
+                        if (dragAmount > 0) {
+                            // Swipe right -> go to next week
+                            onNextWeek()
+                        } else {
+                            // Swipe left -> go to previous week
+                            onPreviousWeek()
+                        }
+                    }
+                }
+            }
+    ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Header with day names and dates
             Row(modifier = Modifier.fillMaxWidth()) {

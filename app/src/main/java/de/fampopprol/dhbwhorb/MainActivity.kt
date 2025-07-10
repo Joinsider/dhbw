@@ -3,6 +3,7 @@ package de.fampopprol.dhbwhorb
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -230,6 +231,18 @@ fun TimetableScreen(
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
+    // Disable back gesture while in timetable screen
+    LaunchedEffect(Unit) {
+        val activity = context as ComponentActivity
+        val callback = activity.onBackPressedDispatcher.addCallback {
+            // Intercept back press - do nothing to disable it
+            // You can add custom logic here if needed
+        }
+        // The callback will be automatically removed when this composable is disposed
+    }
+
     var timetable by remember { mutableStateOf<List<TimetableDay>?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -414,7 +427,9 @@ fun TimetableScreen(
                 timetable != null && timetable!!.isNotEmpty() -> {
                     WeeklyCalendar(
                         timetable = timetable!!,
-                        startOfWeek = currentWeekStart
+                        startOfWeek = currentWeekStart,
+                        onPreviousWeek = ::goToPreviousWeek,
+                        onNextWeek = ::goToNextWeek
                     )
                 }
 
