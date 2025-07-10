@@ -14,8 +14,42 @@
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# JSoup rules
+-keep public class org.jsoup.** {
+    public *;
+}
+
+# OkHttp rules
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keepnames class okhttp3.internal.publicsuffix.PublicSuffixDatabase
+
+# Keep Java time classes (used for date parsing)
+-keep class java.time.** { *; }
+-dontwarn java.time.**
+-keep class sun.util.calendar.** { *; }
+
+# Gson rules
+-keepattributes Signature
+-keepattributes *Annotation*
+-dontwarn sun.misc.**
+-keep class com.google.gson.** { *; }
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer
+
+# Keep your model classes
+-keep class de.fampopprol.dhbwhorb.data.dualis.models.** { *; }
+-keep class de.fampopprol.dhbwhorb.data.cache.** { *; }
+
+# Keep enums
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
