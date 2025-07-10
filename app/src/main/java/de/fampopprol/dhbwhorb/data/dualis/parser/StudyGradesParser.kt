@@ -5,9 +5,7 @@ import de.fampopprol.dhbwhorb.data.dualis.models.StudyGrades
 import de.fampopprol.dhbwhorb.data.dualis.models.Module
 import de.fampopprol.dhbwhorb.data.dualis.models.ExamState
 import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
-import org.jsoup.select.Elements
 
 /**
  * Parser to extract study grades information from Dualis HTML responses

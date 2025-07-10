@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import de.fampopprol.dhbwhorb.data.cache.GradesCacheManager
 import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
@@ -33,6 +34,7 @@ fun App() {
         var isLoggedIn by remember { mutableStateOf(credentialManager.isLoggedInBlocking()) }
         val dualisService = remember { DualisService() }
         val timetableCacheManager = remember { TimetableCacheManager(context) }
+        val gradesCacheManager = remember { GradesCacheManager(context) }
         val scope = rememberCoroutineScope()
 
         // Auto-login if credentials are stored
@@ -50,6 +52,7 @@ fun App() {
                             scope.launch {
                                 credentialManager.logout() // Clear invalid credentials
                                 timetableCacheManager.clearCache() // Clear cached data on logout
+                                gradesCacheManager.clearCache() // Clear grades cache on logout
                             }
                         }
                     }
@@ -75,10 +78,12 @@ fun App() {
                     dualisService = dualisService,
                     credentialManager = credentialManager,
                     timetableCacheManager = timetableCacheManager,
+                    gradesCacheManager = gradesCacheManager,
                     onLogout = {
                         isLoggedIn = false
                         scope.launch {
                             timetableCacheManager.clearCache() // Clear cached data on logout
+                            gradesCacheManager.clearCache() // Clear grades cache on logout
                             Log.d("MainActivity", "Cleared cache during logout")
                         }
                     },
