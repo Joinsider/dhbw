@@ -93,8 +93,17 @@ fun DHBWHorbTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+            // Use the newer WindowInsetsController API instead of deprecated statusBarColor
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                // Set status bar color through window flags instead of direct assignment
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    window.statusBarColor = android.graphics.Color.TRANSPARENT
+                } else {
+                    @Suppress("DEPRECATION")
+                    window.statusBarColor = colorScheme.primary.toArgb()
+                }
+            }
         }
     }
 
