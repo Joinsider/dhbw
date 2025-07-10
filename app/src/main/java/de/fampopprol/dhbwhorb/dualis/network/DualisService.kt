@@ -2,9 +2,9 @@ package de.fampopprol.dhbwhorb.dualis.network
 
 import android.annotation.SuppressLint
 import android.util.Log
-import de.fampopprol.dhbwhorb.dualis.models.DualisUrl
-import de.fampopprol.dhbwhorb.dualis.models.TimetableDay
-import de.fampopprol.dhbwhorb.dualis.models.TimetableEvent
+import de.fampopprol.dhbwhorb.dualis.models.dualis.DualisUrl
+import de.fampopprol.dhbwhorb.dualis.models.timetable.TimetableDay
+import de.fampopprol.dhbwhorb.dualis.models.timetable.TimetableEvent
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.FormBody
@@ -16,7 +16,6 @@ import java.net.CookieManager
 import java.net.CookiePolicy
 import java.io.IOException
 import org.jsoup.Jsoup
-import java.net.URLDecoder
 
 class DualisService {
 
