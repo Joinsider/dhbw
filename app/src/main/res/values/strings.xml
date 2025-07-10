@@ -1,3 +1,73 @@
 <resources>
     <string name="app_name">DHBW Horb</string>
+
+    <!-- Login Screen -->
+    <string name="login_title">DHBW Horb Login</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="remember_credentials">Remember credentials</string>
+    <string name="login">Login</string>
+    <string name="logging_in">Logging in…</string>
+    <string name="login_failed">Login failed. Please check your credentials.</string>
+
+    <!-- Navigation -->
+    <string name="timetable">Timetable</string>
+    <string name="grades">Grades</string>
+    <string name="logout">Logout</string>
+    <string name="open_menu">Open menu</string>
+
+    <!-- Grades Screen -->
+    <string name="your_study_performance">Your Study Performance</string>
+    <string name="grade_point_average">Grade Point Average (GPA)</string>
+    <string name="overall_gpa">Overall GPA</string>
+    <string name="main_modules_gpa">Main Modules GPA</string>
+    <string name="credit_points">Credit Points</string>
+    <string name="credits_gained">Credits Gained</string>
+    <string name="credits_total">Credits Total</string>
+    <string name="progress_completed">%s%% completed</string>
+    <string name="individual_modules">Individual Modules</string>
+    <string name="detailed_module_info">For detailed module information including individual exams, please visit the Dualis website.</string>
+    <string name="loading_grades">Loading grades…</string>
+    <string name="retry">Retry</string>
+    <string name="not_available">N/A</string>
+    <string name="not_graded">Not graded</string>
+    <string name="credit_points_short">CP</string>
+
+    <!-- Module States -->
+    <string name="passed">Passed</string>
+    <string name="failed">Failed</string>
+    <string name="pending">Pending</string>
+
+    <!-- Timetable -->
+    <string name="no_classes">No classes</string>
+    <string name="event_details">Event Details</string>
+
+    <!-- Error Messages -->
+    <string name="authentication_failed">Authentication failed. Please login again.</string>
+    <string name="no_credentials_found">No credentials found. Please login again.</string>
+    <string name="please_login_to_view_grades">Please login to view your grades.</string>
+    <string name="failed_to_load_grades">Failed to load grades. Please try again.</string>
+
+    <!-- Days of week -->
+    <string name="monday">Monday</string>
+    <string name="tuesday">Tuesday</string>
+    <string name="wednesday">Wednesday</string>
+    <string name="thursday">Thursday</string>
+    <string name="friday">Friday</string>
+    <string name="saturday">Saturday</string>
+    <string name="sunday">Sunday</string>
+
+    <!-- Months -->
+    <string name="january">January</string>
+    <string name="february">February</string>
+    <string name="march">March</string>
+    <string name="april">April</string>
+    <string name="may">May</string>
+    <string name="june">June</string>
+    <string name="july">July</string>
+    <string name="august">August</string>
+    <string name="september">September</string>
+    <string name="october">October</string>
+    <string name="november">November</string>
+    <string name="december">December</string>
 </resources>

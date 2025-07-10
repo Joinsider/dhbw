@@ -220,7 +220,10 @@ fun MainScreen(
                 }
 
                 composable(NavigationDestination.Grades.route) {
-                    GradesScreen()
+                    GradesScreen(
+                        dualisService = dualisService,
+                        credentialManager = credentialManager
+                    )
                 }
             }
         }
