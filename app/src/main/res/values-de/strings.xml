@@ -41,9 +41,10 @@
     <!-- Timetable -->
     <string name="no_classes">Keine Vorlesungen</string>
     <string name="event_details">Veranstaltungsdetails</string>
-    <string name="previous_week">← Letzte</string>
-    <string name="next_week">Nächste →</string>
     <string name="current_week">Heute</string>
+    <string name="previous_week">Vorherige Woche</string>
+    <string name="next_week">Nächste Woche</string>
+    <string name="last_updated_at">Zuletzt aktualisiert: %s</string>
 
     <!-- Error Messages -->
     <string name="authentication_failed">Authentifizierung fehlgeschlagen. Bitte melden Sie sich erneut an.</string>

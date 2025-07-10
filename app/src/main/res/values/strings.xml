@@ -41,9 +41,10 @@
     <!-- Timetable -->
     <string name="no_classes">No classes</string>
     <string name="event_details">Event Details</string>
-    <string name="previous_week">← Previous</string>
-    <string name="next_week">Next →</string>
     <string name="current_week">Today</string>
+    <string name="previous_week">Previous week</string>
+    <string name="next_week">Next week</string>
+    <string name="last_updated_at">Last updated: %s</string>
 
     <!-- Error Messages -->
     <string name="authentication_failed">Authentication failed. Please login again.</string>
