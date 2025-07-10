@@ -11,8 +11,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -25,9 +35,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import de.fampopprol.dhbwhorb.R
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import kotlinx.coroutines.launch
@@ -41,7 +56,11 @@ fun LoginScreen(
 ) {
     val scope = rememberCoroutineScope()
     var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
     var rememberCredentials by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(credentialManager) {
         credentialManager.usernameFlow.collect { storedUsername ->
@@ -55,10 +74,6 @@ fun LoginScreen(
         rememberCredentials = credentialManager.hasStoredCredentialsBlocking()
     }
 
-    var password by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -66,91 +81,177 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "DHBW Horb Login",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 32.dp)
-        )
-
-        OutlinedTextField(
-            value = username,
-            onValueChange = { username = it },
-            label = { Text("Username") },
-            singleLine = true,
-            enabled = !isLoading,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            singleLine = true,
-            enabled = !isLoading,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
+        // Login Card with Material 3 elevated surface
+        Card(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
-            Checkbox(
-                checked = rememberCredentials,
-                onCheckedChange = { rememberCredentials = it }
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Remember credentials",
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Enhanced title with Material 3 typography
+                Text(
+                    text = stringResource(R.string.login_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
 
-        Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 32.dp)
+                )
 
-        Button(
-            onClick = {
-                isLoading = true
-                errorMessage = null
-                scope.launch {
-                    dualisService.login(username, password) { result ->
-                        isLoading = false
-                        if (result != null) {
-                            scope.launch {
-                                if (rememberCredentials) {
-                                    credentialManager.saveCredentials(username, password)
-                                } else {
-                                    credentialManager.logout() // Clear any existing credentials
-                                }
-                                onLoginSuccess()
-                                Log.d("LoginScreen", "Login successful")
-                            }
-                        } else {
-                            errorMessage = "Login failed. Please check your credentials."
-                            Log.e("LoginScreen", "Login failed")
+                // Enhanced username field with leading icon
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = {
+                        username = it
+                        errorMessage = null // Clear error when user types
+                    },
+                    label = { Text(stringResource(R.string.username)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    singleLine = true,
+                    enabled = !isLoading,
+                    isError = errorMessage != null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Enhanced password field with visibility toggle
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = {
+                        password = it
+                        errorMessage = null // Clear error when user types
+                    },
+                    label = { Text(stringResource(R.string.password)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                            )
                         }
+                    },
+                    singleLine = true,
+                    enabled = !isLoading,
+                    isError = errorMessage != null,
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Remember credentials checkbox with better styling
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = rememberCredentials,
+                        onCheckedChange = { rememberCredentials = it },
+                        enabled = !isLoading
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.remember_credentials),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Enhanced login button with loading state
+                Button(
+                    onClick = {
+                        isLoading = true
+                        errorMessage = null
+                        scope.launch {
+                            dualisService.login(username, password) { result ->
+                                isLoading = false
+                                if (result != null) {
+                                    scope.launch {
+                                        if (rememberCredentials) {
+                                            credentialManager.saveCredentials(username, password)
+                                        } else {
+                                            credentialManager.logout()
+                                        }
+                                        onLoginSuccess()
+                                        Log.d("LoginScreen", "Login successful")
+                                    }
+                                } else {
+                                    errorMessage = "Login failed. Please check your credentials."
+                                    Log.e("LoginScreen", "Login failed")
+                                }
+                            }
+                        }
+                    },
+                    enabled = !isLoading && username.isNotBlank() && password.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .height(20.dp)
+                                .width(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = if (isLoading) stringResource(R.string.logging_in) else stringResource(
+                            R.string.login
+                        ),
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+
+                // Error message with better styling
+                errorMessage?.let { error ->
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(12.dp)
+                        )
                     }
                 }
-            },
-            enabled = !isLoading && username.isNotBlank() && password.isNotBlank(),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (isLoading) "Logging in..." else "Login")
-        }
-
-        errorMessage?.let { error ->
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = error,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
-            )
+            }
         }
     }
 }

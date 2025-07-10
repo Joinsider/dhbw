@@ -54,6 +54,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.extended)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -71,4 +72,10 @@ dependencies {
     // Security library for encrypted storage
     implementation(libs.androidx.security.crypto)
     implementation(libs.gson)
+
+    // Navigation dependencies
+    implementation(libs.androidx.navigation.compose)
+
+    // WorkManager for background tasks
+    implementation(libs.androidx.work.runtime.ktx)
 }

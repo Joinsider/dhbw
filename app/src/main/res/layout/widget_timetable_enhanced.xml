@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="12dp">
+
+    <!-- Header with date and status -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:id="@+id/widget_date"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Monday, Jan 1"
+            android:textColor="@color/widget_text_primary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/widget_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Now"
+            android:textColor="@color/widget_status_text"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"
+            android:background="@drawable/widget_status_background"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp" />
+
+    </LinearLayout>
+
+    <!-- Dynamic Events Container -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <!-- Event 1 -->
+        <LinearLayout
+            android:id="@+id/widget_event1_container"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginBottom="4dp">
+
+            <TextView
+                android:id="@+id/widget_event1_day"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Today"
+                android:textColor="@color/widget_text_accent"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="2dp" />
+
+            <TextView
+                android:id="@+id/widget_event1_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Software Engineering"
+                android:textColor="@color/widget_text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/widget_event1_time"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="09:00 - 12:00"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="1dp" />
+
+            <TextView
+                android:id="@+id/widget_event1_location"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Room A101"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="9sp"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="1dp"
+                android:drawablePadding="3dp"
+                android:drawableLeft="@drawable/ic_location_small"
+                android:drawableTint="@color/widget_text_secondary" />
+
+        </LinearLayout>
+
+        <!-- Event 2 -->
+        <LinearLayout
+            android:id="@+id/widget_event2_container"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/widget_event2_day"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Today"
+                android:textColor="@color/widget_text_accent"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="2dp" />
+
+            <TextView
+                android:id="@+id/widget_event2_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Mathematics"
+                android:textColor="@color/widget_text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/widget_event2_time"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="13:00 - 16:00"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="1dp" />
+
+            <TextView
+                android:id="@+id/widget_event2_location"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Room B201"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="9sp"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="1dp"
+                android:drawablePadding="3dp"
+                android:drawableLeft="@drawable/ic_location_small"
+                android:drawableTint="@color/widget_text_secondary" />
+
+        </LinearLayout>
+
+        <!-- Event 3 -->
+        <LinearLayout
+            android:id="@+id/widget_event3_container"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/widget_event3_day"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Tomorrow"
+                android:textColor="@color/widget_text_accent"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="2dp" />
+
+            <TextView
+                android:id="@+id/widget_event3_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Programming"
+                android:textColor="@color/widget_text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/widget_event3_time"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="17:00 - 19:00"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="1dp" />
+
+            <TextView
+                android:id="@+id/widget_event3_location"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Room C301"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="9sp"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="1dp"
+                android:drawablePadding="3dp"
+                android:drawableLeft="@drawable/ic_location_small"
+                android:drawableTint="@color/widget_text_secondary" />
+
+        </LinearLayout>
+
+        <!-- Event 4 -->
+        <LinearLayout
+            android:id="@+id/widget_event4_container"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/widget_event4_day"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Tomorrow"
+                android:textColor="@color/widget_text_accent"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="2dp" />
+
+            <TextView
+                android:id="@+id/widget_event4_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Database Systems"
+                android:textColor="@color/widget_text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/widget_event4_time"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="20:00 - 22:00"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="1dp" />
+
+            <TextView
+                android:id="@+id/widget_event4_location"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Room D401"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="9sp"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="1dp"
+                android:drawablePadding="3dp"
+                android:drawableLeft="@drawable/ic_location_small"
+                android:drawableTint="@color/widget_text_secondary" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

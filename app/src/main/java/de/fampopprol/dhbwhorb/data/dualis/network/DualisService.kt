@@ -4,8 +4,13 @@ import android.annotation.SuppressLint
 import android.util.Log
 import de.fampopprol.dhbwhorb.data.demo.DemoDataProvider
 import de.fampopprol.dhbwhorb.data.dualis.models.DualisUrl
+import de.fampopprol.dhbwhorb.data.dualis.models.StudyGrades
+import de.fampopprol.dhbwhorb.data.dualis.models.Module
+import de.fampopprol.dhbwhorb.data.dualis.models.ExamState
 import de.fampopprol.dhbwhorb.data.dualis.models.TimetableDay
 import de.fampopprol.dhbwhorb.data.dualis.models.TimetableEvent
+import de.fampopprol.dhbwhorb.data.dualis.models.Semester
+import de.fampopprol.dhbwhorb.data.dualis.parser.StudyGradesParser
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.FormBody
@@ -22,9 +27,7 @@ import org.jsoup.Jsoup
 class DualisService {
 
     private val cookieManager = CookieManager(null, CookiePolicy.ACCEPT_ALL)
-    private val client = OkHttpClient.Builder()
-        .cookieJar(JavaNetCookieJar(cookieManager))
-        .build()
+    private val client = OkHttpClient.Builder().cookieJar(JavaNetCookieJar(cookieManager)).build()
     private val _tokenRegex = Regex("ARGUMENTS=-N([0-9]{15})")
 
     private var _authToken: String? = null
@@ -34,6 +37,10 @@ class DualisService {
     private var _isDemoMode = false
 
     fun login(user: String, pass: String, callback: (String?) -> Unit) {
+        Log.d("DualisService", "=== STARTING LOGIN PROCESS ===")
+        Log.d("DualisService", "Username: $user")
+        Log.d("DualisService", "Password length: ${pass.length}")
+
         // Check if this is a demo user
         if (DemoDataProvider.isDemoUser(user) && pass == DemoDataProvider.DEMO_PASSWORD) {
             Log.d("DualisService", "Demo user detected, enabling demo mode")
@@ -50,23 +57,20 @@ class DualisService {
         // Store credentials for potential re-authentication
         _lastLoginCredentials = Pair(user, pass)
 
-        val formBody = FormBody.Builder()
-            .add("usrname", user)
-            .add("pass", pass)
-            .add("APPNAME", "CampusNet")
-            .add("PRGNAME", "LOGINCHECK")
-            .add("ARGUMENTS", "clino,usrname,pass,menuno,menu_type,browser,platform")
-            .add("clino", "000000000000001")
-            .add("menuno", "000324")
-            .add("menu_type", "classic")
-            .add("browser", "")
-            .add("platform", "")
-            .build()
+        val formBody =
+            FormBody.Builder().add("usrname", user).add("pass", pass).add("APPNAME", "CampusNet")
+                .add("PRGNAME", "LOGINCHECK")
+                .add("ARGUMENTS", "clino,usrname,pass,menuno,menu_type,browser,platform")
+                .add("clino", "000000000000001").add("menuno", "000324").add("menu_type", "classic")
+                .add("browser", "").add("platform", "").build()
 
-        val request = Request.Builder()
-            .url("https://dualis.dhbw.de/scripts/mgrqispi.dll")
-            .post(formBody)
-            .build()
+        Log.d("DualisService", "Form body prepared with ${formBody.size} parameters")
+
+        val request =
+            Request.Builder().url("https://dualis.dhbw.de/scripts/mgrqispi.dll").post(formBody)
+                .build()
+
+        Log.d("DualisService", "Sending login request to: ${request.url}")
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
@@ -76,10 +80,19 @@ class DualisService {
 
             override fun onResponse(call: Call, response: Response) {
                 val responseBody = response.body.string()
-                Log.d("DualisService", "Login Response: ${response.code} - $responseBody")
+                Log.d("DualisService", "=== LOGIN RESPONSE RECEIVED ===")
+                Log.d("DualisService", "Response code: ${response.code}")
+                Log.d("DualisService", "Response headers:")
+                response.headers.forEach { (name, value) ->
+                    Log.d("DualisService", "  $name: $value")
+                }
+                Log.d("DualisService", "Response body length: ${responseBody.length}")
+                Log.d("DualisService", "Response body preview (first 1000 chars):")
+                Log.d("DualisService", responseBody.take(1000))
 
                 if (response.isSuccessful) {
                     val redirectUrlHeader = response.header("refresh")
+                    Log.d("DualisService", "Redirect header: $redirectUrlHeader")
                     if (redirectUrlHeader != null) {
                         val dualisEndpoint = "https://dualis.dhbw.de"
                         val redirectUrlPart = if (redirectUrlHeader.contains("URL=")) {
@@ -87,19 +100,25 @@ class DualisService {
                         } else {
                             redirectUrlHeader
                         }
+                        Log.d("DualisService", "Extracted redirect URL part: $redirectUrlPart")
                         val absoluteRedirectUrl = makeAbsoluteUrl(dualisEndpoint, redirectUrlPart)
+                        Log.d("DualisService", "Absolute redirect URL: $absoluteRedirectUrl")
                         _updateAccessToken(absoluteRedirectUrl)
                         followRedirects(absoluteRedirectUrl) { realMainPageContent ->
                             if (realMainPageContent != null) {
                                 try {
                                     parseRealMainPage(realMainPageContent)
+                                    Log.d("DualisService", "Login process completed successfully")
                                     callback("Login successful") // Indicate success
                                 } catch (e: Exception) {
                                     Log.e("DualisService", "Error parsing real main page", e)
                                     callback(null)
                                 }
                             } else {
-                                Log.e("DualisService", "Real main page content is null after following redirects")
+                                Log.e(
+                                    "DualisService",
+                                    "Real main page content is null after following redirects"
+                                )
                                 callback(null)
                             }
                         }
@@ -116,10 +135,7 @@ class DualisService {
     }
 
     private fun followRedirects(url: String, callback: (String?) -> Unit) {
-        val request = Request.Builder()
-            .url(url)
-            .get()
-            .build()
+        val request = Request.Builder().url(url).get().build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
@@ -129,7 +145,9 @@ class DualisService {
 
             override fun onResponse(call: Call, response: Response) {
                 val responseBody = response.body.string()
-                Log.d("DualisService", "Follow Redirects Response: ${response.code} - $responseBody")
+                Log.d(
+                    "DualisService", "Follow Redirects Response: ${response.code} - $responseBody"
+                )
 
                 if (response.isSuccessful) {
                     val document = Jsoup.parse(responseBody)
@@ -145,7 +163,8 @@ class DualisService {
                         for (element in document.select("script")) {
                             val content = element.html()
                             if (content.contains("window.location.href")) {
-                                val regex = Regex("window\\.location\\.href\\s*=\\s*['\"]([^'\"]+)['\"]")
+                                val regex =
+                                    Regex("window\\.location\\.href\\s*=\\s*['\"]([^'\"]+)['\"]")
                                 val match = regex.find(content)
                                 val relativeUrl = match?.groupValues?.get(1)
                                 if (relativeUrl != null) {
@@ -168,14 +187,19 @@ class DualisService {
                             Log.d("DualisService", "Following redirect to: $nextRedirectUrl")
                             followRedirects(nextRedirectUrl, callback) // Recursive call
                         } else {
-                            Log.e("DualisService", "Could not find next redirect URL in redirect page")
+                            Log.e(
+                                "DualisService", "Could not find next redirect URL in redirect page"
+                            )
                             callback(null)
                         }
                     } else if (isMainPage(responseBody)) {
                         // This is the real main page
                         callback(responseBody)
                     } else {
-                        Log.e("DualisService", "Unexpected page content, not a main page or known redirect page.")
+                        Log.e(
+                            "DualisService",
+                            "Unexpected page content, not a main page or known redirect page."
+                        )
                         callback(null)
                     }
                 } else {
@@ -209,54 +233,151 @@ class DualisService {
     private fun _fillUrlWithAuthToken(url: String): String {
         val match = _tokenRegex.find(url)
         return if (match != null && _authToken != null) {
-            val newUrl = url.replaceRange(match.range.first, match.range.last, "ARGUMENTS=-N$_authToken")
+            val newUrl =
+                url.replaceRange(match.range.first, match.range.last, "ARGUMENTS=-N$_authToken")
             Log.d("DualisService", "Filled URL with Auth Token: $newUrl")
             newUrl
         } else {
-            Log.w("DualisService", "Could not fill URL with auth token. URL: $url, AuthToken: $_authToken")
+            Log.w(
+                "DualisService",
+                "Could not fill URL with auth token. URL: $url, AuthToken: $_authToken"
+            )
             url
         }
     }
 
     private fun parseRealMainPage(html: String) {
+        Log.d("DualisService", "=== PARSING REAL MAIN PAGE ===")
+        Log.d("DualisService", "HTML length: ${html.length}")
+        Log.d("DualisService", "HTML content preview (first 500 chars):")
+        Log.d("DualisService", html.take(500))
+        Log.d("DualisService", "HTML content preview (last 500 chars):")
+        Log.d("DualisService", html.takeLast(500))
+
         val document = Jsoup.parse(html)
+        Log.d("DualisService", "Document parsed successfully")
 
         val dualisEndpoint = "https://dualis.dhbw.de"
 
-        // Extracting student results URL
-        val studentResultsElement = document.select("a:contains(Studienleistungen)").first()
-        _dualisUrls.studentResultsUrl = studentResultsElement?.attr("href")?.let { if (it.startsWith("/")) dualisEndpoint + it else it }
+        // Log all links for debugging
+        val allLinks = document.select("a")
+        Log.d("DualisService", "Found ${allLinks.size} total links in main page:")
+        allLinks.forEachIndexed { index, link ->
+            val href = link.attr("href")
+            val text = link.text().trim()
+            Log.d("DualisService", "Link $index: text='$text', href='$href'")
+        }
 
-        // Extracting course result URL
+        // Extract the base URL pattern for COURSERESULTS from any existing link
+        // Look for links that contain COURSERESULTS pattern
+        Log.d("DualisService", "=== SEARCHING FOR COURSE RESULTS PATTERN ===")
+        var baseAuthUrl: String? = null
+
+        // Find any link that contains the auth token pattern to extract the base structure
+        allLinks.forEach { link ->
+            val href = link.attr("href")
+            if (href.contains("ARGUMENTS=-N") && href.contains("scripts/mgrqispi.dll")) {
+                baseAuthUrl = href
+                Log.d("DualisService", "Found auth token pattern in: $href")
+            }
+        }
+
+        // Construct the COURSERESULTS URL using the extracted auth token
+        if (baseAuthUrl != null && _authToken != null) {
+            // Extract the auth token and any additional arguments from the base URL
+            val baseUrl = "https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307,"
+            _dualisUrls.studentResultsUrl = baseUrl
+            Log.d("DualisService", "Constructed student results URL: ${_dualisUrls.studentResultsUrl}")
+        } else {
+            Log.e("DualisService", "Could not construct COURSERESULTS URL - missing auth token or base URL")
+        }
+
+        // Extracting course result URL (keep existing logic for alternative)
+        Log.d("DualisService", "=== SEARCHING FOR COURSE RESULTS URL ===")
         val courseResultElement = document.select("a:contains(Prüfungsergebnisse)").first()
-        _dualisUrls.courseResultUrl = courseResultElement?.attr("href")?.let { if (it.startsWith("/")) dualisEndpoint + it else it }
+        Log.d("DualisService", "Course results element found: ${courseResultElement != null}")
+        if (courseResultElement != null) {
+            val rawHref = courseResultElement.attr("href")
+            Log.d("DualisService", "Raw course results href: '$rawHref'")
+            _dualisUrls.courseResultUrl =
+                if (rawHref.startsWith("/")) dualisEndpoint + rawHref else rawHref
+            Log.d("DualisService", "Final course results URL: '${_dualisUrls.courseResultUrl}'")
+        } else {
+            Log.e("DualisService", "No element containing 'Prüfungsergebnisse' found!")
+        }
 
         // Extracting monthly schedule URL
+        Log.d("DualisService", "=== SEARCHING FOR SCHEDULE URL ===")
         val monthlyScheduleElement = document.select("a:contains(diese Woche)").first()
-        _dualisUrls.monthlyScheduleUrl = monthlyScheduleElement?.attr("href")?.let { if (it.startsWith("/")) dualisEndpoint + it else it }
+        Log.d("DualisService", "Monthly schedule element found: ${monthlyScheduleElement != null}")
+        if (monthlyScheduleElement != null) {
+            val rawHref = monthlyScheduleElement.attr("href")
+            Log.d("DualisService", "Raw schedule href: '$rawHref'")
+            _dualisUrls.monthlyScheduleUrl =
+                if (rawHref.startsWith("/")) dualisEndpoint + rawHref else rawHref
+            Log.d("DualisService", "Final schedule URL: '${_dualisUrls.monthlyScheduleUrl}'")
+        } else {
+            Log.e("DualisService", "No element containing 'diese Woche' found!")
+            // Try alternative searches for schedule
+            val scheduleSearches = listOf("Stundenplan", "Woche", "Schedule", "Kalender")
+            scheduleSearches.forEach { searchTerm ->
+                val scheduleElements = document.select("a:contains($searchTerm)")
+                Log.d(
+                    "DualisService",
+                    "Alternative schedule search for '$searchTerm' found ${scheduleElements.size} elements:"
+                )
+                scheduleElements.forEach { element ->
+                    Log.d(
+                        "DualisService",
+                        "  - text: '${element.text()}', href: '${element.attr("href")}'"
+                    )
+                }
+            }
+        }
 
         // Extracting logout URL
+        Log.d("DualisService", "=== SEARCHING FOR LOGOUT URL ===")
         val logoutElement = document.select("a:contains(Abmelden)").first()
-        _dualisUrls.logoutUrl = logoutElement?.attr("href")?.let { if (it.startsWith("/")) dualisEndpoint + it else it }
+        Log.d("DualisService", "Logout element found: ${logoutElement != null}")
+        if (logoutElement != null) {
+            val rawHref = logoutElement.attr("href")
+            Log.d("DualisService", "Raw logout href: '$rawHref'")
+            _dualisUrls.logoutUrl =
+                if (rawHref.startsWith("/")) dualisEndpoint + rawHref else rawHref
+            Log.d("DualisService", "Final logout URL: '${_dualisUrls.logoutUrl}'")
+        } else {
+            Log.e("DualisService", "No element containing 'Abmelden' found!")
+        }
 
-        Log.d("DualisService", "Parsed Dualis URLs: $_dualisUrls")
+        Log.d("DualisService", "=== FINAL PARSED DUALIS URLS ===")
+        Log.d("DualisService", "Student Results URL: ${_dualisUrls.studentResultsUrl}")
+        Log.d("DualisService", "Course Results URL: ${_dualisUrls.courseResultUrl}")
+        Log.d("DualisService", "Monthly Schedule URL: ${_dualisUrls.monthlyScheduleUrl}")
+        Log.d("DualisService", "Logout URL: ${_dualisUrls.logoutUrl}")
+        Log.d("DualisService", "=== END MAIN PAGE PARSING ===")
     }
 
     @SuppressLint("DefaultLocale")
     fun getMonthlySchedule(year: Int, month: Int, callback: (List<TimetableDay>?) -> Unit) {
         // Return demo data if in demo mode
         if (_isDemoMode) {
-            Log.d("DualisService", "Demo mode: returning demo timetable data for month $month/$year")
+            Log.d(
+                "DualisService", "Demo mode: returning demo timetable data for month $month/$year"
+            )
             // For monthly view, generate demo data for the first week of the month
             val firstDayOfMonth = java.time.LocalDate.of(year, month, 1)
-            val firstMonday = firstDayOfMonth.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+            val firstMonday =
+                firstDayOfMonth.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
             val demoData = DemoDataProvider.getDemoTimetableForWeek(firstMonday)
             callback(demoData)
             return
         }
 
         if (_dualisUrls.monthlyScheduleUrl == null || _authToken == null) {
-            Log.e("DualisService", "Monthly schedule URL or Auth Token is null. Cannot fetch timetable.")
+            Log.e(
+                "DualisService",
+                "Monthly schedule URL or Auth Token is null. Cannot fetch timetable."
+            )
             callback(null)
             return
         }
@@ -276,14 +397,12 @@ class DualisService {
         val updatedArguments = existingArguments.replaceFirst("-A", "-A$formattedDate")
 
         // Reconstruct the URL
-        val url = baseUrl.replace(existingArguments, updatedArguments)
-            .replace("ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken") // Ensure auth token is correct
+        val url = baseUrl.replace(existingArguments, updatedArguments).replace(
+                "ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken"
+            ) // Ensure auth token is correct
         Log.d("DualisService", "Constructed Monthly Schedule URL: $url")
 
-        val request = Request.Builder()
-            .url(url)
-            .get()
-            .build()
+        val request = Request.Builder().url(url).get().build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
@@ -293,7 +412,9 @@ class DualisService {
 
             override fun onResponse(call: Call, response: Response) {
                 val responseBody = response.body.string()
-                Log.d("DualisService", "Monthly Schedule Response: ${response.code} - $responseBody")
+                Log.d(
+                    "DualisService", "Monthly Schedule Response: ${response.code} - $responseBody"
+                )
 
                 if (response.isSuccessful) {
                     try {
@@ -304,17 +425,24 @@ class DualisService {
                         callback(null)
                     }
                 } else {
-                    Log.e("DualisService", "Get monthly schedule failed with code: ${response.code}")
+                    Log.e(
+                        "DualisService", "Get monthly schedule failed with code: ${response.code}"
+                    )
                     callback(null)
                 }
             }
         })
     }
 
-    fun getWeeklySchedule(targetDate: java.time.LocalDate, callback: (List<TimetableDay>?) -> Unit) {
+    fun getWeeklySchedule(
+        targetDate: java.time.LocalDate, callback: (List<TimetableDay>?) -> Unit
+    ) {
         // Return demo data if in demo mode
         if (_isDemoMode) {
-            Log.d("DualisService", "Demo mode: returning demo timetable data for week starting $targetDate")
+            Log.d(
+                "DualisService",
+                "Demo mode: returning demo timetable data for week starting $targetDate"
+            )
             val demoData = DemoDataProvider.getDemoTimetableForWeek(targetDate)
             callback(demoData)
             return
@@ -323,9 +451,14 @@ class DualisService {
         getWeeklyScheduleWithRetry(targetDate, callback, retryCount = 0)
     }
 
-    private fun getWeeklyScheduleWithRetry(targetDate: java.time.LocalDate, callback: (List<TimetableDay>?) -> Unit, retryCount: Int) {
+    private fun getWeeklyScheduleWithRetry(
+        targetDate: java.time.LocalDate, callback: (List<TimetableDay>?) -> Unit, retryCount: Int
+    ) {
         if (_dualisUrls.monthlyScheduleUrl == null || _authToken == null) {
-            Log.e("DualisService", "Monthly schedule URL or Auth Token is null. Cannot fetch weekly timetable.")
+            Log.e(
+                "DualisService",
+                "Monthly schedule URL or Auth Token is null. Cannot fetch weekly timetable."
+            )
             callback(null)
             return
         }
@@ -346,14 +479,12 @@ class DualisService {
         val updatedArguments = existingArguments.replaceFirst("-A", "-A$formattedDate")
 
         // Reconstruct the URL
-        val url = baseUrl.replace(existingArguments, updatedArguments)
-            .replace("ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken") // Ensure auth token is correct
+        val url = baseUrl.replace(existingArguments, updatedArguments).replace(
+                "ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken"
+            ) // Ensure auth token is correct
         Log.d("DualisService", "Constructed Weekly Schedule URL for $targetDate: $url")
 
-        val request = Request.Builder()
-            .url(url)
-            .get()
-            .build()
+        val request = Request.Builder().url(url).get().build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
@@ -368,11 +499,17 @@ class DualisService {
                 if (response.isSuccessful) {
                     // Check if the response indicates an invalid token
                     if (isTokenInvalidResponse(responseBody)) {
-                        Log.w("DualisService", "Token appears to be invalid, attempting re-authentication")
+                        Log.w(
+                            "DualisService",
+                            "Token appears to be invalid, attempting re-authentication"
+                        )
                         if (retryCount < 1) { // Only retry once
                             reAuthenticateIfNeeded { success ->
                                 if (success) {
-                                    Log.d("DualisService", "Re-authentication successful, retrying weekly schedule fetch")
+                                    Log.d(
+                                        "DualisService",
+                                        "Re-authentication successful, retrying weekly schedule fetch"
+                                    )
                                     getWeeklyScheduleWithRetry(targetDate, callback, retryCount + 1)
                                 } else {
                                     Log.e("DualisService", "Re-authentication failed")
@@ -388,7 +525,10 @@ class DualisService {
 
                     try {
                         val timetableDays = parseMonthlySchedule(responseBody)
-                        Log.d("DualisService", "Parsed weekly schedule for $targetDate: ${timetableDays.size} days")
+                        Log.d(
+                            "DualisService",
+                            "Parsed weekly schedule for $targetDate: ${timetableDays.size} days"
+                        )
                         callback(timetableDays)
                     } catch (e: Exception) {
                         Log.e("DualisService", "Error parsing weekly schedule", e)
@@ -396,6 +536,275 @@ class DualisService {
                     }
                 } else {
                     Log.e("DualisService", "Get weekly schedule failed with code: ${response.code}")
+                    callback(null)
+                }
+            }
+        })
+    }
+
+    /**
+     * Fetches available semesters from Dualis
+     */
+    fun getAvailableSemesters(callback: (List<Semester>?) -> Unit) {
+        Log.d("DualisService", "=== FETCHING AVAILABLE SEMESTERS ===")
+
+        // Return demo data if in demo mode
+        if (_isDemoMode) {
+            Log.d("DualisService", "Demo mode: returning demo semesters")
+            callback(Semester.getDefaultSemesters())
+            return
+        }
+
+        if (_authToken == null) {
+            Log.e("DualisService", "Auth Token is null. Authentication required.")
+            callback(null)
+            return
+        }
+
+        // Use the base URL for course results to get the semester selection page
+        val baseUrl = "https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307,"
+
+        val request = Request.Builder().url(baseUrl).get().build()
+
+        Log.d("DualisService", "Fetching semesters from: $baseUrl")
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("DualisService", "Get available semesters request failed", e)
+                callback(null)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body.string()
+                Log.d("DualisService", "Semesters Response: ${response.code}")
+
+                if (response.isSuccessful) {
+                    try {
+                        val semesters = parseSemestersFromHtml(responseBody)
+                        Log.d("DualisService", "Parsed ${semesters.size} semesters")
+                        callback(semesters)
+                    } catch (e: Exception) {
+                        Log.e("DualisService", "Error parsing semesters", e)
+                        // Fallback to default semesters if parsing fails
+                        callback(Semester.getDefaultSemesters())
+                    }
+                } else {
+                    Log.e("DualisService", "Get semesters failed with code: ${response.code}")
+                    // Fallback to default semesters if request fails
+                    callback(Semester.getDefaultSemesters())
+                }
+            }
+        })
+    }
+
+    /**
+     * Parse semesters from the HTML response containing the semester dropdown
+     */
+    private fun parseSemestersFromHtml(html: String): List<Semester> {
+        Log.d("DualisService", "=== PARSING SEMESTERS FROM HTML ===")
+
+        val document = Jsoup.parse(html)
+        val semesters = mutableListOf<Semester>()
+
+        // Look for semester select dropdown
+        val semesterSelect = document.select("select#semester").first()
+
+        if (semesterSelect != null) {
+            Log.d("DualisService", "Found semester select dropdown")
+
+            val options = semesterSelect.select("option")
+            Log.d("DualisService", "Found ${options.size} semester options")
+
+            options.forEach { option ->
+                val value = option.attr("value")
+                val displayName = option.text().trim()
+                val isSelected = option.hasAttr("selected")
+
+                if (value.isNotEmpty() && displayName.isNotEmpty()) {
+                    semesters.add(Semester(value, displayName, isSelected))
+                    Log.d("DualisService", "Added semester: $displayName (value: $value, selected: $isSelected)")
+                }
+            }
+        } else {
+            Log.w("DualisService", "No semester select dropdown found, using default semesters")
+            return Semester.getDefaultSemesters()
+        }
+
+        // If no semesters were found, use defaults
+        if (semesters.isEmpty()) {
+            Log.w("DualisService", "No semesters parsed, using default semesters")
+            return Semester.getDefaultSemesters()
+        }
+
+        Log.d("DualisService", "Successfully parsed ${semesters.size} semesters")
+        return semesters
+    }
+
+    /**
+     * Fetches the study grades for a specific semester
+     */
+    fun getStudyGradesForSemester(semester: Semester, callback: (StudyGrades?) -> Unit) {
+        val semesterArgument = Semester.formatSemesterArgument(semester.value)
+        Log.d("DualisService", "Fetching grades for semester: ${semester.displayName} with argument: $semesterArgument")
+        getStudyGrades(semesterArgument, callback)
+    }
+
+    /**
+     * Fetches the study grades (GPA and credits information) from Dualis for a specific semester
+     */
+    fun getStudyGrades(semesterArgument: String = "", callback: (StudyGrades?) -> Unit) {
+        Log.d("DualisService", "=== STARTING STUDY GRADES FETCH ===")
+        Log.d("DualisService", "Semester argument: $semesterArgument")
+
+        // Return demo data if in demo mode
+        if (_isDemoMode) {
+            Log.d("DualisService", "Demo mode: returning demo study grades data")
+            callback(
+                StudyGrades(
+                    gpaTotal = 1.7,
+                    gpaMainModules = 1.6,
+                    creditsTotal = 210.0,
+                    creditsGained = 180.0,
+                    modules = listOf(
+                        Module(
+                            id = "T4_1000",
+                            name = "Praxisprojekt I",
+                            credits = "20.0",
+                            grade = "1.3",
+                            state = ExamState.PASSED
+                        ),
+                        Module(
+                            id = "T4INF1003",
+                            name = "Theoretische Informatik II",
+                            credits = "5.0",
+                            grade = "noch nicht gesetzt",
+                            state = ExamState.PENDING
+                        )
+                    ),
+                    semester = if (semesterArgument.isEmpty()) "current" else "previous"
+                )
+            )
+            return
+        }
+
+        // Check authentication status
+        Log.d("DualisService", "Checking authentication status...")
+        Log.d("DualisService", "Auth Token present: ${_authToken != null}")
+        Log.d("DualisService", "Auth Token value: $_authToken")
+        Log.d("DualisService", "isAuthenticated(): ${isAuthenticated()}")
+
+        if (_authToken == null) {
+            Log.e("DualisService", "Auth Token is null. Authentication required.")
+            callback(null)
+            return
+        }
+
+        Log.d("DualisService", "Checking student results URL...")
+        Log.d("DualisService", "Student results URL present: ${_dualisUrls.studentResultsUrl != null}")
+        Log.d("DualisService", "Student results URL value: ${_dualisUrls.studentResultsUrl}")
+
+        if (_dualisUrls.studentResultsUrl == null) {
+            Log.e("DualisService", "Student results URL is null. Main page parsing may have failed.")
+            Log.e("DualisService", "Available URLs in _dualisUrls:")
+            Log.e("DualisService", "  - studentResultsUrl: ${_dualisUrls.studentResultsUrl}")
+            Log.e("DualisService", "  - courseResultUrl: ${_dualisUrls.courseResultUrl}")
+            Log.e("DualisService", "  - monthlyScheduleUrl: ${_dualisUrls.monthlyScheduleUrl}")
+            Log.e("DualisService", "  - logoutUrl: ${_dualisUrls.logoutUrl}")
+            callback(null)
+            return
+        }
+
+        // Construct URL with semester-specific argument
+        // Base format: https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N{authToken},-N000307{semesterArgument}
+        val baseUrl = "https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307$semesterArgument"
+
+        Log.d("DualisService", "=== URL PREPARATION COMPLETE ===")
+        Log.d("DualisService", "Auth Token: $_authToken")
+        Log.d("DualisService", "Semester-specific URL: $baseUrl")
+
+        val request = Request.Builder().url(baseUrl).get().build()
+
+        Log.d("DualisService", "=== SENDING HTTP REQUEST ===")
+        Log.d("DualisService", "Request URL: ${request.url}")
+        Log.d("DualisService", "Request method: ${request.method}")
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("DualisService", "=== HTTP REQUEST FAILED ===")
+                Log.e("DualisService", "Request URL: ${call.request().url}")
+                Log.e("DualisService", "Error type: ${e.javaClass.simpleName}")
+                Log.e("DualisService", "Error message: ${e.message}")
+                Log.e("DualisService", "Get study grades request failed", e)
+                callback(null)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body.string()
+                Log.d("DualisService", "=== HTTP RESPONSE RECEIVED ===")
+                Log.d("DualisService", "Response code: ${response.code}")
+                Log.d("DualisService", "Response message: ${response.message}")
+                Log.d("DualisService", "Response headers:")
+                response.headers.forEach { (name, value) ->
+                    Log.d("DualisService", "  $name: $value")
+                }
+                Log.d("DualisService", "Response body length: ${responseBody.length}")
+                Log.d("DualisService", "Response body preview (first 1000 chars):")
+                Log.d("DualisService", responseBody.take(1000))
+                Log.d("DualisService", "Response body preview (last 500 chars):")
+                Log.d("DualisService", responseBody.takeLast(500))
+
+                if (response.isSuccessful) {
+                    Log.d("DualisService", "=== RESPONSE SUCCESSFUL - PROCESSING ===")
+
+                    // Check if the response indicates an invalid token
+                    val isTokenInvalid = isTokenInvalidResponse(responseBody)
+                    Log.d("DualisService", "Token invalid check result: $isTokenInvalid")
+
+                    if (isTokenInvalid) {
+                        Log.w("DualisService", "Token appears to be invalid when fetching grades, attempting re-authentication")
+                        reAuthenticateIfNeeded { success ->
+                            if (success) {
+                                Log.d("DualisService", "Re-authentication successful, retrying grades fetch")
+                                getStudyGrades(semesterArgument, callback) // Retry after re-authentication
+                            } else {
+                                Log.e("DualisService", "Re-authentication failed")
+                                callback(null)
+                            }
+                        }
+                        return
+                    }
+
+                    try {
+                        Log.d("DualisService", "=== STARTING HTML PARSING ===")
+                        val parser = StudyGradesParser()
+                        val studyGrades = parser.extractStudyGrades(responseBody, semesterArgument)
+                        Log.d("DualisService", "=== PARSING COMPLETE ===")
+                        Log.d("DualisService", "Parsed study grades: $studyGrades")
+
+                        if (studyGrades != null) {
+                            Log.d("DualisService", "Successfully parsed grades:")
+                            Log.d("DualisService", "  - GPA Total: ${studyGrades.gpaTotal}")
+                            Log.d("DualisService", "  - GPA Main Modules: ${studyGrades.gpaMainModules}")
+                            Log.d("DualisService", "  - Credits Total: ${studyGrades.creditsTotal}")
+                            Log.d("DualisService", "  - Credits Gained: ${studyGrades.creditsGained}")
+                            Log.d("DualisService", "  - Semester: ${studyGrades.semester}")
+                        } else {
+                            Log.e("DualisService", "Parser returned null - parsing failed")
+                        }
+
+                        callback(studyGrades)
+                    } catch (e: Exception) {
+                        Log.e("DualisService", "=== PARSING ERROR ===")
+                        Log.e("DualisService", "Error type: ${e.javaClass.simpleName}")
+                        Log.e("DualisService", "Error message: ${e.message}")
+                        Log.e("DualisService", "Error parsing study grades", e)
+                        callback(null)
+                    }
+                } else {
+                    Log.e("DualisService", "=== HTTP RESPONSE ERROR ===")
+                    Log.e("DualisService", "Response code: ${response.code}")
+                    Log.e("DualisService", "Response message: ${response.message}")
+                    Log.e("DualisService", "Get study grades failed with code: ${response.code}")
                     callback(null)
                 }
             }
@@ -415,14 +824,24 @@ class DualisService {
 
         val startDateString = matchResult?.groupValues?.get(1)
         val endDateString = matchResult?.groupValues?.get(2)
-        Log.d("DualisService", "Start date string: $startDateString, End date string: $endDateString")
+        Log.d(
+            "DualisService", "Start date string: $startDateString, End date string: $endDateString"
+        )
 
         val currentYear = java.time.LocalDate.now().year
 
-        val startLocalDate = requireNotNull(startDateString?.let { java.time.LocalDate.parse(it + currentYear, dateFormatter) }) {
+        val startLocalDate = requireNotNull(startDateString?.let {
+            java.time.LocalDate.parse(
+                it + currentYear, dateFormatter
+            )
+        }) {
             "Could not parse start date from caption: $caption"
         }
-        val endLocalDate = requireNotNull(endDateString?.let { java.time.LocalDate.parse(it + currentYear, dateFormatter) }) {
+        val endLocalDate = requireNotNull(endDateString?.let {
+            java.time.LocalDate.parse(
+                it + currentYear, dateFormatter
+            )
+        }) {
             "Could not parse end date from caption: $caption"
         }
 
@@ -478,7 +897,9 @@ class DualisService {
 
             // Create date mapping based on the date range from caption
             var currentDate = startLocalDate
-            val weekDays = listOf("Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag")
+            val weekDays = listOf(
+                "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"
+            )
 
             while (!currentDate.isAfter(endLocalDate)) {
                 val dayOfWeek = currentDate.dayOfWeek.value // 1 = Monday, 7 = Sunday
@@ -556,22 +977,32 @@ class DualisService {
             Log.d("DualisService", "  Title: '$title'")
             Log.d("DualisService", "  Time Period Text: '$timePeriodText'")
             Log.d("DualisService", "  Time Room Parts: $timeRoomParts")
-            Log.d("DualisService", "  Start Time: '$startTime', End Time: '$endTime', Room: '$room'")
-            Log.d("DualisService", "  Abbr Attribute: '$abbrAttribute', Day in German: '$dayOfWeekInGerman'")
+            Log.d(
+                "DualisService", "  Start Time: '$startTime', End Time: '$endTime', Room: '$room'"
+            )
+            Log.d(
+                "DualisService",
+                "  Abbr Attribute: '$abbrAttribute', Day in German: '$dayOfWeekInGerman'"
+            )
             Log.d("DualisService", "  Event Date: $eventDate")
 
             if (eventDate != null && title.isNotEmpty()) {
-                eventsByFullDate[eventDate]?.add(TimetableEvent(title, startTime, endTime, room, lecturer))
+                eventsByFullDate[eventDate]?.add(
+                    TimetableEvent(
+                        title, startTime, endTime, room, lecturer
+                    )
+                )
                 Log.d("DualisService", "Added event to date $eventDate: $title")
             } else {
                 Log.w("DualisService", "Skipping event - eventDate: $eventDate, title: '$title'")
             }
         }
 
-        val sortedTimetableDays = eventsByFullDate.entries
-            .sortedBy { it.key }
-            .map { entry ->
-                Log.d("DualisService", "Creating TimetableDay for ${dateFormatter.format(entry.key)} with ${entry.value.size} events")
+        val sortedTimetableDays = eventsByFullDate.entries.sortedBy { it.key }.map { entry ->
+                Log.d(
+                    "DualisService",
+                    "Creating TimetableDay for ${dateFormatter.format(entry.key)} with ${entry.value.size} events"
+                )
                 TimetableDay(dateFormatter.format(entry.key), entry.value)
             }
 
@@ -579,32 +1010,38 @@ class DualisService {
         sortedTimetableDays.forEach { day ->
             Log.d("DualisService", "Day ${day.date}: ${day.events.size} events")
             day.events.forEach { event ->
-                Log.d("DualisService", "  Event: ${event.title} (${event.startTime} - ${event.endTime}) in ${event.room}")
+                Log.d(
+                    "DualisService",
+                    "  Event: ${event.title} (${event.startTime} - ${event.endTime}) in ${event.room}"
+                )
             }
         }
 
         return sortedTimetableDays
     }
 
+    // Check if the service is properly authenticated
+    fun isAuthenticated(): Boolean {
+        return _authToken != null && !_authToken!!.isEmpty()
+    }
+
     private fun isMainPage(html: String): Boolean {
         val document = Jsoup.parse(html)
-        return document.select("a:contains(Studienleistungen)").first() != null ||
-               document.select("a:contains(Prüfungsergebnisse)").first() != null ||
-               document.select("a:contains(Stundenplan)").first() != null ||
-               document.select("a:contains(Abmelden)").first() != null
+        return document.select("a:contains(Studienleistungen)")
+            .first() != null || document.select("a:contains(Prüfungsergebnisse)")
+            .first() != null || document.select("a:contains(Stundenplan)")
+            .first() != null || document.select("a:contains(Abmelden)").first() != null
     }
 
     private fun isTokenInvalidResponse(html: String): Boolean {
         // Check for common indicators of invalid session/token
-        return html.contains("SESSION_EXPIRED") ||
-               html.contains("INVALID_SESSION") ||
-               html.contains("session has expired") ||
-               html.contains("Sie müssen sich erneut anmelden") ||
-               html.contains("Login") && html.contains("Anmeldung") ||
-               html.contains("LOGINCHECK") ||
-               html.contains("usrname") && html.contains("pass") ||
-               html.isEmpty() ||
-               html.contains("error") && html.contains("token")
+        return html.contains("SESSION_EXPIRED") || html.contains("INVALID_SESSION") || html.contains(
+            "session has expired"
+        ) || html.contains("Sie müssen sich erneut anmelden") || html.contains("Login") && html.contains(
+            "Anmeldung"
+        ) || html.contains("LOGINCHECK") || html.contains("usrname") && html.contains("pass") || html.isEmpty() || html.contains(
+            "error"
+        ) && html.contains("token")
     }
 
     private fun reAuthenticateIfNeeded(onComplete: (Boolean) -> Unit) {

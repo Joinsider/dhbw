@@ -8,16 +8,24 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import de.fampopprol.dhbwhorb.R
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -30,13 +38,16 @@ fun WeekNavigationBar(
     onNextWeek: () -> Unit,
     onCurrentWeek: () -> Unit,
     isLoading: Boolean,
+    lastUpdated: String? = null,
     modifier: Modifier = Modifier
 ) {
     val weekEnd = currentWeekStart.plusDays(6)
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val isCurrentWeek = currentWeekStart == LocalDate.now().with(
         TemporalAdjusters.previousOrSame(
-            DayOfWeek.MONDAY))
+            DayOfWeek.MONDAY
+        )
+    )
 
     Card(
         modifier = modifier
@@ -55,8 +66,20 @@ fun WeekNavigationBar(
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth(),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                textAlign = TextAlign.Center
             )
+
+            // Last updated text
+            if (lastUpdated != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.last_updated_at, lastUpdated),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -72,7 +95,10 @@ fun WeekNavigationBar(
                     enabled = !isLoading,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("← Previous")
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.previous_week)
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -84,7 +110,7 @@ fun WeekNavigationBar(
                         enabled = !isLoading,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Today")
+                        Text(stringResource(R.string.current_week))
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
@@ -96,7 +122,10 @@ fun WeekNavigationBar(
                     enabled = !isLoading,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Next →")
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = stringResource(R.string.next_week)
+                    )
                 }
             }
         }

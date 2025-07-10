@@ -1,6 +1,7 @@
 package de.fampopprol.dhbwhorb
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -12,11 +13,21 @@ import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.screen.*
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
+import de.fampopprol.dhbwhorb.widget.WidgetUpdateManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Debug the cache contents first
+        val cacheManager = TimetableCacheManager(this)
+        cacheManager.debugCacheContents()
+
+        // Manually refresh widgets on app start to ensure they show current data
+        Log.d("MainActivity", "Manually refreshing widgets on app start")
+        WidgetUpdateManager.updateAllWidgets(this)
+
         setContent {
             App()
         }

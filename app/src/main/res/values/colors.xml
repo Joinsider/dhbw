@@ -7,4 +7,16 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Widget colors for light theme - Compatible with API 26+ -->
+    <color name="widget_background">#FFFBFBFF</color>
+    <color name="widget_border">#FFE7E0EC</color>
+    <color name="widget_accent">#FF6750A4</color>
+    <color name="widget_next_background">#FFF3F2F7</color>
+    <color name="widget_status_text">#FFFFFFFF</color>
+
+    <!-- Text colors for better readability -->
+    <color name="widget_text_primary">#FF1C1B1F</color>
+    <color name="widget_text_secondary">#FF49454F</color>
+    <color name="widget_text_accent">#FF6750A4</color>
 </resources>

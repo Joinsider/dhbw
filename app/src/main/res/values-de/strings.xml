@@ -1,0 +1,84 @@
+<resources>
+    <string name="app_name">DHBW Horb</string>
+
+    <!-- Login Screen -->
+    <string name="login_title">DHBW Horb Anmeldung</string>
+    <string name="username">Benutzername</string>
+    <string name="password">Passwort</string>
+    <string name="remember_credentials">Anmeldedaten merken</string>
+    <string name="login">Anmelden</string>
+    <string name="logging_in">Anmeldung läuft…</string>
+    <string name="login_failed">Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Anmeldedaten.</string>
+
+    <!-- Navigation -->
+    <string name="timetable">Stundenplan</string>
+    <string name="grades">Noten</string>
+    <string name="logout">Abmelden</string>
+    <string name="open_menu">Menü öffnen</string>
+
+    <!-- Grades Screen -->
+    <string name="your_study_performance">Ihre Studienleistungen</string>
+    <string name="grade_point_average">Notendurchschnitt</string>
+    <string name="overall_gpa">Gesamtnotendurchschnitt</string>
+    <string name="main_modules_gpa">Hauptmodule Notendurchschnitt</string>
+    <string name="credit_points">Credits</string>
+    <string name="credits_gained">Erreichte Credits</string>
+    <string name="credits_total">Gesamte Credits</string>
+    <string name="progress_completed">%s%% abgeschlossen</string>
+    <string name="individual_modules">Einzelne Module</string>
+    <string name="detailed_module_info">Für detaillierte Modulinformationen einschließlich einzelner Prüfungen besuchen Sie bitte die Dualis-Website.</string>
+    <string name="loading_grades">Noten werden geladen…</string>
+    <string name="retry">Erneut versuchen</string>
+    <string name="not_available">N/V</string>
+    <string name="not_graded">Nicht benotet</string>
+    <string name="credit_points_short">CP</string>
+
+    <!-- Module States -->
+    <string name="passed">Bestanden</string>
+    <string name="failed">Nicht bestanden</string>
+    <string name="pending">Ausstehend</string>
+
+    <!-- Timetable -->
+    <string name="no_classes">Keine Vorlesungen</string>
+    <string name="event_details">Veranstaltungsdetails</string>
+    <string name="current_week">Heute</string>
+    <string name="previous_week">Vorherige Woche</string>
+    <string name="next_week">Nächste Woche</string>
+    <string name="last_updated_at">Zuletzt aktualisiert: %s</string>
+
+    <!-- Error Messages -->
+    <string name="authentication_failed">Authentifizierung fehlgeschlagen. Bitte melden Sie sich erneut an.</string>
+    <string name="no_credentials_found">Keine Anmeldedaten gefunden. Bitte melden Sie sich erneut an.</string>
+    <string name="please_login_to_view_grades">Bitte melden Sie sich an, um Ihre Noten anzuzeigen.</string>
+    <string name="failed_to_load_grades">Noten konnten nicht geladen werden. Bitte versuchen Sie es erneut.</string>
+    <string name="please_login">Bitte melden Sie sich an, um Ihre Noten anzuzeigen.</string>
+
+    <!-- Days of week -->
+    <string name="loading_semesters">Semester werden geladen...</string>
+    <string name="monday">Montag</string>
+    <string name="tuesday">Dienstag</string>
+    <string name="wednesday">Mittwoch</string>
+    <string name="thursday">Donnerstag</string>
+    <string name="friday">Freitag</string>
+    <string name="saturday">Samstag</string>
+    <string name="sunday">Sonntag</string>
+
+    <!-- Months -->
+    <string name="january">Januar</string>
+    <string name="february">Februar</string>
+    <string name="march">März</string>
+    <string name="april">April</string>
+    <string name="may">Mai</string>
+    <string name="june">Juni</string>
+    <string name="july">Juli</string>
+    <string name="august">August</string>
+    <string name="september">September</string>
+    <string name="october">Oktober</string>
+    <string name="november">November</string>
+    <string name="december">Dezember</string>
+    <string name="widget_description">Zeigt den aktuellen und die nächsten Events</string>
+    <string name="widget_small_description">Kompakte Anzeige von heutigen Stunden und wenn heute nichts mehr stattfindet, dann von morgen</string>
+    <string name="select_semester">Semester auswählen</string>
+    <string name="semester">Semester</string>
+    <string name="settings">Einstellungen</string>
+</resources>

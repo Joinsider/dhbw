@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget colors for dark theme - Compatible with API 26+ -->
+    <color name="widget_background">#FF141218</color>
+    <color name="widget_border">#FF49454F</color>
+    <color name="widget_accent">#FFCFBCFF</color>
+    <color name="widget_next_background">#FF211F26</color>
+    <color name="widget_status_text">#FF1C1B1F</color>
+
+    <!-- Text colors for better readability in dark theme -->
+    <color name="widget_text_primary">#FFE6E1E5</color>
+    <color name="widget_text_secondary">#FFCAC4D0</color>
+    <color name="widget_text_accent">#FFCFBCFF</color>
+</resources>
