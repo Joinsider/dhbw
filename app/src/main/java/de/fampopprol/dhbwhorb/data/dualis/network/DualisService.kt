@@ -115,7 +115,7 @@ class DualisService {
                 val responseBody = response.body.string()
                 Log.d("DualisService", "Follow Redirects Response: ${response.code} - $responseBody")
 
-                if (response.isSuccessful && responseBody != null) {
+                if (response.isSuccessful) {
                     val document = Jsoup.parse(responseBody)
                     val isRedirectPage = document.select("div#sessionId").first() != null
                     Log.d("DualisService", "isRedirectPage check: $isRedirectPage")
@@ -270,7 +270,7 @@ class DualisService {
 
                 if (response.isSuccessful) {
                     try {
-                        val timetableDays = parseMonthlySchedule(responseBody ?: "")
+                        val timetableDays = parseMonthlySchedule(responseBody)
                         callback(timetableDays)
                     } catch (e: Exception) {
                         Log.e("DualisService", "Error parsing monthly schedule", e)
@@ -330,7 +330,7 @@ class DualisService {
                 val responseBody = response.body.string()
                 Log.d("DualisService", "Weekly Schedule Response: ${response.code}")
 
-                if (response.isSuccessful && responseBody != null) {
+                if (response.isSuccessful) {
                     // Check if the response indicates an invalid token
                     if (isTokenInvalidResponse(responseBody)) {
                         Log.w("DualisService", "Token appears to be invalid, attempting re-authentication")

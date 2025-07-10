@@ -61,7 +61,7 @@ dependencies {
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.okhttp.urlconnection)
     implementation(libs.jsoup)
-    implementation(libs.androidx.datastore.preferences.core)
+    implementation(libs.androidx.datastore.preferences)
 
     // Security library for encrypted storage
     implementation(libs.androidx.security.crypto)

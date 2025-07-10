@@ -1,19 +1,31 @@
 package de.fampopprol.dhbwhorb.data.security
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
 import androidx.core.content.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import de.fampopprol.dhbwhorb.data.datastore.dataStore
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
+import java.io.IOException
 
 class CredentialManager(context: Context) {
+
+    private val dataStore = context.dataStore
 
     private val masterKey = MasterKey.Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
         .build()
 
-    private val sharedPreferences: SharedPreferences = EncryptedSharedPreferences.create(
+    private val encryptedSharedPreferences = EncryptedSharedPreferences.create(
         context,
         "secure_credentials",
         masterKey,
@@ -22,18 +34,21 @@ class CredentialManager(context: Context) {
     )
 
     companion object {
-        private const val KEY_USERNAME = "username"
         private const val KEY_PASSWORD = "password"
-        private const val KEY_IS_LOGGED_IN = "is_logged_in"
         private const val TAG = "CredentialManager"
+
+        private val KEY_USERNAME_DATASTORE = stringPreferencesKey("username")
+        private val KEY_IS_LOGGED_IN_DATASTORE = booleanPreferencesKey("is_logged_in")
     }
 
-    fun saveCredentials(username: String, password: String) {
+    suspend fun saveCredentials(username: String, password: String) {
         try {
-            sharedPreferences.edit {
-                putString(KEY_USERNAME, username)
-                    .putString(KEY_PASSWORD, password)
-                    .putBoolean(KEY_IS_LOGGED_IN, true)
+            encryptedSharedPreferences.edit {
+                putString(KEY_PASSWORD, password)
+            }
+            dataStore.edit { prefs ->
+                prefs[KEY_USERNAME_DATASTORE] = username
+                prefs[KEY_IS_LOGGED_IN_DATASTORE] = true
             }
             Log.d(TAG, "Credentials saved successfully")
         } catch (e: Exception) {
@@ -41,56 +56,73 @@ class CredentialManager(context: Context) {
         }
     }
 
-    fun getUsername(): String? {
-        return try {
-            sharedPreferences.getString(KEY_USERNAME, null)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error retrieving username", e)
-            null
+    val usernameFlow: Flow<String?> = dataStore.data
+        .catch { e ->
+            if (e is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw e
+            }
+        }
+        .map { prefs ->
+            prefs[KEY_USERNAME_DATASTORE]
+        }
+
+    fun getUsernameBlocking(): String? {
+        return runBlocking {
+            try {
+                dataStore.data.first()[KEY_USERNAME_DATASTORE]
+            } catch(_: Exception) {
+                null
+            }
         }
     }
 
     fun getPassword(): String? {
         return try {
-            sharedPreferences.getString(KEY_PASSWORD, null)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error retrieving password", e)
+            encryptedSharedPreferences.getString(KEY_PASSWORD, null)
+        } catch (_: Exception) {
             null
         }
     }
 
-    fun isLoggedIn(): Boolean {
-        return try {
-            sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error checking login status", e)
-            false
-        }
-    }
-
-    fun logout() {
-        try {
-            sharedPreferences.edit {
-                remove(KEY_USERNAME)
-                    .remove(KEY_PASSWORD)
-                    .putBoolean(KEY_IS_LOGGED_IN, false)
+    fun isLoggedInBlocking(): Boolean {
+        return runBlocking {
+            try {
+                dataStore.data.first()[KEY_IS_LOGGED_IN_DATASTORE] ?: false
+            } catch(_: Exception) {
+                false
             }
-            Log.d(TAG, "Logged out successfully")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error logging out", e)
         }
     }
 
-    fun clearAllCredentials() {
+    suspend fun logout() {
         try {
-            sharedPreferences.edit { clear() }
+            dataStore.edit { prefs ->
+                prefs.remove(KEY_USERNAME_DATASTORE)
+                prefs[KEY_IS_LOGGED_IN_DATASTORE] = false
+            }
+            encryptedSharedPreferences.edit {
+                remove(KEY_PASSWORD)
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "Error logging out", e)
+        }
+    }
+
+    suspend fun clearAllCredentials() {
+        try {
+            dataStore.edit { prefs -> prefs.clear() }
+            encryptedSharedPreferences.edit { clear() }
             Log.d(TAG, "All credentials cleared")
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing credentials", e)
         }
     }
 
-    fun hasStoredCredentials(): Boolean {
-        return getUsername() != null && getPassword() != null
+    suspend fun hasStoredCredentialsBlocking(): Boolean {
+        val username = usernameFlow.first()
+        val password = getPassword()
+        return username != null && password != null
     }
 }

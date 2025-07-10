@@ -8,6 +8,7 @@ import com.google.gson.reflect.TypeToken
 import de.fampopprol.dhbwhorb.data.dualis.models.TimetableDay
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import androidx.core.content.edit
 
 class TimetableCacheManager(context: Context) {
 
@@ -21,7 +22,7 @@ class TimetableCacheManager(context: Context) {
 
     fun saveTimetable(weekStart: LocalDate, timetable: List<TimetableDay>) {
         val json = gson.toJson(timetable)
-        sharedPreferences.edit().putString(getCacheKey(weekStart), json).apply()
+        sharedPreferences.edit { putString(getCacheKey(weekStart), json) }
         Log.d("TimetableCacheManager", "Saved timetable for week: ${weekStart.format(DateTimeFormatter.ISO_LOCAL_DATE)}")
     }
 
@@ -44,7 +45,7 @@ class TimetableCacheManager(context: Context) {
     }
 
     fun clearCache() {
-        sharedPreferences.edit().clear().apply()
+        sharedPreferences.edit { clear() }
         Log.d("TimetableCacheManager", "Cache cleared.")
     }
 }

@@ -17,9 +17,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +30,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -36,9 +39,23 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var username by remember { mutableStateOf(credentialManager.getUsername() ?: "") }
+    val scope = rememberCoroutineScope()
+    var username by remember { mutableStateOf("") }
+    var rememberCredentials by remember { mutableStateOf(false) }
+
+    LaunchedEffect(credentialManager) {
+        credentialManager.usernameFlow.collect { storedUsername ->
+            if (storedUsername != null) {
+                username = storedUsername
+            }
+        }
+    }
+
+    LaunchedEffect(credentialManager) {
+        rememberCredentials = credentialManager.hasStoredCredentialsBlocking()
+    }
+
     var password by remember { mutableStateOf("") }
-    var rememberCredentials by remember { mutableStateOf(credentialManager.hasStoredCredentials()) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -101,19 +118,23 @@ fun LoginScreen(
             onClick = {
                 isLoading = true
                 errorMessage = null
-                dualisService.login(username, password) { result ->
-                    isLoading = false
-                    if (result != null) {
-                        if (rememberCredentials) {
-                            credentialManager.saveCredentials(username, password)
+                scope.launch {
+                    dualisService.login(username, password) { result ->
+                        isLoading = false
+                        if (result != null) {
+                            scope.launch {
+                                if (rememberCredentials) {
+                                    credentialManager.saveCredentials(username, password)
+                                } else {
+                                    credentialManager.logout() // Clear any existing credentials
+                                }
+                                onLoginSuccess()
+                                Log.d("LoginScreen", "Login successful")
+                            }
                         } else {
-                            credentialManager.logout() // Clear any existing credentials
+                            errorMessage = "Login failed. Please check your credentials."
+                            Log.e("LoginScreen", "Login failed")
                         }
-                        onLoginSuccess()
-                        Log.d("LoginScreen", "Login successful")
-                    } else {
-                        errorMessage = "Login failed. Please check your credentials."
-                        Log.e("LoginScreen", "Login failed")
                     }
                 }
             },

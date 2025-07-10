@@ -495,7 +495,7 @@ fun formatEventDate(dateString: String): String {
         val dayOfWeek = date.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }
         val formattedDate = date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
         "$dayOfWeek, $formattedDate"
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         dateString // Return original if parsing fails
     }
 }

@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -22,20 +23,22 @@ import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.screen.LoginScreen
 import de.fampopprol.dhbwhorb.ui.screen.TimetableScreen
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
+import kotlinx.coroutines.launch
 
 @Composable
 fun App() {
     DHBWHorbTheme {
         val context = LocalContext.current
         val credentialManager = remember { CredentialManager(context) }
-        var isLoggedIn by remember { mutableStateOf(credentialManager.isLoggedIn()) }
+        var isLoggedIn by remember { mutableStateOf(credentialManager.isLoggedInBlocking()) }
         val dualisService = remember { DualisService() }
         val timetableCacheManager = remember { TimetableCacheManager(context) }
+        val scope = rememberCoroutineScope()
 
         // Auto-login if credentials are stored
         LaunchedEffect(Unit) {
-            if (credentialManager.hasStoredCredentials() && !isLoggedIn) {
-                val username = credentialManager.getUsername()
+            if (credentialManager.hasStoredCredentialsBlocking() && !isLoggedIn) {
+                val username = credentialManager.getUsernameBlocking()
                 val password = credentialManager.getPassword()
                 if (username != null && password != null) {
                     dualisService.login(username, password) { result ->
@@ -44,7 +47,9 @@ fun App() {
                             Log.d("MainActivity", "Auto-login successful")
                         } else {
                             Log.e("MainActivity", "Auto-login failed")
-                            credentialManager.logout() // Clear invalid credentials
+                            scope.launch {
+                                credentialManager.logout() // Clear invalid credentials
+                            }
                         }
                     }
                 }

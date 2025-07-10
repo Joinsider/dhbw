@@ -28,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +40,7 @@ import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.components.WeekNavigationBar
 import de.fampopprol.dhbwhorb.ui.components.WeeklyCalendar
+import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
@@ -53,19 +55,17 @@ fun TimetableScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
-    // Disable back gesture while in timetable screen
     LaunchedEffect(Unit) {
         val activity = context as ComponentActivity
-        val callback = activity.onBackPressedDispatcher.addCallback {
+        activity.onBackPressedDispatcher.addCallback {
             // Intercept back press - do nothing to disable it
-            // You can add custom logic here if needed
         }
         // The callback will be automatically removed when this composable is disposed
     }
 
     var timetable by remember { mutableStateOf<List<TimetableDay>?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
     var isFetchingFromApi by remember { mutableStateOf(false) } // New state for API fetching
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -85,10 +85,7 @@ fun TimetableScreen(
         val cachedTimetable = timetableCacheManager.loadTimetable(weekStart)
         if (cachedTimetable != null) {
             timetable = cachedTimetable
-            isLoading = false // Display cached data immediately
             Log.d("de.fampopprol.dhbwhorb.ui.screen.TimetableScreen", "Displaying cached timetable for week: $weekStart")
-        } else {
-            isLoading = true // Show loading if no cache
         }
 
         // 2. Always fetch from API in the background
@@ -118,7 +115,6 @@ fun TimetableScreen(
                     errorMessage = "Failed to load timetable. Please try logging in again."
                 }
             }
-            isLoading = false // Hide loading after API call completes
         }
     }
 
@@ -147,9 +143,9 @@ fun TimetableScreen(
     }
 
     // Initial data loading and re-authentication logic
-    LaunchedEffect(Unit) {
-        if (credentialManager.hasStoredCredentials()) {
-            val username = credentialManager.getUsername()
+    LaunchedEffect(credentialManager, dualisService) {
+        if (credentialManager.hasStoredCredentialsBlocking()) {
+            val username = credentialManager.getUsernameBlocking()
             val password = credentialManager.getPassword()
 
             if (username != null && password != null) {
@@ -160,15 +156,15 @@ fun TimetableScreen(
                         fetchTimetableForWeek(currentWeekStart)
                     } else {
                         Log.e("de.fampopprol.dhbwhorb.ui.screen.TimetableScreen", "Re-authentication failed")
-                        isLoading = false
                         errorMessage = "Authentication failed. Please log in again."
-                        credentialManager.logout()
-                        onLogout()
+                        scope.launch {
+                            credentialManager.logout()
+                            onLogout()
+                        }
                     }
                 }
             } else {
                 Log.e("de.fampopprol.dhbwhorb.ui.screen.TimetableScreen", "No stored credentials found")
-                isLoading = false
                 errorMessage = "No stored credentials found."
                 onLogout()
             }
@@ -189,8 +185,10 @@ fun TimetableScreen(
             actions = {
                 OutlinedButton(
                     onClick = {
-                        credentialManager.logout()
-                        onLogout()
+                        scope.launch {
+                            credentialManager.logout()
+                            onLogout()
+                        }
                     },
                     modifier = Modifier.padding(end = 8.dp)
                 ) {
