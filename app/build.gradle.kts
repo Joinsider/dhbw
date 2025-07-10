@@ -61,8 +61,9 @@ dependencies {
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.okhttp.urlconnection)
     implementation(libs.jsoup)
+    implementation(libs.androidx.datastore.preferences.core)
 
     // Security library for encrypted storage
-    implementation("androidx.security:security-crypto:1.1.0-beta01")
-    implementation("com.google.code.gson:gson:2.10.1")
+    implementation(libs.androidx.security.crypto)
+    implementation(libs.gson)
 }
