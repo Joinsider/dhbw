@@ -25,7 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,7 +45,7 @@ import android.util.Log
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.runtime.mutableFloatStateOf
 
 @Composable
 fun WeeklyCalendar(
@@ -59,11 +58,11 @@ fun WeeklyCalendar(
     var selectedEvent by remember { mutableStateOf<TimetableEvent?>(null) }
     var selectedEventDate by remember { mutableStateOf<String?>(null) }
 
-    // Only show Monday through Friday (0-4 days from start of week)
-    val weekDays = (0..4).map { startOfWeek.plusDays(it.toLong()) }
-    val dateFormatter = DateTimeFormatter.ofPattern("dd.MM")
-    val dayOfWeekFormatter = DateTimeFormatter.ofPattern("EEE")
-    val timetableDateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+    // Memoize expensive calculations
+    val weekDays = remember(startOfWeek) { (0..4).map { startOfWeek.plusDays(it.toLong()) } }
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM") }
+    val dayOfWeekFormatter = remember { DateTimeFormatter.ofPattern("EEE") }
+    val timetableDateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy") }
 
     // Define time range (7 AM to 9 PM)
     val startHour = 7
@@ -71,56 +70,75 @@ fun WeeklyCalendar(
     val hourHeight = 60.dp
     val totalHeight = (endHour - startHour) * hourHeight.value
 
-    // Swipe threshold - minimum distance to trigger swipe
-    val swipeThreshold = 100f
+    // Improved swipe detection parameters
+    val swipeThreshold = 50f // Reduced threshold for more responsive swipes
+    val minSwipeVelocity = 200f // Minimum velocity for swipe detection
+
+    // State for tracking swipe
+    var totalDragAmount by remember { mutableFloatStateOf(0f) }
+    var isDragging by remember { mutableStateOf(false) }
+
+    // Memoize timetable mapping for better performance
+    val timetableByDate = remember(timetable, startOfWeek) {
+        val map = mutableMapOf<LocalDate, TimetableDay>()
+        timetable.forEach { day ->
+            try {
+                val date = LocalDate.parse(day.date, timetableDateFormatter)
+                map[date] = day
+            } catch (e: Exception) {
+                Log.e("WeeklyCalendar", "Error parsing date: ${day.date}", e)
+            }
+        }
+        map
+    }
 
     Log.d("WeeklyCalendar", "Rendering time-based calendar with ${timetable.size} timetable days")
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
+            .pointerInput(startOfWeek) {
                 detectHorizontalDragGestures(
-                    onDragEnd = { /* Optional: Add haptic feedback here */ }
-                ) { _, dragAmount ->
-                    // Only trigger swipe if the drag amount exceeds threshold
-                    if (abs(dragAmount) > swipeThreshold) {
-                        if (dragAmount > 0) {
-                            // Swipe right -> go to next week
-                            onNextWeek()
-                        } else {
-                            // Swipe left -> go to previous week
-                            onPreviousWeek()
+                    onDragStart = {
+                        isDragging = true
+                        totalDragAmount = 0f
+                    },
+                    onDragEnd = {
+                        isDragging = false
+                        // Use accumulated drag amount for final decision
+                        if (abs(totalDragAmount) > swipeThreshold) {
+                            if (totalDragAmount > 0) {
+                                onPreviousWeek() // Swipe right -> previous week
+                            } else {
+                                onNextWeek() // Swipe left -> next week
+                            }
                         }
+                        totalDragAmount = 0f
+                    }
+                ) { _, dragAmount ->
+                    // Accumulate drag amount for smoother detection
+                    totalDragAmount += dragAmount
+
+                    // Optional: Provide immediate feedback for large swipes
+                    if (abs(totalDragAmount) > swipeThreshold * 2) {
+                        if (totalDragAmount > 0) {
+                            onPreviousWeek()
+                        } else {
+                            onNextWeek()
+                        }
+                        totalDragAmount = 0f
+                        isDragging = false
                     }
                 }
             }
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Header with day names and dates
-            Row(modifier = Modifier.fillMaxWidth()) {
-                // Empty space for time column
-                Box(modifier = Modifier.width(50.dp))
-
-                weekDays.forEach { day ->
-                    Column(
-                        modifier = Modifier.weight(1f).padding(4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = dayOfWeekFormatter.format(day),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = dateFormatter.format(day),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
-                }
-            }
+            WeekHeaderRow(
+                weekDays = weekDays,
+                dateFormatter = dateFormatter,
+                dayOfWeekFormatter = dayOfWeekFormatter
+            )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
 
@@ -132,34 +150,15 @@ fun WeeklyCalendar(
                     .padding(bottom = 32.dp)
             ) {
                 // Time column
-                Column(
-                    modifier = Modifier.width(50.dp)
-                ) {
-                    for (hour in startHour until endHour) {
-                        Box(
-                            modifier = Modifier.height(hourHeight),
-                            contentAlignment = Alignment.TopEnd
-                        ) {
-                            Text(
-                                text = String.format(Locale.getDefault(), "%02d:00", hour),
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                modifier = Modifier.padding(end = 4.dp, top = 2.dp)
-                            )
-                        }
-                    }
-                }
+                TimeColumn(
+                    startHour = startHour,
+                    endHour = endHour,
+                    hourHeight = hourHeight
+                )
 
                 // Days columns with events
                 weekDays.forEach { day ->
-                    val timetableDay = timetable.find {
-                        try {
-                            LocalDate.parse(it.date, timetableDateFormatter) == day
-                        } catch (e: Exception) {
-                            Log.e("WeeklyCalendar", "Error parsing date: ${it.date}", e)
-                            false
-                        }
-                    }
+                    val timetableDay = timetableByDate[day]
 
                     Box(
                         modifier = Modifier
@@ -167,52 +166,17 @@ fun WeeklyCalendar(
                             .height((totalHeight).dp)
                             .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     ) {
-                        // Hour grid lines
-                        for (hour in startHour until endHour) {
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                thickness = 0.5.dp,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .offset(y = ((hour - startHour) * hourHeight.value).dp)
-                            )
-                        }
-
-                        // Events positioned by time
-                        timetableDay?.events?.forEach { event ->
-                            val eventPosition = calculateEventPosition(event, startHour, hourHeight)
-                            if (eventPosition != null) {
-                                TimeBasedEventItem(
-                                    event = event,
-                                    onClick = {
-                                        selectedEvent = event
-                                        selectedEventDate = timetableDay.date
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(eventPosition.height)
-                                        .offset(y = eventPosition.topOffset)
-                                        .padding(horizontal = 2.dp)
-                                        .zIndex(1f)
-                                )
+                        DayColumnContent(
+                            day = day,
+                            timetableDay = timetableDay,
+                            startHour = startHour,
+                            endHour = endHour,
+                            hourHeight = hourHeight,
+                            onEventClick = { event ->
+                                selectedEvent = event
+                                selectedEventDate = timetableDay?.date
                             }
-                        }
-
-                        // Show "No classes" only if no events for the day
-                        if (timetableDay?.events?.isEmpty() != false) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "No classes",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                            }
-                        }
+                        )
                     }
                 }
             }
@@ -225,6 +189,124 @@ fun WeeklyCalendar(
                 eventDate = selectedEventDate ?: "",
                 onDismiss = { selectedEvent = null }
             )
+        }
+    }
+}
+
+@Composable
+private fun WeekHeaderRow(
+    weekDays: List<LocalDate>,
+    dateFormatter: DateTimeFormatter,
+    dayOfWeekFormatter: DateTimeFormatter
+) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        // Empty space for time column
+        Box(modifier = Modifier.width(50.dp))
+
+        weekDays.forEach { day ->
+            Column(
+                modifier = Modifier.weight(1f).padding(4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = dayOfWeekFormatter.format(day),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = dateFormatter.format(day),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimeColumn(
+    startHour: Int,
+    endHour: Int,
+    hourHeight: androidx.compose.ui.unit.Dp
+) {
+    Column(
+        modifier = Modifier.width(50.dp)
+    ) {
+        for (hour in startHour until endHour) {
+            Box(
+                modifier = Modifier.height(hourHeight),
+                contentAlignment = Alignment.TopEnd
+            ) {
+                Text(
+                    text = String.format(Locale.getDefault(), "%02d:00", hour),
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(end = 4.dp, top = 2.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayColumnContent(
+    day: LocalDate,
+    timetableDay: TimetableDay?,
+    startHour: Int,
+    endHour: Int,
+    hourHeight: androidx.compose.ui.unit.Dp,
+    onEventClick: (TimetableEvent) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
+        // Hour grid lines
+        for (hour in startHour until endHour) {
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                thickness = 0.5.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = ((hour - startHour) * hourHeight.value).dp)
+            )
+        }
+
+        // Events positioned by time
+        timetableDay?.events?.forEach { event ->
+            val eventPosition = remember(event, startHour, hourHeight) {
+                calculateEventPosition(event, startHour, hourHeight)
+            }
+
+            if (eventPosition != null) {
+                TimeBasedEventItem(
+                    event = event,
+                    onClick = { onEventClick(event) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(eventPosition.height)
+                        .offset(y = eventPosition.topOffset)
+                        .padding(horizontal = 2.dp)
+                        .zIndex(1f)
+                )
+            }
+        }
+
+        // Show "No classes" only if no events for the day
+        if (timetableDay?.events?.isEmpty() != false) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No classes",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            }
         }
     }
 }
@@ -314,7 +396,10 @@ fun EventDetailPopup(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(24.dp)
-                        .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 80.dp) // Add extra 32dp padding
+                        .padding(
+                            bottom = WindowInsets.navigationBars.asPaddingValues()
+                                .calculateBottomPadding() + 80.dp
+                        ) // Add extra 32dp padding
                 ) {
                     // Header with close button
                     Row(
@@ -420,21 +505,29 @@ data class EventPosition(
     val height: androidx.compose.ui.unit.Dp
 )
 
-fun calculateEventPosition(event: TimetableEvent, startHour: Int, hourHeight: androidx.compose.ui.unit.Dp): EventPosition? {
+fun calculateEventPosition(
+    event: TimetableEvent,
+    startHour: Int,
+    hourHeight: androidx.compose.ui.unit.Dp
+): EventPosition? {
     try {
         // Parse start and end times
         val startTime = parseTimeString(event.startTime)
         val endTime = parseTimeString(event.endTime)
 
         if (startTime == null || endTime == null) {
-            Log.w("WeeklyCalendar", "Could not parse times for event: ${event.title} (${event.startTime} - ${event.endTime})")
+            Log.w(
+                "WeeklyCalendar",
+                "Could not parse times for event: ${event.title} (${event.startTime} - ${event.endTime})"
+            )
             return null
         }
 
         // Calculate position based on hours
         val startMinutesFromStart = (startTime.hour - startHour) * 60 + startTime.minute
         val endMinutesFromStart = (endTime.hour - startHour) * 60 + endTime.minute
-        val durationMinutes = max(endMinutesFromStart - startMinutesFromStart, 30) // Minimum 30 minutes height
+        val durationMinutes =
+            max(endMinutesFromStart - startMinutesFromStart, 30) // Minimum 30 minutes height
 
         val pixelsPerMinute = hourHeight.value / 60f
         val topOffset = (startMinutesFromStart * pixelsPerMinute).dp
@@ -454,9 +547,11 @@ fun parseTimeString(timeString: String): LocalTime? {
             cleanTime.matches(Regex("\\d{1,2}:\\d{2}")) -> {
                 LocalTime.parse(cleanTime, DateTimeFormatter.ofPattern("H:mm"))
             }
+
             cleanTime.matches(Regex("\\d{1,2}\\.\\d{2}")) -> {
                 LocalTime.parse(cleanTime, DateTimeFormatter.ofPattern("H.mm"))
             }
+
             else -> null
         }
     } catch (e: Exception) {
