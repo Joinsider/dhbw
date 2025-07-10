@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.R
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
+import de.fampopprol.dhbwhorb.data.security.SamsungCompatibilityHelper
 import kotlinx.coroutines.launch
 
 @Composable
@@ -62,10 +63,26 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    // Log Samsung compatibility info for debugging
+    LaunchedEffect(Unit) {
+        try {
+            val context = credentialManager.context
+            SamsungCompatibilityHelper.logDeviceInfo(context)
+        } catch (e: Exception) {
+            Log.w("LoginScreen", "Failed to log device info", e)
+        }
+    }
+
     LaunchedEffect(credentialManager) {
         credentialManager.usernameFlow.collect { storedUsername ->
             if (storedUsername != null) {
                 username = storedUsername
+                // Also try to load the password
+                val storedPassword = credentialManager.getPassword()
+                if (storedPassword != null) {
+                    password = storedPassword
+                    rememberCredentials = true
+                }
             }
         }
     }
@@ -198,15 +215,31 @@ fun LoginScreen(
                                 if (result != null) {
                                     scope.launch {
                                         if (rememberCredentials) {
-                                            credentialManager.saveCredentials(username, password)
+                                            try {
+                                                credentialManager.saveCredentials(username, password)
+                                                Log.d("LoginScreen", "Credentials saved successfully")
+                                            } catch (e: Exception) {
+                                                Log.e("LoginScreen", "Failed to save credentials", e)
+                                                // Don't fail login if credential saving fails
+                                                errorMessage = "Login successful but failed to save credentials. You may need to login again next time."
+                                            }
                                         } else {
-                                            credentialManager.logout()
+                                            try {
+                                                credentialManager.logout()
+                                            } catch (e: Exception) {
+                                                Log.w("LoginScreen", "Failed to clear credentials", e)
+                                            }
                                         }
                                         onLoginSuccess()
                                         Log.d("LoginScreen", "Login successful")
                                     }
                                 } else {
-                                    errorMessage = "Login failed. Please check your credentials."
+                                    val deviceInfo = if (SamsungCompatibilityHelper.isSamsungDevice()) {
+                                        " If you're using a Samsung device, try disabling 'Optimize battery usage' for this app in Settings."
+                                    } else {
+                                        ""
+                                    }
+                                    errorMessage = "Login failed. Please check your credentials.$deviceInfo"
                                     Log.e("LoginScreen", "Login failed")
                                 }
                             }
