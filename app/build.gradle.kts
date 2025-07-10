@@ -64,4 +64,5 @@ dependencies {
 
     // Security library for encrypted storage
     implementation("androidx.security:security-crypto:1.1.0-beta01")
+    implementation("com.google.code.gson:gson:2.10.1")
 }

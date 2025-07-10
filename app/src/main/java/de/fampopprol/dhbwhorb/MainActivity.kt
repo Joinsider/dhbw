@@ -29,6 +29,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import de.fampopprol.dhbwhorb.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.dualis.models.TimetableDay
 import de.fampopprol.dhbwhorb.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.security.CredentialManager
@@ -59,6 +61,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -70,6 +73,7 @@ class MainActivity : ComponentActivity() {
                 val credentialManager = remember { CredentialManager(context) }
                 var isLoggedIn by remember { mutableStateOf(credentialManager.isLoggedIn()) }
                 val dualisService = remember { DualisService() }
+                val timetableCacheManager = remember { TimetableCacheManager(context) }
 
                 // Auto-login if credentials are stored
                 LaunchedEffect(Unit) {
@@ -107,6 +111,7 @@ class MainActivity : ComponentActivity() {
                         TimetableScreen(
                             dualisService = dualisService,
                             credentialManager = credentialManager,
+                            timetableCacheManager = timetableCacheManager,
                             onLogout = { isLoggedIn = false },
                             modifier = Modifier.padding(innerPadding)
                         )
@@ -227,6 +232,7 @@ fun LoginScreen(
 fun TimetableScreen(
     dualisService: DualisService,
     credentialManager: CredentialManager,
+    timetableCacheManager: TimetableCacheManager,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -244,6 +250,7 @@ fun TimetableScreen(
 
     var timetable by remember { mutableStateOf<List<TimetableDay>?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var isFetchingFromApi by remember { mutableStateOf(false) } // New state for API fetching
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isRefreshing by remember { mutableStateOf(false) }
 
@@ -256,26 +263,46 @@ fun TimetableScreen(
 
     // Function to fetch timetable for a specific week
     fun fetchTimetableForWeek(weekStart: LocalDate, isRefresh: Boolean = false) {
-        if (isRefresh) {
-            isRefreshing = true
-        } else {
-            isLoading = true
-        }
         errorMessage = null
 
-        Log.d("TimetableScreen", "Fetching timetable for week starting: $weekStart (refresh: $isRefresh)")
+        // 1. Try to load from cache first
+        val cachedTimetable = timetableCacheManager.loadTimetable(weekStart)
+        if (cachedTimetable != null) {
+            timetable = cachedTimetable
+            isLoading = false // Display cached data immediately
+            Log.d("TimetableScreen", "Displaying cached timetable for week: $weekStart")
+        } else {
+            isLoading = true // Show loading if no cache
+        }
+
+        // 2. Always fetch from API in the background
+        isFetchingFromApi = true
+        Log.d("TimetableScreen", "Fetching timetable from API for week starting: $weekStart (refresh: $isRefresh)")
 
         dualisService.getWeeklySchedule(weekStart) { fetchedTimetable ->
-            isLoading = false
+            isFetchingFromApi = false
             isRefreshing = false
+
             if (fetchedTimetable != null) {
                 Log.d("TimetableScreen", "Fetched Timetable for week starting $weekStart: $fetchedTimetable")
-                timetable = fetchedTimetable
+
+                // Compare with cached data and update if different
+                if (fetchedTimetable != cachedTimetable) {
+                    timetable = fetchedTimetable
+                    timetableCacheManager.saveTimetable(weekStart, fetchedTimetable)
+                    Log.d("TimetableScreen", "Timetable updated and cached for week: $weekStart")
+                } else {
+                    Log.d("TimetableScreen", "Fetched timetable is same as cached for week: $weekStart")
+                }
                 errorMessage = null
             } else {
-                Log.e("TimetableScreen", "Failed to fetch timetable for week starting $weekStart")
-                errorMessage = "Failed to load timetable. Please try logging in again."
+                Log.e("TimetableScreen", "Failed to fetch timetable from API for week starting $weekStart")
+                if (cachedTimetable == null) {
+                    // Only show error if no cached data was available
+                    errorMessage = "Failed to load timetable. Please try logging in again."
+                }
             }
+            isLoading = false // Hide loading after API call completes
         }
     }
 
@@ -365,13 +392,21 @@ fun TimetableScreen(
             )
         )
 
+        // Loading indicator
+        if (isFetchingFromApi) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
         // Week Navigation Controls
         WeekNavigationBar(
             currentWeekStart = currentWeekStart,
             onPreviousWeek = ::goToPreviousWeek,
             onNextWeek = ::goToNextWeek,
             onCurrentWeek = ::goToCurrentWeek,
-            isLoading = isLoading || isRefreshing
+            isLoading = isFetchingFromApi // Use isFetchingFromApi for navigation button enabling
         )
 
         // Pull-to-refresh wrapper for the content
@@ -380,79 +415,35 @@ fun TimetableScreen(
             onRefresh = ::refreshCurrentWeek,
             modifier = Modifier.fillMaxSize()
         ) {
-            when {
-                isLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "Loading timetable...",
-                                color = MaterialTheme.colorScheme.onBackground,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        }
-                    }
-                }
+            // Always display the calendar, even if timetable is null or empty
+            WeeklyCalendar(
+                timetable = timetable ?: emptyList(), // Provide empty list if null
+                startOfWeek = currentWeekStart,
+                onPreviousWeek = ::goToPreviousWeek,
+                onNextWeek = ::goToNextWeek
+            )
 
-                errorMessage != null -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+            // Display error message over the calendar if present and no data is loaded
+            if (errorMessage != null && (timetable == null || timetable!!.isEmpty())) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(16.dp)
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(16.dp)
+                        Text(
+                            text = errorMessage!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { fetchTimetableForWeek(currentWeekStart) }
                         ) {
-                            Text(
-                                text = errorMessage!!,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyLarge,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(
-                                onClick = { fetchTimetableForWeek(currentWeekStart) }
-                            ) {
-                                Text("Retry")
-                            }
-                        }
-                    }
-                }
-
-                timetable != null && timetable!!.isNotEmpty() -> {
-                    WeeklyCalendar(
-                        timetable = timetable!!,
-                        startOfWeek = currentWeekStart,
-                        onPreviousWeek = ::goToPreviousWeek,
-                        onNextWeek = ::goToNextWeek
-                    )
-                }
-
-                else -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = "No timetable data available for this week",
-                                color = MaterialTheme.colorScheme.onBackground,
-                                style = MaterialTheme.typography.bodyLarge,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(
-                                onClick = { fetchTimetableForWeek(currentWeekStart) }
-                            ) {
-                                Text("Retry")
-                            }
+                            Text("Retry")
                         }
                     }
                 }
@@ -551,6 +542,6 @@ fun LoginScreenPreview() {
 @Composable
 fun TimetableScreenPreview() {
     DHBWHorbTheme {
-        TimetableScreen(dualisService = DualisService(), credentialManager = CredentialManager(LocalContext.current), onLogout = {})
+        TimetableScreen(dualisService = DualisService(), credentialManager = CredentialManager(LocalContext.current), timetableCacheManager = TimetableCacheManager(LocalContext.current), onLogout = {})
     }
 }
