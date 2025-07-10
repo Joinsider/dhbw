@@ -164,10 +164,10 @@ fun TimeBasedEventItem(event: TimetableEvent, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            contentColor = MaterialTheme.colorScheme.onSurface
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp) // Remove elevation/shadow
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -181,14 +181,14 @@ fun TimeBasedEventItem(event: TimetableEvent, modifier: Modifier = Modifier) {
                 fontSize = 11.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
 
             if (event.startTime.isNotEmpty() && event.endTime.isNotEmpty()) {
                 Text(
                     text = "${event.startTime} - ${event.endTime}",
                     fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                     maxLines = 1,
                     modifier = Modifier.padding(top = 2.dp)
                 )
@@ -198,7 +198,7 @@ fun TimeBasedEventItem(event: TimetableEvent, modifier: Modifier = Modifier) {
                 Text(
                     text = event.room,
                     fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                     maxLines = 1,
                     modifier = Modifier.padding(top = 1.dp)
                 )

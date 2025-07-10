@@ -28,8 +28,13 @@ class DualisService {
 
     private var _authToken: String? = null
     private var _dualisUrls: DualisUrl = DualisUrl()
+    private var _lastLoginCredentials: Pair<String, String>? = null
+    private var _isReAuthenticating = false
 
     fun login(user: String, pass: String, callback: (String?) -> Unit) {
+        // Store credentials for potential re-authentication
+        _lastLoginCredentials = Pair(user, pass)
+
         val formBody = FormBody.Builder()
             .add("usrname", user)
             .add("pass", pass)
@@ -281,6 +286,10 @@ class DualisService {
     }
 
     fun getWeeklySchedule(targetDate: java.time.LocalDate, callback: (List<TimetableDay>?) -> Unit) {
+        getWeeklyScheduleWithRetry(targetDate, callback, retryCount = 0)
+    }
+
+    private fun getWeeklyScheduleWithRetry(targetDate: java.time.LocalDate, callback: (List<TimetableDay>?) -> Unit, retryCount: Int) {
         if (_dualisUrls.monthlyScheduleUrl == null || _authToken == null) {
             Log.e("DualisService", "Monthly schedule URL or Auth Token is null. Cannot fetch weekly timetable.")
             callback(null)
@@ -322,9 +331,29 @@ class DualisService {
                 val responseBody = response.body?.string()
                 Log.d("DualisService", "Weekly Schedule Response: ${response.code}")
 
-                if (response.isSuccessful) {
+                if (response.isSuccessful && responseBody != null) {
+                    // Check if the response indicates an invalid token
+                    if (isTokenInvalidResponse(responseBody)) {
+                        Log.w("DualisService", "Token appears to be invalid, attempting re-authentication")
+                        if (retryCount < 1) { // Only retry once
+                            reAuthenticateIfNeeded { success ->
+                                if (success) {
+                                    Log.d("DualisService", "Re-authentication successful, retrying weekly schedule fetch")
+                                    getWeeklyScheduleWithRetry(targetDate, callback, retryCount + 1)
+                                } else {
+                                    Log.e("DualisService", "Re-authentication failed")
+                                    callback(null)
+                                }
+                            }
+                        } else {
+                            Log.e("DualisService", "Already retried once, giving up")
+                            callback(null)
+                        }
+                        return
+                    }
+
                     try {
-                        val timetableDays = parseMonthlySchedule(responseBody ?: "")
+                        val timetableDays = parseMonthlySchedule(responseBody)
                         Log.d("DualisService", "Parsed weekly schedule for $targetDate: ${timetableDays.size} days")
                         callback(timetableDays)
                     } catch (e: Exception) {
@@ -529,5 +558,46 @@ class DualisService {
                document.select("a:contains(Prüfungsergebnisse)").first() != null ||
                document.select("a:contains(Stundenplan)").first() != null ||
                document.select("a:contains(Abmelden)").first() != null
+    }
+
+    private fun isTokenInvalidResponse(html: String): Boolean {
+        // Check for common indicators of invalid session/token
+        return html.contains("SESSION_EXPIRED") ||
+               html.contains("INVALID_SESSION") ||
+               html.contains("session has expired") ||
+               html.contains("Sie müssen sich erneut anmelden") ||
+               html.contains("Login") && html.contains("Anmeldung") ||
+               html.contains("LOGINCHECK") ||
+               html.contains("usrname") && html.contains("pass") ||
+               html.isEmpty() ||
+               html.contains("error") && html.contains("token")
+    }
+
+    private fun reAuthenticateIfNeeded(onComplete: (Boolean) -> Unit) {
+        if (_isReAuthenticating) {
+            // Already re-authenticating, wait for completion
+            return
+        }
+
+        val credentials = _lastLoginCredentials
+        if (credentials == null) {
+            Log.e("DualisService", "No stored credentials for re-authentication")
+            onComplete(false)
+            return
+        }
+
+        _isReAuthenticating = true
+        Log.d("DualisService", "Re-authenticating due to invalid token")
+
+        login(credentials.first, credentials.second) { result ->
+            _isReAuthenticating = false
+            if (result != null) {
+                Log.d("DualisService", "Re-authentication successful")
+                onComplete(true)
+            } else {
+                Log.e("DualisService", "Re-authentication failed")
+                onComplete(false)
+            }
+        }
     }
 }
