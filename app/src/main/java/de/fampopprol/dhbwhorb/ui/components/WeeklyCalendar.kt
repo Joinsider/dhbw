@@ -22,12 +22,18 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
+import android.util.Log
 
 @Composable
 fun WeeklyCalendar(timetable: List<TimetableDay>, startOfWeek: LocalDate, modifier: Modifier = Modifier) {
     val weekDays = (0..6).map { startOfWeek.plusDays(it.toLong()) }
     val dateFormatter = DateTimeFormatter.ofPattern("dd.MM")
     val dayOfWeekFormatter = DateTimeFormatter.ofPattern("EEE") // Mon, Tue, etc.
+    val timetableDateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+
+    Log.d("WeeklyCalendar", "Rendering weekly calendar with ${timetable.size} timetable days")
+    Log.d("WeeklyCalendar", "Week days: ${weekDays.map { it.format(timetableDateFormatter) }}")
+    Log.d("WeeklyCalendar", "Timetable dates: ${timetable.map { it.date }}")
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Weekday headers
@@ -55,8 +61,14 @@ fun WeeklyCalendar(timetable: List<TimetableDay>, startOfWeek: LocalDate, modifi
         ) {
             items(weekDays) { day ->
                 val timetableDay = timetable.find {
-                    LocalDate.parse(it.date, DateTimeFormatter.ofPattern("dd.MM.yyyy")) == day
+                    try {
+                        LocalDate.parse(it.date, timetableDateFormatter) == day
+                    } catch (e: Exception) {
+                        Log.e("WeeklyCalendar", "Error parsing date: ${it.date}", e)
+                        false
+                    }
                 }
+                Log.d("WeeklyCalendar", "Day ${day.format(timetableDateFormatter)}: ${timetableDay?.events?.size ?: 0} events")
                 DayCell(day = day, timetableDay = timetableDay)
             }
         }
@@ -68,7 +80,7 @@ fun DayCell(day: LocalDate, timetableDay: TimetableDay?) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(IntrinsicSize.Min) // Allow content to define height
+            .height(200.dp) // Fixed height for better layout
             .border(1.dp, Color.LightGray, MaterialTheme.shapes.small),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
@@ -77,12 +89,10 @@ fun DayCell(day: LocalDate, timetableDay: TimetableDay?) {
                 .padding(8.dp)
                 .fillMaxHeight()
         ) {
-            // Display day number if needed, or just rely on header
-            // Text(text = day.dayOfMonth.toString(), fontWeight = FontWeight.Bold)
-
-            if (timetableDay != null) {
+            if (timetableDay != null && timetableDay.events.isNotEmpty()) {
                 timetableDay.events.forEach { event ->
                     EventItem(event = event)
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
             } else {
                 Text(text = "No classes", fontSize = 12.sp, color = Color.Gray)
@@ -93,10 +103,31 @@ fun DayCell(day: LocalDate, timetableDay: TimetableDay?) {
 
 @Composable
 fun EventItem(event: TimetableEvent) {
-    Column(modifier = Modifier.padding(vertical = 2.dp)) {
-        Text(text = event.title, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-        Text(text = "${event.startTime} - ${event.endTime} ${event.room}", fontSize = 12.sp, color = Color.DarkGray)
-        // Optionally display lecturer if space allows
-        // Text(text = event.lecturer, fontSize = 10.sp, color = Color.Gray)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+    ) {
+        Column(modifier = Modifier.padding(4.dp)) {
+            Text(
+                text = event.title,
+                fontWeight = FontWeight.Medium,
+                fontSize = 12.sp,
+                maxLines = 2
+            )
+            if (event.startTime.isNotEmpty() && event.endTime.isNotEmpty()) {
+                Text(
+                    text = "${event.startTime} - ${event.endTime}",
+                    fontSize = 10.sp,
+                    color = Color.DarkGray
+                )
+            }
+            if (event.room.isNotEmpty()) {
+                Text(
+                    text = event.room,
+                    fontSize = 10.sp,
+                    color = Color.DarkGray
+                )
+            }
+        }
     }
 }

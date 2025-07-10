@@ -14,6 +14,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +28,7 @@ import de.fampopprol.dhbwhorb.ui.components.WeeklyCalendar
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Calendar
 
@@ -95,19 +97,25 @@ fun LoginScreen(dualisService: DualisService, onLoginSuccess: () -> Unit, modifi
 fun TimetableScreen(dualisService: DualisService, modifier: Modifier = Modifier) {
     var timetable by remember { mutableStateOf<List<TimetableDay>?>(null) }
 
-    // Fetch timetable for current month
-    val calendar = Calendar.getInstance()
-    val year = calendar.get(Calendar.YEAR)
-    val month = calendar.get(Calendar.MONTH) + 1 // Month is 0-indexed
+    LaunchedEffect(Unit) {
+        val calendar = Calendar.getInstance()
+        val year = calendar.get(Calendar.YEAR)
+        val month = calendar.get(Calendar.MONTH) + 1 // Month is 0-indexed
 
-    dualisService.getMonthlySchedule(year, month) { fetchedTimetable ->
-        timetable = fetchedTimetable
+        dualisService.getMonthlySchedule(year, month) { fetchedTimetable ->
+            Log.d("TimetableScreen", "Fetched Timetable: $fetchedTimetable")
+            timetable = fetchedTimetable
+        }
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        if (timetable != null) {
-            val today = LocalDate.now()
-            val startOfWeek = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        if (timetable != null && timetable!!.isNotEmpty()) {
+            // Use the first date from the timetable to determine the week to display
+            val firstTimetableDate = LocalDate.parse(timetable!!.first().date, DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+            val startOfWeek = firstTimetableDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+
+            Log.d("TimetableScreen", "First timetable date: $firstTimetableDate, Start of week: $startOfWeek")
+
             WeeklyCalendar(timetable = timetable!!, startOfWeek = startOfWeek)
         } else {
             Text(text = "Loading timetable...")

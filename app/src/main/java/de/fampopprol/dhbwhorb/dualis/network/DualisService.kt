@@ -15,6 +15,7 @@ import java.net.CookieManager
 import java.net.CookiePolicy
 import java.io.IOException
 import org.jsoup.Jsoup
+import java.net.URLDecoder
 
 class DualisService {
 
@@ -279,19 +280,20 @@ class DualisService {
 
     private fun parseMonthlySchedule(html: String): List<TimetableDay> {
         val document = Jsoup.parse(html)
-        val timetableDays = mutableListOf<TimetableDay>()
-        val dualisEndpoint = "https://dualis.dhbw.de"
+        val dateFormatter = java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
         val table = document.select("table.nb").first() ?: return emptyList()
         val caption = table.select("caption").first()?.text()
+        Log.d("DualisService", "Table caption: $caption")
+
         val dateRangeRegex = Regex("Stundenplan vom (\\d{2}\\.\\d{2}\\.) bis (\\d{2}\\.\\d{2}\\.)")
         val matchResult = caption?.let { dateRangeRegex.find(it) }
 
         val startDateString = matchResult?.groupValues?.get(1)
         val endDateString = matchResult?.groupValues?.get(2)
+        Log.d("DualisService", "Start date string: $startDateString, End date string: $endDateString")
 
-        val currentYear = java.time.LocalDate.now().year // Assuming current year for parsing
-        val dateFormatter = java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")
+        val currentYear = java.time.LocalDate.now().year
 
         val startLocalDate = requireNotNull(startDateString?.let { java.time.LocalDate.parse(it + currentYear, dateFormatter) }) {
             "Could not parse start date from caption: $caption"
@@ -300,15 +302,70 @@ class DualisService {
             "Could not parse end date from caption: $caption"
         }
 
-        val headerRow = table.select("tr").first() ?: return emptyList()
-        val dayHeaders = headerRow.select("th.weekday").map { dayHeaderElement ->
+        // Find the header row with weekday columns
+        val headerRow = table.select("tr.tbsubhead").first() ?: return emptyList()
+        val dayToDateMap = mutableMapOf<String, java.time.LocalDate>()
+
+        // Parse dates from table headers directly - look for th.weekday elements with links
+        headerRow.select("th.weekday").forEach { dayHeaderElement ->
             val link = dayHeaderElement.select("a").first()
-            val href = link?.attr("href")
-            val dateRegex = Regex("-A(\\d{2}\\.\\d{2}\\.\\d{4})")
-            val dateMatch = href?.let { dateRegex.find(it) }
-            val fullDate = dateMatch?.groupValues?.get(1)
-            dayHeaderElement.text().trim() + "|" + fullDate // Store both text and full date
+            val headerText = link?.text()?.trim() ?: dayHeaderElement.text().trim()
+            Log.d("DualisService", "Processing header: '$headerText'")
+
+            // Extract day abbreviation and date from header text like "Mo 30.06."
+            val headerPattern = Regex("(\\w+)\\s+(\\d{2}\\.\\d{2})\\.")
+            val headerMatch = headerPattern.find(headerText)
+
+            if (headerMatch != null) {
+                val dayAbbreviation = headerMatch.groupValues[1]
+                val dateString = headerMatch.groupValues[2] + ".$currentYear"
+
+                val fullDayName = when (dayAbbreviation) {
+                    "Mo" -> "Montag"
+                    "Di" -> "Dienstag"
+                    "Mi" -> "Mittwoch"
+                    "Do" -> "Donnerstag"
+                    "Fr" -> "Freitag"
+                    "Sa" -> "Samstag"
+                    "So" -> "Sonntag"
+                    else -> {
+                        Log.w("DualisService", "Unknown day abbreviation: $dayAbbreviation")
+                        ""
+                    }
+                }
+
+                if (fullDayName.isNotEmpty()) {
+                    try {
+                        val parsedDate = java.time.LocalDate.parse(dateString, dateFormatter)
+                        dayToDateMap[fullDayName] = parsedDate
+                        Log.d("DualisService", "Mapped $fullDayName to $parsedDate")
+                    } catch (e: Exception) {
+                        Log.e("DualisService", "Error parsing date: $dateString", e)
+                    }
+                }
+            } else {
+                Log.w("DualisService", "Could not parse header: '$headerText'")
+            }
         }
+
+        // If no headers were found with the standard approach, try extracting directly from the range
+        if (dayToDateMap.isEmpty()) {
+            Log.w("DualisService", "No dates found in headers, trying to map from date range")
+
+            // Create date mapping based on the date range from caption
+            var currentDate = startLocalDate
+            val weekDays = listOf("Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag")
+
+            while (!currentDate.isAfter(endLocalDate)) {
+                val dayOfWeek = currentDate.dayOfWeek.value // 1 = Monday, 7 = Sunday
+                val dayName = weekDays[dayOfWeek - 1]
+                dayToDateMap[dayName] = currentDate
+                Log.d("DualisService", "Fallback mapped $dayName to $currentDate")
+                currentDate = currentDate.plusDays(1)
+            }
+        }
+
+        Log.d("DualisService", "Day To Date Map: $dayToDateMap")
 
         val eventsByFullDate = mutableMapOf<java.time.LocalDate, MutableList<TimetableEvent>>()
         var currentDay = startLocalDate
@@ -317,49 +374,90 @@ class DualisService {
             currentDay = currentDay.plusDays(1)
         }
 
-        val rows = table.select("tr").drop(1) // Skip header row
+        val allAppointmentCells = document.select("td.appointment")
+        Log.d("DualisService", "Found ${allAppointmentCells.size} appointment cells")
 
-        for (row in rows) {
-            val timeElement = row.select("th.time").first()
-            val time = timeElement?.text()?.trim() ?: ""
+        for (cell in allAppointmentCells) {
+            val cellHtml = cell.html()
+            Log.d("DualisService", "Processing appointment cell HTML: $cellHtml")
 
-            val appointmentCells = row.select("td.appointment")
-            for (cell in appointmentCells) {
-                val cellHtml = cell.html()
-                val titleRegex = Regex("(?s)<a[^>]*>(.*?)<\\/a>")
-                val titleMatch = titleRegex.find(cellHtml)
-                val title = titleMatch?.groupValues?.get(1)?.trim() ?: ""
+            // Extract title - get text content excluding timePeriod span
+            val clonedCell = cell.clone()
+            clonedCell.select("span.timePeriod").remove()
+            clonedCell.select("br").remove()
+            // Remove HTML comments and clean up
+            var title = clonedCell.text().trim()
 
-                val detailsHtml = cellHtml.replace(titleRegex.find(cellHtml)?.value ?: "", "")
-                val details = Jsoup.parse(detailsHtml).text().split("\n").map { it.trim() }.filter { it.isNotBlank() }
+            // Clean up title by removing trailing ">" and any HTML artifacts
+            title = title.replace(Regex(">\\s*$"), "").trim()
 
-                val timeRange = details.getOrNull(0) ?: ""
-                val room = details.getOrNull(1) ?: ""
-                val lecturer = "" // Lecturer is not explicitly available in the current HTML structure
+            // Skip if title is empty
+            if (title.isEmpty()) {
+                Log.d("DualisService", "Skipping cell with empty title")
+                continue
+            }
 
-                val timeParts = timeRange.split(" - ")
-                val startTime = timeParts.getOrNull(0) ?: ""
-                val endTime = timeParts.getOrNull(1) ?: ""
+            // Extract time and room information
+            val timePeriodSpan = cell.select("span.timePeriod").first()
+            val timePeriodText = timePeriodSpan?.text()?.trim() ?: ""
 
-                val columnIndex = cell.elementSiblingIndex() - 1
+            Log.d("DualisService", "Time period text: '$timePeriodText'")
 
-                if (columnIndex >= 0 && columnIndex < dayHeaders.size) {
-                    val dayHeaderParts = dayHeaders[columnIndex].split("|")
-                    val fullDateString = dayHeaderParts[1] // Get the full date (dd.MM.yyyy)
-                    val eventDate = java.time.LocalDate.parse(fullDateString, dateFormatter)
+            // Parse time period - it might be in format "08:15 - 12:30 HOR-120" or similar
+            val timeRoomParts = timePeriodText.split("\\s+".toRegex()).filter { it.isNotBlank() }
 
-                    // Ensure the list for eventDate exists
-                    if (!eventsByFullDate.containsKey(eventDate)) {
-                        eventsByFullDate[eventDate] = mutableListOf()
-                    }
-                    eventsByFullDate[eventDate]?.add(TimetableEvent(title, startTime, endTime, room, lecturer))
+            var startTime = ""
+            var endTime = ""
+            var room = ""
+
+            if (timeRoomParts.size >= 3) {
+                startTime = timeRoomParts[0]
+                // Skip the "-" separator
+                endTime = timeRoomParts[2]
+                // Room might be in the remaining parts
+                if (timeRoomParts.size > 3) {
+                    room = timeRoomParts.drop(3).joinToString(" ")
                 }
+            }
+
+            val lecturer = "" // Lecturer is not explicitly available in the current HTML structure
+
+            // Get the day from the abbr attribute
+            val abbrAttribute = cell.attr("abbr")
+            val dayOfWeekInGerman = abbrAttribute.split(" ")[0]
+
+            val eventDate = dayToDateMap[dayOfWeekInGerman]
+
+            Log.d("DualisService", "Processing cell:")
+            Log.d("DualisService", "  Title: '$title'")
+            Log.d("DualisService", "  Time Period Text: '$timePeriodText'")
+            Log.d("DualisService", "  Time Room Parts: $timeRoomParts")
+            Log.d("DualisService", "  Start Time: '$startTime', End Time: '$endTime', Room: '$room'")
+            Log.d("DualisService", "  Abbr Attribute: '$abbrAttribute', Day in German: '$dayOfWeekInGerman'")
+            Log.d("DualisService", "  Event Date: $eventDate")
+
+            if (eventDate != null && title.isNotEmpty()) {
+                eventsByFullDate[eventDate]?.add(TimetableEvent(title, startTime, endTime, room, lecturer))
+                Log.d("DualisService", "Added event to date $eventDate: $title")
+            } else {
+                Log.w("DualisService", "Skipping event - eventDate: $eventDate, title: '$title'")
             }
         }
 
         val sortedTimetableDays = eventsByFullDate.entries
             .sortedBy { it.key }
-            .map { entry -> TimetableDay(dateFormatter.format(entry.key), entry.value) }
+            .map { entry ->
+                Log.d("DualisService", "Creating TimetableDay for ${dateFormatter.format(entry.key)} with ${entry.value.size} events")
+                TimetableDay(dateFormatter.format(entry.key), entry.value)
+            }
+
+        Log.d("DualisService", "Parsed ${sortedTimetableDays.size} timetable days")
+        sortedTimetableDays.forEach { day ->
+            Log.d("DualisService", "Day ${day.date}: ${day.events.size} events")
+            day.events.forEach { event ->
+                Log.d("DualisService", "  Event: ${event.title} (${event.startTime} - ${event.endTime}) in ${event.room}")
+            }
+        }
 
         return sortedTimetableDays
     }
