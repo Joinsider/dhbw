@@ -16,9 +16,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import de.fampopprol.dhbwhorb.cache.TimetableCacheManager
-import de.fampopprol.dhbwhorb.dualis.network.DualisService
-import de.fampopprol.dhbwhorb.security.CredentialManager
+import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
+import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
+import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.screen.LoginScreen
 import de.fampopprol.dhbwhorb.ui.screen.TimetableScreen
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme

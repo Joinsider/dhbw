@@ -33,10 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import de.fampopprol.dhbwhorb.cache.TimetableCacheManager
-import de.fampopprol.dhbwhorb.dualis.models.TimetableDay
-import de.fampopprol.dhbwhorb.dualis.network.DualisService
-import de.fampopprol.dhbwhorb.security.CredentialManager
+import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
+import de.fampopprol.dhbwhorb.data.dualis.models.TimetableDay
+import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
+import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.components.WeekNavigationBar
 import de.fampopprol.dhbwhorb.ui.components.WeeklyCalendar
 import java.time.DayOfWeek

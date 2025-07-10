@@ -1,11 +1,11 @@
-package de.fampopprol.dhbwhorb.cache
+package de.fampopprol.dhbwhorb.data.cache
 
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import de.fampopprol.dhbwhorb.dualis.models.TimetableDay
+import de.fampopprol.dhbwhorb.data.dualis.models.TimetableDay
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 

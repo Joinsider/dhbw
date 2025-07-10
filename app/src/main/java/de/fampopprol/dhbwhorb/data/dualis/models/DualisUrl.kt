@@ -1,4 +1,4 @@
-package de.fampopprol.dhbwhorb.dualis.models
+package de.fampopprol.dhbwhorb.data.dualis.models
 
 data class DualisUrl(
     var mainPageUrl: String? = null,

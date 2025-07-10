@@ -7,9 +7,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
-import de.fampopprol.dhbwhorb.cache.TimetableCacheManager
-import de.fampopprol.dhbwhorb.dualis.network.DualisService
-import de.fampopprol.dhbwhorb.security.CredentialManager
+import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
+import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
+import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.screen.*
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
 

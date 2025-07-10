@@ -1,4 +1,4 @@
-package de.fampopprol.dhbwhorb.security
+package de.fampopprol.dhbwhorb.data.security
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -7,7 +7,7 @@ import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
-class CredentialManager(private val context: Context) {
+class CredentialManager(context: Context) {
 
     private val masterKey = MasterKey.Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)

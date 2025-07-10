@@ -34,8 +34,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
-import de.fampopprol.dhbwhorb.dualis.models.TimetableDay
-import de.fampopprol.dhbwhorb.dualis.models.TimetableEvent
+import de.fampopprol.dhbwhorb.data.dualis.models.TimetableDay
+import de.fampopprol.dhbwhorb.data.dualis.models.TimetableEvent
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter

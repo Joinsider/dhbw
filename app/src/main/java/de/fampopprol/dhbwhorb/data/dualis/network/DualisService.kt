@@ -1,10 +1,10 @@
-package de.fampopprol.dhbwhorb.dualis.network
+package de.fampopprol.dhbwhorb.data.dualis.network
 
 import android.annotation.SuppressLint
 import android.util.Log
-import de.fampopprol.dhbwhorb.dualis.models.DualisUrl
-import de.fampopprol.dhbwhorb.dualis.models.TimetableDay
-import de.fampopprol.dhbwhorb.dualis.models.TimetableEvent
+import de.fampopprol.dhbwhorb.data.dualis.models.DualisUrl
+import de.fampopprol.dhbwhorb.data.dualis.models.TimetableDay
+import de.fampopprol.dhbwhorb.data.dualis.models.TimetableEvent
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.FormBody
@@ -59,7 +59,7 @@ class DualisService {
             }
 
             override fun onResponse(call: Call, response: Response) {
-                val responseBody = response.body?.string()
+                val responseBody = response.body.string()
                 Log.d("DualisService", "Login Response: ${response.code} - $responseBody")
 
                 if (response.isSuccessful) {
@@ -112,7 +112,7 @@ class DualisService {
             }
 
             override fun onResponse(call: Call, response: Response) {
-                val responseBody = response.body?.string()
+                val responseBody = response.body.string()
                 Log.d("DualisService", "Follow Redirects Response: ${response.code} - $responseBody")
 
                 if (response.isSuccessful && responseBody != null) {
@@ -265,7 +265,7 @@ class DualisService {
             }
 
             override fun onResponse(call: Call, response: Response) {
-                val responseBody = response.body?.string()
+                val responseBody = response.body.string()
                 Log.d("DualisService", "Monthly Schedule Response: ${response.code} - $responseBody")
 
                 if (response.isSuccessful) {
@@ -327,7 +327,7 @@ class DualisService {
             }
 
             override fun onResponse(call: Call, response: Response) {
-                val responseBody = response.body?.string()
+                val responseBody = response.body.string()
                 Log.d("DualisService", "Weekly Schedule Response: ${response.code}")
 
                 if (response.isSuccessful && responseBody != null) {
