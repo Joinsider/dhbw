@@ -71,4 +71,7 @@ dependencies {
     // Security library for encrypted storage
     implementation(libs.androidx.security.crypto)
     implementation(libs.gson)
+
+    // Navigation dependencies
+    implementation(libs.androidx.navigation.compose)
 }

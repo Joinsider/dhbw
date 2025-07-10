@@ -21,7 +21,7 @@ import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.screen.LoginScreen
-import de.fampopprol.dhbwhorb.ui.screen.TimetableScreen
+import de.fampopprol.dhbwhorb.ui.screen.MainScreen
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
 import kotlinx.coroutines.launch
 
@@ -71,7 +71,7 @@ fun App() {
                         .windowInsetsPadding(WindowInsets.systemBars)
                 )
             } else {
-                TimetableScreen(
+                MainScreen(
                     dualisService = dualisService,
                     credentialManager = credentialManager,
                     timetableCacheManager = timetableCacheManager,
