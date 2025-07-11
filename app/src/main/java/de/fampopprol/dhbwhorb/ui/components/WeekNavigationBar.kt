@@ -7,25 +7,24 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import de.fampopprol.dhbwhorb.R
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -49,40 +48,17 @@ fun WeekNavigationBar(
         )
     )
 
-    Card(
+    Surface(
         modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            .fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 4.dp
     ) {
         Column(
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
-            // Date range display
-            Text(
-                text = "${dateFormatter.format(currentWeekStart)} - ${dateFormatter.format(weekEnd)}",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
-
-            // Last updated text
-            if (lastUpdated != null) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.last_updated_at, lastUpdated),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
             // Navigation buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -90,41 +66,80 @@ fun WeekNavigationBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Previous week button
-                Button(
+                IconButton(
                     onClick = onPreviousWeek,
-                    enabled = !isLoading,
-                    modifier = Modifier.weight(1f)
+                    enabled = !isLoading
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.previous_week)
+                        imageVector = Icons.Filled.ChevronLeft,
+                        contentDescription = "Previous Week",
+                        tint = if (isLoading) {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
                     )
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                // Week range display and current week button
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "${dateFormatter.format(currentWeekStart)} - ${dateFormatter.format(weekEnd)}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
 
-                // Current week button (only show if not already on current week)
-                if (!isCurrentWeek) {
-                    OutlinedButton(
-                        onClick = onCurrentWeek,
-                        enabled = !isLoading,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(stringResource(R.string.current_week))
+                    if (!isCurrentWeek) {
+                        TextButton(
+                            onClick = onCurrentWeek,
+                            enabled = !isLoading
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Today,
+                                contentDescription = "Go to Current Week",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Current Week",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
                     }
-
-                    Spacer(modifier = Modifier.width(8.dp))
                 }
 
                 // Next week button
-                Button(
+                IconButton(
                     onClick = onNextWeek,
-                    enabled = !isLoading,
-                    modifier = Modifier.weight(1f)
+                    enabled = !isLoading
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = stringResource(R.string.next_week)
+                        imageVector = Icons.Filled.ChevronRight,
+                        contentDescription = "Next Week",
+                        tint = if (isLoading) {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+                    )
+                }
+            }
+
+            // Last updated info
+            lastUpdated?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Last updated: $it",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

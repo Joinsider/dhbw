@@ -12,9 +12,8 @@ android {
         applicationId = "de.fampopprol.dhbwhorb"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.0.3"
-
+        versionCode = 5
+        versionName = "v1.0.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -30,6 +29,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            ndk {
+                // Enables R8 to optimize native code.
+                debugSymbolLevel = "FULL"
+            }
         }
     }
     compileOptions {

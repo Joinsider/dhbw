@@ -84,7 +84,11 @@ fun GradesScreen(
     val pleaseLoginMessage = stringResource(R.string.please_login)
 
     // Function to fetch grades data for a specific semester
-    fun fetchGradesForSemester(semester: Semester, updateLoadingState: Boolean = true, forceRefresh: Boolean = false) {
+    fun fetchGradesForSemester(
+        semester: Semester,
+        updateLoadingState: Boolean = true,
+        forceRefresh: Boolean = false
+    ) {
         if (updateLoadingState && !isRefreshing) {
             isLoading = true
         }
@@ -100,7 +104,10 @@ fun GradesScreen(
                         selectedSemester = cachedData.second
                         isLoading = false
                         isRefreshing = false
-                        Log.d("GradesScreen", "Using cached grades for semester: ${semester.displayName}")
+                        Log.d(
+                            "GradesScreen",
+                            "Using cached grades for semester: ${semester.displayName}"
+                        )
                         return@launch
                     }
                 }
@@ -121,10 +128,16 @@ fun GradesScreen(
                         gradesCacheManager?.cacheGrades(result, semester)
                     }
 
-                    Log.d("GradesScreen", "Fetched grades for semester ${semester.displayName}: $result")
+                    Log.d(
+                        "GradesScreen",
+                        "Fetched grades for semester ${semester.displayName}: $result"
+                    )
                 } else {
                     errorMessage = failedToLoadGradesMessage
-                    Log.e("GradesScreen", "Failed to fetch grades for semester ${semester.displayName}")
+                    Log.e(
+                        "GradesScreen",
+                        "Failed to fetch grades for semester ${semester.displayName}"
+                    )
                 }
             }
         }
@@ -143,13 +156,17 @@ fun GradesScreen(
                     isLoadingSemesters = false
 
                     // Select the appropriate semester
-                    val defaultSemester = cachedSemesters.find { it.isSelected } ?: cachedSemesters.first()
+                    val defaultSemester =
+                        cachedSemesters.find { it.isSelected } ?: cachedSemesters.first()
                     if (selectedSemester == null) {
                         selectedSemester = defaultSemester
                         fetchGradesForSemester(defaultSemester, false)
                     }
 
-                    Log.d("GradesScreen", "Using cached semesters: ${cachedSemesters.size} semesters")
+                    Log.d(
+                        "GradesScreen",
+                        "Using cached semesters: ${cachedSemesters.size} semesters"
+                    )
                     return@launch
                 }
             }
@@ -170,12 +187,16 @@ fun GradesScreen(
                     selectedSemester = defaultSemester
                     // Fetch grades for the default semester
                     fetchGradesForSemester(defaultSemester, false, forceRefresh)
-                    Log.d("GradesScreen", "Fetched ${semesters.size} semesters, selected: ${defaultSemester.displayName}")
+                    Log.d(
+                        "GradesScreen",
+                        "Fetched ${semesters.size} semesters, selected: ${defaultSemester.displayName}"
+                    )
                 } else {
                     // Fallback to default semester selection if fetching fails
                     val defaultSemesters = Semester.getDefaultSemesters()
                     availableSemesters = defaultSemesters
-                    val defaultSemester = defaultSemesters.find { it.isSelected } ?: defaultSemesters.first()
+                    val defaultSemester =
+                        defaultSemesters.find { it.isSelected } ?: defaultSemesters.first()
                     selectedSemester = defaultSemester
                     fetchGradesForSemester(defaultSemester, false, forceRefresh)
                     Log.w("GradesScreen", "Failed to fetch semesters, using defaults")
@@ -203,7 +224,10 @@ fun GradesScreen(
                         Log.d("GradesScreen", "Re-authenticating before fetching data")
                         dualisService.login(username, password) { result ->
                             if (result != null) {
-                                Log.d("GradesScreen", "Authentication successful, now fetching semesters")
+                                Log.d(
+                                    "GradesScreen",
+                                    "Authentication successful, now fetching semesters"
+                                )
                                 // Now we can fetch semesters and grades after successful authentication
                                 fetchSemesters(forceRefresh)
                             } else {
@@ -462,7 +486,8 @@ fun GradesContent(
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            text = studyGrades?.gpaTotal?.toString() ?: stringResource(R.string.not_available),
+                            text = studyGrades?.gpaTotal?.toString()
+                                ?: stringResource(R.string.not_available),
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -516,20 +541,25 @@ fun GradesContent(
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
                                 text = stringResource(R.string.credits_gained),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
                             )
                             Text(
                                 text = studyGrades?.creditsGained?.toString() ?: "0",
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }
@@ -543,20 +573,25 @@ fun GradesContent(
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
                                 text = stringResource(R.string.credits_total),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
                             )
                             Text(
                                 text = studyGrades?.creditsTotal?.toString() ?: "0",
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.secondary
+                                color = MaterialTheme.colorScheme.secondary,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }
@@ -589,7 +624,11 @@ fun GradesContent(
                                     fontWeight = FontWeight.Medium
                                 )
                                 Text(
-                                    text = String.format(Locale.getDefault(), "%.1f%%", progress * 100),
+                                    text = String.format(
+                                        Locale.getDefault(),
+                                        "%.1f%%",
+                                        progress * 100
+                                    ),
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary

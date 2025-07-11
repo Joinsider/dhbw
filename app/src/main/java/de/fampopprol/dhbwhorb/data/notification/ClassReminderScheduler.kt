@@ -35,33 +35,50 @@ class ClassReminderScheduler(private val context: Context) {
             return
         }
 
+        // First cancel all existing reminders to avoid duplicates
+        cancelAllClassReminders()
+
         val workManager = WorkManager.getInstance(context)
         val now = LocalDateTime.now()
         var scheduledCount = 0
 
+        Log.d(TAG, "Starting to schedule class reminders for ${timetableData.size} weeks with $reminderMinutes minutes notice")
+
+        // Define the German date format used in the timetable data
+        val germanDateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+
         timetableData.forEach { (weekStart, weekDays) ->
             weekDays.forEach { day ->
-                val dayDate = LocalDate.parse(day.date, DateTimeFormatter.ISO_LOCAL_DATE)
+                try {
+                    val dayDate = LocalDate.parse(day.date, germanDateFormatter)
+                    Log.d(TAG, "Processing day: $dayDate with ${day.events.size} events")
 
-                day.events.forEach { event ->
-                    try {
-                        val classStartTime = parseEventDateTime(dayDate, event.startTime)
-                        val reminderTime = classStartTime.minusMinutes(reminderMinutes.toLong())
+                    day.events.forEach { event ->
+                        try {
+                            val classStartTime = parseEventDateTime(dayDate, event.startTime)
+                            val reminderTime = classStartTime.minusMinutes(reminderMinutes.toLong())
 
-                        // Only schedule if the reminder time is in the future
-                        if (reminderTime.isAfter(now)) {
-                            scheduleClassReminder(
-                                workManager = workManager,
-                                event = event,
-                                reminderTime = reminderTime,
-                                classStartTime = classStartTime,
-                                reminderMinutes = reminderMinutes
-                            )
-                            scheduledCount++
+                            Log.d(TAG, "Event: ${event.title} at $classStartTime, reminder at $reminderTime")
+
+                            // Only schedule if the reminder time is in the future
+                            if (reminderTime.isAfter(now)) {
+                                scheduleClassReminder(
+                                    workManager = workManager,
+                                    event = event,
+                                    reminderTime = reminderTime,
+                                    classStartTime = classStartTime,
+                                    reminderMinutes = reminderMinutes
+                                )
+                                scheduledCount++
+                            } else {
+                                Log.d(TAG, "Skipping past reminder for ${event.title} (reminder time was $reminderTime)")
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error scheduling reminder for event: ${event.title}", e)
                         }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error scheduling reminder for event: ${event.title}", e)
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error processing day: ${day.date}", e)
                 }
             }
         }
@@ -74,7 +91,7 @@ class ClassReminderScheduler(private val context: Context) {
      */
     fun cancelAllClassReminders() {
         val workManager = WorkManager.getInstance(context)
-        workManager.cancelAllWorkByTag(WORK_TAG_PREFIX)
+        workManager.cancelAllWorkByTag("class_reminder")
         Log.d(TAG, "Cancelled all class reminders")
     }
 
@@ -89,6 +106,7 @@ class ClassReminderScheduler(private val context: Context) {
         val delayInMinutes = java.time.Duration.between(now, reminderTime).toMinutes()
 
         if (delayInMinutes < 0) {
+            Log.d(TAG, "Skipping past reminder for ${event.title}")
             return // Don't schedule past reminders
         }
 
@@ -97,18 +115,23 @@ class ClassReminderScheduler(private val context: Context) {
 
         val inputData = workDataOf(
             "reminder_text" to reminderText,
-            "notification_id" to workId.hashCode()
+            "notification_id" to workId.hashCode(),
+            "event_title" to event.title,
+            "class_start_time" to classStartTime.toString()
         )
 
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+            .setRequiresBatteryNotLow(false)
+            .setRequiresDeviceIdle(false)
             .build()
 
         val reminderWork = OneTimeWorkRequestBuilder<ClassReminderWorker>()
             .setInitialDelay(delayInMinutes, TimeUnit.MINUTES)
             .setInputData(inputData)
             .setConstraints(constraints)
-            .addTag("$WORK_TAG_PREFIX$workId")
+            .addTag("class_reminder")
+            .addTag(workId)
             .build()
 
         workManager.enqueueUniqueWork(
@@ -117,7 +140,7 @@ class ClassReminderScheduler(private val context: Context) {
             reminderWork
         )
 
-        Log.d(TAG, "Scheduled reminder for ${event.title} at $reminderTime (in $delayInMinutes minutes)")
+        Log.d(TAG, "Scheduled reminder for ${event.title} at $reminderTime (in $delayInMinutes minutes) with workId: $workId")
     }
 
     private fun parseEventDateTime(date: LocalDate, timeString: String): LocalDateTime {

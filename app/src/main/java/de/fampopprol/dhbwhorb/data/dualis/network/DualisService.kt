@@ -1025,6 +1025,11 @@ class DualisService {
         return _authToken != null && !_authToken!!.isEmpty()
     }
 
+    // Add public method to check demo mode
+    fun isDemoMode(): Boolean {
+        return _isDemoMode
+    }
+
     private fun isMainPage(html: String): Boolean {
         val document = Jsoup.parse(html)
         return document.select("a:contains(Studienleistungen)")

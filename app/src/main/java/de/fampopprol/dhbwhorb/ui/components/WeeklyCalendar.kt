@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,10 +66,40 @@ fun WeeklyCalendar(
     val dayOfWeekFormatter = remember { DateTimeFormatter.ofPattern("EEE") }
     val timetableDateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy") }
 
-    // Define time range (7 AM to 9 PM)
-    val startHour = 7
-    val endHour = 21
+    // Calculate dynamic time range based on events
+    val (startHour, endHour) = remember(timetable) {
+        var minHour = 7  // Default start hour
+        var maxHour = 21 // Default end hour (9 PM)
+
+        // Check all events to find the earliest and latest times
+        timetable.forEach { day ->
+            day.events.forEach { event ->
+                try {
+                    val startTime = LocalTime.parse(event.startTime, DateTimeFormatter.ofPattern("HH:mm"))
+                    val endTime = LocalTime.parse(event.endTime, DateTimeFormatter.ofPattern("HH:mm"))
+
+                    // If any class starts at or after 20:00 (8 PM), extend to show 20-24
+                    if (startTime.hour >= 20) {
+                        maxHour = 24 // Extend to midnight
+                        minHour = minOf(minHour, 20) // Start from 8 PM if needed
+                    } else {
+                        // For regular classes, use dynamic range but don't go below 7 AM or above 21 PM by default
+                        minHour = minOf(minHour, startTime.hour)
+                        maxHour = maxOf(maxHour, endTime.hour + 1) // +1 to show the full hour
+                    }
+                } catch (e: Exception) {
+                    Log.e("WeeklyCalendar", "Error parsing time: ${event.startTime} - ${event.endTime}", e)
+                }
+            }
+        }
+
+        Log.d("WeeklyCalendar", "Dynamic time range: $minHour:00 - $maxHour:00")
+        Pair(minHour, maxHour)
+    }
+
+    // Fixed sizing
     val hourHeight = 60.dp
+    val timeColumnWidth = 50.dp
     val totalHeight = (endHour - startHour) * hourHeight.value
 
     // Improved swipe detection parameters
@@ -137,7 +168,8 @@ fun WeeklyCalendar(
             WeekHeaderRow(
                 weekDays = weekDays,
                 dateFormatter = dateFormatter,
-                dayOfWeekFormatter = dayOfWeekFormatter
+                dayOfWeekFormatter = dayOfWeekFormatter,
+                timeColumnWidth = timeColumnWidth
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
@@ -153,7 +185,8 @@ fun WeeklyCalendar(
                 TimeColumn(
                     startHour = startHour,
                     endHour = endHour,
-                    hourHeight = hourHeight
+                    hourHeight = hourHeight,
+                    timeColumnWidth = timeColumnWidth
                 )
 
                 // Days columns with events
@@ -197,11 +230,12 @@ fun WeeklyCalendar(
 private fun WeekHeaderRow(
     weekDays: List<LocalDate>,
     dateFormatter: DateTimeFormatter,
-    dayOfWeekFormatter: DateTimeFormatter
+    dayOfWeekFormatter: DateTimeFormatter,
+    timeColumnWidth: androidx.compose.ui.unit.Dp
 ) {
     Row(modifier = Modifier.fillMaxWidth()) {
         // Empty space for time column
-        Box(modifier = Modifier.width(50.dp))
+        Box(modifier = Modifier.width(timeColumnWidth))
 
         weekDays.forEach { day ->
             Column(
@@ -228,10 +262,16 @@ private fun WeekHeaderRow(
 private fun TimeColumn(
     startHour: Int,
     endHour: Int,
-    hourHeight: androidx.compose.ui.unit.Dp
+    hourHeight: androidx.compose.ui.unit.Dp,
+    timeColumnWidth: androidx.compose.ui.unit.Dp
 ) {
+    // Dynamic font size based on size class
+    val fontSize = 10.sp
+
+    val padding = 4.dp
+
     Column(
-        modifier = Modifier.width(50.dp)
+        modifier = Modifier.width(timeColumnWidth)
     ) {
         for (hour in startHour until endHour) {
             Box(
@@ -240,9 +280,9 @@ private fun TimeColumn(
             ) {
                 Text(
                     text = String.format(Locale.getDefault(), "%02d:00", hour),
-                    fontSize = 10.sp,
+                    fontSize = fontSize,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(end = 4.dp, top = 2.dp)
+                    modifier = Modifier.padding(end = padding, top = 2.dp)
                 )
             }
         }
@@ -317,6 +357,15 @@ fun TimeBasedEventItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Dynamic sizing based on size class
+    val titleFontSize = 11.sp
+
+    val detailFontSize = 9.sp
+
+    val padding = 6.dp
+
+    val maxLines = 2
+
     Card(
         modifier = modifier.clickable { onClick() },
         colors = CardDefaults.cardColors(
@@ -328,36 +377,39 @@ fun TimeBasedEventItem(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(6.dp),
+                .padding(padding),
             verticalArrangement = Arrangement.Top
         ) {
             Text(
                 text = event.title,
                 fontWeight = FontWeight.Medium,
-                fontSize = 11.sp,
-                maxLines = 2,
+                fontSize = titleFontSize,
+                maxLines = maxLines,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
 
-            if (event.startTime.isNotEmpty() && event.endTime.isNotEmpty()) {
-                Text(
-                    text = "${event.startTime} - ${event.endTime}",
-                    fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                    maxLines = 1,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
+            // Only show time and room if not extra compact or if there's enough space
+            if (padding > 4.dp) {
+                if (event.startTime.isNotEmpty() && event.endTime.isNotEmpty()) {
+                    Text(
+                        text = "${event.startTime} - ${event.endTime}",
+                        fontSize = detailFontSize,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        modifier = Modifier.padding(top = 1.dp)
+                    )
+                }
 
-            if (event.room.isNotEmpty()) {
-                Text(
-                    text = event.room,
-                    fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                    maxLines = 1,
-                    modifier = Modifier.padding(top = 1.dp)
-                )
+                if (event.room.isNotEmpty()) {
+                    Text(
+                        text = event.room,
+                        fontSize = detailFontSize,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        modifier = Modifier.padding(top = 1.dp)
+                    )
+                }
             }
         }
     }

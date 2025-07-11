@@ -155,6 +155,13 @@ object DemoDataProvider {
                 endTime = "12:30",
                 room = "A2.1.03",
                 lecturer = "Prof. Dr. Braun"
+            ),
+            TimetableEvent(
+                title = "Notification Test Class",
+                startTime = "20:57",
+                endTime = "22:30",
+                room = "Online",
+                lecturer = "Test Lecturer"
             )
         )
     }
