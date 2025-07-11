@@ -14,7 +14,6 @@ android {
         targetSdk = 36
         versionCode = 4
         versionName = "1.0.3"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -30,6 +29,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            ndk {
+                // Enables R8 to optimize native code.
+                debugSymbolLevel = "FULL"
+            }
         }
     }
     compileOptions {

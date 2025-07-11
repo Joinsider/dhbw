@@ -49,12 +49,34 @@
     <!-- Error Messages -->
     <string name="authentication_failed">Authentifizierung fehlgeschlagen. Bitte melden Sie sich erneut an.</string>
     <string name="no_credentials_found">Keine Anmeldedaten gefunden. Bitte melden Sie sich erneut an.</string>
-    <string name="please_login_to_view_grades">Bitte melden Sie sich an, um Ihre Noten anzuzeigen.</string>
-    <string name="failed_to_load_grades">Noten konnten nicht geladen werden. Bitte versuchen Sie es erneut.</string>
-    <string name="please_login">Bitte melden Sie sich an, um Ihre Noten anzuzeigen.</string>
+    <string name="failed_to_load_grades">Fehler beim Laden der Noten. Bitte versuchen Sie es erneut.</string>
+    <string name="please_login">Bitte melden Sie sich zuerst an.</string>
+    <string name="loading_semesters">Semester werden geladen…</string>
+    <string name="select_semester">Semester auswählen</string>
+
+    <!-- Notification Settings -->
+    <string name="notification_settings">Benachrichtigungseinstellungen</string>
+    <string name="enable_notifications">Benachrichtigungen aktivieren</string>
+    <string name="enable_notifications_description">Erhalten Sie Benachrichtigungen bei Stundenplan- und Notenänderungen</string>
+    <string name="timetable_changes">Stundenplanänderungen</string>
+    <string name="timetable_changes_description">Benachrichtigung erhalten, wenn sich Ihr Stundenplan ändert</string>
+    <string name="new_grades">Neue Noten</string>
+    <string name="new_grades_description">Benachrichtigung erhalten, wenn neue Noten verfügbar sind</string>
+    <string name="class_reminders">Vorlesungserinnerungen</string>
+    <string name="class_reminders_description">Erinnerung vor Vorlesungsbeginn erhalten</string>
+    <string name="reminder_time">Erinnerungszeit</string>
+    <string name="minutes_before_class">%d Minuten vor der Vorlesung</string>
+    <string name="one_minute">1 Minute</string>
+    <string name="x_minutes">%d Minuten</string>
+    <string name="demo_mode_test_notifications">Demo-Modus - Benachrichtigungen testen</string>
+    <string name="test_notifications_description">Testen Sie verschiedene Arten von Benachrichtigungen, um zu sehen, wie sie funktionieren</string>
+    <string name="test_timetable_change">Stundenplanänderung testen</string>
+    <string name="test_grade_change">Notenänderung testen</string>
+    <string name="test_class_reminder">Vorlesungserinnerung testen</string>
+    <string name="how_it_works">So funktioniert es</string>
+    <string name="how_it_works_description">• Änderungsbenachrichtigungen prüfen alle 30 Minuten\n• Vorlesungserinnerungen werden für einzelne Vorlesungen geplant\n• Umfasst aktuelle Woche und nächste 3 Wochen für Stundenplan\n• Zeigt nur Benachrichtigungen bei tatsächlichen Änderungen\n• Benötigt Internetverbindung zur Überprüfung von Updates</string>
 
     <!-- Days of week -->
-    <string name="loading_semesters">Semester werden geladen...</string>
     <string name="monday">Montag</string>
     <string name="tuesday">Dienstag</string>
     <string name="wednesday">Mittwoch</string>
@@ -78,7 +100,6 @@
     <string name="december">Dezember</string>
     <string name="widget_description">Zeigt den aktuellen und die nächsten Events</string>
     <string name="widget_small_description">Kompakte Anzeige von heutigen Stunden und wenn heute nichts mehr stattfindet, dann von morgen</string>
-    <string name="select_semester">Semester auswählen</string>
     <string name="semester">Semester</string>
     <string name="settings">Einstellungen</string>
 </resources>

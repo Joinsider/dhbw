@@ -20,6 +20,10 @@ class ClassReminderWorker(
         try {
             val reminderText = inputData.getString("reminder_text")
             val notificationId = inputData.getInt("notification_id", 0)
+            val eventTitle = inputData.getString("event_title")
+            val classStartTime = inputData.getString("class_start_time")
+
+            Log.d(TAG, "ClassReminderWorker triggered for event: $eventTitle at $classStartTime")
 
             if (reminderText == null) {
                 Log.e(TAG, "No reminder text provided")
@@ -31,6 +35,8 @@ class ClassReminderWorker(
             val notificationsEnabled = preferencesManager.getNotificationsEnabledBlocking()
             val classRemindersEnabled = preferencesManager.getClassReminderNotificationsEnabledBlocking()
 
+            Log.d(TAG, "Notifications enabled: $notificationsEnabled, Class reminders enabled: $classRemindersEnabled")
+
             if (!notificationsEnabled || !classRemindersEnabled) {
                 Log.d(TAG, "Class reminder notifications are disabled, skipping")
                 return@withContext Result.success()
@@ -40,7 +46,7 @@ class ClassReminderWorker(
             val notificationManager = DHBWNotificationManager(applicationContext)
             notificationManager.showClassReminderNotification(reminderText, notificationId)
 
-            Log.d(TAG, "Class reminder notification shown: $reminderText")
+            Log.d(TAG, "Class reminder notification shown successfully: $reminderText")
             Result.success()
 
         } catch (e: Exception) {

@@ -53,7 +53,6 @@ fun TimetableScreen(
     val scope = rememberCoroutineScope()
     val pullRefreshState = rememberPullToRefreshState()
 
-
     var timetable by remember { mutableStateOf<List<TimetableDay>?>(null) }
     var isFetchingFromApi by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }

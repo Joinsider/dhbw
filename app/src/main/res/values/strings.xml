@@ -51,12 +51,31 @@
     <string name="authentication_failed">Authentication failed. Please login again.</string>
     <string name="no_credentials_found">No credentials found. Please login again.</string>
     <string name="failed_to_load_grades">Failed to load grades. Please try again.</string>
-    <string name="please_login">Please login to view grades.</string>
-
-    <!-- Semester Selection -->
-    <string name="select_semester">Select Semester</string>
-    <string name="semester">Semester</string>
+    <string name="please_login">Please login first.</string>
     <string name="loading_semesters">Loading semesters…</string>
+    <string name="select_semester">Select Semester</string>
+
+    <!-- Notification Settings -->
+    <string name="notification_settings">Notification Settings</string>
+    <string name="enable_notifications">Enable Notifications</string>
+    <string name="enable_notifications_description">Receive notifications for timetable and grade changes</string>
+    <string name="timetable_changes">Timetable Changes</string>
+    <string name="timetable_changes_description">Get notified when your timetable changes</string>
+    <string name="new_grades">New Grades</string>
+    <string name="new_grades_description">Get notified when new grades are available</string>
+    <string name="class_reminders">Class Reminders</string>
+    <string name="class_reminders_description">Get reminded before classes start</string>
+    <string name="reminder_time">Reminder Time</string>
+    <string name="minutes_before_class">%d minutes before class</string>
+    <string name="one_minute">1 minute</string>
+    <string name="x_minutes">%d minutes</string>
+    <string name="demo_mode_test_notifications">Demo Mode - Test Notifications</string>
+    <string name="test_notifications_description">Test different types of notifications to see how they work</string>
+    <string name="test_timetable_change">Test Timetable Change</string>
+    <string name="test_grade_change">Test Grade Change</string>
+    <string name="test_class_reminder">Test Class Reminder</string>
+    <string name="how_it_works">How it works</string>
+    <string name="how_it_works_description">• Change notifications check every 30 minutes\n• Class reminders are scheduled for individual classes\n• Covers current week and next 3 weeks for timetable\n• Only shows notifications when actual changes are detected\n• Requires internet connection to check for updates</string>
 
     <!-- Days of week -->
     <string name="monday">Monday</string>

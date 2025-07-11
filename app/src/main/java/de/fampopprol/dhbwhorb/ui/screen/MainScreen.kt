@@ -213,6 +213,7 @@ fun MainScreen(
                         val context = LocalContext.current
                         val notificationPreferencesManager = remember { NotificationPreferencesManager(context) }
                         NotificationSettingsScreen(
+                            dualisService = dualisService,
                             notificationScheduler = notificationScheduler,
                             notificationPreferencesManager = notificationPreferencesManager
                         )
@@ -366,6 +367,7 @@ fun MainScreen(
                         val context = LocalContext.current
                         val notificationPreferencesManager = remember { NotificationPreferencesManager(context) }
                         NotificationSettingsScreen(
+                            dualisService = dualisService,
                             notificationScheduler = notificationScheduler,
                             notificationPreferencesManager = notificationPreferencesManager
                         )
