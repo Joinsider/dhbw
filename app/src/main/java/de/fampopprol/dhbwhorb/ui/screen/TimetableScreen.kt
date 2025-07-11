@@ -1,8 +1,6 @@
 package de.fampopprol.dhbwhorb.ui.screen
 
 import android.util.Log
-import androidx.activity.ComponentActivity
-import androidx.activity.addCallback
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,11 +21,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.models.TimetableDay
@@ -35,6 +31,10 @@ import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.components.WeekNavigationBar
 import de.fampopprol.dhbwhorb.ui.components.WeeklyCalendar
+import de.fampopprol.dhbwhorb.ui.components.DailyCalendar
+import de.fampopprol.dhbwhorb.ui.components.DayNavigationBar
+import de.fampopprol.dhbwhorb.ui.components.CalendarViewBottomBar
+import de.fampopprol.dhbwhorb.ui.components.CalendarViewMode
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
@@ -49,8 +49,6 @@ fun TimetableScreen(
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val pullRefreshState = rememberPullToRefreshState()
 
     var timetable by remember { mutableStateOf<List<TimetableDay>?>(null) }
@@ -58,6 +56,12 @@ fun TimetableScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isRefreshing by remember { mutableStateOf(false) }
     var lastUpdated by remember { mutableStateOf<String?>(null) }
+
+    // View mode state
+    var currentViewMode by remember { mutableStateOf(CalendarViewMode.WEEKLY) }
+
+    // Current date for daily view - defaults to today
+    var currentDate by remember { mutableStateOf(LocalDate.now()) }
 
     // Current week state - start with current week
     var currentWeekStart by remember {
@@ -132,13 +136,6 @@ fun TimetableScreen(
         fetchTimetableFromApi(weekStart, isForced = !foundInCache)
     }
 
-    // Function to refresh current week data
-    fun refreshCurrentWeek() {
-        Log.d("TimetableScreen", "Pull-to-refresh triggered for week: $currentWeekStart")
-        isRefreshing = true
-        fetchTimetableFromApi(currentWeekStart, isForced = true)
-    }
-
     // Function to navigate to previous week
     fun goToPreviousWeek() {
         changeWeek(currentWeekStart.minusWeeks(1))
@@ -152,6 +149,63 @@ fun TimetableScreen(
     // Function to go to current week
     fun goToCurrentWeek() {
         changeWeek(LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)))
+    }
+
+    // Daily view navigation functions
+    fun goToPreviousDay() {
+        val newDate = currentDate.minusDays(1)
+        // Skip weekends - only show Monday to Friday
+        currentDate = if (newDate.dayOfWeek == DayOfWeek.SATURDAY) {
+            newDate.minusDays(1) // Go to Friday
+        } else if (newDate.dayOfWeek == DayOfWeek.SUNDAY) {
+            newDate.minusDays(2) // Go to Friday
+        } else {
+            newDate
+        }
+
+        // Ensure we have data for the week containing this day
+        val weekStart = currentDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        if (weekStart != currentWeekStart) {
+            changeWeek(weekStart)
+        }
+    }
+
+    fun goToNextDay() {
+        val newDate = currentDate.plusDays(1)
+        // Skip weekends - only show Monday to Friday
+        currentDate = if (newDate.dayOfWeek == DayOfWeek.SATURDAY) {
+            newDate.plusDays(2) // Go to Monday
+        } else if (newDate.dayOfWeek == DayOfWeek.SUNDAY) {
+            newDate.plusDays(1) // Go to Monday
+        } else {
+            newDate
+        }
+
+        // Ensure we have data for the week containing this day
+        val weekStart = currentDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        if (weekStart != currentWeekStart) {
+            changeWeek(weekStart)
+        }
+    }
+
+    fun goToCurrentDay() {
+        currentDate = LocalDate.now()
+        val weekStart = currentDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        if (weekStart != currentWeekStart) {
+            changeWeek(weekStart)
+        }
+    }
+
+    // Function to refresh current data based on view mode
+    fun refreshCurrentData() {
+        Log.d("TimetableScreen", "Pull-to-refresh triggered")
+        isRefreshing = true
+        if (currentViewMode == CalendarViewMode.WEEKLY) {
+            fetchTimetableFromApi(currentWeekStart, isForced = true)
+        } else {
+            val weekStart = currentDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            fetchTimetableFromApi(weekStart, isForced = true)
+        }
     }
 
     // Load cached data immediately on screen initialization
@@ -224,7 +278,7 @@ fun TimetableScreen(
             state = pullRefreshState,
             onRefresh = {
                 isRefreshing = true
-                refreshCurrentWeek()
+                refreshCurrentData()
             },
             isRefreshing = isRefreshing,
             modifier = Modifier.fillMaxSize(),
@@ -232,16 +286,28 @@ fun TimetableScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // Week navigation bar
-                WeekNavigationBar(
-                    currentWeekStart = currentWeekStart,
-                    onPreviousWeek = { goToPreviousWeek() },
-                    onNextWeek = { goToNextWeek() },
-                    onCurrentWeek = { goToCurrentWeek() },
-                    isLoading = isFetchingFromApi,
-                    lastUpdated = lastUpdated,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // Navigation bar based on current view mode
+                if (currentViewMode == CalendarViewMode.WEEKLY) {
+                    WeekNavigationBar(
+                        currentWeekStart = currentWeekStart,
+                        onPreviousWeek = { goToPreviousWeek() },
+                        onNextWeek = { goToNextWeek() },
+                        onCurrentWeek = { goToCurrentWeek() },
+                        isLoading = isFetchingFromApi,
+                        lastUpdated = lastUpdated,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    DayNavigationBar(
+                        currentDate = currentDate,
+                        onPreviousDay = { goToPreviousDay() },
+                        onNextDay = { goToNextDay() },
+                        onCurrentDay = { goToCurrentDay() },
+                        isLoading = isFetchingFromApi,
+                        lastUpdated = lastUpdated,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 // Show loading indicator for API requests
                 if (isFetchingFromApi) {
@@ -252,7 +318,7 @@ fun TimetableScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                 }
 
-                // Error message or weekly calendar
+                // Error message or calendar views
                 if (errorMessage != null && timetable == null) {
                     Box(
                         modifier = Modifier
@@ -272,7 +338,7 @@ fun TimetableScreen(
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
                                 onClick = {
-                                    refreshCurrentWeek()
+                                    refreshCurrentData()
                                 }
                             ) {
                                 Text("Retry")
@@ -280,17 +346,44 @@ fun TimetableScreen(
                         }
                     }
                 } else {
-                    // Calendar with timetable data (even if it's null, the component handles empty state)
-                    WeeklyCalendar(
-                        timetable = timetable ?: emptyList(),
-                        startOfWeek = currentWeekStart,
-                        onPreviousWeek = { goToPreviousWeek() },
-                        onNextWeek = { goToNextWeek() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                    )
+                    // Calendar views based on current view mode
+                    if (currentViewMode == CalendarViewMode.WEEKLY) {
+                        WeeklyCalendar(
+                            timetable = timetable ?: emptyList(),
+                            startOfWeek = currentWeekStart,
+                            onPreviousWeek = { goToPreviousWeek() },
+                            onNextWeek = { goToNextWeek() },
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                        )
+                    } else {
+                        DailyCalendar(
+                            timetable = timetable ?: emptyList(),
+                            currentDate = currentDate,
+                            onPreviousDay = { goToPreviousDay() },
+                            onNextDay = { goToNextDay() },
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                        )
+                    }
                 }
+
+                // Bottom navigation bar for switching between views
+                CalendarViewBottomBar(
+                    currentViewMode = currentViewMode,
+                    onViewModeChanged = { newMode ->
+                        currentViewMode = newMode
+                        // When switching to daily mode, ensure current date is within loaded week
+                        if (newMode == CalendarViewMode.DAILY) {
+                            val dayWeekStart = currentDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                            if (dayWeekStart != currentWeekStart) {
+                                changeWeek(dayWeekStart)
+                            }
+                        }
+                    }
+                )
             }
         }
     }

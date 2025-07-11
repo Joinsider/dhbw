@@ -102,4 +102,5 @@
     <string name="widget_small_description">Kompakte Anzeige von heutigen Stunden und wenn heute nichts mehr stattfindet, dann von morgen</string>
     <string name="semester">Semester</string>
     <string name="settings">Einstellungen</string>
+    <string name="please_login_to_view_grades">Bitte melde dich an um deine Noten zu sehen</string>
 </resources>
