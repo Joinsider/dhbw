@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.R
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.notification.DHBWNotificationManager
+import de.fampopprol.dhbwhorb.data.notification.ExactAlarmPermissionDialog
+import de.fampopprol.dhbwhorb.data.notification.ExactAlarmPermissionHelper
 import de.fampopprol.dhbwhorb.data.notification.NotificationPreferencesManager
 import de.fampopprol.dhbwhorb.data.notification.NotificationScheduler
 import kotlinx.coroutines.launch
@@ -62,6 +64,10 @@ fun NotificationSettingsScreen(
     val gradeNotificationsEnabled by notificationPreferencesManager.gradeNotificationsEnabled.collectAsState(initial = true)
     val classReminderNotificationsEnabled by notificationPreferencesManager.classReminderNotificationsEnabled.collectAsState(initial = false)
     val classReminderTimeMinutes by notificationPreferencesManager.classReminderTimeMinutes.collectAsState(initial = 30)
+
+    // State for exact alarm permission dialog
+    var showExactAlarmPermissionDialog by remember { mutableStateOf(false) }
+    val exactAlarmPermissionHelper = remember { ExactAlarmPermissionHelper(context) }
 
     // Check if we're in demo mode
     val isDemoMode = dualisService.isDemoMode()
@@ -251,11 +257,22 @@ fun NotificationSettingsScreen(
                         checked = classReminderNotificationsEnabled,
                         enabled = notificationsEnabled,
                         onCheckedChange = { enabled ->
-                            scope.launch {
-                                notificationPreferencesManager.setClassReminderNotificationsEnabled(enabled)
-                                if (enabled) {
-                                    notificationScheduler.scheduleClassReminders()
+                            if (enabled) {
+                                // Check if exact alarm permission is needed
+                                if (exactAlarmPermissionHelper.shouldRequestPermission()) {
+                                    // Show permission dialog first
+                                    showExactAlarmPermissionDialog = true
                                 } else {
+                                    // Permission already granted or not needed, proceed
+                                    scope.launch {
+                                        notificationPreferencesManager.setClassReminderNotificationsEnabled(enabled)
+                                        notificationScheduler.scheduleClassReminders()
+                                    }
+                                }
+                            } else {
+                                // Disabling reminders doesn't need permission check
+                                scope.launch {
+                                    notificationPreferencesManager.setClassReminderNotificationsEnabled(enabled)
                                     notificationScheduler.cancelClassReminders()
                                 }
                             }
@@ -469,5 +486,23 @@ fun NotificationSettingsScreen(
                 )
             }
         }
+
+        // Exact alarm permission dialog
+        ExactAlarmPermissionDialog(
+            isVisible = showExactAlarmPermissionDialog,
+            onDismiss = { showExactAlarmPermissionDialog = false },
+            onPermissionGranted = {
+                // Permission granted, enable class reminders
+                showExactAlarmPermissionDialog = false
+                scope.launch {
+                    notificationPreferencesManager.setClassReminderNotificationsEnabled(true)
+                    notificationScheduler.scheduleClassReminders()
+                }
+            },
+            onPermissionDenied = {
+                showExactAlarmPermissionDialog = false
+                // Don't enable class reminders if permission denied
+            }
+        )
     }
 }
