@@ -41,6 +41,9 @@ class CredentialManager(context: Context) {
         private val KEY_IS_LOGGED_IN_DATASTORE = booleanPreferencesKey("is_logged_in")
     }
 
+    /**
+     * Save credentials persistently (when user checks "Remember me")
+     */
     suspend fun saveCredentials(username: String, password: String) {
         try {
             encryptedSharedPreferences.edit {
