@@ -54,6 +54,17 @@
     <string name="loading_semesters">Semester werden geladen…</string>
     <string name="select_semester">Semester auswählen</string>
 
+    <!-- General Settings -->
+    <string name="general_settings">Allgemeine Einstellungen</string>
+    <string name="material_you_theming">Material You Design</string>
+    <string name="material_you_description">Dynamische Farben aus Ihrem Hintergrundbild verwenden (Android 12+)</string>
+    <string name="theme_mode">Design-Modus</string>
+    <string name="theme_mode_description">Wählen Sie zwischen hellem, dunklem oder System-Design</string>
+    <string name="theme_light">Hell</string>
+    <string name="theme_dark">Dunkel</string>
+    <string name="theme_system">System</string>
+    <string name="settings">Einstellungen</string>
+
     <!-- Notification Settings -->
     <string name="notification_settings">Benachrichtigungseinstellungen</string>
     <string name="enable_notifications">Benachrichtigungen aktivieren</string>
@@ -101,6 +112,5 @@
     <string name="widget_description">Zeigt den aktuellen und die nächsten Events</string>
     <string name="widget_small_description">Kompakte Anzeige von heutigen Stunden und wenn heute nichts mehr stattfindet, dann von morgen</string>
     <string name="semester">Semester</string>
-    <string name="settings">Einstellungen</string>
     <string name="please_login_to_view_grades">Bitte melde dich an um deine Noten zu sehen</string>
 </resources>

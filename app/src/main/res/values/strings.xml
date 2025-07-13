@@ -58,6 +58,16 @@
     <!-- General Terms -->
     <string name="semester">Semester</string>
 
+    <!-- General Settings -->
+    <string name="general_settings">General Settings</string>
+    <string name="material_you_theming">Material You Theming</string>
+    <string name="material_you_description">Use dynamic colors from your wallpaper (Android 12+)</string>
+    <string name="theme_mode">Theme Mode</string>
+    <string name="theme_mode_description">Choose between light, dark, or system theme</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_system">System</string>
+
     <!-- Notification Settings -->
     <string name="notification_settings">Notification Settings</string>
     <string name="enable_notifications">Enable Notifications</string>

@@ -3,7 +3,6 @@ package de.fampopprol.dhbwhorb.ui.screen
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,7 +18,6 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,7 +56,6 @@ fun LoginScreen(
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var rememberCredentials by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -70,8 +67,12 @@ fun LoginScreen(
         }
     }
 
+    // Auto-fill password if credentials are stored
     LaunchedEffect(credentialManager) {
-        rememberCredentials = credentialManager.hasStoredCredentialsBlocking()
+        val storedPassword = credentialManager.getPassword()
+        if (storedPassword != null) {
+            password = storedPassword
+        }
     }
 
     Column(
@@ -165,26 +166,6 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Remember credentials checkbox with better styling
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = rememberCredentials,
-                        onCheckedChange = { rememberCredentials = it },
-                        enabled = !isLoading
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(R.string.remember_credentials),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Enhanced login button with loading state
@@ -197,13 +178,10 @@ fun LoginScreen(
                                 isLoading = false
                                 if (result != null) {
                                     scope.launch {
-                                        if (rememberCredentials) {
-                                            credentialManager.saveCredentials(username, password)
-                                        } else {
-                                            credentialManager.logout()
-                                        }
+                                        // Always save credentials on successful login
+                                        credentialManager.saveCredentials(username, password)
                                         onLoginSuccess()
-                                        Log.d("LoginScreen", "Login successful")
+                                        Log.d("LoginScreen", "Login successful, credentials saved")
                                     }
                                 } else {
                                     errorMessage = "Login failed. Please check your credentials."

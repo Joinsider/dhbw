@@ -10,10 +10,12 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import de.fampopprol.dhbwhorb.data.theme.ThemePreferencesManager
 
 // Enhanced Dark Color Scheme with better Material You compatibility
 private val DarkColorScheme = darkColorScheme(
@@ -69,16 +71,28 @@ private val LightColorScheme = lightColorScheme(
     surfaceContainerHighest = Neutral90
 )
 
+enum class ThemeMode {
+    LIGHT, DARK, SYSTEM
+}
+
 @Composable
 fun DHBWHorbTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+ (API 31+)
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+    val themePreferencesManager = ThemePreferencesManager(context)
+
+    val materialYouEnabled by themePreferencesManager.materialYouEnabled.collectAsState(initial = true)
+    val themeMode by themePreferencesManager.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+
+    val darkTheme = when (themeMode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
+        materialYouEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             if (darkTheme) {
                 dynamicDarkColorScheme(context)
             } else {
@@ -93,15 +107,12 @@ fun DHBWHorbTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Use the newer WindowInsetsController API instead of deprecated statusBarColor
             WindowCompat.getInsetsController(window, view).apply {
                 isAppearanceLightStatusBars = !darkTheme
-                // Set status bar color through window flags instead of direct assignment
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     window.statusBarColor = android.graphics.Color.TRANSPARENT
                 } else {
-                    @Suppress("DEPRECATION")
-                    window.statusBarColor = colorScheme.primary.toArgb()
+                    window.statusBarColor = colorScheme.surface.hashCode()
                 }
             }
         }
