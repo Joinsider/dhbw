@@ -1,0 +1,11 @@
+🎓 Specially developed for DHBW Horb
+
+This app was exclusively developed for students at DHBW Stuttgart Campus Horb and provides you with a complete overview of your daily study life.
+
+⏰ Main Features
+
+Schedule always at hand:
+- Clear display of your personal timetable
+- All lectures, seminars and appointments at a glance
+- Easy navigation through the weekdays
+- Current information about room and lecturer
