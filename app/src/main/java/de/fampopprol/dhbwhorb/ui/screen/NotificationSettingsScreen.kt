@@ -6,7 +6,14 @@
 
 package de.fampopprol.dhbwhorb.ui.screen
 
+import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,25 +24,33 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsOff
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,9 +72,13 @@ import de.fampopprol.dhbwhorb.data.notification.DHBWNotificationManager
 import de.fampopprol.dhbwhorb.data.notification.NotificationPreferencesManager
 import de.fampopprol.dhbwhorb.data.notification.NotificationScheduler
 import de.fampopprol.dhbwhorb.data.theme.ThemePreferencesManager
+import de.fampopprol.dhbwhorb.data.calendar.CalendarSyncManager
+import de.fampopprol.dhbwhorb.data.calendar.CalendarSyncPreferencesManager
+import de.fampopprol.dhbwhorb.data.calendar.CalendarSyncService
 import de.fampopprol.dhbwhorb.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationSettingsScreen(
     dualisService: DualisService,
@@ -517,6 +536,331 @@ fun NotificationSettingsScreen(
                 }
             }
         }
+
+        // ===== CALENDAR SYNC SECTION =====
+        // Calendar Sync Header
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.DateRange,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "Kalender-Synchronisation",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Calendar sync preferences
+        val calendarSyncPreferencesManager = remember { CalendarSyncPreferencesManager(context) }
+        val calendarSyncManager = remember { CalendarSyncManager(context) }
+        val calendarSyncService = remember { CalendarSyncService(context) }
+        val calendarSyncEnabled by calendarSyncPreferencesManager.calendarSyncEnabled.collectAsState(initial = false)
+        val selectedCalendarId by calendarSyncPreferencesManager.selectedCalendarId.collectAsState(initial = -1L)
+
+        var availableCalendars by remember { mutableStateOf(emptyList<de.fampopprol.dhbwhorb.data.calendar.DeviceCalendar>()) }
+        var hasCalendarPermissions by remember { mutableStateOf(false) }
+        var showPermissionDeniedMessage by remember { mutableStateOf(false) }
+
+        // Permission launcher for calendar permissions
+        val calendarPermissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestMultiplePermissions()
+        ) { permissions ->
+            val readCalendarGranted = permissions[Manifest.permission.READ_CALENDAR] ?: false
+            val writeCalendarGranted = permissions[Manifest.permission.WRITE_CALENDAR] ?: false
+
+            hasCalendarPermissions = readCalendarGranted && writeCalendarGranted
+
+            if (hasCalendarPermissions) {
+                // Permissions granted, load calendars and sync if needed
+                scope.launch {
+                    availableCalendars = calendarSyncManager.getAvailableCalendars()
+                    showPermissionDeniedMessage = false
+
+                    // Trigger sync if calendar is already selected
+                    if (calendarSyncEnabled && selectedCalendarId != -1L) {
+                        calendarSyncService.syncTimetableIfEnabled()
+                    }
+                }
+            } else {
+                // Permissions denied, show message with settings redirect
+                showPermissionDeniedMessage = true
+                scope.launch {
+                    // Disable sync since permissions were denied
+                    calendarSyncPreferencesManager.setCalendarSyncEnabled(false)
+                }
+            }
+        }
+
+        // Check permissions and load calendars when sync is enabled
+        androidx.compose.runtime.LaunchedEffect(calendarSyncEnabled) {
+            hasCalendarPermissions = calendarSyncManager.hasCalendarPermissions()
+            if (calendarSyncEnabled) {
+                if (hasCalendarPermissions) {
+                    availableCalendars = calendarSyncManager.getAvailableCalendars()
+                    showPermissionDeniedMessage = false
+                } else {
+                    // Request permissions when sync is enabled but permissions not granted
+                    calendarPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.READ_CALENDAR,
+                            Manifest.permission.WRITE_CALENDAR
+                        )
+                    )
+                }
+            }
+        }
+
+        // Master calendar sync toggle
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Kalender-Synchronisation aktivieren",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Synchronisiert Ihre Dualis Veranstaltungen automatisch mit Ihrem Geräte-Kalender",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = calendarSyncEnabled,
+                        onCheckedChange = { enabled ->
+                            scope.launch {
+                                if (enabled) {
+                                    // Check if we already have permissions
+                                    hasCalendarPermissions = calendarSyncManager.hasCalendarPermissions()
+                                    if (hasCalendarPermissions) {
+                                        calendarSyncPreferencesManager.setCalendarSyncEnabled(true)
+                                        availableCalendars = calendarSyncManager.getAvailableCalendars()
+                                        showPermissionDeniedMessage = false
+                                    } else {
+                                        // Will trigger permission request in LaunchedEffect
+                                        calendarSyncPreferencesManager.setCalendarSyncEnabled(true)
+                                    }
+                                } else {
+                                    // Disable sync and remove events
+                                    calendarSyncPreferencesManager.setCalendarSyncEnabled(false)
+                                    if (selectedCalendarId != -1L) {
+                                        calendarSyncManager.removeDHBWEventsFromCalendar(selectedCalendarId)
+                                    }
+                                    showPermissionDeniedMessage = false
+                                }
+                            }
+                        }
+                    )
+                }
+
+                // Show permission denied message with settings redirect button
+                if (calendarSyncEnabled && showPermissionDeniedMessage) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Kalender-Berechtigung verweigert",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                text = "Um die Kalender-Synchronisation zu nutzen, benötigt die App Zugriff auf Ihren Kalender. Sie können die Berechtigung in den Systemeinstellungen erteilen.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+
+                            Button(
+                                onClick = {
+                                    // Open app settings
+                                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                        data = Uri.fromParts("package", context.packageName, null)
+                                    }
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text("Zu App-Einstellungen")
+                            }
+                        }
+                    }
+                }
+
+                // Show general permission warning if calendar sync is enabled but permissions are missing (and not explicitly denied)
+                if (calendarSyncEnabled && !hasCalendarPermissions && !showPermissionDeniedMessage) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ) {
+                        Text(
+                            text = "Kalender-Berechtigung wird angefordert...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Calendar selection dropdown (only show when sync is enabled and permissions granted)
+        if (calendarSyncEnabled && hasCalendarPermissions && availableCalendars.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Kalender auswählen",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "Wählen Sie den Kalender aus, mit dem Ihre Dualis Veranstaltungen synchronisiert werden sollen",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Material 3 ExposedDropdownMenu for calendar selection
+                    var expanded by remember { mutableStateOf(false) }
+                    val selectedCalendar = availableCalendars.find { it.id == selectedCalendarId }
+
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = selectedCalendar?.displayName ?: "Kalender auswählen",
+                            onValueChange = { },
+                            readOnly = true,
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                            },
+                            modifier = Modifier
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
+                                .fillMaxWidth(),
+                            label = { Text("Kalender") },
+                            supportingText = if (selectedCalendar != null) {
+                                { Text("${selectedCalendar.accountName} (${selectedCalendar.accountType})") }
+                            } else null
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            availableCalendars.forEach { calendar ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(
+                                                text = calendar.displayName,
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                            Text(
+                                                text = "${calendar.accountName} (${calendar.accountType})",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        scope.launch {
+                                            // Remove events from previously selected calendar
+                                            if (selectedCalendarId != -1L) {
+                                                calendarSyncManager.removeDHBWEventsFromCalendar(selectedCalendarId)
+                                            }
+
+                                            calendarSyncPreferencesManager.setSelectedCalendarId(calendar.id)
+
+                                            // Trigger sync with the new calendar
+                                            calendarSyncService.syncTimetableIfEnabled()
+                                        }
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Sync Now Button
+                    var isSyncing by remember { mutableStateOf(false) }
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isSyncing = true
+                                try {
+                                    calendarSyncService.syncAllAvailableTimetableData()
+                                } finally {
+                                    isSyncing = false
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isSyncing && selectedCalendarId != -1L,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Sync,
+                            contentDescription = null,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text(if (isSyncing) "Synchronisiere..." else "Jetzt synchronisieren")
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Demo notification test buttons (only show in demo mode)
         if (isDemoMode) {
