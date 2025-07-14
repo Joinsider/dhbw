@@ -1,0 +1,11 @@
+🎓 Speziell für DHBW Horb entwickelt
+
+Diese App wurde exklusiv für Studierende der DHBW Stuttgart Campus Horb entwickelt und bietet Ihnen den kompletten Überblick über Ihren Studienalltag.
+
+⏰ Hauptfunktionen
+
+Stundenplan immer griffbereit:
+- Übersichtliche Darstellung Ihres persönlichen Stundenplans
+- Alle Vorlesungen, Seminare und Termine auf einen Blick
+- Einfache Navigation durch die Wochentage
+- Aktuelle Informationen zu Raum und Dozent
