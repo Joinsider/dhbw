@@ -1,0 +1,25 @@
+version = 1
+
+[[annotations]]
+path = [
+    "app/src/main/res/**",
+    "gradle/**",
+    "fastlane/**/*",
+    "Gemfile",
+    "Gemfile.lock",
+    "settings.gradle.kts",
+    "gradle.properties",
+    "fastlane/*",
+    "app/.gitignore",
+    ".idea/**/*",
+    ".gitignore",
+    "app/build.gradle.kts",
+    "app/release/**/*",
+    "app/proguard-rules.pro",
+    "app/src/androidTest/**",
+    "app/src/test/java/**",
+    "build.gradle.kts",
+    "app/src/main/AndroidManifest.xml",
+]
+SPDX-FileCopyrightText = "2024 Joinside <suitor-fall-life@duck.com>"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
