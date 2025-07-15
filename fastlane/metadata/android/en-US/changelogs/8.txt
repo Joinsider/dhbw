@@ -1,0 +1,2 @@
+New Bottom Nav Bar that simplifies navigation and fixes previous issues.
+Redesigned button for switching between daily and weekly view.
