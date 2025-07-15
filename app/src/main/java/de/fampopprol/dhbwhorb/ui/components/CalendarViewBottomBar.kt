@@ -6,11 +6,20 @@
 
 package de.fampopprol.dhbwhorb.ui.components
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarViewWeek
 import androidx.compose.material.icons.filled.Today
-import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -20,6 +29,7 @@ enum class CalendarViewMode {
     DAILY
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarViewBottomBar(
     currentViewMode: CalendarViewMode,
@@ -41,35 +51,33 @@ fun CalendarViewBottomBar(
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 8.dp
     ) {
-        Column {
-            TabRow(
-                selectedTabIndex = selectedTabIndex,
-                modifier = Modifier.fillMaxWidth(),
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            ) {
-                tabs.forEachIndexed { index, (mode, title) ->
-                    Tab(
-                        selected = selectedTabIndex == index,
-                        onClick = { onViewModeChanged(mode) },
-                        text = {
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = when (mode) {
-                                    CalendarViewMode.WEEKLY -> Icons.Default.CalendarViewWeek
-                                    CalendarViewMode.DAILY -> Icons.Default.Today
-                                },
-                                contentDescription = "$title View",
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    )
-                }
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            tabs.forEachIndexed { index, (mode, title) ->
+                SegmentedButton(
+                    selected = selectedTabIndex == index,
+                    onClick = { onViewModeChanged(mode) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
+                    icon = {
+                        Icon(
+                            imageVector = when (mode) {
+                                CalendarViewMode.WEEKLY -> Icons.Default.CalendarViewWeek
+                                CalendarViewMode.DAILY -> Icons.Default.Today
+                            },
+                            contentDescription = "$title View",
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                )
             }
         }
     }
