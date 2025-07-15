@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
@@ -39,7 +40,6 @@ import de.fampopprol.dhbwhorb.ui.components.WeekNavigationBar
 import de.fampopprol.dhbwhorb.ui.components.WeeklyCalendar
 import de.fampopprol.dhbwhorb.ui.components.DailyCalendar
 import de.fampopprol.dhbwhorb.ui.components.DayNavigationBar
-import de.fampopprol.dhbwhorb.ui.components.CalendarViewBottomBar
 import de.fampopprol.dhbwhorb.ui.components.CalendarViewMode
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -53,6 +53,8 @@ fun TimetableScreen(
     credentialManager: CredentialManager,
     timetableCacheManager: TimetableCacheManager,
     onLogout: () -> Unit,
+    currentViewMode: CalendarViewMode,
+    onViewModeChanged: (CalendarViewMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val pullRefreshState = rememberPullToRefreshState()
@@ -63,8 +65,7 @@ fun TimetableScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     var lastUpdated by remember { mutableStateOf<String?>(null) }
 
-    // View mode state
-    var currentViewMode by remember { mutableStateOf(CalendarViewMode.WEEKLY) }
+    
 
     // Current date for daily view - defaults to today
     var currentDate by remember { mutableStateOf(LocalDate.now()) }
@@ -293,6 +294,7 @@ fun TimetableScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 // Navigation bar based on current view mode
+                // Navigation bar based on current view mode
                 if (currentViewMode == CalendarViewMode.WEEKLY) {
                     WeekNavigationBar(
                         currentWeekStart = currentWeekStart,
@@ -376,20 +378,7 @@ fun TimetableScreen(
                     }
                 }
 
-                // Bottom navigation bar for switching between views
-                CalendarViewBottomBar(
-                    currentViewMode = currentViewMode,
-                    onViewModeChanged = { newMode ->
-                        currentViewMode = newMode
-                        // When switching to daily mode, ensure current date is within loaded week
-                        if (newMode == CalendarViewMode.DAILY) {
-                            val dayWeekStart = currentDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                            if (dayWeekStart != currentWeekStart) {
-                                changeWeek(dayWeekStart)
-                            }
-                        }
-                    }
-                )
+                
             }
         }
     }

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.filled.CalendarViewDay
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +36,9 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
+
+import androidx.compose.ui.res.stringResource
+import de.fampopprol.dhbwhorb.R
 
 @Composable
 fun WeekNavigationBar(
@@ -125,7 +129,7 @@ fun WeekNavigationBar(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.ChevronRight,
-                        contentDescription = "Next Week",
+                        contentDescription = stringResource(R.string.next_week),
                         tint = if (isLoading) {
                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                         } else {

@@ -15,9 +15,12 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.CalendarViewDay
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.CalendarViewWeek
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,8 +35,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -52,6 +57,7 @@ import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.notification.NotificationPreferencesManager
 import de.fampopprol.dhbwhorb.data.notification.NotificationScheduler
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
+import de.fampopprol.dhbwhorb.ui.components.CalendarViewMode
 import kotlinx.coroutines.launch
 
 // Navigation destinations
@@ -78,6 +84,8 @@ fun MainScreen(
     gradesCacheManager: GradesCacheManager,
     notificationScheduler: NotificationScheduler,
     onLogout: () -> Unit,
+    currentTimetableScreenViewMode: CalendarViewMode,
+    onTimetableScreenViewModeChanged: (CalendarViewMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
@@ -102,6 +110,12 @@ fun MainScreen(
         NavigationDestination.Grades.route -> stringResource(R.string.grades)
         NavigationDestination.NotificationSettings.route -> stringResource(R.string.settings)
         else -> stringResource(R.string.timetable)
+    }
+
+    var currentTimetableScreenViewMode by remember { mutableStateOf(CalendarViewMode.WEEKLY) }
+
+    val onTimetableScreenViewModeChanged: (CalendarViewMode) -> Unit = { newMode ->
+        currentTimetableScreenViewMode = newMode
     }
 
     if (useNavigationRail) {
@@ -167,6 +181,22 @@ fun MainScreen(
                 topBar = {
                     TopAppBar(
                         title = { Text(currentTitle) },
+                        actions = {
+                            if (currentDestination?.route == NavigationDestination.Timetable.route) {
+                                IconButton(onClick = {
+                                    currentTimetableScreenViewMode = if (currentTimetableScreenViewMode == CalendarViewMode.WEEKLY) {
+                                        CalendarViewMode.DAILY
+                                    } else {
+                                        CalendarViewMode.WEEKLY
+                                    }
+                                }) {
+                                    Icon(
+                                        imageVector = if (currentTimetableScreenViewMode == CalendarViewMode.WEEKLY) Icons.Default.CalendarViewDay else Icons.Default.CalendarViewWeek,
+                                        contentDescription = if (currentTimetableScreenViewMode == CalendarViewMode.WEEKLY) stringResource(R.string.weekly_view) else stringResource(R.string.daily_view)
+                                    )
+                                }
+                            }
+                        },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.surface,
                             titleContentColor = MaterialTheme.colorScheme.onSurface
@@ -185,7 +215,9 @@ fun MainScreen(
                             dualisService = dualisService,
                             credentialManager = credentialManager,
                             timetableCacheManager = timetableCacheManager,
-                            onLogout = onLogout
+                            onLogout = onLogout,
+                            currentViewMode = currentTimetableScreenViewMode,
+                            onViewModeChanged = onTimetableScreenViewModeChanged
                         )
                     }
 
@@ -204,7 +236,9 @@ fun MainScreen(
                         NotificationSettingsScreen(
                             dualisService = dualisService,
                             notificationScheduler = notificationScheduler,
-                            notificationPreferencesManager = notificationPreferencesManager
+                            notificationPreferencesManager = notificationPreferencesManager,
+                            credentialManager = credentialManager,
+                            onLogout = onLogout
                         )
                     }
                 }
@@ -218,16 +252,19 @@ fun MainScreen(
                 TopAppBar(
                     title = { Text(currentTitle) },
                     actions = {
-                        IconButton(onClick = {
-                            scope.launch {
-                                credentialManager.logout()
-                                onLogout()
+                        if (currentDestination?.route == NavigationDestination.Timetable.route) {
+                            IconButton(onClick = {
+                                currentTimetableScreenViewMode = if (currentTimetableScreenViewMode == CalendarViewMode.WEEKLY) {
+                                    CalendarViewMode.DAILY
+                                } else {
+                                    CalendarViewMode.WEEKLY
+                                }
+                            }) {
+                                Icon(
+                                    imageVector = if (currentTimetableScreenViewMode == CalendarViewMode.WEEKLY) Icons.Default.CalendarViewDay else Icons.Default.CalendarViewWeek,
+                                    contentDescription = if (currentTimetableScreenViewMode == CalendarViewMode.WEEKLY) stringResource(R.string.weekly_view) else stringResource(R.string.daily_view)
+                                )
                             }
-                        }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                                contentDescription = stringResource(R.string.logout)
-                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -274,7 +311,9 @@ fun MainScreen(
                         dualisService = dualisService,
                         credentialManager = credentialManager,
                         timetableCacheManager = timetableCacheManager,
-                        onLogout = onLogout
+                        onLogout = onLogout,
+                        currentViewMode = currentTimetableScreenViewMode,
+                        onViewModeChanged = onTimetableScreenViewModeChanged
                     )
                 }
 
@@ -293,7 +332,9 @@ fun MainScreen(
                     NotificationSettingsScreen(
                         dualisService = dualisService,
                         notificationScheduler = notificationScheduler,
-                        notificationPreferencesManager = notificationPreferencesManager
+                        notificationPreferencesManager = notificationPreferencesManager,
+                        credentialManager = credentialManager,
+                        onLogout = onLogout
                     )
                 }
             }
