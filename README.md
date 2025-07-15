@@ -11,7 +11,7 @@ password: `demo123`
 
 ## Where can you install my app?
 - Google Play Store: - `Comming soon` - Currently in preview phase message me on [public@joinside.de](mailto:public@joinside.de)
-- F-Droid: Released in the IzzyOnDroid repository, you can find it [here](https://shields.rbtlog.dev/de.fampopprol.dhbwhorb)
+- F-Droid: Released in the IzzyOnDroid repository, you can find it [here](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
 
-[<img src="./assets/izzyOnDroid.png" alt="IzzyOnDroid">](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
+[<img src="./assets/izzyOnDroid.png" alt="IzzyOnDroid" width="200px">](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
 [<img src="https://shields.rbtlog.dev/simple/de.fampopprol.dhbwhorb" alt="RB shield">](https://shields.rbtlog.dev/de.fampopprol.dhbwhorb))
