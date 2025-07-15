@@ -12,8 +12,8 @@ android {
         applicationId = "de.fampopprol.dhbwhorb"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "v1.0.5"
+        versionCode = 7
+        versionName = "v1.0.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -45,6 +45,12 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    dependenciesInfo {
+        // Disables dependency metadata when building APKs (for IzzyOnDroid/F-Droid)
+        includeInApk = false
+        // Disables dependency metadata when building Android App Bundles (for Google Play)
+        includeInBundle = false
     }
 }
 
