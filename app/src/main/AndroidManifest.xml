@@ -19,6 +19,15 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.DHBWHorb">
+        <meta-data
+            android:name="support_email"
+            android:value="public@joinside.de"/>
+        <meta-data
+            android:name="developer_website"
+            android:value="https://github.com/Joinsider" />
+        <meta-data
+            android:name="backup_contact"
+            android:value="https://chaos.social/@Joinside"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
