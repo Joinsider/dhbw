@@ -5,6 +5,7 @@ This app was exclusively developed for students at DHBW Stuttgart Campus Horb an
 ⏰ Main Features
 
 Schedule always at hand:
+
 - Clear display of your personal timetable
 - All lectures, seminars and appointments at a glance
 - Easy navigation through the weekdays

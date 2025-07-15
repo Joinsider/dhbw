@@ -10,4 +10,8 @@ e-Mail: `demo@dhbw.de`
 password: `demo123`
 
 ## Where can you install my app?
-The app currently is on it's way to be released on both the Google Play as well as the Fdroid store. If the app is officially released updates will be posted here
+- Google Play Store: - `Comming soon` - Currently in preview phase message me on [public@joinside.de](mailto:public@joinside.de)
+- F-Droid: Released in the IzzyOnDroid repository, you can find it [here](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
+
+[<img src="./assets/izzyOnDroid.png" alt="IzzyOnDroid" width="200px">](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
+[<img src="https://shields.rbtlog.dev/simple/de.fampopprol.dhbwhorb" alt="RB shield" width="200px">](https://shields.rbtlog.dev/de.fampopprol.dhbwhorb)
