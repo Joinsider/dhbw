@@ -47,6 +47,10 @@
     <string name="next_week">Next week</string>
     <string name="last_updated_at">Last updated: %s</string>
 
+    <!-- Calendar View Modes -->
+    <string name="weekly_view">Weekly</string>
+    <string name="daily_view">Daily</string>
+
     <!-- Error Messages -->
     <string name="authentication_failed">Authentication failed. Please login again.</string>
     <string name="no_credentials_found">No credentials found. Please login again.</string>

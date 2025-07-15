@@ -32,10 +32,14 @@ import de.fampopprol.dhbwhorb.data.notification.RequestNotificationPermission
 import de.fampopprol.dhbwhorb.ui.screen.LoginScreen
 import de.fampopprol.dhbwhorb.ui.screen.MainScreen
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
+import de.fampopprol.dhbwhorb.ui.components.CalendarViewMode
 import kotlinx.coroutines.launch
 
 @Composable
-fun App() {
+fun App(
+    currentTimetableScreenViewMode: CalendarViewMode,
+    onTimetableScreenViewModeChanged: (CalendarViewMode) -> Unit
+) {
     DHBWHorbTheme {
         val context = LocalContext.current
         val credentialManager = remember { CredentialManager(context) }
@@ -122,6 +126,8 @@ fun App() {
                             Log.d("MainActivity", "Cleared cache during logout")
                         }
                     },
+                    currentTimetableScreenViewMode = currentTimetableScreenViewMode,
+                    onTimetableScreenViewModeChanged = onTimetableScreenViewModeChanged,
                     modifier = Modifier.padding(innerPadding)
                 )
             }

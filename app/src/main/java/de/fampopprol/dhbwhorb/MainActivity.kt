@@ -12,6 +12,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
@@ -20,6 +24,7 @@ import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.screen.*
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
 import de.fampopprol.dhbwhorb.widget.WidgetUpdateManager
+import de.fampopprol.dhbwhorb.ui.components.CalendarViewMode
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,7 +40,16 @@ class MainActivity : ComponentActivity() {
         WidgetUpdateManager.updateAllWidgets(this)
 
         setContent {
-            App()
+            var currentTimetableScreenViewMode by remember { mutableStateOf(CalendarViewMode.WEEKLY) }
+
+            val onTimetableScreenViewModeChanged: (CalendarViewMode) -> Unit = { newMode ->
+                currentTimetableScreenViewMode = newMode
+            }
+
+            App(
+                currentTimetableScreenViewMode = currentTimetableScreenViewMode,
+                onTimetableScreenViewModeChanged = onTimetableScreenViewModeChanged
+            )
         }
     }
 }
@@ -60,7 +74,9 @@ fun TimetableScreenPreview() {
             dualisService = DualisService(),
             credentialManager = CredentialManager(LocalContext.current),
             timetableCacheManager = TimetableCacheManager(LocalContext.current),
-            onLogout = {}
+            onLogout = {},
+            currentViewMode = CalendarViewMode.WEEKLY, // Dummy value for preview
+            onViewModeChanged = {} // Dummy value for preview
         )
     }
 }

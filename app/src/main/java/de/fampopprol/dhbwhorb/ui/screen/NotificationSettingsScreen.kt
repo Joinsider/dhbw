@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -56,6 +57,7 @@ import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.notification.DHBWNotificationManager
 import de.fampopprol.dhbwhorb.data.notification.NotificationPreferencesManager
 import de.fampopprol.dhbwhorb.data.notification.NotificationScheduler
+import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.data.theme.ThemePreferencesManager
 import de.fampopprol.dhbwhorb.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
@@ -65,6 +67,8 @@ fun NotificationSettingsScreen(
     dualisService: DualisService,
     notificationScheduler: NotificationScheduler,
     notificationPreferencesManager: NotificationPreferencesManager,
+    credentialManager: CredentialManager, // Add CredentialManager
+    onLogout: () -> Unit, // Add onLogout callback
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -650,6 +654,29 @@ fun NotificationSettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+
+        // Logout Button
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = {
+                scope.launch {
+                    credentialManager.logout()
+                    onLogout()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
+            )
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                contentDescription = null,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+            Text(stringResource(R.string.logout))
         }
     }
 }

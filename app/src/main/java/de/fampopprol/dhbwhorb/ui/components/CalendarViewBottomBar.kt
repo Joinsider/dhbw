@@ -6,14 +6,18 @@
 
 package de.fampopprol.dhbwhorb.ui.components
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarViewWeek
 import androidx.compose.material.icons.filled.Today
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import de.fampopprol.dhbwhorb.R
 
 enum class CalendarViewMode {
     WEEKLY,
@@ -26,51 +30,30 @@ fun CalendarViewBottomBar(
     onViewModeChanged: (CalendarViewMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val tabs = listOf(
-        CalendarViewMode.WEEKLY to "Weekly",
-        CalendarViewMode.DAILY to "Daily"
+    val items = listOf(
+        CalendarViewMode.WEEKLY to R.string.weekly_view,
+        CalendarViewMode.DAILY to R.string.daily_view
     )
 
-    val selectedTabIndex = when (currentViewMode) {
-        CalendarViewMode.WEEKLY -> 0
-        CalendarViewMode.DAILY -> 1
-    }
-
-    Surface(
+    NavigationBar(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 8.dp
     ) {
-        Column {
-            TabRow(
-                selectedTabIndex = selectedTabIndex,
-                modifier = Modifier.fillMaxWidth(),
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            ) {
-                tabs.forEachIndexed { index, (mode, title) ->
-                    Tab(
-                        selected = selectedTabIndex == index,
-                        onClick = { onViewModeChanged(mode) },
-                        text = {
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.labelLarge
-                            )
+        items.forEach { (mode, titleRes) ->
+            val title = stringResource(titleRes)
+            NavigationBarItem(
+                icon = {
+                    Icon(
+                        imageVector = when (mode) {
+                            CalendarViewMode.WEEKLY -> Icons.Default.CalendarViewWeek
+                            CalendarViewMode.DAILY -> Icons.Default.Today
                         },
-                        icon = {
-                            Icon(
-                                imageVector = when (mode) {
-                                    CalendarViewMode.WEEKLY -> Icons.Default.CalendarViewWeek
-                                    CalendarViewMode.DAILY -> Icons.Default.Today
-                                },
-                                contentDescription = "$title View",
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                        contentDescription = title
                     )
-                }
-            }
+                },
+                label = { Text(title) },
+                selected = currentViewMode == mode,
+                onClick = { onViewModeChanged(mode) }
+            )
         }
     }
 }
