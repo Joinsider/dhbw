@@ -14,4 +14,4 @@ password: `demo123`
 - F-Droid: Released in the IzzyOnDroid repository, you can find it [here](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
 
 [<img src="./assets/izzyOnDroid.png" alt="IzzyOnDroid" width="200px">](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
-[<img src="https://shields.rbtlog.dev/simple/de.fampopprol.dhbwhorb" alt="RB shield" width="200px">](https://shields.rbtlog.dev/de.fampopprol.dhbwhorb)
+[<img src="https://shields.rbtlog.dev/simple/de.fampopprol.dhbwhorb" alt="RB shield">](https://shields.rbtlog.dev/de.fampopprol.dhbwhorb)
