@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dualis Login</title>
+</head>
+<body>
+  <h1>Dualis Mock Login</h1>
+  <form action="/scripts/mgrqispi.dll" method="post">
+    <input type="hidden" name="APPNAME" value="CampusNet">
+    <input type="hidden" name="PRGNAME" value="LOGINCHECK">
+    <input type="hidden" name="ARGUMENTS" value="clino,usrname,pass,menuno,menu_type,browser,platform">
+    <input type="hidden" name="clino" value="000000000000001">
+    <input type="hidden" name="menuno" value="000324">
+    <input type="hidden" name="menu_type" value="classic">
+    <input type="hidden" name="browser" value="">
+    <input type="hidden" name="platform" value="">
+    <label for="usrname">Username:</label>
+    <input type="text" id="usrname" name="usrname">
+    <label for="pass">Password:</label>
+    <input type="password" id="pass" name="pass">
+    <button type="submit">Login</button>
+  </form>
+</body>
+</html>

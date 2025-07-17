@@ -41,6 +41,7 @@ class DualisService {
     private var _lastLoginCredentials: Pair<String, String>? = null
     private var _isReAuthenticating = false
     private var _isDemoMode = false
+    private val useMockServer = true
 
     fun login(user: String, pass: String, callback: (String?) -> Unit) {
         Log.d("DualisService", "=== STARTING LOGIN PROCESS ===")
@@ -72,9 +73,10 @@ class DualisService {
 
         Log.d("DualisService", "Form body prepared with ${formBody.size} parameters")
 
-        val request =
-            Request.Builder().url("https://dualis.dhbw.de/scripts/mgrqispi.dll").post(formBody)
-                .build()
+        val request = Request.Builder()
+            .url(if (useMockServer) "http://10.0.2.2:3000/scripts/mgrqispi.dll" else "https://dualis.dhbw.de/scripts/mgrqispi.dll")
+            .post(formBody)
+            .build()
 
         Log.d("DualisService", "Sending login request to: ${request.url}")
 
@@ -100,7 +102,8 @@ class DualisService {
                     val redirectUrlHeader = response.header("refresh")
                     Log.d("DualisService", "Redirect header: $redirectUrlHeader")
                     if (redirectUrlHeader != null) {
-                        val dualisEndpoint = "https://dualis.dhbw.de"
+                        val dualisEndpoint =
+                            if (useMockServer) "http://10.0.2.2:3000" else "https://dualis.dhbw.de"
                         val redirectUrlPart = if (redirectUrlHeader.contains("URL=")) {
                             redirectUrlHeader.substring(redirectUrlHeader.indexOf("URL=") + "URL=".length)
                         } else {
@@ -291,11 +294,18 @@ class DualisService {
         // Construct the COURSERESULTS URL using the extracted auth token
         if (baseAuthUrl != null && _authToken != null) {
             // Extract the auth token and any additional arguments from the base URL
-            val baseUrl = "https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307,"
+            val baseUrl =
+                if (useMockServer) "http://10.0.2.2:3000/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307," else "https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307,"
             _dualisUrls.studentResultsUrl = baseUrl
-            Log.d("DualisService", "Constructed student results URL: ${_dualisUrls.studentResultsUrl}")
+            Log.d(
+                "DualisService",
+                "Constructed student results URL: ${_dualisUrls.studentResultsUrl}"
+            )
         } else {
-            Log.e("DualisService", "Could not construct COURSERESULTS URL - missing auth token or base URL")
+            Log.e(
+                "DualisService",
+                "Could not construct COURSERESULTS URL - missing auth token or base URL"
+            )
         }
 
         // Extracting course result URL (keep existing logic for alternative)
@@ -404,8 +414,8 @@ class DualisService {
 
         // Reconstruct the URL
         val url = baseUrl.replace(existingArguments, updatedArguments).replace(
-                "ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken"
-            ) // Ensure auth token is correct
+            "ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken"
+        ) // Ensure auth token is correct
         Log.d("DualisService", "Constructed Monthly Schedule URL: $url")
 
         val request = Request.Builder().url(url).get().build()
@@ -486,8 +496,8 @@ class DualisService {
 
         // Reconstruct the URL
         val url = baseUrl.replace(existingArguments, updatedArguments).replace(
-                "ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken"
-            ) // Ensure auth token is correct
+            "ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken"
+        ) // Ensure auth token is correct
         Log.d("DualisService", "Constructed Weekly Schedule URL for $targetDate: $url")
 
         val request = Request.Builder().url(url).get().build()
@@ -568,7 +578,8 @@ class DualisService {
         }
 
         // Use the base URL for course results to get the semester selection page
-        val baseUrl = "https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307,"
+        val baseUrl =
+            if (useMockServer) "http://10.0.2.2:3000/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307," else "https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307,"
 
         val request = Request.Builder().url(baseUrl).get().build()
 
@@ -628,7 +639,10 @@ class DualisService {
 
                 if (value.isNotEmpty() && displayName.isNotEmpty()) {
                     semesters.add(Semester(value, displayName, isSelected))
-                    Log.d("DualisService", "Added semester: $displayName (value: $value, selected: $isSelected)")
+                    Log.d(
+                        "DualisService",
+                        "Added semester: $displayName (value: $value, selected: $isSelected)"
+                    )
                 }
             }
         } else {
@@ -651,7 +665,10 @@ class DualisService {
      */
     fun getStudyGradesForSemester(semester: Semester, callback: (StudyGrades?) -> Unit) {
         val semesterArgument = Semester.formatSemesterArgument(semester.value)
-        Log.d("DualisService", "Fetching grades for semester: ${semester.displayName} with argument: $semesterArgument")
+        Log.d(
+            "DualisService",
+            "Fetching grades for semester: ${semester.displayName} with argument: $semesterArgument"
+        )
         getStudyGrades(semesterArgument, callback)
     }
 
@@ -706,11 +723,17 @@ class DualisService {
         }
 
         Log.d("DualisService", "Checking student results URL...")
-        Log.d("DualisService", "Student results URL present: ${_dualisUrls.studentResultsUrl != null}")
+        Log.d(
+            "DualisService",
+            "Student results URL present: ${_dualisUrls.studentResultsUrl != null}"
+        )
         Log.d("DualisService", "Student results URL value: ${_dualisUrls.studentResultsUrl}")
 
         if (_dualisUrls.studentResultsUrl == null) {
-            Log.e("DualisService", "Student results URL is null. Main page parsing may have failed.")
+            Log.e(
+                "DualisService",
+                "Student results URL is null. Main page parsing may have failed."
+            )
             Log.e("DualisService", "Available URLs in _dualisUrls:")
             Log.e("DualisService", "  - studentResultsUrl: ${_dualisUrls.studentResultsUrl}")
             Log.e("DualisService", "  - courseResultUrl: ${_dualisUrls.courseResultUrl}")
@@ -722,7 +745,8 @@ class DualisService {
 
         // Construct URL with semester-specific argument
         // Base format: https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N{authToken},-N000307{semesterArgument}
-        val baseUrl = "https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307$semesterArgument"
+        val baseUrl =
+            if (useMockServer) "http://10.0.2.2:3000/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307$semesterArgument" else "https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N$_authToken,-N000307$semesterArgument"
 
         Log.d("DualisService", "=== URL PREPARATION COMPLETE ===")
         Log.d("DualisService", "Auth Token: $_authToken")
@@ -767,11 +791,20 @@ class DualisService {
                     Log.d("DualisService", "Token invalid check result: $isTokenInvalid")
 
                     if (isTokenInvalid) {
-                        Log.w("DualisService", "Token appears to be invalid when fetching grades, attempting re-authentication")
+                        Log.w(
+                            "DualisService",
+                            "Token appears to be invalid when fetching grades, attempting re-authentication"
+                        )
                         reAuthenticateIfNeeded { success ->
                             if (success) {
-                                Log.d("DualisService", "Re-authentication successful, retrying grades fetch")
-                                getStudyGrades(semesterArgument, callback) // Retry after re-authentication
+                                Log.d(
+                                    "DualisService",
+                                    "Re-authentication successful, retrying grades fetch"
+                                )
+                                getStudyGrades(
+                                    semesterArgument,
+                                    callback
+                                ) // Retry after re-authentication
                             } else {
                                 Log.e("DualisService", "Re-authentication failed")
                                 callback(null)
@@ -790,9 +823,15 @@ class DualisService {
                         if (studyGrades != null) {
                             Log.d("DualisService", "Successfully parsed grades:")
                             Log.d("DualisService", "  - GPA Total: ${studyGrades.gpaTotal}")
-                            Log.d("DualisService", "  - GPA Main Modules: ${studyGrades.gpaMainModules}")
+                            Log.d(
+                                "DualisService",
+                                "  - GPA Main Modules: ${studyGrades.gpaMainModules}"
+                            )
                             Log.d("DualisService", "  - Credits Total: ${studyGrades.creditsTotal}")
-                            Log.d("DualisService", "  - Credits Gained: ${studyGrades.creditsGained}")
+                            Log.d(
+                                "DualisService",
+                                "  - Credits Gained: ${studyGrades.creditsGained}"
+                            )
                             Log.d("DualisService", "  - Semester: ${studyGrades.semester}")
                         } else {
                             Log.e("DualisService", "Parser returned null - parsing failed")
@@ -1005,12 +1044,12 @@ class DualisService {
         }
 
         val sortedTimetableDays = eventsByFullDate.entries.sortedBy { it.key }.map { entry ->
-                Log.d(
-                    "DualisService",
-                    "Creating TimetableDay for ${dateFormatter.format(entry.key)} with ${entry.value.size} events"
-                )
-                TimetableDay(dateFormatter.format(entry.key), entry.value)
-            }
+            Log.d(
+                "DualisService",
+                "Creating TimetableDay for ${dateFormatter.format(entry.key)} with ${entry.value.size} events"
+            )
+            TimetableDay(dateFormatter.format(entry.key), entry.value)
+        }
 
         Log.d("DualisService", "Parsed ${sortedTimetableDays.size} timetable days")
         sortedTimetableDays.forEach { day ->

@@ -1,0 +1,12 @@
+{
+  "name": "dualis-mock-server",
+  "version": "1.0.0",
+  "description": "A mock server for the Dualis application.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
