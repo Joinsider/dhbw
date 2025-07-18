@@ -14,23 +14,19 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import de.fampopprol.dhbwhorb.data.dualis.models.StudyGrades
 import de.fampopprol.dhbwhorb.data.dualis.models.Semester
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 
 private val Context.gradesDataStore: DataStore<Preferences> by preferencesDataStore(name = "grades_cache")
 
-class GradesCacheManager(private val context: Context) {
-    private val gson = Gson()
+class GradesCacheManager(context: Context) : BaseCacheManager(context) {
+
+    override val tag = "GradesCacheManager"
+    private val cacheExpiryHours = 24 // Cache expires after 24 hours
 
     companion object {
-        private const val TAG = "GradesCacheManager"
-        private const val CACHE_EXPIRY_HOURS = 24 // Cache expires after 24 hours
-
         private val GRADES_DATA_KEY = stringPreferencesKey("grades_data")
         private val GRADES_TIMESTAMP_KEY = longPreferencesKey("grades_timestamp")
         private val SELECTED_SEMESTER_KEY = stringPreferencesKey("selected_semester")
@@ -53,9 +49,9 @@ class GradesCacheManager(private val context: Context) {
                 preferences[SELECTED_SEMESTER_KEY] = semesterJson
             }
 
-            Log.d(TAG, "Cached grades for semester: ${semester.displayName}")
+            Log.d(tag, "Cached grades for semester: ${semester.displayName}")
         } catch (e: Exception) {
-            Log.e(TAG, "Error caching grades", e)
+            Log.e(tag, "Error caching grades", e)
         }
     }
 
@@ -72,9 +68,9 @@ class GradesCacheManager(private val context: Context) {
                 preferences[SEMESTERS_TIMESTAMP_KEY] = currentTime
             }
 
-            Log.d(TAG, "Cached ${semesters.size} semesters")
+            Log.d(tag, "Cached ${semesters.size} semesters")
         } catch (e: Exception) {
-            Log.e(TAG, "Error caching semesters", e)
+            Log.e(tag, "Error caching semesters", e)
         }
     }
 
@@ -89,28 +85,23 @@ class GradesCacheManager(private val context: Context) {
             val semesterJson = preferences[SELECTED_SEMESTER_KEY]
 
             if (gradesJson == null || semesterJson == null) {
-                Log.d(TAG, "No cached grades found")
+                Log.d(tag, "No cached grades found")
                 return null
             }
 
             // Check if cache is expired
-            val currentTime = System.currentTimeMillis()
-            val cacheAge = currentTime - timestamp
-            val cacheExpiryMillis = CACHE_EXPIRY_HOURS * 60 * 60 * 1000
-
-            if (cacheAge > cacheExpiryMillis) {
-                Log.d(TAG, "Cached grades expired (age: ${cacheAge / 1000 / 60} minutes)")
+            if (!isCacheValid(timestamp, cacheExpiryHours)) {
                 return null
             }
 
             val studyGrades = gson.fromJson(gradesJson, StudyGrades::class.java)
             val semester = gson.fromJson(semesterJson, Semester::class.java)
 
-            Log.d(TAG, "Retrieved cached grades for semester: ${semester.displayName}")
+            Log.d(tag, "Retrieved cached grades for semester: ${semester.displayName}")
             return Pair(studyGrades, semester)
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error retrieving cached grades", e)
+            Log.e(tag, "Error retrieving cached grades", e)
             return null
         }
     }
@@ -125,28 +116,23 @@ class GradesCacheManager(private val context: Context) {
             val timestamp = preferences[SEMESTERS_TIMESTAMP_KEY] ?: 0
 
             if (semestersJson == null) {
-                Log.d(TAG, "No cached semesters found")
+                Log.d(tag, "No cached semesters found")
                 return null
             }
 
             // Check if cache is expired
-            val currentTime = System.currentTimeMillis()
-            val cacheAge = currentTime - timestamp
-            val cacheExpiryMillis = CACHE_EXPIRY_HOURS * 60 * 60 * 1000
-
-            if (cacheAge > cacheExpiryMillis) {
-                Log.d(TAG, "Cached semesters expired (age: ${cacheAge / 1000 / 60} minutes)")
+            if (!isCacheValid(timestamp, cacheExpiryHours)) {
                 return null
             }
 
             val type = object : TypeToken<List<Semester>>() {}.type
             val semesters = gson.fromJson<List<Semester>>(semestersJson, type)
 
-            Log.d(TAG, "Retrieved ${semesters.size} cached semesters")
+            Log.d(tag, "Retrieved ${semesters.size} cached semesters")
             return semesters
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error retrieving cached semesters", e)
+            Log.e(tag, "Error retrieving cached semesters", e)
             return null
         }
     }
@@ -164,112 +150,36 @@ class GradesCacheManager(private val context: Context) {
 
             val cachedSemester = gson.fromJson(semesterJson, Semester::class.java)
             if (cachedSemester.value != semester.value) {
-                Log.d(TAG, "Cached grades are for different semester")
+                Log.d(tag, "Cached grades are for different semester")
                 return false
             }
 
             // Check if cache is expired
-            val currentTime = System.currentTimeMillis()
-            val cacheAge = currentTime - timestamp
-            val cacheExpiryMillis = CACHE_EXPIRY_HOURS * 60 * 60 * 1000
-
-            return cacheAge <= cacheExpiryMillis
+            return isCacheValid(timestamp, cacheExpiryHours)
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking cached grades validity", e)
+            Log.e(tag, "Error checking cached grades validity", e)
             return false
-        }
-    }
-
-    /**
-     * Get cached grades as a Flow for reactive updates
-     */
-    fun getCachedGradesFlow(): Flow<Pair<StudyGrades, Semester>?> {
-        return context.gradesDataStore.data.map { preferences ->
-            try {
-                val gradesJson = preferences[GRADES_DATA_KEY]
-                val semesterJson = preferences[SELECTED_SEMESTER_KEY]
-                val timestamp = preferences[GRADES_TIMESTAMP_KEY] ?: 0
-
-                if (gradesJson == null || semesterJson == null) return@map null
-
-                // Check if cache is expired
-                val currentTime = System.currentTimeMillis()
-                val cacheAge = currentTime - timestamp
-                val cacheExpiryMillis = CACHE_EXPIRY_HOURS * 60 * 60 * 1000
-
-                if (cacheAge > cacheExpiryMillis) return@map null
-
-                val studyGrades = gson.fromJson(gradesJson, StudyGrades::class.java)
-                val semester = gson.fromJson(semesterJson, Semester::class.java)
-
-                Pair(studyGrades, semester)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in cached grades flow", e)
-                null
-            }
-        }
-    }
-
-    /**
-     * Get cache timestamp for debugging
-     */
-    suspend fun getCacheTimestamp(): Long {
-        return try {
-            val preferences = context.gradesDataStore.data.first()
-            preferences[GRADES_TIMESTAMP_KEY] ?: 0
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting cache timestamp", e)
-            0
         }
     }
 
     /**
      * Clear all cached grades data
      */
-    suspend fun clearCache() {
+    override fun clearCache() {
         try {
-            context.gradesDataStore.edit { preferences ->
-                preferences.remove(GRADES_DATA_KEY)
-                preferences.remove(GRADES_TIMESTAMP_KEY)
-                preferences.remove(SELECTED_SEMESTER_KEY)
-                preferences.remove(AVAILABLE_SEMESTERS_KEY)
-                preferences.remove(SEMESTERS_TIMESTAMP_KEY)
+            kotlinx.coroutines.runBlocking {
+                context.gradesDataStore.edit { preferences ->
+                    preferences.remove(GRADES_DATA_KEY)
+                    preferences.remove(GRADES_TIMESTAMP_KEY)
+                    preferences.remove(SELECTED_SEMESTER_KEY)
+                    preferences.remove(AVAILABLE_SEMESTERS_KEY)
+                    preferences.remove(SEMESTERS_TIMESTAMP_KEY)
+                }
             }
-            Log.d(TAG, "Cleared grades cache")
+            Log.d(tag, "Cleared grades cache")
         } catch (e: Exception) {
-            Log.e(TAG, "Error clearing grades cache", e)
-        }
-    }
-
-    /**
-     * Clear only grades data, keep semesters cache
-     */
-    suspend fun clearGradesCache() {
-        try {
-            context.gradesDataStore.edit { preferences ->
-                preferences.remove(GRADES_DATA_KEY)
-                preferences.remove(GRADES_TIMESTAMP_KEY)
-                preferences.remove(SELECTED_SEMESTER_KEY)
-            }
-            Log.d(TAG, "Cleared grades data cache")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error clearing grades data cache", e)
-        }
-    }
-
-    /**
-     * Clear only semesters cache
-     */
-    suspend fun clearSemestersCache() {
-        try {
-            context.gradesDataStore.edit { preferences ->
-                preferences.remove(AVAILABLE_SEMESTERS_KEY)
-                preferences.remove(SEMESTERS_TIMESTAMP_KEY)
-            }
-            Log.d(TAG, "Cleared semesters cache")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error clearing semesters cache", e)
+            Log.e(tag, "Error clearing grades cache", e)
         }
     }
 }

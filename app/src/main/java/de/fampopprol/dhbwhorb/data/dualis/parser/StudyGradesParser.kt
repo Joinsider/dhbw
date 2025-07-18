@@ -121,74 +121,115 @@ class StudyGradesParser {
      * Calculates summary grades from individual modules
      */
     private fun calculateSummaryFromModules(modules: List<ModuleData>, semesterArgument: String = "-N000307,"): StudyGrades {
-        var totalCredits = 0.0
-        var gainedCredits = 0.0
-        var weightedGradeSum = 0.0
-        var gradeCount = 0
+        val moduleList = convertToModuleList(modules)
+        val creditsInfo = calculateCredits(modules)
+        val gpaTotal = calculateGPA(modules, creditsInfo.gainedCredits)
+        val semester = getSemesterName(semesterArgument)
 
-        // Convert ModuleData to Module objects
-        val moduleList = modules.map { moduleData ->
-            val examState = when {
-                moduleData.status.contains("bestanden", ignoreCase = true) -> ExamState.PASSED
-                moduleData.status.contains("nicht bestanden", ignoreCase = true) -> ExamState.FAILED
-                moduleData.grade != null && moduleData.grade > 0.0 -> ExamState.PASSED
-                else -> ExamState.PENDING
-            }
+        logSummary(creditsInfo, gpaTotal, moduleList.size, semester)
 
+        return StudyGrades(
+            gpaTotal = gpaTotal,
+            gpaMainModules = gpaTotal,
+            creditsTotal = creditsInfo.totalCredits,
+            creditsGained = creditsInfo.gainedCredits,
+            modules = moduleList,
+            semester = semester
+        )
+    }
+
+    /**
+     * Converts ModuleData objects to Module objects
+     */
+    private fun convertToModuleList(modules: List<ModuleData>): List<Module> {
+        return modules.map { moduleData ->
             Module(
                 id = moduleData.id,
                 name = moduleData.name,
                 credits = moduleData.credits.toString(),
                 grade = moduleData.grade?.toString() ?: "noch nicht gesetzt",
-                state = examState
+                state = determineExamState(moduleData)
             )
         }
+    }
+
+    /**
+     * Determines exam state based on module data
+     */
+    private fun determineExamState(moduleData: ModuleData): ExamState {
+        return when {
+            moduleData.status.contains("bestanden", ignoreCase = true) -> ExamState.PASSED
+            moduleData.status.contains("nicht bestanden", ignoreCase = true) -> ExamState.FAILED
+            moduleData.grade != null && moduleData.grade > 0.0 -> ExamState.PASSED
+            else -> ExamState.PENDING
+        }
+    }
+
+    /**
+     * Calculates total and gained credits
+     */
+    private fun calculateCredits(modules: List<ModuleData>): CreditsInfo {
+        var totalCredits = 0.0
+        var gainedCredits = 0.0
 
         modules.forEach { module ->
             totalCredits += module.credits
-
-            // Count as gained if status indicates completion or if grade is set
-            if (module.status.contains("bestanden", ignoreCase = true) ||
-                module.status.contains("Prüfungen", ignoreCase = true) ||
-                (module.grade != null && module.grade > 0.0)) {
+            if (isModulePassed(module)) {
                 gainedCredits += module.credits
             }
+        }
 
-            // Include in GPA calculation if grade is numerical
+        return CreditsInfo(totalCredits, gainedCredits)
+    }
+
+    /**
+     * Checks if a module is passed
+     */
+    private fun isModulePassed(module: ModuleData): Boolean {
+        return module.status.contains("bestanden", ignoreCase = true) ||
+               module.status.contains("Prüfungen", ignoreCase = true) ||
+               (module.grade != null && module.grade > 0.0)
+    }
+
+    /**
+     * Calculates GPA from modules
+     */
+    private fun calculateGPA(modules: List<ModuleData>, gainedCredits: Double): Double {
+        var weightedGradeSum = 0.0
+
+        modules.forEach { module ->
             module.grade?.let { grade ->
                 if (grade > 0.0) {
                     weightedGradeSum += grade * module.credits
-                    gradeCount++
                 }
             }
         }
 
-        val gpaTotal = if (gainedCredits > 0.0) weightedGradeSum / gainedCredits else 0.0
+        return if (gainedCredits > 0.0) weightedGradeSum / gainedCredits else 0.0
+    }
 
-        // Determine semester identifier
-        val semester = when (semesterArgument) {
+    /**
+     * Gets semester name from argument
+     */
+    private fun getSemesterName(semesterArgument: String): String {
+        return when (semesterArgument) {
             "-N000307," -> "Current Semester"
             "-N000308," -> "Previous Semester"
             "-N000309," -> "Two Semesters Ago"
             else -> "Semester"
         }
+    }
 
+    /**
+     * Logs summary information
+     */
+    private fun logSummary(creditsInfo: CreditsInfo, gpaTotal: Double, moduleCount: Int, semester: String) {
         Log.d(TAG, "Summary calculation:")
-        Log.d(TAG, "  Total Credits: $totalCredits")
-        Log.d(TAG, "  Gained Credits: $gainedCredits")
-        Log.d(TAG, "  Weighted Grade Sum: $weightedGradeSum")
+        Log.d(TAG, "  Total Credits: ${creditsInfo.totalCredits}")
+        Log.d(TAG, "  Gained Credits: ${creditsInfo.gainedCredits}")
         Log.d(TAG, "  GPA Total: $gpaTotal")
-        Log.d(TAG, "  Modules: ${moduleList.size}")
+        Log.d(TAG, "  Modules: $moduleCount")
         Log.d(TAG, "  Semester: $semester")
-
-        return StudyGrades(
-            gpaTotal = gpaTotal,
-            gpaMainModules = gpaTotal, // Use same value for both since we can't distinguish
-            creditsTotal = totalCredits,
-            creditsGained = gainedCredits,
-            modules = moduleList,
-            semester = semester
-        )
     }
 
     /**
@@ -203,54 +244,12 @@ class StudyGradesParser {
     )
 
     /**
-     * Extracts credits information from the credits table
+     * Data class to hold credits information
      */
-    private fun extractCredits(table: Element): Pair<Double?, Double?> {
-        val rows = table.select("tbody tr")
-
-        if (rows.size < 2) {
-            Log.e(TAG, "Credits table does not have enough rows")
-            return Pair(null, null)
-        }
-
-        // Total credits needed
-        val totalCreditsRow = rows[rows.size - 1]
-        val totalCreditsText = totalCreditsRow.child(0).text()
-        val totalCredits = parseCredits(totalCreditsText.split(":").getOrNull(1))
-
-        // Credits gained so far
-        val gainedCreditsRow = rows[rows.size - 2]
-        val gainedCreditsText = gainedCreditsRow.child(2).text()
-        val gainedCredits = parseCredits(gainedCreditsText)
-
-        return Pair(totalCredits, gainedCredits)
-    }
-
-    /**
-     * Extracts GPA information from the GPA table
-     */
-    private fun extractGpa(table: Element): Pair<Double?, Double?> {
-        val rows = table.select("tbody tr")
-
-        if (rows.size < 2) {
-            Log.e(TAG, "GPA table does not have enough rows")
-            return Pair(null, null)
-        }
-
-        // Total GPA
-        val totalGpaRow = rows[0]
-        val totalGpaCells = totalGpaRow.select("th")
-        val totalGpaText = totalGpaCells.getOrNull(1)?.text()
-        val totalGpa = parseGrade(totalGpaText)
-
-        // Main modules GPA
-        val mainModulesGpaRow = rows[1]
-        val mainModulesGpaCells = mainModulesGpaRow.select("th")
-        val mainModulesGpaText = mainModulesGpaCells.getOrNull(1)?.text()
-        val mainModulesGpa = parseGrade(mainModulesGpaText)
-
-        return Pair(totalGpa, mainModulesGpa)
-    }
+    private data class CreditsInfo(
+        val totalCredits: Double,
+        val gainedCredits: Double
+    )
 
     /**
      * Parses a grade string to a Double, handling German number format
