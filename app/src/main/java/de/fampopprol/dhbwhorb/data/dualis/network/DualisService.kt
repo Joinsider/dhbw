@@ -949,8 +949,20 @@ class DualisService {
             }
 
             // Extract time and room information
-            val timePeriodSpan = cell.select("span.timePeriod").first()
-            val timePeriodText = timePeriodSpan?.text()?.trim() ?: ""
+            val timePeriodSpans = cell.select("span.timePeriod")
+            var timePeriodText = ""
+
+            // Combine text from all timePeriod spans
+            for (span in timePeriodSpans) {
+                val spanText = span.text().trim()
+                if (spanText.isNotEmpty()) {
+                    if (timePeriodText.isNotEmpty()) {
+                        timePeriodText += " $spanText"
+                    } else {
+                        timePeriodText = spanText
+                    }
+                }
+            }
 
             Log.d("DualisService", "Time period text: '$timePeriodText'")
 
@@ -967,7 +979,8 @@ class DualisService {
                 endTime = timeRoomParts[2]
                 // Room might be in the remaining parts
                 if (timeRoomParts.size > 3) {
-                    room = timeRoomParts.drop(3).joinToString(" ")
+                    val rawRoom = timeRoomParts.drop(3).joinToString(" ")
+                    room = parseRooms(rawRoom)
                 }
             }
 
@@ -1024,6 +1037,28 @@ class DualisService {
         }
 
         return sortedTimetableDays
+    }
+
+    /**
+     * Parses concatenated room strings like "HOR-135HOR-136" into separate rooms
+     * separated by commas like "HOR-135, HOR-136"
+     */
+    private fun parseRooms(roomString: String): String {
+        if (roomString.isEmpty()) return roomString
+
+        // Pattern to match room codes like HOR-135, A1.2.03, etc.
+        // This regex looks for patterns that start with letters, optionally followed by digits,
+        // then a dash or dot, then more alphanumeric characters
+        val roomPattern = Regex("([A-Z]+(?:\\d+)?[-.]\\d+(?:\\.\\d+)?)")
+
+        val matches = roomPattern.findAll(roomString)
+        val rooms = matches.map { it.value }.toList()
+
+        return if (rooms.size > 1) {
+            rooms.joinToString(", ")
+        } else {
+            roomString
+        }
     }
 
     // Check if the service is properly authenticated

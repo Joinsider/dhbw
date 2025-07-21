@@ -1,0 +1,3 @@
+• Fixed room information display for classes scheduled in multiple rooms
+• Rooms like "HOR-135HOR-136" now properly show as "HOR-135, HOR-136"
+

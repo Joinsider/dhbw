@@ -1,0 +1,3 @@
+• Rauminformationen für Kurse in mehreren Räumen korrigiert
+• Räume wie "HOR-135HOR-136" werden jetzt korrekt als "HOR-135, HOR-136" angezeigt
+
