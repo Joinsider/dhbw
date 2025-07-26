@@ -55,6 +55,27 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.mutableFloatStateOf
 
+/**
+ * Extracts the clean course name from a full title by removing the course code prefix
+ * Examples:
+ * "T4INF1003.1 Algorithmen und Komplexität HOR-TINF2024" -> "Algorithmen und Komplexität"
+ * "T4INF1005.2 Englisch 1 HOR-TINF2024" -> "Englisch 1"
+ */
+fun extractCleanTitle(event: TimetableEvent): String {
+    val fullTitle = event.fullTitle
+    return if (fullTitle != null) {
+        // Remove course code prefix (pattern: letters+numbers+dots followed by space)
+        val withoutCourseCode = fullTitle.replaceFirst(Regex("^[A-Z0-9._]+\\s+"), "")
+
+        // Remove trailing course group info (pattern: space + HOR-XXXXX)
+        val cleanTitle = withoutCourseCode.replaceFirst(Regex("\\s+HOR-[A-Z0-9]+$"), "")
+
+        cleanTitle.ifEmpty { event.title }
+    } else {
+        event.title
+    }
+}
+
 @Composable
 fun WeeklyCalendar(
     timetable: List<TimetableDay>,
@@ -387,7 +408,7 @@ fun TimeBasedEventItem(
             verticalArrangement = Arrangement.Top
         ) {
             Text(
-                text = event.title,
+                text = extractCleanTitle(event),
                 fontWeight = FontWeight.Medium,
                 fontSize = titleFontSize,
                 maxLines = maxLines,
@@ -484,7 +505,7 @@ fun EventDetailPopup(
 
                     // Event Title
                     Text(
-                        text = event.title,
+                        text = event.fullTitle ?: event.title,
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.SemiBold

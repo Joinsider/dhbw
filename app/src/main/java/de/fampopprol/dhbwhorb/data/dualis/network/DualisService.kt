@@ -404,8 +404,8 @@ class DualisService {
 
         // Reconstruct the URL
         val url = baseUrl.replace(existingArguments, updatedArguments).replace(
-                "ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken"
-            ) // Ensure auth token is correct
+            "ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken"
+        ) // Ensure auth token is correct
         Log.d("DualisService", "Constructed Monthly Schedule URL: $url")
 
         val request = Request.Builder().url(url).get().build()
@@ -486,8 +486,8 @@ class DualisService {
 
         // Reconstruct the URL
         val url = baseUrl.replace(existingArguments, updatedArguments).replace(
-                "ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken"
-            ) // Ensure auth token is correct
+            "ARGUMENTS=-N$authToken", "ARGUMENTS=-N$authToken"
+        ) // Ensure auth token is correct
         Log.d("DualisService", "Constructed Weekly Schedule URL for $targetDate: $url")
 
         val request = Request.Builder().url(url).get().build()
@@ -535,7 +535,23 @@ class DualisService {
                             "DualisService",
                             "Parsed weekly schedule for $targetDate: ${timetableDays.size} days"
                         )
-                        callback(timetableDays)
+
+                        // Enhance timetable with detailed information from individual event pages
+                        enhanceTimetableWithDetails(timetableDays) { enhancedTimetableDays ->
+                            if (enhancedTimetableDays != null) {
+                                Log.d(
+                                    "DualisService",
+                                    "Enhanced weekly schedule for $targetDate with detailed information"
+                                )
+                                callback(enhancedTimetableDays)
+                            } else {
+                                Log.w(
+                                    "DualisService",
+                                    "Failed to enhance timetable with details, returning basic timetable"
+                                )
+                                callback(timetableDays)
+                            }
+                        }
                     } catch (e: Exception) {
                         Log.e("DualisService", "Error parsing weekly schedule", e)
                         callback(null)
@@ -928,9 +944,31 @@ class DualisService {
         val allAppointmentCells = document.select("td.appointment")
         Log.d("DualisService", "Found ${allAppointmentCells.size} appointment cells")
 
+        // Parse events - for now just create basic events without detailed fetching
+        // (We'll implement asynchronous detail fetching in the calling methods)
         for (cell in allAppointmentCells) {
             val cellHtml = cell.html()
             Log.d("DualisService", "Processing appointment cell HTML: $cellHtml")
+
+            // Extract event detail URL from links in the cell
+            val eventLink = cell.select("a").first()
+            var eventDetailUrl: String? = null
+
+            if (eventLink != null) {
+                val href = eventLink.attr("href")
+                if (href.isNotEmpty()) {
+                    eventDetailUrl = if (href.startsWith("/")) {
+                        "https://dualis.dhbw.de$href"
+                    } else if (href.startsWith("scripts/")) {
+                        "https://dualis.dhbw.de/$href"
+                    } else if (!href.startsWith("http")) {
+                        "https://dualis.dhbw.de/scripts/$href"
+                    } else {
+                        href
+                    }
+                    Log.d("DualisService", "Found event detail URL: $eventDetailUrl")
+                }
+            }
 
             // Extract title - get text content excluding timePeriod span
             val clonedCell = cell.clone()
@@ -984,7 +1022,7 @@ class DualisService {
                 }
             }
 
-            val lecturer = "" // Lecturer is not explicitly available in the current HTML structure
+            val lecturer = "" // Will be filled from detailed information later
 
             // Get the day from the abbr attribute
             val abbrAttribute = cell.attr("abbr")
@@ -1004,13 +1042,20 @@ class DualisService {
                 "  Abbr Attribute: '$abbrAttribute', Day in German: '$dayOfWeekInGerman'"
             )
             Log.d("DualisService", "  Event Date: $eventDate")
+            Log.d("DualisService", "  Event Detail URL: $eventDetailUrl")
 
             if (eventDate != null && title.isNotEmpty()) {
-                eventsByFullDate[eventDate]?.add(
-                    TimetableEvent(
-                        title, startTime, endTime, room, lecturer
-                    )
+                // Create event object with basic information
+                val event = TimetableEvent(
+                    title = title,
+                    startTime = startTime,
+                    endTime = endTime,
+                    room = room,
+                    lecturer = lecturer,
+                    detailUrl = eventDetailUrl
                 )
+
+                eventsByFullDate[eventDate]?.add(event)
                 Log.d("DualisService", "Added event to date $eventDate: $title")
             } else {
                 Log.w("DualisService", "Skipping event - eventDate: $eventDate, title: '$title'")
@@ -1018,12 +1063,12 @@ class DualisService {
         }
 
         val sortedTimetableDays = eventsByFullDate.entries.sortedBy { it.key }.map { entry ->
-                Log.d(
-                    "DualisService",
-                    "Creating TimetableDay for ${dateFormatter.format(entry.key)} with ${entry.value.size} events"
-                )
-                TimetableDay(dateFormatter.format(entry.key), entry.value)
-            }
+            Log.d(
+                "DualisService",
+                "Creating TimetableDay for ${dateFormatter.format(entry.key)} with ${entry.value.size} events"
+            )
+            TimetableDay(dateFormatter.format(entry.key), entry.value)
+        }
 
         Log.d("DualisService", "Parsed ${sortedTimetableDays.size} timetable days")
         sortedTimetableDays.forEach { day ->
@@ -1038,6 +1083,230 @@ class DualisService {
 
         return sortedTimetableDays
     }
+
+    /**
+     * Enhances timetable events with detailed information from individual event pages
+     */
+    fun enhanceTimetableWithDetails(
+        timetableDays: List<TimetableDay>,
+        callback: (List<TimetableDay>?) -> Unit
+    ) {
+        if (_isDemoMode || timetableDays.isEmpty()) {
+            // Return original data for demo mode or empty lists
+            callback(timetableDays)
+            return
+        }
+
+        Log.d("DualisService", "=== ENHANCING TIMETABLE WITH DETAILED INFORMATION ===")
+
+        // Collect all events that have detail URLs
+        val eventsToEnhance = mutableListOf<Triple<TimetableEvent, TimetableDay, Int>>()
+
+        timetableDays.forEach { day ->
+            day.events.forEachIndexed { index, event ->
+                if (event.detailUrl != null) {
+                    eventsToEnhance.add(Triple(event, day, index))
+                }
+            }
+        }
+
+        if (eventsToEnhance.isEmpty()) {
+            Log.d("DualisService", "No events with detail URLs found, returning original data")
+            callback(timetableDays)
+            return
+        }
+
+        Log.d("DualisService", "Found ${eventsToEnhance.size} events to enhance with detailed information")
+
+        // Create enhanced versions of the timetable days with mutable event lists
+        val enhancedDays = timetableDays.map { day ->
+            TimetableDay(day.date, day.events.toMutableList())
+        }
+
+        var completedRequests = 0
+        val totalRequests = eventsToEnhance.size
+
+        // Fetch details for each event
+        eventsToEnhance.forEach { (event, originalDay, eventIndex) ->
+            fetchEventDetails(event.detailUrl!!) { eventDetails ->
+                synchronized(enhancedDays) {
+                    completedRequests++
+
+                    // Find the corresponding day in enhanced days
+                    val enhancedDay = enhancedDays.find { it.date == originalDay.date }
+
+                    if (enhancedDay != null && eventIndex < enhancedDay.events.size) {
+                        val enhancedEvent = if (eventDetails != null) {
+                            event.copy(
+                                fullTitle = eventDetails.fullTitle,
+                                courseCode = eventDetails.courseCode,
+                                lecturer = eventDetails.lecturer,
+                                room = eventDetails.room.ifEmpty { event.room }
+                            )
+                        } else {
+                            // Keep original event if details couldn't be fetched
+                            event
+                        }
+
+                        // Replace the event in the enhanced day (now using MutableList)
+                        (enhancedDay.events as MutableList)[eventIndex] = enhancedEvent
+
+                        Log.d("DualisService", "Enhanced event ${event.title} -> ${enhancedEvent.fullTitle ?: event.title}")
+                        if (eventDetails != null) {
+                            Log.d("DualisService", "  Course code: ${eventDetails.courseCode}")
+                            Log.d("DualisService", "  Lecturer: ${eventDetails.lecturer}")
+                            Log.d("DualisService", "  Room: ${eventDetails.room}")
+                        }
+                    }
+
+                    // Check if all requests are completed
+                    if (completedRequests >= totalRequests) {
+                        Log.d("DualisService", "All event details fetched, calling callback with enhanced data")
+                        callback(enhancedDays)
+                    }
+
+                    Log.d("DualisService", "Enhancement progress: $completedRequests/$totalRequests")
+                }
+            }
+        }
+    }
+
+    /**
+     * Fetches detailed information for pending events
+     */
+    private fun fetchEventDetailsForPendingEvents(
+        pendingEvents: List<Pair<TimetableEvent, java.time.LocalDate>>,
+        eventsByFullDate: MutableMap<java.time.LocalDate, MutableList<TimetableEvent>>
+    ) {
+        var completedRequests = 0
+        val totalRequests = pendingEvents.size
+
+        for ((event, eventDate) in pendingEvents) {
+            if (event.detailUrl != null) {
+                fetchEventDetails(event.detailUrl) { eventDetails ->
+                    completedRequests++
+
+                    // Create enhanced event with detailed information
+                    val enhancedEvent = if (eventDetails != null) {
+                        event.copy(
+                            fullTitle = eventDetails.fullTitle,
+                            courseCode = eventDetails.courseCode,
+                            lecturer = eventDetails.lecturer,
+                            room = if (eventDetails.room.isNotEmpty()) eventDetails.room else event.room
+                        )
+                    } else {
+                        // Use basic event if details couldn't be fetched
+                        event
+                    }
+
+                    // Add the enhanced event to the appropriate date
+                    synchronized(eventsByFullDate) {
+                        eventsByFullDate[eventDate]?.add(enhancedEvent)
+                        Log.d("DualisService", "Added enhanced event to date $eventDate: ${enhancedEvent.title}")
+                        if (eventDetails != null) {
+                            Log.d("DualisService", "  Full title: ${eventDetails.fullTitle}")
+                            Log.d("DualisService", "  Course code: ${eventDetails.courseCode}")
+                            Log.d("DualisService", "  Lecturer: ${eventDetails.lecturer}")
+                        }
+                    }
+
+                    // Log progress
+                    Log.d("DualisService", "Event details fetch progress: $completedRequests/$totalRequests")
+                }
+            } else {
+                // No detail URL, add basic event
+                eventsByFullDate[eventDate]?.add(event)
+                completedRequests++
+                Log.d("DualisService", "Added basic event (no detail URL) to date $eventDate: ${event.title}")
+            }
+        }
+    }
+
+    /**
+     * Fetches detailed information for a specific event from its detail page
+     */
+    private fun fetchEventDetails(eventUrl: String, callback: (EventDetails?) -> Unit) {
+        if (_isDemoMode) {
+            // Return null for demo mode - we'll use basic info only
+            callback(null)
+            return
+        }
+
+        val request = Request.Builder().url(eventUrl).get().build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("DualisService", "Failed to fetch event details from: $eventUrl", e)
+                callback(null)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body.string()
+                Log.d("DualisService", "Event details response code: ${response.code}")
+
+                if (response.isSuccessful) {
+                    try {
+                        val eventDetails = parseEventDetails(responseBody)
+                        callback(eventDetails)
+                    } catch (e: Exception) {
+                        Log.e("DualisService", "Error parsing event details", e)
+                        callback(null)
+                    }
+                } else {
+                    Log.e("DualisService", "Failed to fetch event details with code: ${response.code}")
+                    callback(null)
+                }
+            }
+        })
+    }
+
+    /**
+     * Parses event details from the HTML of an individual event page
+     */
+    private fun parseEventDetails(html: String): EventDetails? {
+        val document = Jsoup.parse(html)
+
+        // Extract the full title from h1 tag
+        val h1Element = document.select("h1").first()
+        val fullTitle = h1Element?.text()?.trim()
+
+        if (fullTitle.isNullOrEmpty()) {
+            Log.w("DualisService", "Could not extract full title from event details page")
+            return null
+        }
+
+        // Extract course code from the full title (e.g., "T4INF1003.1" from "T4INF1003.1 Algorithmen und Komplexität HOR-TINF2024")
+        val courseCodePattern = Regex("^([A-Z0-9.]+)")
+        val courseCodeMatch = courseCodePattern.find(fullTitle)
+        val courseCode = courseCodeMatch?.groupValues?.get(1)
+
+        // Extract lecturer information
+        val instructorElement = document.select("td[name=instructorName]").first()
+        val lecturer = instructorElement?.text()?.trim() ?: ""
+
+        // Extract room information
+        val roomElement = document.select("span[name=appoinmentRooms]").first()
+        val room = roomElement?.text()?.trim() ?: ""
+
+        Log.d("DualisService", "Parsed event details: fullTitle='$fullTitle', courseCode='$courseCode', lecturer='$lecturer', room='$room'")
+
+        return EventDetails(
+            fullTitle = fullTitle,
+            courseCode = courseCode,
+            lecturer = lecturer,
+            room = room
+        )
+    }
+
+    /**
+     * Data class to hold detailed event information
+     */
+    private data class EventDetails(
+        val fullTitle: String,
+        val courseCode: String?,
+        val lecturer: String,
+        val room: String
+    )
 
     /**
      * Parses concatenated room strings like "HOR-135HOR-136" into separate rooms

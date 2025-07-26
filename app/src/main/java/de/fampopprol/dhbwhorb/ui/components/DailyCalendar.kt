@@ -259,7 +259,7 @@ private fun EventListItem(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = event.title,
+                    text = extractCleanTitle(event),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
