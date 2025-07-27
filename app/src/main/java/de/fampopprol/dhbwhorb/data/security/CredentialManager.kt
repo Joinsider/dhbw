@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+@file:Suppress("DEPRECATION")
+
 package de.fampopprol.dhbwhorb.data.security
 
 import android.content.Context
@@ -23,6 +25,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 
+/**
+ * CredentialManager handles secure storage of user credentials using encrypted storage.
+ *
+ * Note: This class uses EncryptedSharedPreferences and MasterKey which are currently deprecated
+ * but remain the recommended approach until a stable replacement is available.
+ */
 class CredentialManager(context: Context) {
 
     private val dataStore = context.dataStore
