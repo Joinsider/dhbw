@@ -28,8 +28,9 @@ class ClassReminderWorker(
             val notificationId = inputData.getInt("notification_id", 0)
             val eventTitle = inputData.getString("event_title")
             val classStartTime = inputData.getString("class_start_time")
+            val isFallback = inputData.getBoolean("is_fallback", false)
 
-            Log.d(TAG, "ClassReminderWorker triggered for event: $eventTitle at $classStartTime")
+            Log.d(TAG, "ClassReminderWorker triggered for event: $eventTitle at $classStartTime (fallback: $isFallback)")
 
             if (reminderText == null) {
                 Log.e(TAG, "No reminder text provided")
@@ -48,11 +49,17 @@ class ClassReminderWorker(
                 return@withContext Result.success()
             }
 
+            // If this is a fallback notification, add a small delay to prevent race conditions with alarm
+            if (isFallback) {
+                kotlinx.coroutines.delay(2000) // 2 second delay for fallback
+                Log.d(TAG, "Fallback notification executing after delay")
+            }
+
             // Show the notification
             val notificationManager = DHBWNotificationManager(applicationContext)
             notificationManager.showClassReminderNotification(reminderText, notificationId)
 
-            Log.d(TAG, "Class reminder notification shown successfully: $reminderText")
+            Log.d(TAG, "Class reminder notification shown successfully: $reminderText (fallback: $isFallback)")
             Result.success()
 
         } catch (e: Exception) {

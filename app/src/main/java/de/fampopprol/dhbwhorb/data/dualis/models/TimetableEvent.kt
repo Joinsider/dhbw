@@ -11,5 +11,9 @@ data class TimetableEvent(
     val startTime: String,
     val endTime: String,
     val room: String,
-    val lecturer: String
+    val lecturer: String,
+    // New fields for detailed information
+    val fullTitle: String? = null,
+    val courseCode: String? = null,
+    val detailUrl: String? = null
 )

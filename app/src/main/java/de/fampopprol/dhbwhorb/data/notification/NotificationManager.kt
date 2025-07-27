@@ -12,6 +12,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -69,10 +70,16 @@ class DHBWNotificationManager(private val context: Context) {
     }
 
     private fun hasNotificationPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            context,
-            android.Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Check POST_NOTIFICATIONS permission on Android 13+ (API 33+)
+            ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            // On older Android versions, notification permission was granted by default
+            true
+        }
     }
 
     fun showTimetableChangeNotification(changes: List<String>) {
@@ -95,7 +102,7 @@ class DHBWNotificationManager(private val context: Context) {
         }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID_TIMETABLE)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Timetable Updated")
             .setContentText(changesText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(changes.joinToString("\n")))
@@ -132,7 +139,7 @@ class DHBWNotificationManager(private val context: Context) {
         }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID_GRADES)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("New Grades Available")
             .setContentText(changesText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(changes.joinToString("\n")))
@@ -163,7 +170,7 @@ class DHBWNotificationManager(private val context: Context) {
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID_CLASS_REMINDER)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Class Reminder")
             .setContentText(reminder)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

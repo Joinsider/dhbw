@@ -82,6 +82,12 @@
             </intent-filter>
         </receiver>
 
+        <!-- Class reminder alarm receiver for precise timing -->
+        <receiver
+            android:name=".data.notification.ClassReminderAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
     </application>
 
 </manifest>
