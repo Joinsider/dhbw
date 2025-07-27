@@ -60,7 +60,7 @@ fun TimetableScreen(
         navigationManager = navigationManager,
         pullRefreshState = pullRefreshState,
         onRefresh = {
-            viewModel.setRefreshing(true)
+            viewModel.setRefreshingState(true)
             navigationManager.refreshCurrentData(currentViewMode)
         },
         onLogout = onLogout,

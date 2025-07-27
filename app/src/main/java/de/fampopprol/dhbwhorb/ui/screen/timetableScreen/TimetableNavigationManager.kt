@@ -97,7 +97,7 @@ class TimetableNavigationManager(
     // Function to refresh current data based on view mode
     fun refreshCurrentData(currentViewMode: CalendarViewMode) {
         android.util.Log.d("TimetableNavigationManager", "Pull-to-refresh triggered")
-        viewModel.setRefreshing(true)
+        viewModel.setRefreshingState(true)
         if (currentViewMode == CalendarViewMode.WEEKLY) {
             viewModel.fetchTimetableFromApi(currentWeekStart, isForced = true)
         } else {

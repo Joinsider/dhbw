@@ -88,7 +88,8 @@ class TimetableViewModel(
         }
     }
 
-    fun setRefreshing(refreshing: Boolean) {
+    // Function to set refreshing state from external callers
+    fun setRefreshingState(refreshing: Boolean) {
         isRefreshing = refreshing
     }
 

@@ -17,7 +17,7 @@
     <string name="open_menu">Menü öffnen</string>
 
     <!-- Grades Screen -->
-    <string name="your_study_performance">Ihre Studienleistungen</string>
+    <string name="your_study_performance">Notenübersicht</string>
     <string name="grade_point_average">Notendurchschnitt</string>
     <string name="overall_gpa">Gesamtnotendurchschnitt</string>
     <string name="main_modules_gpa">Hauptmodule Notendurchschnitt</string>
@@ -35,6 +35,7 @@
 
     <!-- Module States -->
     <string name="logout_description">Dualis Zugangsdaten aus der App löschen und abmelden</string>
+    <string name="popup_lecturer">Dozent</string>
     <string name="passed">Bestanden</string>
     <string name="failed">Nicht bestanden</string>
     <string name="pending">Ausstehend</string>
@@ -42,7 +43,7 @@
     <!-- Timetable -->
     <string name="no_classes">Keine Vorlesungen</string>
     <string name="event_details">Veranstaltungsdetails</string>
-    <string name="current_week">Heute</string>
+    <string name="current_week">Aktuelle Woche</string>
     <string name="previous_week">Vorherige Woche</string>
     <string name="next_week">Nächste Woche</string>
     <string name="last_updated_at">Zuletzt aktualisiert: %s</string>
@@ -118,4 +119,13 @@
     <string name="widget_small_description">Kompakte Anzeige von heutigen Stunden und wenn heute nichts mehr stattfindet, dann von morgen</string>
     <string name="semester">Semester</string>
     <string name="please_login_to_view_grades">Bitte melde dich an um deine Noten zu sehen</string>
+    <string name="popup_heading">Detailansicht</string>
+    <string name="popup_module">Modul</string>
+    <string name="popup_date">Datum</string>
+    <string name="popup_time">Uhrzeit</string>
+    <string name="popup_location">Raum</string>
+    <string name="study_progress">Semester Notenfortschritt</string>
+    <string name="no_scheduled_events_today">Keine Unterrichtsstunden für heute eingetragen</string>
+    <string name="no_events_today_description">Genieße deinen freien Tag!</string>
+    <string name="today">Heute</string>
 </resources>

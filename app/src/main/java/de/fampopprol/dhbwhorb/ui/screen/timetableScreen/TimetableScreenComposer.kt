@@ -27,10 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.data.dualis.models.TimetableDay
 import de.fampopprol.dhbwhorb.ui.components.CalendarViewMode
-import de.fampopprol.dhbwhorb.ui.components.DailyCalendar
-import de.fampopprol.dhbwhorb.ui.components.DayNavigationBar
-import de.fampopprol.dhbwhorb.ui.components.WeekNavigationBar
-import de.fampopprol.dhbwhorb.ui.components.WeeklyCalendar
+import de.fampopprol.dhbwhorb.ui.components.calendar.daily.DailyCalendar
+import de.fampopprol.dhbwhorb.ui.components.navigationBars.dayNavigationBar.DayNavigationBar
+import de.fampopprol.dhbwhorb.ui.components.navigationBars.weekNavigationBar.WeekNavigationBar
+import de.fampopprol.dhbwhorb.ui.components.calendar.weekly.WeeklyCalendar
 
 class TimetableScreenComposer {
 
@@ -96,13 +96,13 @@ class TimetableScreenComposer {
     ) {
         if (currentViewMode == CalendarViewMode.WEEKLY) {
             WeekNavigationBar(
+                modifier = Modifier.fillMaxWidth(),
                 currentWeekStart = navigationManager.currentWeekStart,
                 onPreviousWeek = { navigationManager.goToPreviousWeek() },
                 onNextWeek = { navigationManager.goToNextWeek() },
                 onCurrentWeek = { navigationManager.goToCurrentWeek() },
                 isLoading = isFetchingFromApi,
-                lastUpdated = lastUpdated,
-                modifier = Modifier.fillMaxWidth()
+                lastUpdated = lastUpdated
             )
         } else {
             DayNavigationBar(
@@ -177,11 +177,11 @@ class TimetableScreenComposer {
         navigationManager: TimetableNavigationManager
     ) {
         WeeklyCalendar(
+            modifier = Modifier.fillMaxSize(),
             timetable = timetable,
             startOfWeek = navigationManager.currentWeekStart,
             onPreviousWeek = { navigationManager.goToPreviousWeek() },
-            onNextWeek = { navigationManager.goToNextWeek() },
-            modifier = Modifier.fillMaxSize()
+            onNextWeek = { navigationManager.goToNextWeek() }
         )
     }
 

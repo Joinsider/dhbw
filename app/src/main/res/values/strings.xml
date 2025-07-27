@@ -18,7 +18,7 @@
     <string name="open_menu">Open menu</string>
 
     <!-- Grades Screen -->
-    <string name="your_study_performance">Your Study Performance</string>
+    <string name="your_study_performance">Grade overview</string>
     <string name="grade_point_average">Grade Point Average (GPA)</string>
     <string name="overall_gpa">Overall GPA</string>
     <string name="main_modules_gpa">Main Modules GPA</string>
@@ -37,6 +37,14 @@
     <!-- Descriptions -->
     <string name="logout_description">Remove your dualis credentials from the Application and logout</string>
 
+    <!-- Popup Dialogs -->
+    <string name="popup_heading">Class Details</string>
+    <string name="popup_module">Module</string>
+    <string name="popup_date">Date</string>
+    <string name="popup_time">Time</string>
+    <string name="popup_location">Room</string>
+    <string name="popup_lecturer">Lecturer</string>
+
     <!-- Module States -->
     <string name="passed">Passed</string>
     <string name="failed">Failed</string>
@@ -45,7 +53,7 @@
     <!-- Timetable -->
     <string name="no_classes">No classes</string>
     <string name="event_details">Event Details</string>
-    <string name="current_week">Today</string>
+    <string name="current_week">Current week</string>
     <string name="previous_week">Previous week</string>
     <string name="next_week">Next week</string>
     <string name="last_updated_at">Last updated: %s</string>
@@ -124,4 +132,8 @@
     <string name="widget_description">Shows current and upcoming events</string>
     <string name="widget_small_description">Compact display of today\'s classes and if nothing more today, then tomorrow\'s</string>
     <string name="please_login_to_view_grades">Please login to view your grades</string>
+    <string name="study_progress">Study progress</string>
+    <string name="no_scheduled_events_today">No events scheduled for this day</string>
+    <string name="no_events_today_description">Enjoy your free day!</string>
+    <string name="today">Today</string>
 </resources>

@@ -313,7 +313,7 @@ fun GradesContent(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Study Progress",
+                                    text = stringResource(R.string.study_progress),
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Medium
                                 )
