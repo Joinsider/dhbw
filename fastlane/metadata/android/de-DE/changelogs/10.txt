@@ -1,0 +1,8 @@
+• Präzise Benachrichtigungsplanung für bessere Zuverlässigkeit behoben
+• Dualis-Notendienst mit dynamischem Semesterabruf und verbesserter Fehlerbehandlung erweitert
+• Verbesserte Anmeldeerfahrung mit automatischem Fokuswechsel zwischen Feldern und passenden Tastaturtypen
+• Benutzerdefinierte Benachrichtigungssymbole für bessere visuelle Identifizierung hinzugefügt
+• Erweiterte Klassendatenerfassung um vollständige Details von einzelnen Veranstaltungsseiten
+• Umfangreiche Code-Refaktorierung für verbesserte Wartbarkeit und Leistung
+• Bessere Fehlerbehandlung und Fallback-Mechanismen in der gesamten App
+

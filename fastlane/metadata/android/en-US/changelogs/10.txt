@@ -1,0 +1,8 @@
+• Fixed precise notification scheduling for better reliability
+• Enhanced Dualis grades service with dynamic semester fetching and better error handling
+• Improved login experience with automatic focus movement between fields and appropriate keyboard types
+• Added custom notification icons for better visual identification
+• Expanded class data fetching to include full details from individual event pages
+• Major code refactoring for improved maintainability and performance
+• Better error handling and fallback mechanisms throughout the app
+

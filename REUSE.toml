@@ -20,6 +20,7 @@ path = [
     "app/src/test/java/**",
     "build.gradle.kts",
     "app/src/main/AndroidManifest.xml",
+    "README.md",
 ]
 SPDX-FileCopyrightText = "2024 Joinside <suitor-fall-life@duck.com>"
 SPDX-License-Identifier = "AGPL-3.0-or-later"

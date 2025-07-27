@@ -12,8 +12,8 @@ android {
         applicationId = "de.fampopprol.dhbwhorb"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "v1.0.8"
+        versionCode = 10
+        versionName = "v1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -29,6 +29,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // signingConfig = signingConfigs.getByName("debug")
 
             ndk {
                 // Enables R8 to optimize native code.

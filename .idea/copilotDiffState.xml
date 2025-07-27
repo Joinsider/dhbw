@@ -168,6 +168,22 @@
             </PendingDiffInfo>
           </value>
         </entry>
+        <entry key="$PROJECT_DIR$/fastlane/metadata/android/de-DE/changelogs/10.txt">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/fastlane/metadata/android/de-DE/changelogs/10.txt" />
+              <option name="updatedContent" value="• Präzise Benachrichtigungsplanung für bessere Zuverlässigkeit behoben&#10;• Dualis-Notendienst mit dynamischem Semesterabruf und verbesserter Fehlerbehandlung erweitert&#10;• Verbesserte Anmeldeerfahrung mit automatischem Fokuswechsel zwischen Feldern und passenden Tastaturtypen&#10;• Benutzerdefinierte Benachrichtigungssymbole für bessere visuelle Identifizierung hinzugefügt&#10;• Erweiterte Klassendatenerfassung um vollständige Details von einzelnen Veranstaltungsseiten&#10;• Umfangreiche Code-Refaktorierung für verbesserte Wartbarkeit und Leistung&#10;• Bessere Fehlerbehandlung und Fallback-Mechanismen in der gesamten App" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+        <entry key="$PROJECT_DIR$/fastlane/metadata/android/en-US/changelogs/10.txt">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/fastlane/metadata/android/en-US/changelogs/10.txt" />
+              <option name="updatedContent" value="• Fixed precise notification scheduling for better reliability&#10;• Enhanced Dualis grades service with dynamic semester fetching and better error handling&#10;• Improved login experience with automatic focus movement between fields and appropriate keyboard types&#10;• Added custom notification icons for better visual identification&#10;• Expanded class data fetching to include full details from individual event pages&#10;• Major code refactoring for improved maintainability and performance&#10;• Better error handling and fallback mechanisms throughout the app" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
       </map>
     </option>
   </component>
