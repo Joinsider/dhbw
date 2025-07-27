@@ -34,6 +34,9 @@
     <string name="not_graded">Not graded</string>
     <string name="credit_points_short">CP</string>
 
+    <!-- Descriptions -->
+    <string name="logout_description">Remove your dualis credentials from the Application and logout</string>
+
     <!-- Module States -->
     <string name="passed">Passed</string>
     <string name="failed">Failed</string>

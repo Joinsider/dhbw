@@ -34,6 +34,7 @@
     <string name="credit_points_short">CP</string>
 
     <!-- Module States -->
+    <string name="logout_description">Dualis Zugangsdaten aus der App löschen und abmelden</string>
     <string name="passed">Bestanden</string>
     <string name="failed">Nicht bestanden</string>
     <string name="pending">Ausstehend</string>

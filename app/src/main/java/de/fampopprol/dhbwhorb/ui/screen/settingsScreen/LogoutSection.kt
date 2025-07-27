@@ -51,14 +51,14 @@ fun LogoutSection(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = stringResource(R.string.general_settings), // Using existing string resource
+                text = stringResource(R.string.logout), // Using existing string resource
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onErrorContainer
             )
 
             Text(
-                text = stringResource(R.string.enable_notifications_description), // Using existing string resource as placeholder
+                text = stringResource(R.string.logout_description), // Using existing string resource as placeholder
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
             )
@@ -81,7 +81,7 @@ fun LogoutSection(
                     modifier = Modifier.padding(end = 8.dp)
                 )
                 Text(
-                    text = stringResource(R.string.general_settings), // Using existing string resource as placeholder
+                    text = stringResource(R.string.logout), // Using existing string resource as placeholder
                     color = MaterialTheme.colorScheme.onError
                 )
             }
