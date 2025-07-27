@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">DHBW Horb</string>
+    <string name="app_name">DHBW Horb Studenten App</string>
 
     <!-- Login Screen -->
-    <string name="login_title">DHBW Horb Anmeldung</string>
+    <string name="login_title">DHBW Horb Dualis Anmeldung</string>
     <string name="username">Benutzername</string>
     <string name="password">Passwort</string>
     <string name="remember_credentials">Anmeldedaten merken</string>
