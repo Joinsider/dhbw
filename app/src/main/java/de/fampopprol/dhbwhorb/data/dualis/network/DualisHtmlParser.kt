@@ -108,18 +108,36 @@ class DualisHtmlParser {
             val options = semesterSelect.select("option")
             Log.d("DualisHtmlParser", "Found ${options.size} semester options")
 
+            val semesterOptions = mutableListOf<Triple<String, String, Boolean>>()
+
             options.forEach { option ->
                 val value = option.attr("value")
                 val displayName = option.text().trim()
                 val isSelected = option.hasAttr("selected")
 
                 if (value.isNotEmpty() && displayName.isNotEmpty()) {
-                    semesters.add(Semester(value, displayName, isSelected))
-                    Log.d("DualisHtmlParser", "Added semester: $displayName (value: $value, selected: $isSelected)")
+                    semesterOptions.add(Triple(value, displayName, isSelected))
+                    Log.d("DualisHtmlParser", "Found semester option: $displayName (value: $value, selected: $isSelected)")
                 }
             }
+
+            // Use the new factory method to create semesters from Dualis data
+            if (semesterOptions.isNotEmpty()) {
+                val dynamicSemesters = Semester.fromDualisOptions(semesterOptions)
+                semesters.addAll(dynamicSemesters)
+                Log.d("DualisHtmlParser", "Created ${dynamicSemesters.size} semesters from Dualis data")
+            } else {
+                Log.w("DualisHtmlParser", "No valid semester options found, using defaults")
+                semesters.addAll(Semester.getDefaultSemesters())
+            }
         } else {
-            Log.w("DualisHtmlParser", "No semester select dropdown found")
+            Log.w("DualisHtmlParser", "No semester select dropdown found, using defaults")
+            semesters.addAll(Semester.getDefaultSemesters())
+        }
+
+        Log.d("DualisHtmlParser", "Final semester list:")
+        semesters.forEach { semester ->
+            Log.d("DualisHtmlParser", "  - ${semester.displayName} (${semester.value}) [selected: ${semester.isSelected}]")
         }
 
         return semesters

@@ -38,31 +38,68 @@ class DualisGradesService(
 
         if (!urlManager.hasValidToken()) {
             Log.e("DualisGradesService", "Auth Token is null. Authentication required.")
-            callback(null)
+            // Return default semesters as fallback instead of null
+            Log.w("DualisGradesService", "Falling back to default semesters due to authentication issue")
+            callback(Semester.getDefaultSemesters())
             return
         }
 
         val baseUrl = urlManager.buildSemesterUrl()
         if (baseUrl == null) {
             Log.e("DualisGradesService", "Could not build semester URL")
-            callback(null)
+            // Return default semesters as fallback instead of null
+            Log.w("DualisGradesService", "Falling back to default semesters due to URL building issue")
+            callback(Semester.getDefaultSemesters())
             return
         }
 
         val request = networkClient.createGetRequest(baseUrl)
-        Log.d("DualisGradesService", "Fetching semesters from: $baseUrl")
+        Log.d("DualisGradesService", "Fetching dynamic semesters from: $baseUrl")
 
         networkClient.makeRequest(request, "Available Semesters") { _, responseBody ->
             if (responseBody != null) {
                 try {
+                    // Check if response indicates invalid token first
+                    if (htmlParser.isTokenInvalidResponse(responseBody)) {
+                        Log.w("DualisGradesService", "Token invalid when fetching semesters, attempting re-authentication")
+                        authService.reAuthenticateIfNeeded { success ->
+                            if (success) {
+                                Log.d("DualisGradesService", "Re-authentication successful, retrying semester fetch")
+                                // Retry the semester fetch after successful re-authentication
+                                getAvailableSemesters(callback)
+                            } else {
+                                Log.e("DualisGradesService", "Re-authentication failed, falling back to default semesters")
+                                callback(Semester.getDefaultSemesters())
+                            }
+                        }
+                        return@makeRequest
+                    }
+
                     val semesters = htmlParser.parseSemestersFromHtml(responseBody)
-                    Log.d("DualisGradesService", "Parsed ${semesters.size} semesters")
-                    callback(if (semesters.isNotEmpty()) semesters else Semester.getDefaultSemesters())
+                    Log.d("DualisGradesService", "Successfully parsed ${semesters.size} dynamic semesters from Dualis")
+
+                    // Log the semesters for debugging
+                    semesters.forEach { semester ->
+                        Log.d("DualisGradesService", "  Semester: ${semester.displayName} (${semester.value}) [selected: ${semester.isSelected}]")
+                    }
+
+                    // Always return at least the default semesters if parsing returns empty
+                    if (semesters.isNotEmpty()) {
+                        callback(semesters)
+                    } else {
+                        Log.w("DualisGradesService", "No semesters parsed, falling back to defaults")
+                        callback(Semester.getDefaultSemesters())
+                    }
                 } catch (e: Exception) {
-                    Log.e("DualisGradesService", "Error parsing semesters", e)
+                    Log.e("DualisGradesService", "Error parsing semesters from Dualis response", e)
+                    // Fallback to default semesters if parsing fails
+                    Log.w("DualisGradesService", "Falling back to default semesters due to parsing error")
                     callback(Semester.getDefaultSemesters())
                 }
             } else {
+                Log.e("DualisGradesService", "No response body received for semesters")
+                // Fallback to default semesters if request fails
+                Log.w("DualisGradesService", "Falling back to default semesters due to network error")
                 callback(Semester.getDefaultSemesters())
             }
         }

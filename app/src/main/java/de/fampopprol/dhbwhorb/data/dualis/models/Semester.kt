@@ -16,21 +16,21 @@ data class Semester(
 ) {
     companion object {
         /**
-         * Default semesters based on the typical academic calendar
-         * These values need to be updated when new semesters are available
+         * Fallback semesters when dynamic loading fails
+         * These are generic fallback values that should work for most programs
          */
         fun getDefaultSemesters(): List<Semester> {
             return listOf(
-                Semester("000000015178000", "SoSe 2026"),
-                Semester("000000015168000", "WiSe 2025/26"),
-                Semester("", "SoSe 2025 (Current)", isSelected = true), // Current semester - empty value
-                Semester("000000015148000", "WiSe 2024/25")
+                Semester("", "Aktuelles Semester", isSelected = true), // Current semester - empty value for current
+                Semester("000000015148000", "WiSe 2024/25"),
+                Semester("000000015138000", "SoSe 2024"),
+                Semester("000000015128000", "WiSe 2023/24")
             )
         }
 
         /**
          * Convert semester value to the format expected by the API
-         * For current semester (no value), return empty string
+         * For current semester (empty value), return empty string
          * For specific semester, return the formatted argument
          */
         fun formatSemesterArgument(semesterValue: String): String {
@@ -39,6 +39,27 @@ data class Semester(
             } else {
                 ",-N$semesterValue" // Previous semester - append as additional argument
             }
+        }
+
+        /**
+         * Create a semester list from Dualis dropdown data
+         * This method processes the actual HTML options from Dualis
+         */
+        fun fromDualisOptions(options: List<Triple<String, String, Boolean>>): List<Semester> {
+            val semesters = mutableListOf<Semester>()
+
+            // Add current semester option (empty value) if no option is selected
+            val hasSelectedSemester = options.any { it.third }
+            if (!hasSelectedSemester) {
+                semesters.add(Semester("", "Aktuelles Semester", isSelected = true))
+            }
+
+            // Add all semesters from Dualis
+            options.forEach { (value, displayName, isSelected) ->
+                semesters.add(Semester(value, displayName, isSelected))
+            }
+
+            return semesters
         }
     }
 }
