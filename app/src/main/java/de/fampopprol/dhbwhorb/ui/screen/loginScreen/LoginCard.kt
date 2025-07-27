@@ -62,7 +62,12 @@ fun LoginCard(
                 passwordVisible = passwordVisible,
                 onPasswordVisibilityToggle = onPasswordVisibilityToggle,
                 isLoading = isLoading,
-                hasError = errorMessage != null
+                hasError = errorMessage != null,
+                onDone = {
+                    if (username.isNotBlank() && password.isNotBlank() && !isLoading) {
+                        onLoginClick()
+                    }
+                }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
