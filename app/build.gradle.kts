@@ -12,8 +12,8 @@ android {
         applicationId = "de.fampopprol.dhbwhorb"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "v1.1.0"
+        versionCode = 11
+        versionName = "v1.1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
