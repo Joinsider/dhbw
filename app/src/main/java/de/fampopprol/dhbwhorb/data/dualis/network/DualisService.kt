@@ -26,6 +26,7 @@ class DualisService {
     private val authService = DualisAuthenticationService(networkClient, urlManager, htmlParser)
     private val scheduleService = DualisScheduleService(networkClient, urlManager, htmlParser, authService)
     private val gradesService = DualisGradesService(networkClient, urlManager, htmlParser, authService)
+    private val notificationsService = DualisNotificationsService(networkClient, urlManager, htmlParser, authService)
 
     /**
      * Logs into Dualis with user credentials
@@ -67,6 +68,20 @@ class DualisService {
      */
     fun getStudyGrades(semesterArgument: String = "", callback: (StudyGrades?) -> Unit) {
         gradesService.getStudyGrades(semesterArgument, callback)
+    }
+
+    /**
+     * Gets unread notifications from Dualis
+     */
+    fun getUnreadNotifications(callback: (de.fampopprol.dhbwhorb.data.dualis.models.NotificationList?) -> Unit) {
+        notificationsService.getUnreadNotifications(callback)
+    }
+
+    /**
+     * Gets detailed content for a specific notification
+     */
+    fun getNotificationDetails(notification: de.fampopprol.dhbwhorb.data.dualis.models.Notification, callback: (String?) -> Unit) {
+        notificationsService.getNotificationDetails(notification, callback)
     }
 
     /**

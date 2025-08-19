@@ -21,6 +21,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
+import de.fampopprol.dhbwhorb.data.notification.ScheduleChangeManager
 import de.fampopprol.dhbwhorb.ui.screen.*
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
 import de.fampopprol.dhbwhorb.widget.WidgetUpdateManager
@@ -38,6 +39,11 @@ class MainActivity : ComponentActivity() {
         // Manually refresh widgets on app start to ensure they show current data
         Log.d("MainActivity", "Manually refreshing widgets on app start")
         WidgetUpdateManager.updateAllWidgets(this)
+
+        // Initialize schedule change monitoring
+        val scheduleChangeManager = ScheduleChangeManager(this)
+        scheduleChangeManager.initialize()
+        Log.d("MainActivity", "Schedule change monitoring initialized")
 
         setContent {
             var currentTimetableScreenViewMode by remember { mutableStateOf(CalendarViewMode.WEEKLY) }

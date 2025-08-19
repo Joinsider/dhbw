@@ -12,5 +12,6 @@ data class DualisUrl(
     var studentResultsUrl: String? = null,
     var courseResultUrl: String? = null,
     var monthlyScheduleUrl: String? = null,
+    var notificationsUrl: String? = null,
     val semesterCourseResultUrls: MutableMap<String, String> = mutableMapOf(),
 )
