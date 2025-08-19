@@ -14,7 +14,7 @@ navigationCompose = "2.9.1"
 okhttp = "5.1.0"
 jsoup = "1.21.1"
 securityCrypto = "1.1.0-beta01"
-workManager = "2.10.2"
+workManager = "2.10.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
