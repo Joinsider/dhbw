@@ -8,11 +8,13 @@ package de.fampopprol.dhbwhorb.data.notification
 
 import android.content.Context
 import android.util.Log
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.WorkRequest
 import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.data.permissions.PermissionManager
 import kotlinx.coroutines.launch
@@ -29,8 +31,7 @@ class NotificationScheduler(private val context: Context) {
     private val permissionManager = PermissionManager(context)
 
     /**
-     * Schedule periodic notifications to check for timetable and grade changes every 30 minutes
-     * Only schedules if notification permission is granted
+     * Schedule periodic notifications with optimized constraints for battery efficiency
      */
     fun schedulePeriodicNotifications() {
         if (!permissionManager.hasNotificationPermission()) {
@@ -38,14 +39,24 @@ class NotificationScheduler(private val context: Context) {
             return
         }
 
+        // Use more battery-friendly constraints
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true) // Don't run when battery is low
+            .setRequiresDeviceIdle(false) // Allow running when device is in use
             .build()
 
+        // Use flexible timing that works with Doze mode
         val periodicWorkRequest = PeriodicWorkRequestBuilder<NotificationWorker>(
-            30, TimeUnit.MINUTES
+            30, TimeUnit.MINUTES, // Repeat interval
+            15, TimeUnit.MINUTES  // Flex interval - allows system to optimize timing
         )
             .setConstraints(constraints)
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                WorkRequest.MIN_BACKOFF_MILLIS,
+                TimeUnit.MILLISECONDS
+            )
             .build()
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -54,7 +65,7 @@ class NotificationScheduler(private val context: Context) {
             periodicWorkRequest
         )
 
-        Log.d(TAG, "Scheduled periodic notification checks every 30 minutes")
+        Log.d(TAG, "Scheduled battery-optimized periodic notification checks every 30 minutes (±15 min flex)")
 
         // Also schedule class reminders when starting notifications
         scheduleClassReminders()
