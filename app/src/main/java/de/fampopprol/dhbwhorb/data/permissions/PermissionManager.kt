@@ -136,17 +136,6 @@ class PermissionManager(private val context: Context) {
             )
         }
 
-        if (!isBatteryOptimizationDisabled()) {
-            missing.add(
-                PermissionInfo(
-                    type = PermissionType.BATTERY_OPTIMIZATION,
-                    title = "Battery Optimization",
-                    description = "Disable battery optimization to ensure reliable background notifications",
-                    isRequired = false
-                )
-            )
-        }
-
         return missing
     }
 }
@@ -160,6 +149,5 @@ data class PermissionInfo(
 
 enum class PermissionType {
     NOTIFICATIONS,
-    EXACT_ALARMS,
-    BATTERY_OPTIMIZATION
+    EXACT_ALARMS
 }

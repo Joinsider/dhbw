@@ -88,9 +88,6 @@ fun PermissionSettingsSection(
                             PermissionType.EXACT_ALARMS -> {
                                 permissionManager.openExactAlarmSettings()
                             }
-                            PermissionType.BATTERY_OPTIMIZATION -> {
-                                permissionManager.openBatteryOptimizationSettings()
-                            }
                         }
                     },
                     onRefreshClick = {
@@ -170,7 +167,6 @@ private fun PermissionCard(
                     imageVector = when (permission.type) {
                         PermissionType.NOTIFICATIONS -> Icons.Default.Notifications
                         PermissionType.EXACT_ALARMS -> Icons.Default.Schedule
-                        PermissionType.BATTERY_OPTIMIZATION -> Icons.Default.BatteryFull
                     },
                     contentDescription = null,
                     tint = if (permission.isRequired)
