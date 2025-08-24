@@ -105,6 +105,11 @@
     <string name="how_it_works">How it works</string>
     <string name="how_it_works_description">• Change notifications check every 30 minutes\n• Class reminders are scheduled for individual classes\n• Covers current week and next 3 weeks for timetable\n• Only shows notifications when actual changes are detected\n• Requires internet connection to check for updates</string>
 
+    <!-- Privacy Policy -->
+    <string name="privacy_policy">Privacy Policy</string>
+    <string name="privacy_policy_description">View our privacy policy to understand how we handle your data</string>
+    <string name="open_privacy_policy">Open Privacy Policy</string>
+
     <!-- Days of week -->
     <string name="monday">Monday</string>
     <string name="tuesday">Tuesday</string>

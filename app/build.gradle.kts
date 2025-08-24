@@ -12,8 +12,8 @@ android {
         applicationId = "de.fampopprol.dhbwhorb"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "v1.1.0"
+        versionCode = 11
+        versionName = "v1.1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -29,6 +29,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
             // signingConfig = signingConfigs.getByName("debug")
 
             ndk {
@@ -41,8 +42,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
     buildFeatures {
         compose = true

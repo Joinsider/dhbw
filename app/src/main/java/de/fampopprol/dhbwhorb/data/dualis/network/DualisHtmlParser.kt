@@ -11,6 +11,9 @@ import de.fampopprol.dhbwhorb.data.dualis.models.DualisUrl
 import de.fampopprol.dhbwhorb.data.dualis.models.Semester
 import de.fampopprol.dhbwhorb.data.dualis.models.TimetableDay
 import de.fampopprol.dhbwhorb.data.dualis.models.TimetableEvent
+import de.fampopprol.dhbwhorb.data.dualis.models.Notification
+import de.fampopprol.dhbwhorb.data.dualis.models.NotificationType
+import de.fampopprol.dhbwhorb.data.dualis.models.NotificationList
 import org.jsoup.Jsoup
 import java.time.format.DateTimeFormatter
 
@@ -65,6 +68,14 @@ class DualisHtmlParser {
             Log.d("DualisHtmlParser", "Found logout URL: ${dualisUrls.logoutUrl}")
         }
 
+        // Extract notifications URL - look for "Nachrichten" link
+        val notificationsElement = document.select("a:contains(Nachrichten)").first()
+        if (notificationsElement != null) {
+            val rawHref = notificationsElement.attr("href")
+            dualisUrls.notificationsUrl = if (rawHref.startsWith("/")) dualisEndpoint + rawHref else rawHref
+            Log.d("DualisHtmlParser", "Found notifications URL: ${dualisUrls.notificationsUrl}")
+        }
+
         return dualisUrls
     }
 
@@ -107,7 +118,6 @@ class DualisHtmlParser {
 
             val options = semesterSelect.select("option")
             Log.d("DualisHtmlParser", "Found ${options.size} semester options")
-
             val semesterOptions = mutableListOf<Triple<String, String, Boolean>>()
 
             options.forEach { option ->
@@ -420,6 +430,144 @@ class DualisHtmlParser {
         }
 
         return nextRedirectUrl
+    }
+
+    /**
+     * Parses notifications from the notifications archive HTML page
+     */
+    fun parseNotifications(html: String): NotificationList {
+        Log.d("DualisHtmlParser", "=== PARSING NOTIFICATIONS FROM HTML ===")
+
+        val document = Jsoup.parse(html)
+        val notifications = mutableListOf<Notification>()
+
+        // Find the main notifications table
+        val notificationTable = document.select("table.nb.rw-table.rw-all").first()
+
+        if (notificationTable == null) {
+            Log.w("DualisHtmlParser", "No notification table found")
+            return NotificationList(emptyList(), 0)
+        }
+
+        // Parse all notification rows (skip header row)
+        val notificationRows = notificationTable.select("tr.tbdata")
+        Log.d("DualisHtmlParser", "Found ${notificationRows.size} notification rows")
+
+        notificationRows.forEachIndexed { index, row ->
+            try {
+                val notification = parseNotificationRow(row, index)
+                if (notification != null) {
+                    notifications.add(notification)
+                    Log.d("DualisHtmlParser", "Parsed notification: ${notification.subject}")
+                }
+            } catch (e: Exception) {
+                Log.e("DualisHtmlParser", "Error parsing notification row $index", e)
+            }
+        }
+
+        Log.d("DualisHtmlParser", "Successfully parsed ${notifications.size} notifications")
+        return NotificationList(notifications, notifications.size)
+    }
+
+    /**
+     * Parses a single notification row from the table
+     */
+    private fun parseNotificationRow(row: org.jsoup.nodes.Element, index: Int): Notification? {
+        val cells = row.select("td")
+
+        if (cells.size < 6) {
+            Log.w("DualisHtmlParser", "Notification row $index has insufficient cells: ${cells.size}")
+            return null
+        }
+
+        // Extract notification type from the icon
+        val iconCell = cells[0]
+        val iconImg = iconCell.select("img").first()
+        val isUnread = iconImg?.attr("src")?.contains("in_new.gif") == true
+
+        // Extract date and time
+        val date = cells[1].text().trim()
+        val time = cells[2].text().trim()
+
+        // Extract sender
+        val sender = cells[3].text().trim()
+
+        // Extract subject and detail URL
+        val subjectCell = cells[4]
+        val subjectLink = subjectCell.select("a").first()
+        val subject = subjectLink?.text()?.trim() ?: subjectCell.text().trim()
+
+        val detailUrl = subjectLink?.attr("href")?.let { href ->
+            if (href.startsWith("/")) {
+                "https://dualis.dhbw.de$href"
+            } else if (!href.startsWith("http")) {
+                "https://dualis.dhbw.de/$href"
+            } else {
+                href
+            }
+        }
+
+        // Extract delete URL
+        val deleteCell = cells[5]
+        val deleteLink = deleteCell.select("a").first()
+        val deleteUrl = deleteLink?.attr("href")?.let { href ->
+            if (href.startsWith("/")) {
+                "https://dualis.dhbw.de$href"
+            } else if (!href.startsWith("http")) {
+                "https://dualis.dhbw.de/$href"
+            } else {
+                href
+            }
+        }
+
+        // Determine notification type based on subject content
+        val notificationType = determineNotificationType(subject)
+
+        // Generate a unique ID for the notification
+        val notificationId = generateNotificationId(date, time, sender, subject)
+
+        Log.d("DualisHtmlParser", "Parsed notification row:")
+        Log.d("DualisHtmlParser", "  ID: $notificationId")
+        Log.d("DualisHtmlParser", "  Date: $date, Time: $time")
+        Log.d("DualisHtmlParser", "  Sender: $sender")
+        Log.d("DualisHtmlParser", "  Subject: $subject")
+        Log.d("DualisHtmlParser", "  Type: $notificationType")
+        Log.d("DualisHtmlParser", "  Unread: $isUnread")
+        Log.d("DualisHtmlParser", "  Detail URL: $detailUrl")
+        Log.d("DualisHtmlParser", "  Delete URL: $deleteUrl")
+
+        return Notification(
+            id = notificationId,
+            date = date,
+            time = time,
+            sender = sender,
+            subject = subject,
+            type = notificationType,
+            isUnread = isUnread,
+            detailUrl = detailUrl,
+            deleteUrl = deleteUrl
+        )
+    }
+
+    /**
+     * Determines the notification type based on the subject content
+     */
+    private fun determineNotificationType(subject: String): NotificationType {
+        return when {
+            subject.contains("Termin geändert", ignoreCase = true) -> NotificationType.SCHEDULE_CHANGE
+            subject.contains("Termin festgelegt", ignoreCase = true) -> NotificationType.SCHEDULE_SET
+            subject.contains("schedule", ignoreCase = true) -> NotificationType.SCHEDULE_CHANGE
+            subject.contains("appointment", ignoreCase = true) -> NotificationType.SCHEDULE_CHANGE
+            else -> NotificationType.GENERAL_MESSAGE
+        }
+    }
+
+    /**
+     * Generates a unique ID for a notification based on its properties
+     */
+    private fun generateNotificationId(date: String, time: String, sender: String, subject: String): String {
+        val combined = "$date-$time-$sender-$subject"
+        return combined.hashCode().toString()
     }
 
     /**

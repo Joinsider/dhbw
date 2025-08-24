@@ -94,6 +94,17 @@ class DualisUrlManager {
     }
 
     /**
+     * Constructs notifications URL for unread messages
+     */
+    fun buildNotificationsUrl(): String? {
+        return if (authToken != null) {
+            "https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=ACTION&ARGUMENTS=-N$authToken"
+        } else {
+            null
+        }
+    }
+
+    /**
      * Clears all stored data
      */
     fun clear() {
@@ -103,6 +114,7 @@ class DualisUrlManager {
         dualisUrls.studentResultsUrl = null
         dualisUrls.courseResultUrl = null
         dualisUrls.monthlyScheduleUrl = null
+        dualisUrls.notificationsUrl = null
         dualisUrls.semesterCourseResultUrls.clear()
     }
 }
