@@ -13,6 +13,8 @@ import androidx.work.WorkerParameters
 import de.fampopprol.dhbwhorb.data.cache.GradesCacheManager
 import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
+import de.fampopprol.dhbwhorb.data.notification.NotificationPreferencesManager
+import de.fampopprol.dhbwhorb.data.permissions.PermissionManager
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -32,6 +34,18 @@ class NotificationWorker(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Starting notification worker")
+
+            // Check if notifications are enabled and permission is granted
+            val permissionManager = PermissionManager(context)
+            val notificationPreferencesManager = NotificationPreferencesManager(context)
+
+            val notificationsEnabled = notificationPreferencesManager.getNotificationsEnabledBlocking()
+            val hasPermission = permissionManager.hasNotificationPermission()
+
+            if (!notificationsEnabled || !hasPermission) {
+                Log.d(TAG, "Notifications disabled or permission not granted - skipping check")
+                return@withContext Result.success()
+            }
 
             val credentialManager = CredentialManager(context)
             if (!credentialManager.hasStoredCredentialsBlocking()) {
