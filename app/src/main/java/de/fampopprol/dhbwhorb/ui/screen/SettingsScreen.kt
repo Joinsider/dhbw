@@ -31,6 +31,7 @@ import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.DemoModeTestSection
 import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.GeneralSettingsSection
 import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.LogoutSection
 import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.NotificationSettingsSection
+import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.PrivacyPolicySection
 
 @Composable
 fun NotificationSettingsScreen(
@@ -78,6 +79,9 @@ fun NotificationSettingsScreen(
         if (isDemoMode) {
             DemoModeTestSection()
         }
+
+        // Privacy Policy Section
+        PrivacyPolicySection()
 
         // Logout Section
         LogoutSection(

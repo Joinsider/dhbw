@@ -14,6 +14,7 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
+import de.fampopprol.dhbwhorb.data.permissions.PermissionManager
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
@@ -25,11 +26,18 @@ class NotificationScheduler(private val context: Context) {
 
     private val classReminderScheduler = ClassReminderScheduler(context)
     private val timetableCacheManager = TimetableCacheManager(context)
+    private val permissionManager = PermissionManager(context)
 
     /**
      * Schedule periodic notifications to check for timetable and grade changes every 30 minutes
+     * Only schedules if notification permission is granted
      */
     fun schedulePeriodicNotifications() {
+        if (!permissionManager.hasNotificationPermission()) {
+            Log.w(TAG, "Cannot schedule notifications - notification permission not granted")
+            return
+        }
+
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
