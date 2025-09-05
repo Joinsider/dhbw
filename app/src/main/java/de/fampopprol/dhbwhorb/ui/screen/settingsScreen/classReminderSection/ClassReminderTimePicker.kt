@@ -53,7 +53,7 @@ fun ClassReminderTimePicker(
             .fillMaxWidth()
             .clickable { showDropdown = true },
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Row(

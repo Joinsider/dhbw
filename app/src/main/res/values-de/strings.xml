@@ -72,7 +72,7 @@
     <string name="settings">Einstellungen</string>
 
     <!-- Notification Settings -->
-    <string name="notification_settings">Benachrichtigungseinstellungen</string>
+    <string name="notification_settings">Nachrichteneinstellungen</string>
     <string name="enable_notifications">Benachrichtigungen aktivieren</string>
     <string name="enable_notifications_description">Erhalten Sie Benachrichtigungen bei Stundenplan- und Notenänderungen</string>
     <string name="timetable_changes">Stundenplanänderungen</string>
@@ -92,6 +92,11 @@
     <string name="test_class_reminder">Vorlesungserinnerung testen</string>
     <string name="how_it_works">So funktioniert es</string>
     <string name="how_it_works_description">• Änderungsbenachrichtigungen prüfen alle 30 Minuten\n• Vorlesungserinnerungen werden für einzelne Vorlesungen geplant\n• Umfasst aktuelle Woche und nächste 3 Wochen für Stundenplan\n• Zeigt nur Benachrichtigungen bei tatsächlichen Änderungen\n• Benötigt Internetverbindung zur Überprüfung von Updates</string>
+
+    <!-- Privacy Policy -->
+    <string name="privacy_policy">Datenschutzerklärung</string>
+    <string name="privacy_policy_description">Lesen Sie unsere Datenschutzerklärung, um zu verstehen, wie wir mit Ihren Daten umgehen</string>
+    <string name="open_privacy_policy">Datenschutzerklärung öffnen</string>
 
     <!-- Days of week -->
     <string name="monday">Montag</string>

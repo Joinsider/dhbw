@@ -25,15 +25,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.R
 import de.fampopprol.dhbwhorb.data.notification.NotificationPreferencesManager
 import de.fampopprol.dhbwhorb.data.notification.NotificationScheduler
+import de.fampopprol.dhbwhorb.data.permissions.PermissionManager
 import kotlinx.coroutines.launch
 
 @Composable
@@ -42,24 +47,35 @@ fun NotificationSettingsSection(
     notificationScheduler: NotificationScheduler,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val permissionManager = remember { PermissionManager(context) }
     val scope = rememberCoroutineScope()
     val notificationsEnabled by notificationPreferencesManager.notificationsEnabled.collectAsState(initial = true)
     val timetableNotificationsEnabled by notificationPreferencesManager.timetableNotificationsEnabled.collectAsState(initial = true)
     val gradeNotificationsEnabled by notificationPreferencesManager.gradeNotificationsEnabled.collectAsState(initial = true)
 
+    var hasNotificationPermission by remember { mutableStateOf(permissionManager.hasNotificationPermission()) }
+
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Permission section - show if permissions are missing
+        PermissionSettingsSection(
+            onPermissionsChanged = {
+                hasNotificationPermission = permissionManager.hasNotificationPermission()
+            }
+        )
+
         // Notification Settings Header
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
-                imageVector = if (notificationsEnabled) Icons.Default.Notifications else Icons.Default.NotificationsOff,
+                imageVector = if (notificationsEnabled && hasNotificationPermission) Icons.Default.Notifications else Icons.Default.NotificationsOff,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
+                tint = if (hasNotificationPermission) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
             )
             Text(
                 text = stringResource(R.string.notification_settings),
@@ -93,13 +109,18 @@ fun NotificationSettingsSection(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = stringResource(R.string.enable_notifications_description),
+                            text = if (hasNotificationPermission) {
+                                stringResource(R.string.enable_notifications_description)
+                            } else {
+                                "Grant notification permission above to enable notifications"
+                            },
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (hasNotificationPermission) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error
                         )
                     }
                     Switch(
-                        checked = notificationsEnabled,
+                        checked = notificationsEnabled && hasNotificationPermission,
+                        enabled = hasNotificationPermission,
                         onCheckedChange = { enabled ->
                             scope.launch {
                                 notificationPreferencesManager.setNotificationsEnabled(enabled)
