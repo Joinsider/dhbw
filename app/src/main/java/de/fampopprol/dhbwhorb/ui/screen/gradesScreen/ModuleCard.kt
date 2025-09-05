@@ -34,17 +34,17 @@ fun ModuleCard(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = when (module.state) {
-                ExamState.PASSED -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                ExamState.FAILED -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                ExamState.PASSED -> MaterialTheme.colorScheme.primaryContainer
+                ExamState.FAILED -> MaterialTheme.colorScheme.errorContainer
                 ExamState.PENDING -> MaterialTheme.colorScheme.surfaceVariant
             },
             contentColor = when (module.state) {
                 ExamState.PASSED -> MaterialTheme.colorScheme.onPrimaryContainer
                 ExamState.FAILED -> MaterialTheme.colorScheme.onErrorContainer
-                ExamState.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
+                ExamState.PENDING -> MaterialTheme.colorScheme.onSurface
             }
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -67,7 +67,11 @@ fun ModuleCard(
                     Text(
                         text = module.id,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = when (module.state) {
+                            ExamState.PASSED -> MaterialTheme.colorScheme.onPrimaryContainer
+                            ExamState.FAILED -> MaterialTheme.colorScheme.error
+                            ExamState.PENDING -> MaterialTheme.colorScheme.onSurface
+                        }
                     )
                 }
 
@@ -80,15 +84,19 @@ fun ModuleCard(
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = when (module.state) {
-                            ExamState.PASSED -> MaterialTheme.colorScheme.primary
+                            ExamState.PASSED -> MaterialTheme.colorScheme.onPrimaryContainer
                             ExamState.FAILED -> MaterialTheme.colorScheme.error
-                            ExamState.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
+                            ExamState.PENDING -> MaterialTheme.colorScheme.onSurface
                         }
                     )
                     Text(
                         text = "${module.credits} ${stringResource(R.string.credit_points_short)}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = when (module.state) {
+                            ExamState.PASSED -> MaterialTheme.colorScheme.onPrimaryContainer
+                            ExamState.FAILED -> MaterialTheme.colorScheme.error
+                            ExamState.PENDING -> MaterialTheme.colorScheme.onSurface
+                        }
                     )
                 }
             }
@@ -118,9 +126,9 @@ fun ModuleCard(
                     text = statusText,
                     style = MaterialTheme.typography.bodySmall,
                     color = when (module.state) {
-                        ExamState.PASSED -> MaterialTheme.colorScheme.primary
+                        ExamState.PASSED -> MaterialTheme.colorScheme.onPrimaryContainer
                         ExamState.FAILED -> MaterialTheme.colorScheme.error
-                        ExamState.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
+                        ExamState.PENDING -> MaterialTheme.colorScheme.onSurface
                     }
                 )
             }

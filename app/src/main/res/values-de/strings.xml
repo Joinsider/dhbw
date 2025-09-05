@@ -72,7 +72,7 @@
     <string name="settings">Einstellungen</string>
 
     <!-- Notification Settings -->
-    <string name="notification_settings">Benachrichtigungseinstellungen</string>
+    <string name="notification_settings">Nachrichteneinstellungen</string>
     <string name="enable_notifications">Benachrichtigungen aktivieren</string>
     <string name="enable_notifications_description">Erhalten Sie Benachrichtigungen bei Stundenplan- und Notenänderungen</string>
     <string name="timetable_changes">Stundenplanänderungen</string>
