@@ -115,11 +115,6 @@ fun DHBWHorbTheme(
             val window = (view.context as Activity).window
             WindowCompat.getInsetsController(window, view).apply {
                 isAppearanceLightStatusBars = !darkTheme
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    window.statusBarColor = android.graphics.Color.TRANSPARENT
-                } else {
-                    window.statusBarColor = colorScheme.surface.hashCode()
-                }
             }
         }
     }
