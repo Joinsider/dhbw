@@ -1,0 +1,4 @@
+New in Version 1.1.1
+    - Improved stability and bug fixes
+    - Updated libraries & dependencies
+    - Potential fix for grade notifications

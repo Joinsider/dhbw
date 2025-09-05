@@ -1,0 +1,4 @@
+Neu in Version 1.1.1
+    - Verbesserte Stabilität und Fehlerbehebungen
+    - Aktualisierte Bibliotheken & Abhängigkeiten
+    - Mögliche Korrektur bei Benachrichtigungen zu Noten
