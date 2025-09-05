@@ -1,5 +1,5 @@
 [versions]
-agp = "8.12.1"
+agp = "8.12.2"
 datastorePreferencesCore = "1.1.7"
 gson = "2.13.1"
 kotlin = "2.2.10"
