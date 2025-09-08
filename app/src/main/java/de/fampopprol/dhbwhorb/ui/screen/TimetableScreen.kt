@@ -47,7 +47,7 @@ fun TimetableScreen(
 
     // Initial data loading and re-authentication logic
     LaunchedEffect(credentialManager, dualisService) {
-        viewModel.authenticateAndFetch(navigationManager.currentWeekStart, onLogout)
+        viewModel.initialize(navigationManager.currentWeekStart, onLogout)
     }
 
     screenComposer.TimetableContent(

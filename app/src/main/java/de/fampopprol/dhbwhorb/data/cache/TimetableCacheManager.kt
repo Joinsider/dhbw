@@ -63,6 +63,10 @@ class TimetableCacheManager(private val context: Context) {
         }
     }
 
+    fun isTimetableCached(weekStart: LocalDate): Boolean {
+        return sharedPreferences.contains(getCacheKey(weekStart))
+    }
+
     fun clearCache() {
         sharedPreferences.edit { clear() }
         Log.d("TimetableCacheManager", "Cache cleared.")

@@ -10,6 +10,8 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.models.TimetableDay
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
@@ -17,12 +19,15 @@ import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class TimetableViewModel(
     private val dualisService: DualisService,
     private val credentialManager: CredentialManager,
     private val timetableCacheManager: TimetableCacheManager
-) {
+) : ViewModel() {
     var timetable by mutableStateOf<List<TimetableDay>?>(null)
         private set
 
@@ -38,6 +43,8 @@ class TimetableViewModel(
     var lastUpdated by mutableStateOf<String?>(null)
         private set
 
+    private var preFetchJob: Job? = null
+
     // Function to update last updated timestamp
     fun updateLastUpdatedTimestamp() {
         val formatter = DateTimeFormatter.ofPattern("HH:mm")
@@ -50,6 +57,7 @@ class TimetableViewModel(
         if (cachedTimetable != null) {
             timetable = cachedTimetable
             Log.d("TimetableViewModel", "Displaying cached timetable for week: $weekStart")
+            preFetchTimetables(weekStart)
             return true
         }
         return false
@@ -58,6 +66,14 @@ class TimetableViewModel(
     // Function to fetch timetable from API
     fun fetchTimetableFromApi(weekStart: LocalDate, isForced: Boolean = false) {
         if (isFetchingFromApi && !isForced) return
+
+        // Skip if already cached and not a forced refresh
+        if (timetableCacheManager.isTimetableCached(weekStart) && !isForced) {
+            Log.d("TimetableViewModel", "Skipping API fetch for week $weekStart, already cached.")
+            // Still, we might want to pre-fetch surrounding weeks if they are not cached
+            preFetchTimetables(weekStart)
+            return
+        }
 
         isFetchingFromApi = true
         Log.d("TimetableViewModel", "Fetching timetable from API for week starting: $weekStart (forced: $isForced)")
@@ -77,6 +93,9 @@ class TimetableViewModel(
                     Log.d("TimetableViewModel", "Fetched timetable is same as current for week: $weekStart")
                 }
 
+                // After the main timetable is fetched and cached, pre-fetch surrounding weeks
+                preFetchTimetables(weekStart)
+
                 updateLastUpdatedTimestamp()
                 errorMessage = null
             } else {
@@ -84,6 +103,47 @@ class TimetableViewModel(
                 if (timetable == null) {
                     errorMessage = "Failed to load timetable. Please try logging in again."
                 }
+            }
+        }
+    }
+
+    private fun preFetchTimetables(currentWeekStart: LocalDate) {
+        preFetchJob?.cancel() // Cancel any existing pre-fetch job
+        preFetchJob = viewModelScope.launch {
+            delay(700) // Wait for 1 second before starting to pre-fetch
+            Log.d("TimetableViewModel", "Starting to pre-fetch surrounding timetables.")
+
+            // Fetch previous 4 weeks
+            for (i in 1..4) {
+                val weekToFetch = currentWeekStart.minusWeeks(i.toLong())
+                fetchTimetableFromApiInBackground(weekToFetch)
+                kotlinx.coroutines.delay(500) // Add a small delay to be nice to the server
+            }
+
+            // Fetch next 4 weeks
+            for (i in 1..4) {
+                val weekToFetch = currentWeekStart.plusWeeks(i.toLong())
+                fetchTimetableFromApiInBackground(weekToFetch)
+                kotlinx.coroutines.delay(500) // Add a small delay to be nice to the server
+            }
+        }
+    }
+
+    private fun fetchTimetableFromApiInBackground(weekStart: LocalDate) {
+        // Skip if already cached
+        if (timetableCacheManager.isTimetableCached(weekStart)) {
+            Log.d("TimetableViewModel", "Skipping pre-fetch for week $weekStart, already cached.")
+            return
+        }
+
+        Log.d("TimetableViewModel", "Pre-fetching timetable from API for week starting: $weekStart")
+
+        dualisService.getWeeklySchedule(weekStart) { fetchedTimetable ->
+            if (fetchedTimetable != null) {
+                timetableCacheManager.saveTimetable(weekStart, fetchedTimetable)
+                Log.d("TimetableViewModel", "Pre-fetched and cached timetable for week: $weekStart")
+            } else {
+                Log.e("TimetableViewModel", "Failed to pre-fetch timetable from API for week starting $weekStart")
             }
         }
     }
@@ -124,8 +184,11 @@ class TimetableViewModel(
         Log.d("TimetableViewModel", "Re-authenticating with stored credentials")
         dualisService.login(username, password) { result ->
             if (result != null) {
-                Log.d("TimetableViewModel", "Re-authentication successful, fetching timetable")
-                fetchTimetableFromApi(weekStart, isForced = needsRefresh)
+                viewModelScope.launch {
+                    delay(1000) // Add a delay before fetching the timetable
+                    Log.d("TimetableViewModel", "Re-authentication successful, fetching timetable")
+                    fetchTimetableFromApi(weekStart, isForced = needsRefresh)
+                }
             } else {
                 handleAuthenticationFailure(onLogout)
             }
@@ -154,20 +217,22 @@ class TimetableViewModel(
         }
     }
 
-    suspend fun authenticateAndFetch(weekStart: LocalDate, onLogout: () -> Unit) {
-        val needsRefresh = shouldRefreshData()
+    fun initialize(weekStart: LocalDate, onLogout: () -> Unit) {
+        viewModelScope.launch {
+            val needsRefresh = shouldRefreshData()
 
-        if (credentialManager.hasStoredCredentialsBlocking()) {
-            val username = credentialManager.getUsernameBlocking()
-            val password = credentialManager.getPassword()
+            if (credentialManager.hasStoredCredentialsBlocking()) {
+                val username = credentialManager.getUsernameBlocking()
+                val password = credentialManager.getPassword()
 
-            if (username != null && password != null) {
-                performAuthentication(username, password, weekStart, needsRefresh, onLogout)
+                if (username != null && password != null) {
+                    performAuthentication(username, password, weekStart, needsRefresh, onLogout)
+                } else {
+                    handleMissingCredentials(onLogout)
+                }
             } else {
-                handleMissingCredentials(onLogout)
+                handleNoStoredCredentials(onLogout)
             }
-        } else {
-            handleNoStoredCredentials(onLogout)
         }
     }
 }
