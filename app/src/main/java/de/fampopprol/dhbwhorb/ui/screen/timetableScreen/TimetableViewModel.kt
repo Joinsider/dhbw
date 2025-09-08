@@ -57,7 +57,6 @@ class TimetableViewModel(
         if (cachedTimetable != null) {
             timetable = cachedTimetable
             Log.d("TimetableViewModel", "Displaying cached timetable for week: $weekStart")
-            preFetchTimetables(weekStart)
             return true
         }
         return false
@@ -65,7 +64,11 @@ class TimetableViewModel(
 
     // Function to fetch timetable from API
     fun fetchTimetableFromApi(weekStart: LocalDate, isForced: Boolean = false) {
-        if (isFetchingFromApi && !isForced) return
+        if (isFetchingFromApi && !isForced) {
+            // Even if a main fetch is in progress, still try to prefetch surrounding weeks
+            preFetchTimetables(weekStart)
+            return
+        }
 
         // Skip if already cached and not a forced refresh
         if (timetableCacheManager.isTimetableCached(weekStart) && !isForced) {
@@ -117,14 +120,14 @@ class TimetableViewModel(
             for (i in 1..4) {
                 val weekToFetch = currentWeekStart.minusWeeks(i.toLong())
                 fetchTimetableFromApiInBackground(weekToFetch)
-                kotlinx.coroutines.delay(500) // Add a small delay to be nice to the server
+                delay(50) // Add a small delay to be nice to the server
             }
 
-            // Fetch next 4 weeks
+            // Fetch next 2 weeks
             for (i in 1..4) {
                 val weekToFetch = currentWeekStart.plusWeeks(i.toLong())
                 fetchTimetableFromApiInBackground(weekToFetch)
-                kotlinx.coroutines.delay(500) // Add a small delay to be nice to the server
+                delay(50) // Add a small delay to be nice to the server
             }
         }
     }
@@ -146,6 +149,11 @@ class TimetableViewModel(
                 Log.e("TimetableViewModel", "Failed to pre-fetch timetable from API for week starting $weekStart")
             }
         }
+    }
+
+    // Public API to trigger surrounding weeks prefetch from UI/navigation
+    fun prefetchSurroundingWeeks(weekStart: LocalDate) {
+        preFetchTimetables(weekStart)
     }
 
     // Function to set refreshing state from external callers
