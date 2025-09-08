@@ -15,18 +15,21 @@ import androidx.lifecycle.viewModelScope
 import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.models.TimetableDay
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
+import de.fampopprol.dhbwhorb.data.network.NetworkConnectivityManager
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class TimetableViewModel(
     private val dualisService: DualisService,
     private val credentialManager: CredentialManager,
-    private val timetableCacheManager: TimetableCacheManager
+    private val timetableCacheManager: TimetableCacheManager,
+    private val networkConnectivityManager: NetworkConnectivityManager? = null
 ) : ViewModel() {
     var timetable by mutableStateOf<List<TimetableDay>?>(null)
         private set
@@ -43,13 +46,74 @@ class TimetableViewModel(
     var lastUpdated by mutableStateOf<String?>(null)
         private set
 
+    var isOffline by mutableStateOf(false)
+        private set
+
     private var preFetchJob: Job? = null
+    private var reconnectJob: Job? = null
+    private var pendingWeekStart: LocalDate? = null
 
     init {
         // Clean up expired cache on initialization
         viewModelScope.launch {
             timetableCacheManager.clearExpiredCache()
         }
+
+        // Monitor network connectivity changes
+        networkConnectivityManager?.let { networkManager ->
+            viewModelScope.launch {
+                networkManager.hasInternetAccess.collect { hasInternet ->
+                    val wasOffline = isOffline
+                    isOffline = !hasInternet
+
+                    Log.d("TimetableViewModel", "Network status changed - Online: $hasInternet, Was offline: $wasOffline")
+
+                    if (wasOffline && hasInternet) {
+                        // Just came back online - try to refresh data
+                        Log.d("TimetableViewModel", "Device came back online, attempting to refresh data")
+                        handleReconnection()
+                    } else if (!hasInternet) {
+                        // Went offline - show cached data with offline message
+                        Log.d("TimetableViewModel", "Device went offline, showing cached data")
+                        handleOfflineMode()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleReconnection() {
+        reconnectJob?.cancel()
+        reconnectJob = viewModelScope.launch {
+            delay(1000) // Wait a moment for connection to stabilize
+
+            val weekToRefresh = pendingWeekStart ?: getCurrentWeekStart()
+            Log.d("TimetableViewModel", "Attempting to refresh data after reconnection for week: $weekToRefresh")
+
+            // Clear the offline error message
+            if (errorMessage?.contains("offline", ignoreCase = true) == true) {
+                errorMessage = null
+            }
+
+            // Try to fetch fresh data
+            fetchTimetableFromApi(weekToRefresh, isForced = false)
+        }
+    }
+
+    private fun handleOfflineMode() {
+        // Show offline message but keep cached data
+        val currentWeek = getCurrentWeekStart()
+        val hasCachedData = loadCachedTimetable(currentWeek)
+
+        if (hasCachedData) {
+            errorMessage = "Offline - when the phone is connected to the internet again, Dualis will be fetched again"
+        } else {
+            errorMessage = "No internet connection and no cached data available"
+        }
+    }
+
+    private fun getCurrentWeekStart(): LocalDate {
+        return LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
     }
 
     // Function to update last updated timestamp
@@ -111,11 +175,29 @@ class TimetableViewModel(
         return false
     }
 
-    // Function to fetch timetable from API with enhanced cache logic
+    // Function to fetch timetable from API with enhanced cache logic and network awareness
     fun fetchTimetableFromApi(weekStart: LocalDate, isForced: Boolean = false) {
         if (isFetchingFromApi && !isForced) {
             // Even if a main fetch is in progress, still try to prefetch surrounding weeks
             preFetchTimetables(weekStart)
+            return
+        }
+
+        // Store the week we're trying to fetch for reconnection scenarios
+        pendingWeekStart = weekStart
+
+        // Check network connectivity first
+        val isOnline = networkConnectivityManager?.isCurrentlyOnline() ?: true
+
+        if (!isOnline) {
+            Log.d("TimetableViewModel", "Device is offline, showing cached data")
+            val hasCachedData = loadCachedTimetable(weekStart)
+            if (hasCachedData) {
+                errorMessage = "Offline - when the phone is connected to the internet again, Dualis will be fetched again"
+            } else {
+                errorMessage = "No internet connection and no cached data available"
+            }
+            isOffline = true
             return
         }
 
@@ -149,28 +231,54 @@ class TimetableViewModel(
                 preFetchTimetables(weekStart)
 
                 updateLastUpdatedTimestamp()
-                errorMessage = null
+                // Clear offline error message if it was showing
+                if (errorMessage?.contains("offline", ignoreCase = true) == true) {
+                    errorMessage = null
+                }
+                isOffline = false
             } else {
                 Log.e("TimetableViewModel", "Failed to fetch timetable from API for week starting $weekStart")
 
-                // Try to fall back to any cached data (even if expired) when API fails
-                if (timetable == null) {
+                // Check if we're offline and handle accordingly
+                val currentlyOnline = networkConnectivityManager?.isCurrentlyOnline() ?: true
+
+                if (!currentlyOnline) {
+                    // We're offline, show cached data with offline message
                     val fallbackCache = timetableCacheManager.loadTimetable(weekStart)
                     if (fallbackCache != null) {
                         timetable = fallbackCache
-                        Log.d("TimetableViewModel", "Using fallback cached data due to API failure")
-                        errorMessage = "Using cached data - network unavailable"
+                        errorMessage = "Offline - when the phone is connected to the internet again, Dualis will be fetched again"
+                        isOffline = true
                     } else {
-                        errorMessage = "Failed to load timetable. Please try logging in again."
+                        errorMessage = "No internet connection and no cached data available"
+                        isOffline = true
                     }
                 } else {
-                    errorMessage = "Failed to refresh timetable - showing cached data"
+                    // We're online but API failed, try cached data as fallback
+                    if (timetable == null) {
+                        val fallbackCache = timetableCacheManager.loadTimetable(weekStart)
+                        if (fallbackCache != null) {
+                            timetable = fallbackCache
+                            Log.d("TimetableViewModel", "Using fallback cached data due to API failure")
+                            errorMessage = "Using cached data - network unavailable"
+                        } else {
+                            errorMessage = "Failed to load timetable. Please try logging in again."
+                        }
+                    } else {
+                        errorMessage = "Failed to refresh timetable - showing cached data"
+                    }
                 }
             }
         }
     }
 
     private fun preFetchTimetables(currentWeekStart: LocalDate) {
+        // Don't prefetch if we're offline
+        if (isOffline || networkConnectivityManager?.isCurrentlyOnline() == false) {
+            Log.d("TimetableViewModel", "Skipping prefetch - device is offline")
+            return
+        }
+
         preFetchJob?.cancel() // Cancel any existing pre-fetch job
         preFetchJob = viewModelScope.launch {
             delay(700) // Wait before starting to pre-fetch
@@ -196,8 +304,9 @@ class TimetableViewModel(
             }
 
             weeksToFetch.forEach { weekToFetch ->
-                // Only fetch if cache is invalid or missing
-                if (!timetableCacheManager.isCacheValid(weekToFetch)) {
+                // Only fetch if cache is invalid or missing and we're still online
+                if (!timetableCacheManager.isCacheValid(weekToFetch) &&
+                    (networkConnectivityManager?.isCurrentlyOnline() != false)) {
                     fetchTimetableFromApiInBackground(weekToFetch)
                     delay(100) // Slightly longer delay to be nice to the server
                 }
@@ -206,9 +315,10 @@ class TimetableViewModel(
     }
 
     private fun fetchTimetableFromApiInBackground(weekStart: LocalDate) {
-        // Skip if we have valid cache
-        if (timetableCacheManager.isCacheValid(weekStart)) {
-            Log.d("TimetableViewModel", "Skipping pre-fetch for week $weekStart, valid cache available.")
+        // Skip if we have valid cache or are offline
+        if (timetableCacheManager.isCacheValid(weekStart) ||
+            networkConnectivityManager?.isCurrentlyOnline() == false) {
+            Log.d("TimetableViewModel", "Skipping pre-fetch for week $weekStart - valid cache available or offline.")
             return
         }
 
@@ -350,6 +460,15 @@ class TimetableViewModel(
                     val formatter = DateTimeFormatter.ofPattern("HH:mm")
                     lastUpdated = lastCacheUpdate.format(formatter)
                 }
+            }
+
+            // Check if we're offline first
+            val isCurrentlyOnline = networkConnectivityManager?.isCurrentlyOnline() ?: true
+
+            if (!isCurrentlyOnline) {
+                Log.d("TimetableViewModel", "Device is offline during initialization")
+                handleOfflineMode()
+                return@launch
             }
 
             val needsRefresh = shouldRefreshData() || !timetableCacheManager.isCacheValid(weekStart)

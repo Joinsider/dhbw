@@ -12,8 +12,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
+import de.fampopprol.dhbwhorb.data.network.NetworkConnectivityManager
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.components.CalendarViewMode
 import de.fampopprol.dhbwhorb.ui.screen.timetableScreen.TimetableNavigationManager
@@ -31,11 +33,17 @@ fun TimetableScreen(
     onViewModeChanged: (CalendarViewMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val pullRefreshState = rememberPullToRefreshState()
+
+    // Create network connectivity manager
+    val networkConnectivityManager = remember {
+        NetworkConnectivityManager(context)
+    }
 
     // Initialize the separated components
     val viewModel = remember {
-        TimetableViewModel(dualisService, credentialManager, timetableCacheManager)
+        TimetableViewModel(dualisService, credentialManager, timetableCacheManager, networkConnectivityManager)
     }
     val navigationManager = remember { TimetableNavigationManager(viewModel) }
     val screenComposer = remember { TimetableScreenComposer() }

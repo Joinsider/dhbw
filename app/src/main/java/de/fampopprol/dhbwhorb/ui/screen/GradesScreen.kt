@@ -32,12 +32,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.R
 import de.fampopprol.dhbwhorb.data.cache.GradesCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
+import de.fampopprol.dhbwhorb.data.network.NetworkConnectivityManager
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.screen.gradesScreen.GradesAuthManager
 import de.fampopprol.dhbwhorb.ui.screen.gradesScreen.GradesContent
@@ -53,8 +55,14 @@ fun GradesScreen(
     credentialManager: CredentialManager? = null,
     gradesCacheManager: GradesCacheManager? = null
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val pullRefreshState = rememberPullToRefreshState()
+
+    // Create network connectivity manager
+    val networkConnectivityManager = remember {
+        NetworkConnectivityManager(context)
+    }
 
     // Create managers
     val dataManager = remember {
@@ -66,7 +74,7 @@ fun GradesScreen(
     }
 
     val stateManager = remember {
-        GradesStateManager(dataManager, authManager, scope)
+        GradesStateManager(dataManager, authManager, scope, networkConnectivityManager)
     }
 
     // Error messages from string resources
@@ -164,8 +172,16 @@ fun GradesScreen(
                             ) {
                                 androidx.compose.material3.Card(
                                     colors = androidx.compose.material3.CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                        containerColor = if (stateManager.isOffline) {
+                                            MaterialTheme.colorScheme.tertiaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.errorContainer
+                                        },
+                                        contentColor = if (stateManager.isOffline) {
+                                            MaterialTheme.colorScheme.onTertiaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onErrorContainer
+                                        }
                                     ),
                                     elevation = androidx.compose.material3.CardDefaults.cardElevation(
                                         defaultElevation = 4.dp

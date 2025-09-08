@@ -11,16 +11,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import de.fampopprol.dhbwhorb.data.dualis.models.Semester
 import de.fampopprol.dhbwhorb.data.dualis.models.StudyGrades
+import de.fampopprol.dhbwhorb.data.network.NetworkConnectivityManager
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 /**
- * Manages the UI state and coordinates data operations for the grades screen with enhanced persistence
+ * Manages the UI state and coordinates data operations for the grades screen with enhanced persistence and network awareness
  */
 class GradesStateManager(
     private val dataManager: GradesDataManager,
     private val authManager: GradesAuthManager,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val networkConnectivityManager: NetworkConnectivityManager? = null
 ) {
 
     // UI State
@@ -45,7 +50,63 @@ class GradesStateManager(
     var selectedSemester by mutableStateOf<Semester?>(null)
         private set
 
+    var isOffline by mutableStateOf(false)
+        private set
+
     private var hasLoadedFromCache = false
+    private var reconnectJob: Job? = null
+
+    init {
+        // Monitor network connectivity changes
+        networkConnectivityManager?.let { networkManager ->
+            scope.launch {
+                networkManager.hasInternetAccess.collect { hasInternet ->
+                    val wasOffline = isOffline
+                    isOffline = !hasInternet
+
+                    android.util.Log.d("GradesStateManager", "Network status changed - Online: $hasInternet, Was offline: $wasOffline")
+
+                    if (wasOffline && hasInternet) {
+                        // Just came back online - try to refresh data
+                        android.util.Log.d("GradesStateManager", "Device came back online, attempting to refresh data")
+                        handleReconnection()
+                    } else if (!hasInternet) {
+                        // Went offline - show cached data with offline message
+                        android.util.Log.d("GradesStateManager", "Device went offline, showing cached data")
+                        handleOfflineMode()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleReconnection() {
+        reconnectJob?.cancel()
+        reconnectJob = scope.launch {
+            delay(1000) // Wait a moment for connection to stabilize
+
+            android.util.Log.d("GradesStateManager", "Attempting to refresh data after reconnection")
+
+            // Clear the offline error message
+            if (errorMessage?.contains("offline", ignoreCase = true) == true) {
+                errorMessage = null
+            }
+
+            // Try to refresh current semester data
+            selectedSemester?.let { semester ->
+                loadGradesForSemester(semester, updateLoadingState = false, forceRefresh = false, "Failed to load grades")
+            }
+        }
+    }
+
+    private fun handleOfflineMode() {
+        // Show offline message but keep cached data
+        if (studyGrades != null || availableSemesters.isNotEmpty()) {
+            errorMessage = "Offline - when the phone is connected to the internet again, Dualis will be fetched again"
+        } else {
+            errorMessage = "No internet connection and no cached data available"
+        }
+    }
 
     /**
      * Initializes the screen with enhanced cache loading and background refresh
@@ -73,14 +134,24 @@ class GradesStateManager(
             // Update access time
             dataManager.updateAccessTime()
 
+            // Check if we're offline first
+            val isCurrentlyOnline = networkConnectivityManager?.isCurrentlyOnline() ?: true
+
+            if (!isCurrentlyOnline) {
+                android.util.Log.d("GradesStateManager", "Device is offline during initialization")
+                isOffline = true
+                handleOfflineMode()
+                return@launch
+            }
+
             // Then ensure authentication and fetch fresh data if needed
             val needsRefresh = !dataManager.hasValidCachedData() || !hasLoadedCache
 
             authManager.ensureAuthentication { authResult ->
                 when (authResult) {
                     GradesAuthManager.AuthResult.SUCCESS -> {
-                        if (needsRefresh) {
-                            loadSemesters(forceRefresh = true, failedToLoadGradesMessage)
+                        if (needsRefresh || !hasLoadedCache) {
+                            loadSemesters(forceRefresh = needsRefresh, failedToLoadGradesMessage)
                         } else {
                             // We have valid cached data, just update in background
                             android.util.Log.d("GradesStateManager", "Valid cache available, refreshing in background")
@@ -147,6 +218,13 @@ class GradesStateManager(
      * Loads available semesters and selects the default one (with loading UI)
      */
     private fun loadSemesters(forceRefresh: Boolean, failedToLoadGradesMessage: String) {
+        // Check if we're offline
+        if (isOffline || networkConnectivityManager?.isCurrentlyOnline() == false) {
+            android.util.Log.d("GradesStateManager", "Device is offline, skipping semester loading")
+            handleOfflineMode()
+            return
+        }
+
         if (!hasLoadedFromCache) {
             isLoading = true
         }
@@ -179,6 +257,12 @@ class GradesStateManager(
      * Loads semesters in background without showing loading UI
      */
     private fun loadSemestersInBackground(failedToLoadGradesMessage: String) {
+        // Check if we're offline
+        if (isOffline || networkConnectivityManager?.isCurrentlyOnline() == false) {
+            android.util.Log.d("GradesStateManager", "Device is offline, skipping background semester loading")
+            return
+        }
+
         dataManager.fetchAvailableSemesters(forceRefresh = false) { semesters ->
             availableSemesters = semesters
 
@@ -198,6 +282,15 @@ class GradesStateManager(
         forceRefresh: Boolean,
         failedToLoadGradesMessage: String
     ) {
+        // Check if we're offline
+        if (isOffline || networkConnectivityManager?.isCurrentlyOnline() == false) {
+            android.util.Log.d("GradesStateManager", "Device is offline, skipping grade loading for semester: ${semester.displayName}")
+            if (studyGrades == null) {
+                handleOfflineMode()
+            }
+            return
+        }
+
         if (updateLoadingState) {
             isLoading = true
         }
@@ -211,11 +304,19 @@ class GradesStateManager(
             if (grades != null) {
                 studyGrades = grades
                 selectedSemester = semester
-                errorMessage = null
+                // Clear offline error message if it was showing
+                if (errorMessage?.contains("offline", ignoreCase = true) == true) {
+                    errorMessage = null
+                }
                 android.util.Log.d("GradesStateManager", "Loaded grades for semester: ${semester.displayName}")
             } else {
                 if (studyGrades == null) {
-                    errorMessage = failedToLoadGradesMessage
+                    // Check if we went offline during the request
+                    if (networkConnectivityManager?.isCurrentlyOnline() == false) {
+                        handleOfflineMode()
+                    } else {
+                        errorMessage = failedToLoadGradesMessage
+                    }
                 }
                 android.util.Log.e("GradesStateManager", "Failed to load grades for semester: ${semester.displayName}")
             }
@@ -228,13 +329,14 @@ class GradesStateManager(
     private fun handleAuthFailure(message: String) {
         if (hasLoadedFromCache && (studyGrades != null || availableSemesters.isNotEmpty())) {
             // We have cached data, so show it with a warning
-            errorMessage = "$message - showing cached data"
+            val offlineMessage = if (isOffline) "Offline - " else ""
+            errorMessage = "$offlineMessage$message - showing cached data"
             isLoading = false
             android.util.Log.d("GradesStateManager", "Auth failed but showing cached data")
         } else {
             // No cached data available
             isLoading = false
-            errorMessage = message
+            errorMessage = if (isOffline) "Offline - $message" else message
             android.util.Log.d("GradesStateManager", "Auth failed with no cached data")
         }
     }
@@ -261,6 +363,14 @@ class GradesStateManager(
         noCredentialsFoundMessage: String,
         pleaseLoginMessage: String
     ) {
+        // Check if we're offline
+        if (isOffline || networkConnectivityManager?.isCurrentlyOnline() == false) {
+            android.util.Log.d("GradesStateManager", "Device is offline, skipping refresh")
+            isRefreshing = false
+            handleOfflineMode()
+            return
+        }
+
         isRefreshing = true
         errorMessage = null
 
@@ -278,7 +388,12 @@ class GradesStateManager(
                                     studyGrades = grades
                                     errorMessage = null
                                 } else {
-                                    errorMessage = failedToLoadGradesMessage
+                                    // Check if we went offline during the request
+                                    if (networkConnectivityManager?.isCurrentlyOnline() == false) {
+                                        handleOfflineMode()
+                                    } else {
+                                        errorMessage = failedToLoadGradesMessage
+                                    }
                                 }
                             }
                         } ?: run {
