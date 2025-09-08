@@ -43,6 +43,7 @@ import de.fampopprol.dhbwhorb.ui.screen.gradesScreen.GradesAuthManager
 import de.fampopprol.dhbwhorb.ui.screen.gradesScreen.GradesContent
 import de.fampopprol.dhbwhorb.ui.screen.gradesScreen.GradesDataManager
 import de.fampopprol.dhbwhorb.ui.screen.gradesScreen.GradesStateManager
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,15 +75,23 @@ fun GradesScreen(
     val pleaseLoginMessage = stringResource(R.string.please_login)
     val failedToLoadGradesMessage = stringResource(R.string.failed_to_load_grades)
 
-    // Initialize on first composition
+    // Load cached data immediately on screen initialization
     LaunchedEffect(Unit) {
+        // Trigger immediate cache loading in the state manager
+        launch {
+            gradesCacheManager?.debugCacheContents()
+        }
+    }
+
+    // Initialize on first composition with enhanced cache loading
+    LaunchedEffect(credentialManager, dualisService, gradesCacheManager) {
         stateManager.initialize(
             failedToLoadGradesMessage = failedToLoadGradesMessage,
             authenticationFailedMessage = authenticationFailedMessage,
             noCredentialsFoundMessage = noCredentialsFoundMessage,
             pleaseLoginMessage = pleaseLoginMessage
         ) { authResult ->
-            // Error handling is now done in the initialize method
+            // Error handling is now done in the initialize method with cache fallback
         }
     }
 
@@ -144,6 +153,32 @@ fun GradesScreen(
                             },
                             modifier = Modifier.fillMaxSize()
                         )
+
+                        // Show error message as overlay if we have data but there's an error
+                        if (stateManager.errorMessage != null && stateManager.studyGrades != null) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.BottomCenter
+                            ) {
+                                androidx.compose.material3.Card(
+                                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                    ),
+                                    elevation = androidx.compose.material3.CardDefaults.cardElevation(
+                                        defaultElevation = 4.dp
+                                    )
+                                ) {
+                                    Text(
+                                        text = stateManager.errorMessage!!,
+                                        modifier = Modifier.padding(12.dp),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
