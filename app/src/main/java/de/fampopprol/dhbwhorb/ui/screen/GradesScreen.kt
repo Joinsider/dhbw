@@ -32,17 +32,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.R
 import de.fampopprol.dhbwhorb.data.cache.GradesCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
+import de.fampopprol.dhbwhorb.data.network.NetworkConnectivityManager
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.ui.screen.gradesScreen.GradesAuthManager
 import de.fampopprol.dhbwhorb.ui.screen.gradesScreen.GradesContent
 import de.fampopprol.dhbwhorb.ui.screen.gradesScreen.GradesDataManager
 import de.fampopprol.dhbwhorb.ui.screen.gradesScreen.GradesStateManager
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,8 +55,14 @@ fun GradesScreen(
     credentialManager: CredentialManager? = null,
     gradesCacheManager: GradesCacheManager? = null
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val pullRefreshState = rememberPullToRefreshState()
+
+    // Create network connectivity manager
+    val networkConnectivityManager = remember {
+        NetworkConnectivityManager(context)
+    }
 
     // Create managers
     val dataManager = remember {
@@ -65,7 +74,7 @@ fun GradesScreen(
     }
 
     val stateManager = remember {
-        GradesStateManager(dataManager, authManager, scope)
+        GradesStateManager(dataManager, authManager, scope, networkConnectivityManager)
     }
 
     // Error messages from string resources
@@ -74,15 +83,23 @@ fun GradesScreen(
     val pleaseLoginMessage = stringResource(R.string.please_login)
     val failedToLoadGradesMessage = stringResource(R.string.failed_to_load_grades)
 
-    // Initialize on first composition
+    // Load cached data immediately on screen initialization
     LaunchedEffect(Unit) {
+        // Trigger immediate cache loading in the state manager
+        launch {
+            gradesCacheManager?.debugCacheContents()
+        }
+    }
+
+    // Initialize on first composition with enhanced cache loading
+    LaunchedEffect(credentialManager, dualisService, gradesCacheManager) {
         stateManager.initialize(
             failedToLoadGradesMessage = failedToLoadGradesMessage,
             authenticationFailedMessage = authenticationFailedMessage,
             noCredentialsFoundMessage = noCredentialsFoundMessage,
             pleaseLoginMessage = pleaseLoginMessage
         ) { authResult ->
-            // Error handling is now done in the initialize method
+            // Error handling is now done in the initialize method with cache fallback
         }
     }
 
@@ -144,6 +161,40 @@ fun GradesScreen(
                             },
                             modifier = Modifier.fillMaxSize()
                         )
+
+                        // Show error message as overlay if we have data but there's an error
+                        if (stateManager.errorMessage != null && stateManager.studyGrades != null) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.BottomCenter
+                            ) {
+                                androidx.compose.material3.Card(
+                                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                                        containerColor = if (stateManager.isOffline) {
+                                            MaterialTheme.colorScheme.tertiaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.errorContainer
+                                        },
+                                        contentColor = if (stateManager.isOffline) {
+                                            MaterialTheme.colorScheme.onTertiaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onErrorContainer
+                                        }
+                                    ),
+                                    elevation = androidx.compose.material3.CardDefaults.cardElevation(
+                                        defaultElevation = 4.dp
+                                    )
+                                ) {
+                                    Text(
+                                        text = stateManager.errorMessage!!,
+                                        modifier = Modifier.padding(12.dp),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

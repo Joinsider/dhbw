@@ -1,0 +1,4 @@
+Neu in Version 1.1.2
+    - Verbesserte Caches und Vorab-Laden für Wochen
+    - Bessere Performance beim Laden von Wochendaten
+

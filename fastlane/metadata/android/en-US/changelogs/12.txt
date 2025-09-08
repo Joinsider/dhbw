@@ -1,0 +1,4 @@
+New in Version 1.1.2
+    - Improved caches and prefetching for weeks
+    - Better performance when loading week data
+
