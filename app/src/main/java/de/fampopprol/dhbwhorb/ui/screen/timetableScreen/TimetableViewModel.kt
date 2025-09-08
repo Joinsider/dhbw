@@ -45,24 +45,73 @@ class TimetableViewModel(
 
     private var preFetchJob: Job? = null
 
+    init {
+        // Clean up expired cache on initialization
+        viewModelScope.launch {
+            timetableCacheManager.clearExpiredCache()
+        }
+    }
+
     // Function to update last updated timestamp
     fun updateLastUpdatedTimestamp() {
         val formatter = DateTimeFormatter.ofPattern("HH:mm")
         lastUpdated = java.time.LocalDateTime.now().format(formatter)
     }
 
-    // Function to load timetable data from cache
+    // Enhanced function to load timetable data from cache with validation
     fun loadCachedTimetable(weekStart: LocalDate): Boolean {
-        val cachedTimetable = timetableCacheManager.loadTimetable(weekStart)
-        if (cachedTimetable != null) {
-            timetable = cachedTimetable
-            Log.d("TimetableViewModel", "Displaying cached timetable for week: $weekStart")
+        // First try to load valid (non-expired) cached data
+        val validCachedTimetable = timetableCacheManager.getValidCachedTimetable(weekStart)
+        if (validCachedTimetable != null) {
+            timetable = validCachedTimetable
+            Log.d("TimetableViewModel", "Displaying valid cached timetable for week: $weekStart")
             return true
         }
+
+        // If no valid cache, try to load any cached data as fallback (for offline usage)
+        val anyCachedTimetable = timetableCacheManager.loadTimetable(weekStart)
+        if (anyCachedTimetable != null) {
+            timetable = anyCachedTimetable
+            Log.d("TimetableViewModel", "Displaying expired/fallback cached timetable for week: $weekStart")
+            return true
+        }
+
+        Log.d("TimetableViewModel", "No cached timetable found for week: $weekStart")
         return false
     }
 
-    // Function to fetch timetable from API
+    // Enhanced function to load the best available cached data on app startup
+    fun loadBestAvailableCache(preferredWeekStart: LocalDate): Boolean {
+        Log.d("TimetableViewModel", "Loading best available cache on app startup")
+
+        // First, try to load the preferred week
+        if (loadCachedTimetable(preferredWeekStart)) {
+            Log.d("TimetableViewModel", "Loaded preferred week cache: $preferredWeekStart")
+            return true
+        }
+
+        // If preferred week is not cached, find the best alternative
+        val allCachedWeeks = timetableCacheManager.getAllCachedWeeks()
+        if (allCachedWeeks.isEmpty()) {
+            Log.d("TimetableViewModel", "No cached weeks available")
+            return false
+        }
+
+        // Try to find a valid cache entry closest to the preferred week
+        val bestWeek = allCachedWeeks.minByOrNull { week ->
+            kotlin.math.abs(ChronoUnit.DAYS.between(preferredWeekStart, week))
+        }
+
+        if (bestWeek != null && loadCachedTimetable(bestWeek)) {
+            Log.d("TimetableViewModel", "Loaded closest available cache: $bestWeek (preferred was $preferredWeekStart)")
+            return true
+        }
+
+        Log.d("TimetableViewModel", "No usable cached data found")
+        return false
+    }
+
+    // Function to fetch timetable from API with enhanced cache logic
     fun fetchTimetableFromApi(weekStart: LocalDate, isForced: Boolean = false) {
         if (isFetchingFromApi && !isForced) {
             // Even if a main fetch is in progress, still try to prefetch surrounding weeks
@@ -70,16 +119,19 @@ class TimetableViewModel(
             return
         }
 
-        // Skip if already cached and not a forced refresh
-        if (timetableCacheManager.isTimetableCached(weekStart) && !isForced) {
-            Log.d("TimetableViewModel", "Skipping API fetch for week $weekStart, already cached.")
-            // Still, we might want to pre-fetch surrounding weeks if they are not cached
+        // Enhanced cache checking - consider cache validity
+        val hasValidCache = timetableCacheManager.isCacheValid(weekStart)
+        if (hasValidCache && !isForced) {
+            Log.d("TimetableViewModel", "Skipping API fetch for week $weekStart, valid cache available.")
+            // Load the cached data
+            loadCachedTimetable(weekStart)
+            // Still prefetch surrounding weeks if they're not cached
             preFetchTimetables(weekStart)
             return
         }
 
         isFetchingFromApi = true
-        Log.d("TimetableViewModel", "Fetching timetable from API for week starting: $weekStart (forced: $isForced)")
+        Log.d("TimetableViewModel", "Fetching timetable from API for week starting: $weekStart (forced: $isForced, cache valid: $hasValidCache)")
 
         dualisService.getWeeklySchedule(weekStart) { fetchedTimetable ->
             isFetchingFromApi = false
@@ -88,13 +140,10 @@ class TimetableViewModel(
             if (fetchedTimetable != null) {
                 Log.d("TimetableViewModel", "Fetched Timetable for week starting $weekStart: $fetchedTimetable")
 
-                if (timetable != fetchedTimetable) {
-                    timetable = fetchedTimetable
-                    timetableCacheManager.saveTimetable(weekStart, fetchedTimetable)
-                    Log.d("TimetableViewModel", "Timetable updated and cached for week: $weekStart")
-                } else {
-                    Log.d("TimetableViewModel", "Fetched timetable is same as current for week: $weekStart")
-                }
+                // Always update the cache with fresh data
+                timetable = fetchedTimetable
+                timetableCacheManager.saveTimetable(weekStart, fetchedTimetable)
+                Log.d("TimetableViewModel", "Timetable updated and cached for week: $weekStart")
 
                 // After the main timetable is fetched and cached, pre-fetch surrounding weeks
                 preFetchTimetables(weekStart)
@@ -103,8 +152,19 @@ class TimetableViewModel(
                 errorMessage = null
             } else {
                 Log.e("TimetableViewModel", "Failed to fetch timetable from API for week starting $weekStart")
+
+                // Try to fall back to any cached data (even if expired) when API fails
                 if (timetable == null) {
-                    errorMessage = "Failed to load timetable. Please try logging in again."
+                    val fallbackCache = timetableCacheManager.loadTimetable(weekStart)
+                    if (fallbackCache != null) {
+                        timetable = fallbackCache
+                        Log.d("TimetableViewModel", "Using fallback cached data due to API failure")
+                        errorMessage = "Using cached data - network unavailable"
+                    } else {
+                        errorMessage = "Failed to load timetable. Please try logging in again."
+                    }
+                } else {
+                    errorMessage = "Failed to refresh timetable - showing cached data"
                 }
             }
         }
@@ -113,29 +173,42 @@ class TimetableViewModel(
     private fun preFetchTimetables(currentWeekStart: LocalDate) {
         preFetchJob?.cancel() // Cancel any existing pre-fetch job
         preFetchJob = viewModelScope.launch {
-            delay(700) // Wait for 1 second before starting to pre-fetch
+            delay(700) // Wait before starting to pre-fetch
             Log.d("TimetableViewModel", "Starting to pre-fetch surrounding timetables.")
 
-            // Fetch previous 4 weeks
-            for (i in 1..4) {
-                val weekToFetch = currentWeekStart.minusWeeks(i.toLong())
-                fetchTimetableFromApiInBackground(weekToFetch)
-                delay(50) // Add a small delay to be nice to the server
+            // Prioritize weeks closer to current week
+            val weeksToFetch = mutableListOf<LocalDate>()
+
+            // Add next 2 weeks first (higher priority)
+            for (i in 1..2) {
+                weeksToFetch.add(currentWeekStart.plusWeeks(i.toLong()))
             }
 
-            // Fetch next 2 weeks
-            for (i in 1..4) {
-                val weekToFetch = currentWeekStart.plusWeeks(i.toLong())
-                fetchTimetableFromApiInBackground(weekToFetch)
-                delay(50) // Add a small delay to be nice to the server
+            // Add previous 2 weeks
+            for (i in 1..2) {
+                weeksToFetch.add(currentWeekStart.minusWeeks(i.toLong()))
+            }
+
+            // Add additional weeks if needed
+            for (i in 3..4) {
+                weeksToFetch.add(currentWeekStart.plusWeeks(i.toLong()))
+                weeksToFetch.add(currentWeekStart.minusWeeks(i.toLong()))
+            }
+
+            weeksToFetch.forEach { weekToFetch ->
+                // Only fetch if cache is invalid or missing
+                if (!timetableCacheManager.isCacheValid(weekToFetch)) {
+                    fetchTimetableFromApiInBackground(weekToFetch)
+                    delay(100) // Slightly longer delay to be nice to the server
+                }
             }
         }
     }
 
     private fun fetchTimetableFromApiInBackground(weekStart: LocalDate) {
-        // Skip if already cached
-        if (timetableCacheManager.isTimetableCached(weekStart)) {
-            Log.d("TimetableViewModel", "Skipping pre-fetch for week $weekStart, already cached.")
+        // Skip if we have valid cache
+        if (timetableCacheManager.isCacheValid(weekStart)) {
+            Log.d("TimetableViewModel", "Skipping pre-fetch for week $weekStart, valid cache available.")
             return
         }
 
@@ -205,21 +278,60 @@ class TimetableViewModel(
 
     private fun handleAuthenticationFailure(onLogout: () -> Unit) {
         Log.e("TimetableViewModel", "Re-authentication failed")
-        errorMessage = "Authentication failed. Please log in again."
+
+        // Try to show cached data even if authentication failed
         if (timetable == null) {
+            val cachedWeeks = timetableCacheManager.getAllCachedWeeks()
+            if (cachedWeeks.isNotEmpty()) {
+                val bestWeek = cachedWeeks.maxByOrNull { it }
+                if (bestWeek != null) {
+                    loadCachedTimetable(bestWeek)
+                    errorMessage = "Authentication failed - showing cached data"
+                    return
+                }
+            }
+            // Only logout if we have no cached data to show
+            errorMessage = "Authentication failed. Please log in again."
             onLogout()
+        } else {
+            errorMessage = "Authentication failed - showing cached data"
         }
     }
 
     private fun handleMissingCredentials(onLogout: () -> Unit) {
         Log.e("TimetableViewModel", "No stored credentials found")
-        errorMessage = "No credentials found. Please log in."
+
+        // Try to show any available cached data
         if (timetable == null) {
+            val cachedWeeks = timetableCacheManager.getAllCachedWeeks()
+            if (cachedWeeks.isNotEmpty()) {
+                val bestWeek = cachedWeeks.maxByOrNull { it }
+                if (bestWeek != null) {
+                    loadCachedTimetable(bestWeek)
+                    errorMessage = "No credentials found - showing cached data"
+                    return
+                }
+            }
+            // Only logout if we have no cached data to show
+            errorMessage = "No credentials found. Please log in."
             onLogout()
+        } else {
+            errorMessage = "No credentials found - showing cached data"
         }
     }
 
     private fun handleNoStoredCredentials(onLogout: () -> Unit) {
+        // Try to load any available cached data before logging out
+        val cachedWeeks = timetableCacheManager.getAllCachedWeeks()
+        if (cachedWeeks.isNotEmpty() && timetable == null) {
+            val bestWeek = cachedWeeks.maxByOrNull { it }
+            if (bestWeek != null) {
+                loadCachedTimetable(bestWeek)
+                errorMessage = "No stored credentials - showing cached data"
+                return
+            }
+        }
+
         if (timetable == null) {
             onLogout()
         }
@@ -227,14 +339,33 @@ class TimetableViewModel(
 
     fun initialize(weekStart: LocalDate, onLogout: () -> Unit) {
         viewModelScope.launch {
-            val needsRefresh = shouldRefreshData()
+            // First, try to load the best available cached data immediately
+            val hasLoadedCache = loadBestAvailableCache(weekStart)
+
+            if (hasLoadedCache) {
+                Log.d("TimetableViewModel", "App started with cached data available")
+                // Update the timestamp to show when cache was loaded
+                val lastCacheUpdate = timetableCacheManager.getLastCacheUpdateTime()
+                if (lastCacheUpdate != null) {
+                    val formatter = DateTimeFormatter.ofPattern("HH:mm")
+                    lastUpdated = lastCacheUpdate.format(formatter)
+                }
+            }
+
+            val needsRefresh = shouldRefreshData() || !timetableCacheManager.isCacheValid(weekStart)
 
             if (credentialManager.hasStoredCredentialsBlocking()) {
                 val username = credentialManager.getUsernameBlocking()
                 val password = credentialManager.getPassword()
 
                 if (username != null && password != null) {
-                    performAuthentication(username, password, weekStart, needsRefresh, onLogout)
+                    if (needsRefresh || !hasLoadedCache) {
+                        performAuthentication(username, password, weekStart, needsRefresh, onLogout)
+                    } else {
+                        // We have valid cached data, but still prefetch in background
+                        Log.d("TimetableViewModel", "Valid cache available, prefetching in background")
+                        preFetchTimetables(weekStart)
+                    }
                 } else {
                     handleMissingCredentials(onLogout)
                 }

@@ -28,13 +28,17 @@ class TimetableNavigationManager(
     // Function to handle week change (navigate to a different week)
     fun changeWeek(weekStart: LocalDate) {
         currentWeekStart = weekStart
-        // Show cached data immediately if present
-        viewModel.loadCachedTimetable(weekStart)
+
+        // Try to load cached data immediately for instant navigation
+        val hasCache = viewModel.loadCachedTimetable(weekStart)
+        if (hasCache) {
+            android.util.Log.d("TimetableNavigationManager", "Instantly loaded cached data for week: $weekStart")
+        }
 
         // Always prefetch surrounding weeks on week change
         viewModel.prefetchSurroundingWeeks(weekStart)
 
-        // Fetch from API to ensure data is fresh
+        // Fetch from API to ensure data is fresh (only if cache is invalid/missing)
         viewModel.fetchTimetableFromApi(weekStart, isForced = false)
     }
 
