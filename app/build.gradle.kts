@@ -92,4 +92,5 @@ dependencies {
 
     // WorkManager for background tasks
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
 }

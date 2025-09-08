@@ -11,6 +11,7 @@ import okhttp3.*
 import java.io.IOException
 import java.net.CookieManager
 import java.net.CookiePolicy
+import java.util.concurrent.TimeUnit
 
 /**
  * Handles HTTP network operations for Dualis communication
@@ -18,7 +19,12 @@ import java.net.CookiePolicy
 class DualisNetworkClient {
 
     private val cookieManager = CookieManager(null, CookiePolicy.ACCEPT_ALL)
-    val client = OkHttpClient.Builder().cookieJar(JavaNetCookieJar(cookieManager)).build()
+    val client = OkHttpClient.Builder()
+        .cookieJar(JavaNetCookieJar(cookieManager))
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
 
     /**
      * Makes an HTTP request and handles common response patterns
@@ -29,16 +35,19 @@ class DualisNetworkClient {
         callback: (Response?, String?) -> Unit
     ) {
         Log.d("DualisNetworkClient", "Making $requestName request to: ${request.url}")
+        val startTime = System.currentTimeMillis()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e("DualisNetworkClient", "$requestName request failed", e)
+                val duration = System.currentTimeMillis() - startTime
+                Log.e("DualisNetworkClient", "$requestName request failed in ${duration}ms", e)
                 callback(null, null)
             }
 
             override fun onResponse(call: Call, response: Response) {
+                val duration = System.currentTimeMillis() - startTime
                 val responseBody = response.body.string()
-                Log.d("DualisNetworkClient", "$requestName Response: ${response.code}")
+                Log.d("DualisNetworkClient", "$requestName Response: ${response.code} in ${duration}ms")
 
                 if (response.isSuccessful) {
                     callback(response, responseBody)
