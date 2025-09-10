@@ -48,6 +48,7 @@ class TimetableScreenComposer {
         onRefresh: () -> Unit,
         onLogout: () -> Unit,
         onViewModeChanged: (CalendarViewMode) -> Unit,
+        rateLimitMessage: String?,
         modifier: Modifier = Modifier
     ) {
         Box(
@@ -81,6 +82,24 @@ class TimetableScreenComposer {
                         navigationManager = navigationManager,
                         isFetchingFromApi = isFetchingFromApi,
                         errorMessage = errorMessage
+                    )
+                }
+            }
+
+            if (rateLimitMessage != null) {
+                androidx.compose.material3.Card(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 12.dp, start = 16.dp, end = 16.dp),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Text(
+                        text = rateLimitMessage,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
             }

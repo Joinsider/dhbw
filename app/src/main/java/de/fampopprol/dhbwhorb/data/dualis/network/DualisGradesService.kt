@@ -23,6 +23,8 @@ class DualisGradesService(
     private val authService: DualisAuthenticationService
 ) {
 
+    private val maxRateLimitRetries = 3
+
     /**
      * Fetches available semesters from Dualis
      */
@@ -121,71 +123,83 @@ class DualisGradesService(
         Log.d("DualisGradesService", "=== STARTING STUDY GRADES FETCH ===")
         Log.d("DualisGradesService", "Semester argument: $semesterArgument")
 
-        // Return demo data if in demo mode
         if (authService.isDemoMode) {
             Log.d("DualisGradesService", "Demo mode: returning demo study grades data")
             callback(createDemoStudyGrades(semesterArgument))
             return
         }
-
-        // Check authentication status
         if (!urlManager.hasValidToken()) {
             Log.e("DualisGradesService", "Auth Token is null. Authentication required.")
             callback(null)
             return
         }
+        performStudyGradesRequest(semesterArgument, callback, rateLimitRetry = 0, tokenRetry = 0)
+    }
 
+    private fun performStudyGradesRequest(
+        semesterArgument: String,
+        callback: (StudyGrades?) -> Unit,
+        rateLimitRetry: Int,
+        tokenRetry: Int
+    ) {
         val baseUrl = urlManager.buildStudyGradesUrl(semesterArgument)
         if (baseUrl == null) {
             Log.e("DualisGradesService", "Could not build study grades URL")
             callback(null)
             return
         }
-
-        Log.d("DualisGradesService", "Semester-specific URL: $baseUrl")
-
+        Log.d("DualisGradesService", "Semester-specific URL: $baseUrl (rateLimitRetry=$rateLimitRetry tokenRetry=$tokenRetry)")
         val request = networkClient.createGetRequest(baseUrl)
         networkClient.makeRequest(request, "Study Grades") { _, responseBody ->
             if (responseBody != null) {
-                // Check if the response indicates an invalid token
-                if (htmlParser.isTokenInvalidResponse(responseBody)) {
-                    Log.w("DualisGradesService", "Token appears to be invalid when fetching grades, attempting re-authentication")
-                    authService.reAuthenticateIfNeeded { success ->
-                        if (success) {
-                            Log.d("DualisGradesService", "Re-authentication successful, retrying grades fetch")
-                            getStudyGrades(semesterArgument, callback) // Retry after re-authentication
-                        } else {
-                            Log.e("DualisGradesService", "Re-authentication failed")
-                            callback(null)
-                        }
+                if (htmlParser.isRateLimitResponse(responseBody)) {
+                    if (rateLimitRetry < maxRateLimitRetries) {
+                        val nextAttempt = rateLimitRetry + 1
+                        Log.w("DualisGradesService", "Rate limit detected for grades. Retrying in 2s (attempt $nextAttempt/$maxRateLimitRetries)")
+                        RateLimitTracker.updateRateLimit(nextAttempt, maxRateLimitRetries)
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            performStudyGradesRequest(semesterArgument, callback, nextAttempt, tokenRetry)
+                        }, 2000)
+                    } else {
+                        Log.e("DualisGradesService", "Rate limit persists after $maxRateLimitRetries attempts for grades")
+                        RateLimitTracker.finalFailure(maxRateLimitRetries)
+                        callback(null)
                     }
                     return@makeRequest
                 }
-
+                if (htmlParser.isTokenInvalidResponse(responseBody)) {
+                    if (tokenRetry < 1) {
+                        authService.reAuthenticateIfNeeded { success ->
+                            if (success) {
+                                RateLimitTracker.clear()
+                                performStudyGradesRequest(semesterArgument, callback, rateLimitRetry, tokenRetry + 1)
+                            } else callback(null)
+                        }
+                    } else callback(null)
+                    return@makeRequest
+                }
                 try {
-                    Log.d("DualisGradesService", "=== STARTING HTML PARSING ===")
                     val parser = StudyGradesParser()
                     val studyGrades = parser.extractStudyGrades(responseBody, semesterArgument)
-
-                    if (studyGrades != null) {
-                        Log.d("DualisGradesService", "=== STUDY GRADES PARSING SUCCESSFUL ===")
-                        Log.d("DualisGradesService", "GPA Total: ${studyGrades.gpaTotal}")
-                        Log.d("DualisGradesService", "GPA Main Modules: ${studyGrades.gpaMainModules}")
-                        Log.d("DualisGradesService", "Credits Total: ${studyGrades.creditsTotal}")
-                        Log.d("DualisGradesService", "Credits Gained: ${studyGrades.creditsGained}")
-                        Log.d("DualisGradesService", "Number of modules: ${studyGrades.modules.size}")
-                        callback(studyGrades)
-                    } else {
-                        Log.e("DualisGradesService", "Failed to parse study grades")
-                        callback(null)
-                    }
+                    RateLimitTracker.clear()
+                    callback(studyGrades)
                 } catch (e: Exception) {
-                    Log.e("DualisGradesService", "=== STUDY GRADES PARSING FAILED ===", e)
+                    Log.e("DualisGradesService", "Study grades parsing failed", e)
                     callback(null)
                 }
             } else {
-                Log.e("DualisGradesService", "Response body is null")
-                callback(null)
+                if (rateLimitRetry < maxRateLimitRetries) {
+                    val nextAttempt = rateLimitRetry + 1
+                    Log.w("DualisGradesService", "Null response body (possible rate limit) for grades. Retrying in 2s (attempt $nextAttempt/$maxRateLimitRetries)")
+                    RateLimitTracker.updateRateLimit(nextAttempt, maxRateLimitRetries)
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        performStudyGradesRequest(semesterArgument, callback, nextAttempt, tokenRetry)
+                    }, 2000)
+                } else {
+                    Log.e("DualisGradesService", "Null response persists after retries for grades")
+                    RateLimitTracker.finalFailure(maxRateLimitRetries)
+                    callback(null)
+                }
             }
         }
     }

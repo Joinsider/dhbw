@@ -53,6 +53,9 @@ class GradesStateManager(
     var isOffline by mutableStateOf(false)
         private set
 
+    var rateLimitMessage by mutableStateOf<String?>(null)
+        private set
+
     private var hasLoadedFromCache = false
     private var reconnectJob: Job? = null
 
@@ -75,6 +78,21 @@ class GradesStateManager(
                         android.util.Log.d("GradesStateManager", "Device went offline, showing cached data")
                         handleOfflineMode()
                     }
+                }
+            }
+        }
+
+        // Collect rate limit state
+        scope.launch {
+            de.fampopprol.dhbwhorb.data.dualis.network.RateLimitTracker.state.collect { state ->
+                rateLimitMessage = if (state.isRateLimited) {
+                    if (state.finalFailure) {
+                        "Zugriff verweigert - rate limit reached. Please log out and log in again."
+                    } else {
+                        "Zugriff verweigert - retrying (${state.attempt}/${state.maxAttempts})..."
+                    }
+                } else {
+                    null
                 }
             }
         }

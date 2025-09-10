@@ -73,6 +73,7 @@ fun TimetableScreen(
         },
         onLogout = onLogout,
         onViewModeChanged = onViewModeChanged,
+        rateLimitMessage = viewModel.rateLimitMessage,
         modifier = modifier
     )
 }

@@ -195,6 +195,25 @@ fun GradesScreen(
                                 }
                             }
                         }
+
+                        // Show rate limit message as overlay if present
+                        if (stateManager.rateLimitMessage != null) {
+                            androidx.compose.material3.Card(
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 12.dp, start = 16.dp, end = 16.dp),
+                                colors = androidx.compose.material3.CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            ) {
+                                Text(
+                                    text = stateManager.rateLimitMessage!!,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
                     }
                 }
             }

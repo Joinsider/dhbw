@@ -27,6 +27,8 @@ class DualisScheduleService(
     // Create event enhancer instance
     private val eventEnhancer = DualisEventEnhancer(networkClient, authService, urlManager)
 
+    private val maxRateLimitRetries = 3
+
     @SuppressLint("DefaultLocale")
     fun getMonthlySchedule(year: Int, month: Int, callback: (List<TimetableDay>?) -> Unit) {
         // Return demo data if in demo mode
@@ -76,13 +78,14 @@ class DualisScheduleService(
             return
         }
 
-        getWeeklyScheduleWithRetry(targetDate, callback, retryCount = 0)
+        getWeeklyScheduleWithRetry(targetDate, callback, retryCount = 0, rateLimitRetry = 0)
     }
 
     private fun getWeeklyScheduleWithRetry(
         targetDate: LocalDate,
         callback: (List<TimetableDay>?) -> Unit,
-        retryCount: Int
+        retryCount: Int,
+        rateLimitRetry: Int
     ) {
         if (urlManager.dualisUrls.monthlyScheduleUrl == null || !urlManager.hasValidToken()) {
             Log.e("DualisScheduleService", "Monthly schedule URL or Auth Token is null. Cannot fetch weekly timetable.")
@@ -100,21 +103,38 @@ class DualisScheduleService(
         val request = networkClient.createGetRequest(url)
         networkClient.makeRequest(request, "Weekly Schedule") { _, responseBody ->
             if (responseBody != null) {
+                // Rate limit detection BEFORE token invalid logic
+                if (htmlParser.isRateLimitResponse(responseBody)) {
+                    if (rateLimitRetry < maxRateLimitRetries) {
+                        val nextAttempt = rateLimitRetry + 1
+                        android.util.Log.w("DualisScheduleService", "Rate limit detected for weekly schedule. Retrying in 2s (attempt $nextAttempt/$maxRateLimitRetries)")
+                        RateLimitTracker.updateRateLimit(nextAttempt, maxRateLimitRetries)
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            getWeeklyScheduleWithRetry(targetDate, callback, retryCount, nextAttempt)
+                        }, 2000)
+                    } else {
+                        android.util.Log.e("DualisScheduleService", "Rate limit persists after $maxRateLimitRetries attempts")
+                        RateLimitTracker.finalFailure(maxRateLimitRetries)
+                        callback(null)
+                    }
+                    return@makeRequest
+                }
+
                 // Check if the response indicates an invalid token
                 if (htmlParser.isTokenInvalidResponse(responseBody)) {
                     Log.w("DualisScheduleService", "Token appears to be invalid, attempting re-authentication")
                     if (retryCount < 1) { // Only retry once
                         authService.reAuthenticateIfNeeded { success ->
                             if (success) {
+                                // Clear rate limit state if any after successful auth
+                                RateLimitTracker.clear()
                                 Log.d("DualisScheduleService", "Re-authentication successful, retrying weekly schedule fetch")
-                                getWeeklyScheduleWithRetry(targetDate, callback, retryCount + 1)
+                                getWeeklyScheduleWithRetry(targetDate, callback, retryCount + 1, rateLimitRetry)
                             } else {
-                                Log.e("DualisScheduleService", "Re-authentication failed")
                                 callback(null)
                             }
                         }
                     } else {
-                        Log.e("DualisScheduleService", "Already retried once, giving up")
                         callback(null)
                     }
                     return@makeRequest
@@ -122,8 +142,8 @@ class DualisScheduleService(
 
                 try {
                     val timetableDays = htmlParser.parseSchedule(responseBody)
-                    Log.d("DualisScheduleService", "Parsed weekly schedule for $targetDate: ${timetableDays.size} days")
-
+                    // If timetableDays empty and not rate limited we proceed (maybe legitimately no events)
+                    RateLimitTracker.clear()
                     // Enhance timetable with detailed information from individual event pages
                     eventEnhancer.enhanceTimetableWithDetails(timetableDays) { enhancedTimetableDays ->
                         if (enhancedTimetableDays != null) {
@@ -135,11 +155,23 @@ class DualisScheduleService(
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e("DualisScheduleService", "Error parsing weekly schedule", e)
+                    android.util.Log.e("DualisScheduleService", "Error parsing weekly schedule", e)
                     callback(null)
                 }
             } else {
-                callback(null)
+                // Null body could also be due to transient network/rate limit without body
+                if (rateLimitRetry < maxRateLimitRetries) {
+                    val nextAttempt = rateLimitRetry + 1
+                    android.util.Log.w("DualisScheduleService", "Null response body (possible rate limit). Retrying in 2s (attempt $nextAttempt/$maxRateLimitRetries)")
+                    RateLimitTracker.updateRateLimit(nextAttempt, maxRateLimitRetries)
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        getWeeklyScheduleWithRetry(targetDate, callback, retryCount, nextAttempt)
+                    }, 2000)
+                } else {
+                    android.util.Log.e("DualisScheduleService", "Null response body persists after retries")
+                    RateLimitTracker.finalFailure(maxRateLimitRetries)
+                    callback(null)
+                }
             }
         }
     }
