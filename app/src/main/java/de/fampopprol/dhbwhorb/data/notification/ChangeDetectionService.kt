@@ -38,6 +38,21 @@ class ChangeDetectionService(private val context: Context) {
         private const val TAG = "ChangeDetectionService"
     }
 
+    // Added: normalization helpers to treat formatting-only changes as identical
+    private fun normalizeRoom(room: String?): String = room
+        ?.uppercase()
+        ?.replace("\\s+".toRegex(), "")
+        ?.replace("-", "")
+        ?: ""
+
+    private fun normalizeGeneric(value: String?): String = value
+        ?.uppercase()
+        ?.replace("\\s+".toRegex(), " ") // collapse internal whitespace to single space
+        ?.trim()
+        ?: ""
+
+    private fun normalizeTime(value: String?): String = value?.trim()?.uppercase() ?: ""
+
     /**
      * Compare new timetable data with cached data for the current and next 3 weeks
      */
@@ -157,11 +172,11 @@ class ChangeDetectionService(private val context: Context) {
     }
 
     private fun eventsAreEqual(event1: TimetableEvent, event2: TimetableEvent): Boolean {
-        return event1.title == event2.title &&
-                event1.startTime == event2.startTime &&
-                event1.endTime == event2.endTime &&
-                event1.room == event2.room &&
-                event1.lecturer == event2.lecturer
+        return normalizeGeneric(event1.title) == normalizeGeneric(event2.title) &&
+                normalizeTime(event1.startTime) == normalizeTime(event2.startTime) &&
+                normalizeTime(event1.endTime) == normalizeTime(event2.endTime) &&
+                normalizeRoom(event1.room) == normalizeRoom(event2.room) &&
+                normalizeGeneric(event1.lecturer) == normalizeGeneric(event2.lecturer)
     }
 
     private fun TimetableChanges.hasChanges(): Boolean {
@@ -186,7 +201,25 @@ class ChangeDetectionService(private val context: Context) {
             }
 
             weekChanges.modifiedEvents.forEach { (old, new) ->
-                descriptions.add("Changed: ${old.title} → room changed from ${old.room} to ${new.room}")
+                val fieldChanges = mutableListOf<String>()
+
+                if (normalizeGeneric(old.title) != normalizeGeneric(new.title)) {
+                    fieldChanges.add("title '${old.title}' → '${new.title}'")
+                }
+                if (normalizeTime(old.startTime) != normalizeTime(new.startTime) ||
+                    normalizeTime(old.endTime) != normalizeTime(new.endTime)) {
+                    fieldChanges.add("time ${old.startTime}-${old.endTime} → ${new.startTime}-${new.endTime}")
+                }
+                if (normalizeRoom(old.room) != normalizeRoom(new.room)) {
+                    fieldChanges.add("room ${old.room} → ${new.room}")
+                }
+                if (normalizeGeneric(old.lecturer) != normalizeGeneric(new.lecturer)) {
+                    fieldChanges.add("lecturer ${old.lecturer} → ${new.lecturer}")
+                }
+
+                if (fieldChanges.isEmpty()) return@forEach
+
+                descriptions.add("Changed: ${old.title} ($weekStr) ${fieldChanges.joinToString(", ")}")
             }
         }
 

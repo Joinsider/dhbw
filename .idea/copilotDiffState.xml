@@ -175,14 +175,6 @@
             </PendingDiffInfo>
           </value>
         </entry>
-        <entry key="$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/ui/screen/settingsScreen/generalSettingsSection/GeneralSettingsHeader.kt">
-          <value>
-            <PendingDiffInfo>
-              <option name="filePath" value="$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/ui/screen/settingsScreen/generalSettingsSection/GeneralSettingsHeader.kt" />
-              <option name="updatedContent" value="/*&#10; * SPDX-FileCopyrightText: 2024 Joinside &lt;suitor-fall-life@duck.com&gt;&#10; *&#10; * SPDX-License-Identifier: AGPL-3.0-or-later&#10; */&#10;&#10;package de.fampopprol.dhbwhorb.ui.screen.settingsScreen.generalSettingsSection&#10;&#10;import androidx.compose.foundation.layout.Arrangement&#10;import androidx.compose.foundation.layout.Row&#10;import androidx.compose.material.icons.Icons&#10;import androidx.compose.material.icons.filled.Settings&#10;import androidx.compose.material3.Icon&#10;import androidx.compose.material3.MaterialTheme&#10;import androidx.compose.material3.Text&#10;import androidx.compose.runtime.Composable&#10;import androidx.compose.ui.Alignment&#10;import androidx.compose.ui.Modifier&#10;import androidx.compose.ui.res.stringResource&#10;import androidx.compose.ui.text.font.FontWeight&#10;import androidx.compose.ui.unit.dp&#10;import de.fampopprol.dhbwhorb.R&#10;&#10;@Composable&#10;fun GeneralSettingsHeader(&#10;    modifier: Modifier = Modifier&#10;) {&#10;    Row(&#10;        modifier = modifier,&#10;        verticalAlignment = Alignment.CenterVertically,&#10;        horizontalArrangement = Arrangement.spacedBy(12.dp)&#10;    ) {&#10;        Icon(&#10;            imageVector = Icons.Default.Settings,&#10;            contentDescription = null,&#10;            tint = MaterialTheme.colorScheme.primary&#10;        )&#10;        Text(&#10;            text = stringResource(R.string.general_settings),&#10;            style = MaterialTheme.typography.headlineMedium,&#10;            fontWeight = FontWeight.Bold&#10;        )&#10;    }&#10;}" />
-            </PendingDiffInfo>
-          </value>
-        </entry>
         <entry key="$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/ui/screen/settingsScreen/generalSettingsSection/ThemeModeButton.kt">
           <value>
             <PendingDiffInfo>
