@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AgentMigrationStateService">
+    <option name="pendingSessionIds">
+      <option value="ab829af7-8cd4-4bb1-b4e2-32bc9c485b2c" />
+    </option>
+    <option name="pendingTurns">
+      <map>
+        <entry key="ab829af7-8cd4-4bb1-b4e2-32bc9c485b2c">
+          <value>
+            <set>
+              <option value="b6797a3e-41f4-4f12-a699-19db54ba5a43" />
+              <option value="20896bbe-5dc5-4307-974c-a72e9e1c04ce" />
+            </set>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <pendingWorkingSetItems>
+      <entry key="ab829af7-8cd4-4bb1-b4e2-32bc9c485b2c">
+        <set>
+          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/data/notification/ScheduleChangeWorker.kt" />
+        </set>
+      </entry>
+    </pendingWorkingSetItems>
+  </component>
+</project>
