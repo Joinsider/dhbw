@@ -158,6 +158,11 @@ class DualisHtmlParser {
      */
     fun parseSchedule(html: String): List<TimetableDay> {
         Log.d("DualisHtmlParser", "=== PARSING SCHEDULE FROM HTML ===")
+        // Quick short-circuit if rate limited page
+        if (isRateLimitResponse(html)) {
+            Log.w("DualisHtmlParser", "Rate limit response detected while parsing schedule. Returning empty list.")
+            return emptyList()
+        }
 
         val document = Jsoup.parse(html)
         val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
@@ -301,6 +306,11 @@ class DualisHtmlParser {
             // Skip if title is empty
             if (title.isEmpty()) {
                 Log.d("DualisHtmlParser", "Skipping cell with empty title")
+                continue
+            }
+            // Skip rate-limit placeholder events
+            if (title.contains("zugriff verweigert", ignoreCase = true)) {
+                Log.w("DualisHtmlParser", "Skipping rate-limit placeholder event title: $title")
                 continue
             }
 
@@ -576,18 +586,10 @@ class DualisHtmlParser {
      */
     private fun parseRooms(roomString: String): String {
         if (roomString.isEmpty()) return roomString
-
-        // Pattern to match room codes like HOR-135, A1.2.03, etc.
         val roomPattern = Regex("([A-Z]+(?:\\d+)?[-.]\\d+(?:\\.\\d+)?)")
-
         val matches = roomPattern.findAll(roomString)
         val rooms = matches.map { it.value }.toList()
-
-        return if (rooms.size > 1) {
-            rooms.joinToString(", ")
-        } else {
-            roomString
-        }
+        return if (rooms.size > 1) rooms.joinToString(", ") else roomString
     }
 
     /**
@@ -601,5 +603,14 @@ class DualisHtmlParser {
             Log.e("DualisHtmlParser", "Error making absolute URL: $e")
             ""
         }
+    }
+
+    /**
+     * Checks if the response indicates a rate limit
+     */
+    fun isRateLimitResponse(html: String): Boolean {
+        return html.contains("Zugriff verweigert", ignoreCase = true) ||
+                html.contains("rate limit", ignoreCase = true) ||
+                html.contains("too many requests", ignoreCase = true)
     }
 }

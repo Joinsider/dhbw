@@ -49,6 +49,9 @@ class TimetableViewModel(
     var isOffline by mutableStateOf(false)
         private set
 
+    var rateLimitMessage by mutableStateOf<String?>(null)
+        private set
+
     private var preFetchJob: Job? = null
     private var reconnectJob: Job? = null
     private var pendingWeekStart: LocalDate? = null
@@ -77,6 +80,21 @@ class TimetableViewModel(
                         Log.d("TimetableViewModel", "Device went offline, showing cached data")
                         handleOfflineMode()
                     }
+                }
+            }
+        }
+
+        // Collect rate limit state
+        viewModelScope.launch {
+            de.fampopprol.dhbwhorb.data.dualis.network.RateLimitTracker.state.collect { state ->
+                if (state.isRateLimited) {
+                    rateLimitMessage = if (state.finalFailure) {
+                        "Zugriff verweigert - rate limit reached. Please log out and log in again."
+                    } else {
+                        "Zugriff verweigert - retrying (${state.attempt}/${state.maxAttempts})..."
+                    }
+                } else {
+                    rateLimitMessage = null
                 }
             }
         }
@@ -237,35 +255,39 @@ class TimetableViewModel(
                 }
                 isOffline = false
             } else {
-                Log.e("TimetableViewModel", "Failed to fetch timetable from API for week starting $weekStart")
-
-                // Check if we're offline and handle accordingly
-                val currentlyOnline = networkConnectivityManager?.isCurrentlyOnline() ?: true
-
-                if (!currentlyOnline) {
-                    // We're offline, show cached data with offline message
-                    val fallbackCache = timetableCacheManager.loadTimetable(weekStart)
-                    if (fallbackCache != null) {
-                        timetable = fallbackCache
-                        errorMessage = "Offline - when the phone is connected to the internet again, Dualis will be fetched again"
-                        isOffline = true
-                    } else {
-                        errorMessage = "No internet connection and no cached data available"
-                        isOffline = true
-                    }
+                // Rate limit specific handling
+                val rlState = de.fampopprol.dhbwhorb.data.dualis.network.RateLimitTracker.state.value
+                if (rlState.finalFailure) {
+                    errorMessage = "Dualis rate limited. Please log out and log in again."
                 } else {
-                    // We're online but API failed, try cached data as fallback
-                    if (timetable == null) {
+                    // Check if we're offline and handle accordingly
+                    val currentlyOnline = networkConnectivityManager?.isCurrentlyOnline() ?: true
+
+                    if (!currentlyOnline) {
+                        // We're offline, show cached data with offline message
                         val fallbackCache = timetableCacheManager.loadTimetable(weekStart)
                         if (fallbackCache != null) {
                             timetable = fallbackCache
-                            Log.d("TimetableViewModel", "Using fallback cached data due to API failure")
-                            errorMessage = "Using cached data - network unavailable"
+                            errorMessage = "Offline - when the phone is connected to the internet again, Dualis will be fetched again"
+                            isOffline = true
                         } else {
-                            errorMessage = "Failed to load timetable. Please try logging in again."
+                            errorMessage = "No internet connection and no cached data available"
+                            isOffline = true
                         }
                     } else {
-                        errorMessage = "Failed to refresh timetable - showing cached data"
+                        // We're online but API failed, try cached data as fallback
+                        if (timetable == null) {
+                            val fallbackCache = timetableCacheManager.loadTimetable(weekStart)
+                            if (fallbackCache != null) {
+                                timetable = fallbackCache
+                                Log.d("TimetableViewModel", "Using fallback cached data due to API failure")
+                                errorMessage = "Using cached data - network unavailable"
+                            } else {
+                                errorMessage = "Failed to load timetable. Please try logging in again."
+                            }
+                        } else {
+                            errorMessage = "Failed to refresh timetable - showing cached data"
+                        }
                     }
                 }
             }
