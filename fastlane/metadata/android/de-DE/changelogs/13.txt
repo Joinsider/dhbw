@@ -1,0 +1,3 @@
+Neu in Version 1.1.3
+    - Kleinere Fehlerbehebungen und Leistungsverbesserungen
+    - Fehler in Benachrichtigungen für Vorlesungen ausgebessert
