@@ -94,6 +94,7 @@
     <string name="how_it_works_description">• Änderungsbenachrichtigungen prüfen alle 30 Minuten\n• Vorlesungserinnerungen werden für einzelne Vorlesungen geplant\n• Umfasst aktuelle Woche und nächste 3 Wochen für Stundenplan\n• Zeigt nur Benachrichtigungen bei tatsächlichen Änderungen\n• Benötigt Internetverbindung zur Überprüfung von Updates</string>
 
     <!-- Privacy Policy -->
+    <string name="open_github_issues">Eröffne ein Github Issue</string>
     <string name="privacy_policy">Datenschutzerklärung</string>
     <string name="privacy_policy_description">Lesen Sie unsere Datenschutzerklärung, um zu verstehen, wie wir mit Ihren Daten umgehen</string>
     <string name="open_privacy_policy">Datenschutzerklärung öffnen</string>
@@ -133,4 +134,9 @@
     <string name="no_scheduled_events_today">Keine Unterrichtsstunden für heute eingetragen</string>
     <string name="no_events_today_description">Genieße deinen freien Tag!</string>
     <string name="today">Heute</string>
+    <string name="feedback_settings">Fehlerbehebungen</string>
+    <string name="send_feedback">Rückmeldungen schicken</string>
+    <string name="send_feedback_description">Schicke Fehler oder schlage eine neue Funktion vor</string>
+    <string name="contact_support">Support Kontakt</string>
+    <string name="feedback_description">Hast du Fehler in der App gefunden oder möchtest du uns ein neues Feature vorschlagen, dann eröffne ein neues Issue auf dem Github</string>
 </resources>

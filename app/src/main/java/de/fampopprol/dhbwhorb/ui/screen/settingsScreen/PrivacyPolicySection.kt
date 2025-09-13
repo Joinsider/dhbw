@@ -28,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.R
+import androidx.core.net.toUri
 
 @Composable
 fun PrivacyPolicySection(
@@ -63,7 +64,8 @@ fun PrivacyPolicySection(
 
             Button(
                 onClick = {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.datenschutz.dhbw.joinside.de"))
+                    val intent = Intent(Intent.ACTION_VIEW,
+                        "https://www.datenschutz.dhbw.joinside.de".toUri())
                     context.startActivity(intent)
                 },
                 modifier = Modifier.fillMaxWidth(),
