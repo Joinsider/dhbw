@@ -1,0 +1,4 @@
+Neu in Version 1.1.4
+    - Kleinere Fehlerbehebungen und Leistungsverbesserungen
+    - Fehler in Benachrichtigungen für Vorlesungen ausgebessert
+    - Fehler im Notenbildschirm behoben, bei dem das ausgewählte Semester nach dem erneuten Öffnen des Bildschirms nicht beibehalten wurde

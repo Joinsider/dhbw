@@ -258,6 +258,21 @@ class GradesCacheManager(private val context: Context) {
     }
 
     /**
+     * Set the last viewed semester for persistence across app sessions
+     */
+    suspend fun setLastViewedSemester(semester: Semester) {
+        try {
+            val semesterJson = gson.toJson(semester)
+            context.gradesDataStore.edit { preferences ->
+                preferences[LAST_VIEWED_SEMESTER_KEY] = semesterJson
+            }
+            Log.d(TAG, "Saved last viewed semester: ${semester.displayName}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving last viewed semester", e)
+        }
+    }
+
+    /**
      * Update last access time for tracking usage
      */
     suspend fun updateLastAccessTime() {

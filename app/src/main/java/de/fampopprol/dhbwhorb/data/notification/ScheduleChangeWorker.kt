@@ -107,13 +107,13 @@ class ScheduleChangeWorker(
                             if (verified.isNotEmpty()) {
                                 Log.d(
                                     TAG,
-                                    "Notifying ${verified.size} schedule notifications after room verification"
+                                    "Notifying ${verified.size} schedule notifications after room/lecturer verification"
                                 )
                                 showScheduleChangeNotification(verified)
                             } else {
                                 Log.d(
                                     TAG,
-                                    "All new schedule notifications suppressed after room recheck"
+                                    "All new schedule notifications suppressed after room/lecturer recheck"
                                 )
                             }
 
@@ -217,16 +217,18 @@ class ScheduleChangeWorker(
         return result
     }
 
-    private fun buildEventMap(timetable: List<TimetableDay>): Map<EventKey, String> {
-        val map = mutableMapOf<EventKey, String>()
+    private fun buildEventMap(timetable: List<TimetableDay>): Map<EventKey, EventInfo> {
+        val map = mutableMapOf<EventKey, EventInfo>()
         timetable.forEach { day ->
             day.events.forEach { ev ->
                 val key = EventKey(ev.title.trim(), ev.startTime.trim(), ev.endTime.trim())
-                map[key] = ev.room.trim()
+                map[key] = EventInfo(ev.room.trim(), ev.lecturer.trim())
             }
         }
         return map
     }
+
+    private data class EventInfo(val room: String, val lecturer: String)
 
     private fun verifyRoomRemovalBeforeNotify(
         newNotifications: List<de.fampopprol.dhbwhorb.data.dualis.models.Notification>
@@ -234,7 +236,7 @@ class ScheduleChangeWorker(
         val weekStart = getWeekStart()
         val oldTimetable = timetableCacheManager.loadTimetable(weekStart)
         if (oldTimetable == null) {
-            Log.d(TAG, "No cached timetable; skip room removal verification")
+            Log.d(TAG, "No cached timetable; skip room/lecturer removal verification")
             return newNotifications
         }
 
@@ -248,26 +250,36 @@ class ScheduleChangeWorker(
         val firstMap = buildEventMap(firstFetch)
 
         val potentialRoomRemovalIds = mutableSetOf<String>()
+        val potentialLecturerRemovalIds = mutableSetOf<String>()
 
         newNotifications.forEach { notif ->
             val courseName = extractCourseName(notif.subject)
             val oldEvents = oldMap.filter { it.key.title.contains(courseName, ignoreCase = true) }
             val newEvents = firstMap.filter { it.key.title.contains(courseName, ignoreCase = true) }
             if (oldEvents.isNotEmpty() && newEvents.isNotEmpty()) {
-                oldEvents.forEach { (key, oldRoom) ->
-                    val newRoom = newEvents[key]
-                    if (!oldRoom.isNullOrBlank() && (newRoom != null && newRoom.isBlank())) {
-                        potentialRoomRemovalIds.add(notif.id)
-                        Log.d(
-                            TAG,
-                            "Potential room removal: ${notif.id} oldRoom='$oldRoom' -> newRoom='' (rechecking)"
-                        )
+                oldEvents.forEach { (key, oldInfo) ->
+                    val newInfo = newEvents[key]
+                    if (newInfo != null) {
+                        if (oldInfo.room.isNotBlank() && newInfo.room.isBlank()) {
+                            potentialRoomRemovalIds.add(notif.id)
+                            Log.d(
+                                TAG,
+                                "Potential room removal: ${notif.id} oldRoom='${oldInfo.room}' -> newRoom='' (rechecking)"
+                            )
+                        }
+                        if (oldInfo.lecturer.isNotBlank() && newInfo.lecturer.isBlank()) {
+                            potentialLecturerRemovalIds.add(notif.id)
+                            Log.d(
+                                TAG,
+                                "Potential lecturer removal: ${notif.id} oldLecturer='${oldInfo.lecturer}' -> newLecturer='' (rechecking)"
+                            )
+                        }
                     }
                 }
             }
         }
 
-        if (potentialRoomRemovalIds.isEmpty()) {
+        if (potentialRoomRemovalIds.isEmpty() && potentialLecturerRemovalIds.isEmpty()) {
             timetableCacheManager.saveTimetable(weekStart, firstFetch)
             return newNotifications
         }
@@ -279,34 +291,42 @@ class ScheduleChangeWorker(
 
         val secondFetch = fetchWeeklyScheduleBlocking(weekStart)
         if (secondFetch == null) {
-            Log.w(TAG, "Second fetch failed; suppressing potential temporary removals")
+            Log.w(TAG, "Second fetch failed; suppressing potential temporary removals (room/lecturer)")
             timetableCacheManager.saveTimetable(weekStart, firstFetch)
-            return newNotifications.filter { it.id !in potentialRoomRemovalIds }
+            return newNotifications.filter { it.id !in potentialRoomRemovalIds && it.id !in potentialLecturerRemovalIds }
         }
 
         val secondMap = buildEventMap(secondFetch)
-        val confirmedRemoval = mutableSetOf<String>()
-        val resolved = mutableSetOf<String>()
+        val confirmedRoomRemoval = mutableSetOf<String>()
+        val confirmedLecturerRemoval = mutableSetOf<String>()
+        val resolvedRoom = mutableSetOf<String>()
+        val resolvedLecturer = mutableSetOf<String>()
 
         newNotifications.forEach { notif ->
+            val courseName = extractCourseName(notif.subject)
+            val oldEvents = oldMap.filter { it.key.title.contains(courseName, ignoreCase = true) }
+            val newEventsSecond = secondMap.filter { it.key.title.contains(courseName, ignoreCase = true) }
+
             if (notif.id in potentialRoomRemovalIds) {
-                val courseName = extractCourseName(notif.subject)
-                val oldEvents =
-                    oldMap.filter { it.key.title.contains(courseName, ignoreCase = true) }
-                val newEventsSecond =
-                    secondMap.filter { it.key.title.contains(courseName, ignoreCase = true) }
                 var stillRemoved = false
-                oldEvents.forEach { (key, oldRoom) ->
-                    val newRoomSecond = newEventsSecond[key]
-                    if (!oldRoom.isNullOrBlank() && (newRoomSecond != null && newRoomSecond.isBlank())) {
+                oldEvents.forEach { (key, oldInfo) ->
+                    val newInfoSecond = newEventsSecond[key]
+                    if (oldInfo.room.isNotBlank() && newInfoSecond != null && newInfoSecond.room.isBlank()) {
                         stillRemoved = true
                     }
                 }
-                if (stillRemoved) {
-                    confirmedRemoval.add(notif.id)
-                } else {
-                    resolved.add(notif.id)
+                if (stillRemoved) confirmedRoomRemoval.add(notif.id) else resolvedRoom.add(notif.id)
+            }
+
+            if (notif.id in potentialLecturerRemovalIds) {
+                var stillRemovedLecturer = false
+                oldEvents.forEach { (key, oldInfo) ->
+                    val newInfoSecond = newEventsSecond[key]
+                    if (oldInfo.lecturer.isNotBlank() && newInfoSecond != null && newInfoSecond.lecturer.isBlank()) {
+                        stillRemovedLecturer = true
+                    }
                 }
+                if (stillRemovedLecturer) confirmedLecturerRemoval.add(notif.id) else resolvedLecturer.add(notif.id)
             }
         }
 
@@ -314,11 +334,12 @@ class ScheduleChangeWorker(
 
         Log.d(
             TAG,
-            "Room removal check: potential=${potentialRoomRemovalIds.size} confirmed=${confirmedRemoval.size} resolved=${resolved.size}"
+            "Removal check: potentialRoom=${potentialRoomRemovalIds.size} confirmedRoom=${confirmedRoomRemoval.size} resolvedRoom=${resolvedRoom.size} | potentialLecturer=${potentialLecturerRemovalIds.size} confirmedLecturer=${confirmedLecturerRemoval.size} resolvedLecturer=${resolvedLecturer.size}"
         )
 
         return newNotifications.filter { notif ->
-            (notif.id !in potentialRoomRemovalIds) || (notif.id in confirmedRemoval)
+            (notif.id !in potentialRoomRemovalIds || notif.id in confirmedRoomRemoval) &&
+                    (notif.id !in potentialLecturerRemovalIds || notif.id in confirmedLecturerRemoval)
         }
     }
 }

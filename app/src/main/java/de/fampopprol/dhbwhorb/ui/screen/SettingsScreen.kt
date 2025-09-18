@@ -28,6 +28,7 @@ import de.fampopprol.dhbwhorb.data.security.CredentialManager
 import de.fampopprol.dhbwhorb.data.theme.ThemePreferencesManager
 import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.ClassReminderSettingsSection
 import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.DemoModeTestSection
+import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.FeedbackSection
 import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.GeneralSettingsSection
 import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.LogoutSection
 import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.NotificationSettingsSection
@@ -79,6 +80,11 @@ fun NotificationSettingsScreen(
         if (isDemoMode) {
             DemoModeTestSection()
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Feedback Section
+        FeedbackSection()
 
         // Privacy Policy Section
         PrivacyPolicySection()

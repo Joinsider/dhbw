@@ -197,6 +197,13 @@ class GradesDataManager(
     }
 
     /**
+     * Save the selected semester to persistent storage
+     */
+    suspend fun saveSelectedSemester(semester: Semester) {
+        gradesCacheManager?.setLastViewedSemester(semester)
+    }
+
+    /**
      * Clear expired cache entries
      */
     suspend fun clearExpiredCache() {
