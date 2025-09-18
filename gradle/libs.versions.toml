@@ -1,7 +1,7 @@
 [versions]
 agp = "8.12.2"
 datastorePreferencesCore = "1.1.7"
-gson = "2.13.1"
+gson = "2.13.2"
 kotlin = "2.2.20"
 coreKtx = "1.17.0"
 junit = "4.13.2"
