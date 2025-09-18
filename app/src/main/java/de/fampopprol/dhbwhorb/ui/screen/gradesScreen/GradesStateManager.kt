@@ -6,6 +6,7 @@
 
 package de.fampopprol.dhbwhorb.ui.screen.gradesScreen
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -368,6 +369,10 @@ class GradesStateManager(
     ) {
         if (selectedSemester?.value != semester.value) {
             selectedSemester = semester
+            // Save the selected semester to persistent storage
+            scope.launch {
+                dataManager.saveSelectedSemester(semester)
+            }
             loadGradesForSemester(semester, updateLoadingState = false, forceRefresh = false, failedToLoadGradesMessage)
         }
     }
@@ -392,6 +397,9 @@ class GradesStateManager(
         isRefreshing = true
         errorMessage = null
 
+        // Save the currently selected semester to preserve it after refresh
+        val currentlySelectedSemester = selectedSemester
+
         authManager.ensureAuthentication { authResult ->
             when (authResult) {
                 GradesAuthManager.AuthResult.SUCCESS -> {
@@ -399,23 +407,40 @@ class GradesStateManager(
                     dataManager.fetchAvailableSemesters(forceRefresh = true) { semesters ->
                         availableSemesters = semesters
 
-                        selectedSemester?.let { semester ->
-                            dataManager.fetchGradesForSemester(semester, forceRefresh = true) { grades ->
-                                isRefreshing = false
-                                if (grades != null) {
-                                    studyGrades = grades
-                                    errorMessage = null
-                                } else {
-                                    // Check if we went offline during the request
-                                    if (networkConnectivityManager?.isCurrentlyOnline() == false) {
-                                        handleOfflineMode()
+                        scope.launch {
+                            // Try to preserve the currently selected semester, or fall back to default
+                            val semesterToSelect = if (currentlySelectedSemester != null) {
+                                // Find the same semester in the new list
+                                semesters.find { it.value == currentlySelectedSemester.value }
+                                    ?: run {
+                                        Log.d("GradesStateManager", "Previously selected semester no longer available, selecting default")
+                                        dataManager.getDefaultSemester(semesters)
+                                    }
+                            } else {
+                                dataManager.getDefaultSemester(semesters)
+                            }
+
+                            semesterToSelect?.let { semester ->
+                                selectedSemester = semester
+                                dataManager.fetchGradesForSemester(semester, forceRefresh = true) { grades ->
+                                    isRefreshing = false
+                                    if (grades != null) {
+                                        studyGrades = grades
+                                        errorMessage = null
+                                        Log.d("GradesStateManager", "Refresh completed for semester: ${semester.displayName}")
                                     } else {
-                                        errorMessage = failedToLoadGradesMessage
+                                        // Check if we went offline during the request
+                                        if (networkConnectivityManager?.isCurrentlyOnline() == false) {
+                                            handleOfflineMode()
+                                        } else {
+                                            errorMessage = failedToLoadGradesMessage
+                                        }
                                     }
                                 }
+                            } ?: run {
+                                isRefreshing = false
+                                Log.e("GradesStateManager", "No semester to select after refresh")
                             }
-                        } ?: run {
-                            isRefreshing = false
                         }
                     }
                 }
