@@ -1,0 +1,3 @@
+New in Version 1.1.4
+    - Small bug fixes and performance improvements
+    - Fixed bug in notifications for lectures
