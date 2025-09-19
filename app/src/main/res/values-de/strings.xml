@@ -43,7 +43,7 @@
     <!-- Timetable -->
     <string name="no_classes">Keine Vorlesungen</string>
     <string name="event_details">Veranstaltungsdetails</string>
-    <string name="current_week">Aktuelle Woche</string>
+    <string name="current_week">Zurück zur aktuellen Woche</string>
     <string name="previous_week">Vorherige Woche</string>
     <string name="next_week">Nächste Woche</string>
     <string name="last_updated_at">Zuletzt aktualisiert: %s</string>
@@ -139,4 +139,21 @@
     <string name="send_feedback_description">Schicke Fehler oder schlage eine neue Funktion vor</string>
     <string name="contact_support">Support Kontakt</string>
     <string name="feedback_description">Hast du Fehler in der App gefunden oder möchtest du uns ein neues Feature vorschlagen, dann eröffne ein neues Issue auf dem Github</string>
+
+    <!-- Calendar Sync Settings -->
+    <string name="calendar_sync_title">Kalender-Synchronisierung</string>
+    <string name="calendar_sync_description">Synchronisiere deinen Stundenplan in einen Systemkalender</string>
+    <string name="calendar_permissions_required">Kalenderberechtigungen werden benötigt</string>
+    <string name="calendar_no_calendars_found">Keine Kalender auf diesem Gerät gefunden</string>
+    <string name="calendar_select_calendar">Kalender auswählen</string>
+    <string name="calendar_select_calendar_first">Bitte zuerst einen Kalender auswählen</string>
+    <string name="calendar_start_sync">Synchronisierung starten</string>
+    <string name="calendar_stop_sync">Synchronisierung stoppen</string>
+    <string name="calendar_sync_started">Kalendersynchronisierung gestartet</string>
+    <string name="calendar_sync_stopped">Kalendersynchronisierung gestoppt</string>
+    <string name="calendar_stop_sync_title">Kalendersynchronisierung stoppen</string>
+    <string name="calendar_stop_sync_message">Sollen bereits exportierte Termine gelöscht oder behalten werden?</string>
+    <string name="calendar_stop_and_delete">Termine löschen und stoppen</string>
+    <string name="calendar_stop_keep">Termine behalten und stoppen</string>
+    <string name="calendar_deleted_events_count">%1$d Termine gelöscht</string>
 </resources>

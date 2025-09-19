@@ -33,6 +33,7 @@ import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.GeneralSettingsSection
 import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.LogoutSection
 import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.NotificationSettingsSection
 import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.PrivacyPolicySection
+import de.fampopprol.dhbwhorb.ui.screen.settingsScreen.calendarSync.CalendarSyncSettingsSection
 
 @Composable
 fun NotificationSettingsScreen(
@@ -75,6 +76,9 @@ fun NotificationSettingsScreen(
             notificationScheduler = notificationScheduler,
             notificationsEnabled = notificationsEnabled
         )
+
+        // Calendar Sync Section
+        CalendarSyncSettingsSection()
 
         // Demo Mode Test Section (only show in demo mode)
         if (isDemoMode) {

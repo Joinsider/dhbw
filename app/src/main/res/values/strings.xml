@@ -53,7 +53,7 @@
     <!-- Timetable -->
     <string name="no_classes">No classes</string>
     <string name="event_details">Event Details</string>
-    <string name="current_week">Current week</string>
+    <string name="current_week">Back to current week</string>
     <string name="previous_week">Previous week</string>
     <string name="next_week">Next week</string>
     <string name="last_updated_at">Last updated: %s</string>
@@ -150,4 +150,24 @@
     <string name="no_scheduled_events_today">No events scheduled for this day</string>
     <string name="no_events_today_description">Enjoy your free day!</string>
     <string name="today">Today</string>
+
+    <!-- Calendar Sync Settings -->
+    <string name="calendar_sync_title">Calendar Sync</string>
+    <string name="calendar_sync_description">Sync your timetable to a system calendar</string>
+    <string name="calendar_permissions_required">Calendar permissions are required</string>
+    <string name="calendar_no_calendars_found">No calendars found on this device</string>
+    <string name="calendar_select_calendar">Select calendar</string>
+    <string name="calendar_select_calendar_first">Please select a calendar first</string>
+    <string name="calendar_start_sync">Start syncing</string>
+    <string name="calendar_stop_sync">Stop syncing</string>
+    <string name="calendar_sync_started">Calendar sync started</string>
+    <string name="calendar_sync_stopped">Calendar sync stopped</string>
+    <string name="calendar_stop_sync_title">Stop calendar sync</string>
+    <string name="calendar_stop_sync_message">Do you want to delete already exported events or keep them?</string>
+    <string name="calendar_stop_and_delete">Delete events and stop</string>
+    <string name="calendar_stop_keep">Keep events and stop</string>
+    <string name="calendar_deleted_events_count">Deleted %1$d events</string>
+    <string name="calendar_delete_none_permissions">Cannot delete: calendar permissions are missing</string>
+    <string name="calendar_delete_none_no_calendar">Cannot delete: no calendar selected</string>
+    <string name="calendar_delete_none_no_matching">No exported events found to delete</string>
 </resources>
