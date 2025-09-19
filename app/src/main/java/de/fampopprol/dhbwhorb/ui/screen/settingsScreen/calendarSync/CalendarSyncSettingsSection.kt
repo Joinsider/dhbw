@@ -21,6 +21,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -136,34 +137,41 @@ fun CalendarSyncSettingsSection(
     // Track permission state for proper reloading
     val hasPermissions = service.hasReadPermission() && service.hasWritePermission()
 
-    // Initial load of calendars and selected calendar label
+    // Always fetch calendars on app restart/composition (even if sync is active)
     LaunchedEffect(Unit) {
         if (hasPermissions) {
             refreshCalendarsAndValidateSelection()
         }
     }
 
-    // Refresh calendars on app restart/composition and permission changes
+    // Always refresh calendars when permissions change
     LaunchedEffect(hasPermissions) {
-        if (hasPermissions && sectionEnabled) {
+        if (hasPermissions) {
             refreshCalendarsAndValidateSelection()
-        } else if (!hasPermissions) {
+        } else {
             calendars = emptyList()
             selectedCalendarId = null
             selectedCalendarLabel = ""
         }
     }
 
-    // Refresh calendars when section becomes enabled
+    // Always refresh calendars when section toggle changes (enabled/disabled)
     LaunchedEffect(sectionEnabled) {
-        if (sectionEnabled && hasPermissions) {
+        if (hasPermissions) {
+            refreshCalendarsAndValidateSelection()
+        }
+    }
+
+    // Always refresh calendars when sync state changes (active/inactive)
+    LaunchedEffect(syncActive) {
+        if (hasPermissions) {
             refreshCalendarsAndValidateSelection()
         }
     }
 
     // Refresh calendars when dropdown is expanded (to catch real-time changes)
     LaunchedEffect(calendarExpanded) {
-        if (calendarExpanded && hasPermissions && sectionEnabled) {
+        if (calendarExpanded && hasPermissions) {
             refreshCalendarsAndValidateSelection()
         }
     }
@@ -242,6 +250,7 @@ fun CalendarSyncSettingsSection(
                 ) {
                     OutlinedTextField(
                         modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
                             .fillMaxWidth(),
                         readOnly = true,
                         value = selectedCalendarLabel,
@@ -254,17 +263,25 @@ fun CalendarSyncSettingsSection(
                         expanded = calendarExpanded,
                         onDismissRequest = { calendarExpanded = false }
                     ) {
-                        // Force recomposition when calendars list changes
-                        calendars.forEach { cal ->
+                        // Add key to force recomposition when calendars list changes
+                        if (calendars.isEmpty()) {
                             DropdownMenuItem(
-                                text = { Text(cal.name) },
-                                onClick = {
-                                    selectedCalendarId = cal.id
-                                    selectedCalendarLabel = cal.name
-                                    service.setChosenCalendarId(cal.id)
-                                    calendarExpanded = false
-                                }
+                                text = { Text(stringResource(R.string.calendar_no_calendars_found)) },
+                                onClick = { calendarExpanded = false },
+                                enabled = false
                             )
+                        } else {
+                            calendars.forEachIndexed { index, cal ->
+                                DropdownMenuItem(
+                                    text = { Text(cal.name) },
+                                    onClick = {
+                                        selectedCalendarId = cal.id
+                                        selectedCalendarLabel = cal.name
+                                        service.setChosenCalendarId(cal.id)
+                                        calendarExpanded = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }

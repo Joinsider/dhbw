@@ -159,13 +159,49 @@ class CalendarExportService(private val context: Context) {
     }
 
     fun setChosenCalendarId(calendarId: Long) {
-        prefs.edit().putLong(KEY_CALENDAR_ID, calendarId).apply()
+        val currentCalendarId = getChosenCalendarId()
+
+        // If switching to a different calendar, store the current mapping for the old calendar
+        // and load the mapping for the new calendar
+        if (currentCalendarId != null && currentCalendarId != calendarId) {
+            // Save current mapping for the old calendar
+            val currentMapping = loadMapping()
+            saveCalendarSpecificMapping(currentCalendarId, currentMapping)
+
+            // Load mapping for the new calendar (or empty if none exists)
+            val newCalendarMapping = loadCalendarSpecificMapping(calendarId)
+            saveMapping(newCalendarMapping)
+
+            prefs.edit { putLong(KEY_CALENDAR_ID, calendarId) }
+            Log.i(TAG, "Switched from calendar $currentCalendarId to $calendarId, restored ${newCalendarMapping.size} existing mappings")
+        } else {
+            prefs.edit { putLong(KEY_CALENDAR_ID, calendarId) }
+        }
     }
 
     fun getChosenCalendarId(): Long? {
         if (!prefs.contains(KEY_CALENDAR_ID)) return null
         val id = prefs.getLong(KEY_CALENDAR_ID, -1L)
         return if (id > 0) id else null
+    }
+
+    // Store mapping specific to a calendar
+    private fun saveCalendarSpecificMapping(calendarId: Long, mapping: Map<String, Long>) {
+        val key = "calendar_mapping_$calendarId"
+        prefs.edit { putString(key, gson.toJson(mapping)) }
+    }
+
+    // Load mapping specific to a calendar
+    private fun loadCalendarSpecificMapping(calendarId: Long): MutableMap<String, Long> {
+        val key = "calendar_mapping_$calendarId"
+        val json = prefs.getString(key, null) ?: return mutableMapOf()
+        return try {
+            val type = object : TypeToken<MutableMap<String, Long>>() {}.type
+            gson.fromJson(json, type) ?: mutableMapOf()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse calendar-specific mapping for calendar $calendarId, resetting", e)
+            mutableMapOf()
+        }
     }
 
     // Mapping store
