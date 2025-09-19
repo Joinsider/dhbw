@@ -162,6 +162,7 @@
     <string name="calendar_stop_sync">Stop syncing</string>
     <string name="calendar_sync_started">Calendar sync started</string>
     <string name="calendar_sync_stopped">Calendar sync stopped</string>
+    <string name="calendar_sync_stopped_calendar_removed">Calendar sync stopped: selected calendar no longer available</string>
     <string name="calendar_stop_sync_title">Stop calendar sync</string>
     <string name="calendar_stop_sync_message">Do you want to delete already exported events or keep them?</string>
     <string name="calendar_stop_and_delete">Delete events and stop</string>
@@ -170,5 +171,5 @@
     <string name="calendar_delete_none_permissions">Cannot delete: calendar permissions are missing</string>
     <string name="calendar_delete_none_no_calendar">Cannot delete: no calendar selected</string>
     <string name="calendar_delete_none_no_matching">No exported events found to delete</string>
-    <string name="calendar_sync_note">Hint: During synchronisation or deletion of large amounts of lectures in your calendar, you may have to reload your calendar a few times. To do this switch to your calendar application and reload a few times.</string>
+    <string name="calendar_sync_note">Note: Events may take a few moments to appear/disappear in server-backed calendars</string>
 </resources>

@@ -55,17 +55,55 @@ fun CalendarSyncSettingsSection(
     var syncActive by remember { mutableStateOf(prefs.isSyncActive()) }
 
     // Load calendars when permissions available and section enabled
-    var calendars by remember { mutableStateOf(service.listDeviceCalendars()) }
+    var calendars by remember { mutableStateOf(emptyList<CalendarExportService.CalendarInfo>()) }
     var calendarExpanded by remember { mutableStateOf(false) }
 
     var selectedCalendarId by remember { mutableStateOf(service.getChosenCalendarId()) }
-    var selectedCalendarLabel by remember {
-        mutableStateOf(
-            calendars.firstOrNull { it.id == selectedCalendarId }?.name.orEmpty()
-        )
-    }
+    var selectedCalendarLabel by remember { mutableStateOf("") }
 
     var showStopConfirm by remember { mutableStateOf(false) }
+
+    // Function to refresh calendars and validate selection
+    fun refreshCalendarsAndValidateSelection() {
+        if (service.hasReadPermission()) {
+            val newCalendars = service.listDeviceCalendars()
+            calendars = newCalendars
+
+            // Check if current selection still exists
+            val currentId = selectedCalendarId
+            if (currentId != null && currentId != -1L) {
+                val stillExists = newCalendars.any { it.id == currentId }
+                if (stillExists) {
+                    // Update label for existing selection (calendar might have been renamed)
+                    selectedCalendarLabel = newCalendars.firstOrNull { it.id == currentId }?.name.orEmpty()
+                } else {
+                    // Selected calendar no longer exists - deactivate syncing without deletion
+                    selectedCalendarId = null
+                    selectedCalendarLabel = ""
+                    service.setChosenCalendarId(-1) // Clear stored selection
+
+                    if (syncActive) {
+                        // Stop syncing but don't delete events
+                        CalendarSyncScheduler.stop(context)
+                        syncActive = false
+                        prefs.setSyncActive(false)
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.calendar_sync_stopped_calendar_removed),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            } else {
+                // No calendar was previously selected, just ensure label is empty
+                selectedCalendarLabel = ""
+            }
+        } else {
+            calendars = emptyList()
+            selectedCalendarId = null
+            selectedCalendarLabel = ""
+        }
+    }
 
     // Permissions launcher for calendar
     val permissionsLauncher = rememberLauncherForActivityResult(
@@ -74,7 +112,7 @@ fun CalendarSyncSettingsSection(
         val granted = result[Manifest.permission.READ_CALENDAR] == true &&
                 result[Manifest.permission.WRITE_CALENDAR] == true
         if (granted) {
-            calendars = service.listDeviceCalendars()
+            refreshCalendarsAndValidateSelection()
             if (calendars.isEmpty()) {
                 Toast.makeText(
                     context,
@@ -95,20 +133,38 @@ fun CalendarSyncSettingsSection(
         }
     }
 
-    // Keep label in sync when calendars or selected id change
-    LaunchedEffect(calendars, selectedCalendarId) {
-        selectedCalendarLabel = calendars.firstOrNull { it.id == selectedCalendarId }?.name.orEmpty()
+    // Track permission state for proper reloading
+    val hasPermissions = service.hasReadPermission() && service.hasWritePermission()
+
+    // Initial load of calendars and selected calendar label
+    LaunchedEffect(Unit) {
+        if (hasPermissions) {
+            refreshCalendarsAndValidateSelection()
+        }
     }
 
-    // Refresh calendars when section becomes enabled and permissions are present
+    // Refresh calendars on app restart/composition and permission changes
+    LaunchedEffect(hasPermissions) {
+        if (hasPermissions && sectionEnabled) {
+            refreshCalendarsAndValidateSelection()
+        } else if (!hasPermissions) {
+            calendars = emptyList()
+            selectedCalendarId = null
+            selectedCalendarLabel = ""
+        }
+    }
+
+    // Refresh calendars when section becomes enabled
     LaunchedEffect(sectionEnabled) {
-        if (sectionEnabled) {
-            if (service.hasReadPermission()) {
-                calendars = service.listDeviceCalendars()
-                // Sync selection/label from stored choice if available
-                selectedCalendarId = service.getChosenCalendarId()
-                selectedCalendarLabel = calendars.firstOrNull { it.id == selectedCalendarId }?.name.orEmpty()
-            }
+        if (sectionEnabled && hasPermissions) {
+            refreshCalendarsAndValidateSelection()
+        }
+    }
+
+    // Refresh calendars when dropdown is expanded (to catch real-time changes)
+    LaunchedEffect(calendarExpanded) {
+        if (calendarExpanded && hasPermissions && sectionEnabled) {
+            refreshCalendarsAndValidateSelection()
         }
     }
 
@@ -150,8 +206,8 @@ fun CalendarSyncSettingsSection(
                                 sectionEnabled = true
                                 prefs.setSectionEnabled(true)
                             } else {
-                                // Load calendars
-                                calendars = service.listDeviceCalendars()
+                                // Load calendars and validate selection
+                                refreshCalendarsAndValidateSelection()
                                 if (calendars.isEmpty()) {
                                     Toast.makeText(
                                         context,
@@ -186,18 +242,19 @@ fun CalendarSyncSettingsSection(
                 ) {
                     OutlinedTextField(
                         modifier = Modifier
-                            .menuAnchor()
                             .fillMaxWidth(),
                         readOnly = true,
                         value = selectedCalendarLabel,
                         onValueChange = {},
                         label = { Text(stringResource(R.string.calendar_select_calendar)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = calendarExpanded) }
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = calendarExpanded) },
+                        enabled = !syncActive // Disable when syncing is active
                     )
                     ExposedDropdownMenu(
                         expanded = calendarExpanded,
                         onDismissRequest = { calendarExpanded = false }
                     ) {
+                        // Force recomposition when calendars list changes
                         calendars.forEach { cal ->
                             DropdownMenuItem(
                                 text = { Text(cal.name) },
@@ -217,13 +274,13 @@ fun CalendarSyncSettingsSection(
                     if (syncActive) R.string.calendar_stop_sync else R.string.calendar_start_sync
                 val buttonColors = if (syncActive) {
                     ButtonDefaults.buttonColors(
-                        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.error,
-                        contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onError
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
                     )
                 } else {
                     ButtonDefaults.buttonColors(
-                        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                        contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 }
                 Button(
@@ -308,7 +365,7 @@ fun CalendarSyncSettingsSection(
                 )
             }
 
-            if( sectionEnabled) {
+            if (sectionEnabled) {
                 Text(
                     text = stringResource(R.string.calendar_sync_note),
                     Modifier.padding(8.dp),
