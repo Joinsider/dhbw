@@ -97,10 +97,10 @@ class CalendarExportService(private val context: Context) {
     }
 
     /**
-        Contract
-        - Requires READ/WRITE_CALENDAR permissions for queries/updates.
-        - Uses CalendarContract provider; chosen calendar must be writable.
-        - Mapping is best-effort; we also verify via description tag.
+    Contract
+    - Requires READ/WRITE_CALENDAR permissions for queries/updates.
+    - Uses CalendarContract provider; chosen calendar must be writable.
+    - Mapping is best-effort; we also verify via description tag.
      */
 
     // Permissions
@@ -173,7 +173,10 @@ class CalendarExportService(private val context: Context) {
             saveMapping(newCalendarMapping)
 
             prefs.edit { putLong(KEY_CALENDAR_ID, calendarId) }
-            Log.i(TAG, "Switched from calendar $currentCalendarId to $calendarId, restored ${newCalendarMapping.size} existing mappings")
+            Log.i(
+                TAG,
+                "Switched from calendar $currentCalendarId to $calendarId, restored ${newCalendarMapping.size} existing mappings"
+            )
         } else {
             prefs.edit { putLong(KEY_CALENDAR_ID, calendarId) }
         }
@@ -199,7 +202,11 @@ class CalendarExportService(private val context: Context) {
             val type = object : TypeToken<MutableMap<String, Long>>() {}.type
             gson.fromJson(json, type) ?: mutableMapOf()
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to parse calendar-specific mapping for calendar $calendarId, resetting", e)
+            Log.w(
+                TAG,
+                "Failed to parse calendar-specific mapping for calendar $calendarId, resetting",
+                e
+            )
             mutableMapOf()
         }
     }
@@ -250,9 +257,11 @@ class CalendarExportService(private val context: Context) {
         if (weeks.isEmpty()) {
             val today = LocalDate.now()
             val weekStart = today.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
-            cache.loadTimetable(weekStart)?.let { extractLocalEvents(it).forEach { e -> localEvents[e.localId] = e } }
+            cache.loadTimetable(weekStart)
+                ?.let { extractLocalEvents(it).forEach { e -> localEvents[e.localId] = e } }
             val nextWeek = weekStart.plusWeeks(1)
-            cache.loadTimetable(nextWeek)?.let { extractLocalEvents(it).forEach { e -> localEvents[e.localId] = e } }
+            cache.loadTimetable(nextWeek)
+                ?.let { extractLocalEvents(it).forEach { e -> localEvents[e.localId] = e } }
         }
 
         val mapping = loadMapping().toMutableMap()
@@ -269,8 +278,15 @@ class CalendarExportService(private val context: Context) {
                 val existingEventId = mapping[local.localId]
                 if (existingEventId != null) {
                     // Verify the event exists; update if exists else reinsert
-                    val existingUri = ContentUris.withAppendedId(Events.CONTENT_URI, existingEventId)
-                    val exists = context.contentResolver.query(existingUri, arrayOf(Events._ID), null, null, null)?.use { c -> c.moveToFirst() } ?: false
+                    val existingUri =
+                        ContentUris.withAppendedId(Events.CONTENT_URI, existingEventId)
+                    val exists = context.contentResolver.query(
+                        existingUri,
+                        arrayOf(Events._ID),
+                        null,
+                        null,
+                        null
+                    )?.use { c -> c.moveToFirst() } ?: false
                     if (exists) {
                         if (updateEventIfChanged(existingEventId, calendarId, local, tag)) {
                             updated++
@@ -284,12 +300,26 @@ class CalendarExportService(private val context: Context) {
                         }
                     }
                 } else {
-                    // Try to locate by description tag within time range
+                    // Try to locate by description tag or smart detection
                     val foundId = findExistingEventByTag(calendarId, local, tag)
                     if (foundId != null) {
-                        mapping[local.localId] = foundId
-                        if (updateEventIfChanged(foundId, calendarId, local, tag)) {
-                            updated++
+                        // Check if this found event needs to be replaced (smart detection case)
+                        val shouldReplace = shouldReplaceEvent(foundId, local, tag)
+                        if (shouldReplace) {
+                            // Replace the old event with a new one with updated mapping
+                            val newId = replaceExistingEventWithNew(foundId, calendarId, local, tag)
+                            if (newId != null) {
+                                mapping[local.localId] = newId
+                                reinserted++
+                            } else {
+                                errors++
+                            }
+                        } else {
+                            // Just update the existing event
+                            mapping[local.localId] = foundId
+                            if (updateEventIfChanged(foundId, calendarId, local, tag)) {
+                                updated++
+                            }
                         }
                     } else {
                         val newId = insertEvent(calendarId, local, tag)
@@ -334,8 +364,12 @@ class CalendarExportService(private val context: Context) {
 
     fun deleteAllExportedEventsDetailed(): DeleteResult {
         // Require both read and write to safely enumerate and delete
-        if (!hasReadPermission() || !hasWritePermission()) return DeleteResult(0, DeleteReason.NO_PERMISSIONS)
-        val chosenCalendarId = getChosenCalendarId() ?: return DeleteResult(0, DeleteReason.NO_CALENDAR_SELECTED)
+        if (!hasReadPermission() || !hasWritePermission()) return DeleteResult(
+            0,
+            DeleteReason.NO_PERMISSIONS
+        )
+        val chosenCalendarId =
+            getChosenCalendarId() ?: return DeleteResult(0, DeleteReason.NO_CALENDAR_SELECTED)
 
         val tagPrefix = buildUniqueTagPrefix()
         val uidPrefix = buildUidPrefix()
@@ -357,8 +391,14 @@ class CalendarExportService(private val context: Context) {
 
         // Pass 1: bulk LIKE on chosen calendar (by DESC or UID)
         try {
-            val selection = "${Events.CALENDAR_ID}=? AND $deletedFilter AND ((${Events.DESCRIPTION} LIKE ?) OR (${Events.UID_2445} LIKE ?) OR (${Events.CUSTOM_APP_PACKAGE}=?))"
-            val args = arrayOf(chosenCalendarId.toString(), "%$tagPrefix%", "%$uidPrefix%", context.packageName)
+            val selection =
+                "${Events.CALENDAR_ID}=? AND $deletedFilter AND ((${Events.DESCRIPTION} LIKE ?) OR (${Events.UID_2445} LIKE ?) OR (${Events.CUSTOM_APP_PACKAGE}=?))"
+            val args = arrayOf(
+                chosenCalendarId.toString(),
+                "%$tagPrefix%",
+                "%$uidPrefix%",
+                context.packageName
+            )
             val rows = context.contentResolver.delete(Events.CONTENT_URI, selection, args)
             Log.d(TAG, "Delete Pass1 (bulk LIKE): rows=$rows")
             if (rows > 0) totalDeleted += rows
@@ -368,39 +408,18 @@ class CalendarExportService(private val context: Context) {
 
         // Pass 2: enumerate chosen calendar and delete tagged events (DESC or UID or CUSTOM_APP_PACKAGE)
         runCatching {
-            val projection = arrayOf(Events._ID, Events.DESCRIPTION, Events.UID_2445, Events.CUSTOM_APP_PACKAGE, Events.DELETED)
+            val projection = arrayOf(
+                Events._ID,
+                Events.DESCRIPTION,
+                Events.UID_2445,
+                Events.CUSTOM_APP_PACKAGE,
+                Events.DELETED
+            )
             val selection = "${Events.CALENDAR_ID}=? AND $deletedFilter"
             val args = arrayOf(chosenCalendarId.toString())
             var passDeleted = 0
-            context.contentResolver.query(Events.CONTENT_URI, projection, selection, args, null)?.use { c ->
-                val idIdx = c.getColumnIndexOrThrow(Events._ID)
-                val descIdx = c.getColumnIndexOrThrow(Events.DESCRIPTION)
-                val uidIdx = c.getColumnIndexOrThrow(Events.UID_2445)
-                val pkgIdx = c.getColumnIndexOrThrow(Events.CUSTOM_APP_PACKAGE)
-                while (c.moveToNext()) {
-                    val id = c.getLong(idIdx)
-                    val desc = c.getString(descIdx) ?: ""
-                    val uid = c.getString(uidIdx) ?: ""
-                    val pkg = c.getString(pkgIdx) ?: ""
-                    if (desc.contains(tagPrefix) || uid.startsWith(uidPrefix) || pkg == context.packageName) {
-                        if (tryDeleteEvent(id, accountInfo)) passDeleted++
-                    }
-                }
-            }
-            Log.d(TAG, "Delete Pass2 (enumerate chosen): deleted=$passDeleted")
-            totalDeleted += passDeleted
-        }.onFailure { Log.w(TAG, "Chosen calendar enumeration failed", it) }
-
-        // Pass 3: enumerate all calendars fallback – always run to ensure full cleanup
-        runCatching {
-            val allCals = listDeviceCalendars()
-            var passDeleted = 0
-            allCals.forEach { cal ->
-                val acc = getAccountInfo(cal.id)
-                val projection = arrayOf(Events._ID, Events.DESCRIPTION, Events.UID_2445, Events.CUSTOM_APP_PACKAGE)
-                val selection = "${Events.CALENDAR_ID}=? AND $deletedFilter"
-                val args = arrayOf(cal.id.toString())
-                context.contentResolver.query(Events.CONTENT_URI, projection, selection, args, null)?.use { c ->
+            context.contentResolver.query(Events.CONTENT_URI, projection, selection, args, null)
+                ?.use { c ->
                     val idIdx = c.getColumnIndexOrThrow(Events._ID)
                     val descIdx = c.getColumnIndexOrThrow(Events.DESCRIPTION)
                     val uidIdx = c.getColumnIndexOrThrow(Events.UID_2445)
@@ -411,10 +430,44 @@ class CalendarExportService(private val context: Context) {
                         val uid = c.getString(uidIdx) ?: ""
                         val pkg = c.getString(pkgIdx) ?: ""
                         if (desc.contains(tagPrefix) || uid.startsWith(uidPrefix) || pkg == context.packageName) {
-                            if (tryDeleteEvent(id, acc)) passDeleted++
+                            if (tryDeleteEvent(id, accountInfo)) passDeleted++
                         }
                     }
                 }
+            Log.d(TAG, "Delete Pass2 (enumerate chosen): deleted=$passDeleted")
+            totalDeleted += passDeleted
+        }.onFailure { Log.w(TAG, "Chosen calendar enumeration failed", it) }
+
+        // Pass 3: enumerate all calendars fallback – always run to ensure full cleanup
+        runCatching {
+            val allCals = listDeviceCalendars()
+            var passDeleted = 0
+            allCals.forEach { cal ->
+                val acc = getAccountInfo(cal.id)
+                val projection = arrayOf(
+                    Events._ID,
+                    Events.DESCRIPTION,
+                    Events.UID_2445,
+                    Events.CUSTOM_APP_PACKAGE
+                )
+                val selection = "${Events.CALENDAR_ID}=? AND $deletedFilter"
+                val args = arrayOf(cal.id.toString())
+                context.contentResolver.query(Events.CONTENT_URI, projection, selection, args, null)
+                    ?.use { c ->
+                        val idIdx = c.getColumnIndexOrThrow(Events._ID)
+                        val descIdx = c.getColumnIndexOrThrow(Events.DESCRIPTION)
+                        val uidIdx = c.getColumnIndexOrThrow(Events.UID_2445)
+                        val pkgIdx = c.getColumnIndexOrThrow(Events.CUSTOM_APP_PACKAGE)
+                        while (c.moveToNext()) {
+                            val id = c.getLong(idIdx)
+                            val desc = c.getString(descIdx) ?: ""
+                            val uid = c.getString(uidIdx) ?: ""
+                            val pkg = c.getString(pkgIdx) ?: ""
+                            if (desc.contains(tagPrefix) || uid.startsWith(uidPrefix) || pkg == context.packageName) {
+                                if (tryDeleteEvent(id, acc)) passDeleted++
+                            }
+                        }
+                    }
             }
             Log.d(TAG, "Delete Pass3 (enumerate all): deleted=$passDeleted")
             totalDeleted += passDeleted
@@ -425,20 +478,26 @@ class CalendarExportService(private val context: Context) {
         runCatching {
             val allCals = listDeviceCalendars()
             allCals.forEach { cal ->
-                val projection = arrayOf(Events.DESCRIPTION, Events.UID_2445, Events.CUSTOM_APP_PACKAGE, Events.DELETED)
+                val projection = arrayOf(
+                    Events.DESCRIPTION,
+                    Events.UID_2445,
+                    Events.CUSTOM_APP_PACKAGE,
+                    Events.DELETED
+                )
                 val selection = "${Events.CALENDAR_ID}=? AND $deletedFilter"
                 val args = arrayOf(cal.id.toString())
-                context.contentResolver.query(Events.CONTENT_URI, projection, selection, args, null)?.use { c ->
-                    val descIdx = c.getColumnIndexOrThrow(Events.DESCRIPTION)
-                    val uidIdx = c.getColumnIndexOrThrow(Events.UID_2445)
-                    val pkgIdx = c.getColumnIndexOrThrow(Events.CUSTOM_APP_PACKAGE)
-                    while (c.moveToNext()) {
-                        val desc = c.getString(descIdx) ?: ""
-                        val uid = c.getString(uidIdx) ?: ""
-                        val pkg = c.getString(pkgIdx) ?: ""
-                        if (desc.contains(tagPrefix) || uid.startsWith(uidPrefix) || pkg == context.packageName) remaining++
+                context.contentResolver.query(Events.CONTENT_URI, projection, selection, args, null)
+                    ?.use { c ->
+                        val descIdx = c.getColumnIndexOrThrow(Events.DESCRIPTION)
+                        val uidIdx = c.getColumnIndexOrThrow(Events.UID_2445)
+                        val pkgIdx = c.getColumnIndexOrThrow(Events.CUSTOM_APP_PACKAGE)
+                        while (c.moveToNext()) {
+                            val desc = c.getString(descIdx) ?: ""
+                            val uid = c.getString(uidIdx) ?: ""
+                            val pkg = c.getString(pkgIdx) ?: ""
+                            if (desc.contains(tagPrefix) || uid.startsWith(uidPrefix) || pkg == context.packageName) remaining++
+                        }
                     }
-                }
             }
         }.onFailure { Log.w(TAG, "Verification pass failed", it) }
 
@@ -502,8 +561,12 @@ class CalendarExportService(private val context: Context) {
                 val start = parseTime(ev.startTime)
                 val end = parseTime(ev.endTime)
                 if (start == null || end == null) return@forEach
-                val startMillis = LocalDateTime.of(date, start).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                val endMillis = LocalDateTime.of(date, end).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                val startMillis =
+                    LocalDateTime.of(date, start).atZone(ZoneId.systemDefault()).toInstant()
+                        .toEpochMilli()
+                val endMillis =
+                    LocalDateTime.of(date, end).atZone(ZoneId.systemDefault()).toInstant()
+                        .toEpochMilli()
                 val localId = computeLocalEventId(date, ev)
                 val desc = buildString {
                     if (!ev.fullTitle.isNullOrBlank()) appendLine(ev.fullTitle)
@@ -531,13 +594,18 @@ class CalendarExportService(private val context: Context) {
         for (p in candidates) {
             try {
                 return LocalDate.parse(input, DateTimeFormatter.ofPattern(p))
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
         return null
     }
 
     private fun parseTime(input: String): LocalTime? {
-        return try { LocalTime.parse(input, DateTimeFormatter.ofPattern("HH:mm")) } catch (_: Exception) { null }
+        return try {
+            LocalTime.parse(input, DateTimeFormatter.ofPattern("HH:mm"))
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun computeLocalEventId(date: LocalDate, ev: TimetableEvent): String {
@@ -583,7 +651,12 @@ class CalendarExportService(private val context: Context) {
         }
     }
 
-    private fun updateEventIfChanged(eventId: Long, calendarId: Long, local: LocalEvent, tag: String): Boolean {
+    private fun updateEventIfChanged(
+        eventId: Long,
+        calendarId: Long,
+        local: LocalEvent,
+        tag: String
+    ): Boolean {
         // Fetch current values
         val projection = arrayOf(
             Events.TITLE, Events.DTSTART, Events.DTEND, Events.EVENT_LOCATION, Events.DESCRIPTION
@@ -605,10 +678,10 @@ class CalendarExportService(private val context: Context) {
         val newDesc = mergeDescriptionTag(local.description, tag)
         val needsUpdate =
             (current[Events.TITLE] as String? != local.title) ||
-            ((current[Events.DTSTART] as Long?) != local.startMillis) ||
-            ((current[Events.DTEND] as Long?) != local.endMillis) ||
-            ((current[Events.EVENT_LOCATION] as String?) != local.location) ||
-            (current[Events.DESCRIPTION] as String? != newDesc)
+                    ((current[Events.DTSTART] as Long?) != local.startMillis) ||
+                    ((current[Events.DTEND] as Long?) != local.endMillis) ||
+                    ((current[Events.EVENT_LOCATION] as String?) != local.location) ||
+                    (current[Events.DESCRIPTION] as String? != newDesc)
 
         if (!needsUpdate) return false
 
@@ -619,7 +692,10 @@ class CalendarExportService(private val context: Context) {
             put(Events.DTEND, local.endMillis)
             put(Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
             put(Events.DESCRIPTION, newDesc)
-            if (!local.location.isNullOrBlank()) put(Events.EVENT_LOCATION, local.location) else putNull(Events.EVENT_LOCATION)
+            if (!local.location.isNullOrBlank()) put(
+                Events.EVENT_LOCATION,
+                local.location
+            ) else putNull(Events.EVENT_LOCATION)
             // Ensure our tags remain on updates
             put(Events.UID_2445, buildUid(local.localId))
             put(Events.CUSTOM_APP_PACKAGE, context.packageName)
@@ -639,6 +715,15 @@ class CalendarExportService(private val context: Context) {
     }
 
     private fun findExistingEventByTag(calendarId: Long, local: LocalEvent, tag: String): Long? {
+        // First try to find by exact tag match
+        val tagMatch = findEventByExactTag(calendarId, local, tag)
+        if (tagMatch != null) return tagMatch
+
+        // If no exact tag match, try smart detection based on event properties
+        return findEventBySmartDetection(calendarId, local)
+    }
+
+    private fun findEventByExactTag(calendarId: Long, local: LocalEvent, tag: String): Long? {
         // Query instances around the event time window and scan description on Events table
         val start = local.startMillis - 15 * 60 * 1000 // 15 min margin
         val end = local.endMillis + 15 * 60 * 1000
@@ -649,24 +734,248 @@ class CalendarExportService(private val context: Context) {
         val selection = "${Instances.CALENDAR_ID}=?"
         val args = arrayOf(calendarId.toString())
         return try {
-            context.contentResolver.query(builder.build(), projection, selection, args, null)?.use { c ->
-                while (c.moveToNext()) {
-                    val evId = c.getLong(0)
-                    // Fetch description from Events
-                    val eUri = ContentUris.withAppendedId(Events.CONTENT_URI, evId)
-                    context.contentResolver.query(eUri, arrayOf(Events.DESCRIPTION), null, null, null)?.use { ec ->
-                        if (ec.moveToFirst()) {
-                            val desc = ec.getString(0) ?: ""
-                            if (desc.contains(tag)) return evId
+            context.contentResolver.query(builder.build(), projection, selection, args, null)
+                ?.use { c ->
+                    while (c.moveToNext()) {
+                        val evId = c.getLong(0)
+                        // Fetch description from Events
+                        val eUri = ContentUris.withAppendedId(Events.CONTENT_URI, evId)
+                        context.contentResolver.query(
+                            eUri,
+                            arrayOf(Events.DESCRIPTION),
+                            null,
+                            null,
+                            null
+                        )?.use { ec ->
+                            if (ec.moveToFirst()) {
+                                val desc = ec.getString(0) ?: ""
+                                if (desc.contains(tag)) return evId
+                            }
                         }
                     }
+                    null
                 }
-                null
-            }
         } catch (e: Exception) {
-            Log.w(TAG, "findExistingEventByTag failed", e)
+            Log.w(TAG, "findEventByExactTag failed", e)
             null
         }
+    }
+
+    private fun findEventBySmartDetection(calendarId: Long, local: LocalEvent): Long? {
+        // Smart detection: find events that match key properties even without exact tag
+        val start = local.startMillis - 15 * 60 * 1000 // 15 min margin
+        val end = local.endMillis + 15 * 60 * 1000
+        val builder = Instances.CONTENT_URI.buildUpon()
+        ContentUris.appendId(builder, start)
+        ContentUris.appendId(builder, end)
+        val projection = arrayOf(Instances.EVENT_ID, Instances.CALENDAR_ID)
+        val selection = "${Instances.CALENDAR_ID}=?"
+        val args = arrayOf(calendarId.toString())
+
+        return try {
+            context.contentResolver.query(builder.build(), projection, selection, args, null)
+                ?.use { c ->
+                    while (c.moveToNext()) {
+                        val evId = c.getLong(0)
+                        // Fetch full event details for comparison
+                        val eUri = ContentUris.withAppendedId(Events.CONTENT_URI, evId)
+                        val eventProjection = arrayOf(
+                            Events.TITLE, Events.DTSTART, Events.DTEND,
+                            Events.EVENT_LOCATION, Events.DESCRIPTION, Events.UID_2445
+                        )
+                        context.contentResolver.query(eUri, eventProjection, null, null, null)
+                            ?.use { ec ->
+                                if (ec.moveToFirst()) {
+                                    val existingTitle = ec.getString(0) ?: ""
+                                    val existingStart = ec.getLong(1)
+                                    val existingEnd = ec.getLong(2)
+                                    val existingLocation = ec.getString(3) ?: ""
+                                    val existingDescription = ec.getString(4) ?: ""
+                                    val existingUid = ec.getString(5) ?: ""
+
+                                    // Check if this is a match using smart detection
+                                    if (isSmartMatch(
+                                            local, existingTitle, existingStart, existingEnd,
+                                            existingLocation, existingDescription, existingUid
+                                        )
+                                    ) {
+                                        Log.i(
+                                            TAG,
+                                            "Smart detection found matching event $evId for local event ${local.localId}"
+                                        )
+                                        return evId
+                                    }
+                                }
+                            }
+                    }
+                    null
+                }
+        } catch (e: Exception) {
+            Log.w(TAG, "findEventBySmartDetection failed", e)
+            null
+        }
+    }
+
+    private fun isSmartMatch(
+        local: LocalEvent,
+        existingTitle: String,
+        existingStart: Long,
+        existingEnd: Long,
+        existingLocation: String,
+        existingDescription: String,
+        existingUid: String
+    ): Boolean {
+        // Check if this event was created by our app (has our package name in UID or description)
+        val hasAppIdentifier = existingUid.startsWith(context.packageName + ":") ||
+                existingDescription.contains(context.packageName)
+
+        // Time tolerance: 5 minutes
+        val timeTolerance = 5 * 60 * 1000
+        val timeMatches = kotlin.math.abs(existingStart - local.startMillis) <= timeTolerance &&
+                kotlin.math.abs(existingEnd - local.endMillis) <= timeTolerance
+
+        // Title similarity (normalize for comparison)
+        val normalizedLocalTitle = normalizeForComparison(local.title)
+        val normalizedExistingTitle = normalizeForComparison(existingTitle)
+        val titleMatches = normalizedLocalTitle == normalizedExistingTitle
+
+        // Location similarity
+        val normalizedLocalLocation = normalizeForComparison(local.location ?: "")
+        val normalizedExistingLocation = normalizeForComparison(existingLocation)
+        val locationMatches = normalizedLocalLocation == normalizedExistingLocation
+
+        // Extract lecturer from descriptions for comparison
+        val localLecturer = extractLecturerFromDescription(local.description ?: "")
+        val existingLecturer = extractLecturerFromDescription(existingDescription)
+        val lecturerMatches = if (localLecturer.isNotEmpty() && existingLecturer.isNotEmpty()) {
+            normalizeForComparison(localLecturer) == normalizeForComparison(existingLecturer)
+        } else true // If we can't extract lecturer, don't fail the match
+
+        // For a smart match, we need:
+        // 1. Time match (within tolerance)
+        // 2. Title match
+        // 3. Location match
+        // 4. Lecturer match (if available)
+        // 5. Either has our app identifier OR all other criteria are very strong
+        val coreMatch = timeMatches && titleMatches && locationMatches && lecturerMatches
+
+        return if (hasAppIdentifier) {
+            // If it has our app identifier, just need core properties to match
+            coreMatch
+        } else {
+            // If no app identifier, require stricter matching
+            coreMatch && normalizedLocalTitle.isNotEmpty() && normalizedLocalTitle.length > 3
+        }
+    }
+
+    private fun normalizeForComparison(text: String): String {
+        return text.trim().lowercase()
+            .replace(Regex("\\s+"), " ") // Replace multiple spaces with single space
+            .replace(Regex("[^a-z0-9\\s]"), "") // Remove special characters
+    }
+
+    private fun extractLecturerFromDescription(description: String): String {
+        // Look for "Lecturer: XYZ" pattern in description
+        val lecturerRegex = Regex("lecturer:\\s*([^\\n]+)", RegexOption.IGNORE_CASE)
+        return lecturerRegex.find(description)?.groupValues?.get(1)?.trim() ?: ""
+    }
+
+    private fun replaceExistingEventWithNew(
+        existingEventId: Long,
+        calendarId: Long,
+        local: LocalEvent,
+        tag: String
+    ): Long? {
+        Log.i(TAG, "Replacing existing event $existingEventId with new event for ${local.localId}")
+
+        // First, try to cancel/delete the existing event
+        val accountInfo = getAccountInfo(calendarId)
+        val deleted = tryDeleteEvent(existingEventId, accountInfo)
+
+        if (!deleted) {
+            Log.w(
+                TAG,
+                "Failed to delete existing event $existingEventId, will still try to create new one"
+            )
+        }
+
+        // Create the new event
+        val newEventId = insertEvent(calendarId, local, tag)
+        if (newEventId != null) {
+            Log.i(TAG, "Successfully replaced event $existingEventId with new event $newEventId")
+        } else {
+            Log.e(TAG, "Failed to create replacement event for $existingEventId")
+        }
+
+        return newEventId
+    }
+
+    private fun shouldReplaceEvent(existingEventId: Long, local: LocalEvent, tag: String): Boolean {
+        // Check if an existing event should be replaced with a new one
+        // This is used when smart detection finds a similar event that might need updating
+
+        val projection = arrayOf(
+            Events.DESCRIPTION, Events.UID_2445, Events.CUSTOM_APP_PACKAGE,
+            Events.DTSTART, Events.DTEND, Events.EVENT_LOCATION, Events.TITLE
+        )
+        val uri = ContentUris.withAppendedId(Events.CONTENT_URI, existingEventId)
+        val current = context.contentResolver.query(uri, projection, null, null, null)?.use { c ->
+            if (c.moveToFirst()) {
+                mapOf(
+                    "description" to (c.getString(0) ?: ""),
+                    "uid" to (c.getString(1) ?: ""),
+                    "package" to (c.getString(2) ?: ""),
+                    "start" to c.getLong(3),
+                    "end" to c.getLong(4),
+                    "location" to (c.getString(5) ?: ""),
+                    "title" to (c.getString(6) ?: "")
+                )
+            } else null
+        } ?: return false
+
+        val existingDescription = current["description"] as String
+        val existingUid = current["uid"] as String
+        val existingPackage = current["package"] as String
+
+        // If the event has our exact tag, just update it instead of replacing
+        if (existingDescription.contains(tag)) {
+            return false
+        }
+
+        // If it has our app identifier but wrong/missing tag, replace it
+        val hasOurAppIdentifier = existingUid.startsWith(context.packageName + ":") ||
+                existingDescription.contains(context.packageName) ||
+                existingPackage == context.packageName
+
+        if (hasOurAppIdentifier) {
+            Log.i(TAG, "Found event with our app identifier but missing/wrong tag, will replace")
+            return true
+        }
+
+        // For events found via smart detection without our identifier:
+        // Replace if they seem to be from a previous installation or different device
+        // This handles the case of app reinstall or device migration
+        val timeTolerance = 2 * 60 * 1000 // 2 minutes tolerance
+        val timeMatches =
+            kotlin.math.abs((current["start"] as Long) - local.startMillis) <= timeTolerance &&
+                    kotlin.math.abs((current["end"] as Long) - local.endMillis) <= timeTolerance
+
+        val titleMatches = normalizeForComparison(current["title"] as String) ==
+                normalizeForComparison(local.title)
+
+        val locationMatches = normalizeForComparison(current["location"] as String) ==
+                normalizeForComparison(local.location ?: "")
+
+        // If all core properties match perfectly, this is likely our event from a previous install
+        if (timeMatches && titleMatches && locationMatches) {
+            Log.i(
+                TAG,
+                "Found event that perfectly matches our data, likely from previous installation, will replace"
+            )
+            return true
+        }
+
+        return false
     }
 
     private fun buildIcsContent(events: List<LocalEvent>): String {
@@ -674,7 +983,7 @@ class CalendarExportService(private val context: Context) {
         sb.appendLine("BEGIN:VCALENDAR")
         sb.appendLine("VERSION:2.0")
         sb.appendLine("PRODID:-//${context.packageName}//Timetable Export//EN")
-        val utcFmt = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(java.time.ZoneId.of("UTC"))
+        val utcFmt = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneId.of("UTC"))
         events.sortedBy { it.startMillis }.forEach { e ->
             val uid = context.packageName + ":" + e.localId
             val dtStart = utcFmt.format(java.time.Instant.ofEpochMilli(e.startMillis))
@@ -706,16 +1015,21 @@ class CalendarExportService(private val context: Context) {
         val projection = arrayOf(Calendars.ACCOUNT_NAME, Calendars.ACCOUNT_TYPE)
         val sel = "${Calendars._ID}=?"
         val args = arrayOf(calendarId.toString())
-        return context.contentResolver.query(Calendars.CONTENT_URI, projection, sel, args, null)?.use { c ->
-            if (c.moveToFirst()) {
-                val name = c.getString(0)
-                val type = c.getString(1)
-                if (!name.isNullOrEmpty() && !type.isNullOrEmpty()) name to type else null
-            } else null
-        }
+        return context.contentResolver.query(Calendars.CONTENT_URI, projection, sel, args, null)
+            ?.use { c ->
+                if (c.moveToFirst()) {
+                    val name = c.getString(0)
+                    val type = c.getString(1)
+                    if (!name.isNullOrEmpty() && !type.isNullOrEmpty()) name to type else null
+                } else null
+            }
     }
 
-    private fun buildSyncAdapterEventUri(baseId: Long, accountName: String, accountType: String): Uri {
+    private fun buildSyncAdapterEventUri(
+        baseId: Long,
+        accountName: String,
+        accountType: String
+    ): Uri {
         val base = ContentUris.withAppendedId(Events.CONTENT_URI, baseId).buildUpon()
         base.appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
         base.appendQueryParameter(Calendars.ACCOUNT_NAME, accountName)
@@ -760,7 +1074,12 @@ class CalendarExportService(private val context: Context) {
 
         // Strategy 3: Direct deletion fallback
         try {
-            val rows = context.contentResolver.delete(ContentUris.withAppendedId(Events.CONTENT_URI, eventId), null, null)
+            val rows = context.contentResolver.delete(
+                ContentUris.withAppendedId(
+                    Events.CONTENT_URI,
+                    eventId
+                ), null, null
+            )
             Log.d(TAG, "Direct delete for eventId=$eventId: rows=$rows")
             return rows > 0
         } catch (e: Exception) {
