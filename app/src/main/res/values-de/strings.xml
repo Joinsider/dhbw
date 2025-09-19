@@ -156,4 +156,8 @@
     <string name="calendar_stop_and_delete">Termine löschen und stoppen</string>
     <string name="calendar_stop_keep">Termine behalten und stoppen</string>
     <string name="calendar_deleted_events_count">%1$d Termine gelöscht</string>
+    <string name="calendar_sync_note">Hinweis: Bei der Synchronisation oder dem Löschen vieler Vorlesungen im Kalender kann es von Nöten sein den Kalender ein paar Mal zu synchronisieren. Wechsle dazu in die Kalender App und synchronisiere deinen Kalender.</string>
+    <string name="calendar_delete_none_permissions">Löschen nicht möglich: Kalender Berechtigung fehlt</string>
+    <string name="calendar_delete_none_no_calendar">Löschen nicht möglich: Kein Kalender ausgewählt</string>
+    <string name="calendar_delete_none_no_matching">Keine exportierten Events zum Löschen gefunden</string>
 </resources>

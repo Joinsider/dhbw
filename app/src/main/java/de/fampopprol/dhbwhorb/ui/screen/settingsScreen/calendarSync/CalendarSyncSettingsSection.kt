@@ -26,6 +26,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -91,6 +92,23 @@ fun CalendarSyncSettingsSection(
             ).show()
             sectionEnabled = false
             prefs.setSectionEnabled(false)
+        }
+    }
+
+    // Keep label in sync when calendars or selected id change
+    LaunchedEffect(calendars, selectedCalendarId) {
+        selectedCalendarLabel = calendars.firstOrNull { it.id == selectedCalendarId }?.name.orEmpty()
+    }
+
+    // Refresh calendars when section becomes enabled and permissions are present
+    LaunchedEffect(sectionEnabled) {
+        if (sectionEnabled) {
+            if (service.hasReadPermission()) {
+                calendars = service.listDeviceCalendars()
+                // Sync selection/label from stored choice if available
+                selectedCalendarId = service.getChosenCalendarId()
+                selectedCalendarLabel = calendars.firstOrNull { it.id == selectedCalendarId }?.name.orEmpty()
+            }
         }
     }
 
@@ -164,10 +182,11 @@ fun CalendarSyncSettingsSection(
                 // Dropdown for calendars
                 ExposedDropdownMenuBox(
                     expanded = calendarExpanded,
-                    onExpandedChange = { calendarExpanded = it }
+                    onExpandedChange = { calendarExpanded = !calendarExpanded }
                 ) {
                     OutlinedTextField(
                         modifier = Modifier
+                            .menuAnchor()
                             .fillMaxWidth(),
                         readOnly = true,
                         value = selectedCalendarLabel,
@@ -286,6 +305,15 @@ fun CalendarSyncSettingsSection(
                             Text(stringResource(R.string.calendar_stop_keep))
                         }
                     }
+                )
+            }
+
+            if( sectionEnabled) {
+                Text(
+                    text = stringResource(R.string.calendar_sync_note),
+                    Modifier.padding(8.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

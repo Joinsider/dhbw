@@ -1,6 +1,8 @@
 package de.fampopprol.dhbwhorb.data.calendar
 
 import android.Manifest
+import android.accounts.Account
+import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
@@ -8,6 +10,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Bundle
 import android.provider.CalendarContract
 import android.provider.CalendarContract.Attendees
 import android.provider.CalendarContract.Calendars
@@ -314,9 +317,11 @@ class CalendarExportService(private val context: Context) {
             totalDeleted += passDeleted
         }.onFailure { Log.w(TAG, "Delete Pass0 failed", it) }
 
+        val deletedFilter = "(${Events.DELETED} IS NULL OR ${Events.DELETED}!=1)"
+
         // Pass 1: bulk LIKE on chosen calendar (by DESC or UID)
         try {
-            val selection = "${Events.CALENDAR_ID}=? AND ((${Events.DESCRIPTION} LIKE ?) OR (${Events.UID_2445} LIKE ?) OR (${Events.CUSTOM_APP_PACKAGE}=?))"
+            val selection = "${Events.CALENDAR_ID}=? AND $deletedFilter AND ((${Events.DESCRIPTION} LIKE ?) OR (${Events.UID_2445} LIKE ?) OR (${Events.CUSTOM_APP_PACKAGE}=?))"
             val args = arrayOf(chosenCalendarId.toString(), "%$tagPrefix%", "%$uidPrefix%", context.packageName)
             val rows = context.contentResolver.delete(Events.CONTENT_URI, selection, args)
             Log.d(TAG, "Delete Pass1 (bulk LIKE): rows=$rows")
@@ -327,8 +332,8 @@ class CalendarExportService(private val context: Context) {
 
         // Pass 2: enumerate chosen calendar and delete tagged events (DESC or UID or CUSTOM_APP_PACKAGE)
         runCatching {
-            val projection = arrayOf(Events._ID, Events.DESCRIPTION, Events.UID_2445, Events.CUSTOM_APP_PACKAGE)
-            val selection = "${Events.CALENDAR_ID}=?"
+            val projection = arrayOf(Events._ID, Events.DESCRIPTION, Events.UID_2445, Events.CUSTOM_APP_PACKAGE, Events.DELETED)
+            val selection = "${Events.CALENDAR_ID}=? AND $deletedFilter"
             val args = arrayOf(chosenCalendarId.toString())
             var passDeleted = 0
             context.contentResolver.query(Events.CONTENT_URI, projection, selection, args, null)?.use { c ->
@@ -350,44 +355,42 @@ class CalendarExportService(private val context: Context) {
             totalDeleted += passDeleted
         }.onFailure { Log.w(TAG, "Chosen calendar enumeration failed", it) }
 
-        // Pass 3: enumerate all calendars fallback similarly
-        if (totalDeleted == 0) {
+        // Pass 3: enumerate all calendars fallback – always run to ensure full cleanup
+        runCatching {
             val allCals = listDeviceCalendars()
             var passDeleted = 0
             allCals.forEach { cal ->
                 val acc = getAccountInfo(cal.id)
-                runCatching {
-                    val projection = arrayOf(Events._ID, Events.DESCRIPTION, Events.UID_2445, Events.CUSTOM_APP_PACKAGE)
-                    val selection = "${Events.CALENDAR_ID}=?"
-                    val args = arrayOf(cal.id.toString())
-                    context.contentResolver.query(Events.CONTENT_URI, projection, selection, args, null)?.use { c ->
-                        val idIdx = c.getColumnIndexOrThrow(Events._ID)
-                        val descIdx = c.getColumnIndexOrThrow(Events.DESCRIPTION)
-                        val uidIdx = c.getColumnIndexOrThrow(Events.UID_2445)
-                        val pkgIdx = c.getColumnIndexOrThrow(Events.CUSTOM_APP_PACKAGE)
-                        while (c.moveToNext()) {
-                            val id = c.getLong(idIdx)
-                            val desc = c.getString(descIdx) ?: ""
-                            val uid = c.getString(uidIdx) ?: ""
-                            val pkg = c.getString(pkgIdx) ?: ""
-                            if (desc.contains(tagPrefix) || uid.startsWith(uidPrefix) || pkg == context.packageName) {
-                                if (tryDeleteEvent(id, acc)) passDeleted++
-                            }
+                val projection = arrayOf(Events._ID, Events.DESCRIPTION, Events.UID_2445, Events.CUSTOM_APP_PACKAGE)
+                val selection = "${Events.CALENDAR_ID}=? AND $deletedFilter"
+                val args = arrayOf(cal.id.toString())
+                context.contentResolver.query(Events.CONTENT_URI, projection, selection, args, null)?.use { c ->
+                    val idIdx = c.getColumnIndexOrThrow(Events._ID)
+                    val descIdx = c.getColumnIndexOrThrow(Events.DESCRIPTION)
+                    val uidIdx = c.getColumnIndexOrThrow(Events.UID_2445)
+                    val pkgIdx = c.getColumnIndexOrThrow(Events.CUSTOM_APP_PACKAGE)
+                    while (c.moveToNext()) {
+                        val id = c.getLong(idIdx)
+                        val desc = c.getString(descIdx) ?: ""
+                        val uid = c.getString(uidIdx) ?: ""
+                        val pkg = c.getString(pkgIdx) ?: ""
+                        if (desc.contains(tagPrefix) || uid.startsWith(uidPrefix) || pkg == context.packageName) {
+                            if (tryDeleteEvent(id, acc)) passDeleted++
                         }
                     }
-                }.onFailure { Log.w(TAG, "Enumeration failed for calendar ${cal.id}", it) }
+                }
             }
             Log.d(TAG, "Delete Pass3 (enumerate all): deleted=$passDeleted")
             totalDeleted += passDeleted
-        }
+        }.onFailure { Log.w(TAG, "Delete Pass3 failed", it) }
 
-        // Verification also checks UID and CUSTOM_APP_PACKAGE
+        // Verification: only count non-deleted rows
         var remaining = 0
         runCatching {
             val allCals = listDeviceCalendars()
             allCals.forEach { cal ->
-                val projection = arrayOf(Events.DESCRIPTION, Events.UID_2445, Events.CUSTOM_APP_PACKAGE)
-                val selection = "${Events.CALENDAR_ID}=?"
+                val projection = arrayOf(Events.DESCRIPTION, Events.UID_2445, Events.CUSTOM_APP_PACKAGE, Events.DELETED)
+                val selection = "${Events.CALENDAR_ID}=? AND $deletedFilter"
                 val args = arrayOf(cal.id.toString())
                 context.contentResolver.query(Events.CONTENT_URI, projection, selection, args, null)?.use { c ->
                     val descIdx = c.getColumnIndexOrThrow(Events.DESCRIPTION)
@@ -405,12 +408,13 @@ class CalendarExportService(private val context: Context) {
 
         return if (totalDeleted > 0 && remaining == 0) {
             saveMapping(emptyMap())
+            requestCalendarSyncFor(chosenCalendarId)
             Log.d(TAG, "Delete complete: totalDeleted=$totalDeleted (verified none remaining)")
             DeleteResult(totalDeleted, DeleteReason.SUCCESS)
         } else if (totalDeleted > 0 && remaining > 0) {
-            // Partial success but some remain (likely due to provider policy)
             Log.w(TAG, "Delete partial: deleted=$totalDeleted, remainingTagged=$remaining")
             saveMapping(emptyMap())
+            requestCalendarSyncFor(chosenCalendarId)
             DeleteResult(totalDeleted, DeleteReason.SUCCESS)
         } else {
             Log.d(TAG, "Delete complete: no matching events found (remaining=$remaining)")
@@ -660,5 +664,99 @@ class CalendarExportService(private val context: Context) {
             .replace(";", "\\;")
             .replace(",", "\\,")
             .replace("\n", "\\n")
+    }
+
+    private fun getAccountInfo(calendarId: Long): Pair<String, String>? {
+        val projection = arrayOf(Calendars.ACCOUNT_NAME, Calendars.ACCOUNT_TYPE)
+        val sel = "${Calendars._ID}=?"
+        val args = arrayOf(calendarId.toString())
+        return context.contentResolver.query(Calendars.CONTENT_URI, projection, sel, args, null)?.use { c ->
+            if (c.moveToFirst()) {
+                val name = c.getString(0)
+                val type = c.getString(1)
+                if (!name.isNullOrEmpty() && !type.isNullOrEmpty()) name to type else null
+            } else null
+        }
+    }
+
+    private fun buildSyncAdapterEventUri(baseId: Long, accountName: String, accountType: String): Uri {
+        val base = ContentUris.withAppendedId(Events.CONTENT_URI, baseId).buildUpon()
+        base.appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
+        base.appendQueryParameter(Calendars.ACCOUNT_NAME, accountName)
+        base.appendQueryParameter(Calendars.ACCOUNT_TYPE, accountType)
+        return base.build()
+    }
+
+    private fun tryDeleteEvent(eventId: Long, account: Pair<String, String>?): Boolean {
+        // Strategy 1: Mark event as canceled instead of deleting (Google Calendar approach)
+        try {
+            val values = ContentValues().apply {
+                put(Events.STATUS, Events.STATUS_CANCELED)
+                put(Events.TITLE, "[CANCELED] " + (getEventTitle(eventId) ?: "Event"))
+            }
+            val uri = if (account != null) {
+                val (accName, accType) = account
+                buildSyncAdapterEventUri(eventId, accName, accType)
+            } else {
+                ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
+            }
+            val rows = context.contentResolver.update(uri, values, null, null)
+            if (rows > 0) {
+                Log.d(TAG, "Canceled event $eventId: rows=$rows")
+                return true
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Cancel event failed for $eventId", e)
+        }
+
+        // Strategy 2: Try sync-adapter deletion
+        if (account != null) {
+            try {
+                val (accName, accType) = account
+                val uri = buildSyncAdapterEventUri(eventId, accName, accType)
+                val rows = context.contentResolver.delete(uri, null, null)
+                Log.d(TAG, "Sync-adapter delete for eventId=$eventId: rows=$rows")
+                if (rows > 0) return true
+            } catch (e: Exception) {
+                Log.w(TAG, "Sync-adapter delete failed for $eventId", e)
+            }
+        }
+
+        // Strategy 3: Direct deletion fallback
+        try {
+            val rows = context.contentResolver.delete(ContentUris.withAppendedId(Events.CONTENT_URI, eventId), null, null)
+            Log.d(TAG, "Direct delete for eventId=$eventId: rows=$rows")
+            return rows > 0
+        } catch (e: Exception) {
+            Log.w(TAG, "Direct delete failed for $eventId", e)
+            return false
+        }
+    }
+
+    private fun getEventTitle(eventId: Long): String? {
+        return try {
+            val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
+            context.contentResolver.query(uri, arrayOf(Events.TITLE), null, null, null)?.use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun requestCalendarSyncFor(calendarId: Long) {
+        val acc = getAccountInfo(calendarId) ?: return
+        val (name, type) = acc
+        try {
+            val account = Account(name, type)
+            val extras = Bundle().apply {
+                putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true)
+                putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true)
+            }
+            ContentResolver.requestSync(account, CalendarContract.AUTHORITY, extras)
+            Log.d(TAG, "Requested calendar sync for account=$name/$type")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to request calendar sync", e)
+        }
     }
 }

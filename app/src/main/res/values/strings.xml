@@ -170,4 +170,5 @@
     <string name="calendar_delete_none_permissions">Cannot delete: calendar permissions are missing</string>
     <string name="calendar_delete_none_no_calendar">Cannot delete: no calendar selected</string>
     <string name="calendar_delete_none_no_matching">No exported events found to delete</string>
+    <string name="calendar_sync_note">Hint: During synchronisation or deletion of large amounts of lectures in your calendar, you may have to reload your calendar a few times. To do this switch to your calendar application and reload a few times.</string>
 </resources>
