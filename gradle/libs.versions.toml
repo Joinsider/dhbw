@@ -15,7 +15,7 @@ okhttp = "5.1.0"
 jsoup = "1.21.2"
 securityCrypto = "1.1.0"
 workManager = "2.10.4"
-lifecycleViewmodelKtx = "2.9.3"
+lifecycleViewmodelKtx = "2.9.4"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
