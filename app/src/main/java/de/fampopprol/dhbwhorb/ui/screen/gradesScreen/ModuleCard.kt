@@ -24,6 +24,21 @@ import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.R
 import de.fampopprol.dhbwhorb.data.dualis.models.ExamState
 import de.fampopprol.dhbwhorb.data.dualis.models.Module
+import java.util.Locale
+
+/**
+ * Formats a grade string to display with exactly 2 decimal places if it's a numerical grade
+ */
+private fun formatModuleGrade(grade: String): String {
+    return if (grade == "noch nicht gesetzt") {
+        grade // Keep as-is for "not set" grades
+    } else {
+        // Try to parse as double and format
+        grade.replace(",", ".").toDoubleOrNull()?.let { gradeValue ->
+            String.format(Locale.getDefault(), "%.2f", gradeValue)
+        } ?: grade // If parsing fails, return original string
+    }
+}
 
 @Composable
 fun ModuleCard(
@@ -80,7 +95,7 @@ fun ModuleCard(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = if (module.grade == "noch nicht gesetzt") stringResource(R.string.not_graded) else module.grade,
+                        text = formatModuleGrade(module.grade),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = when (module.state) {

@@ -175,7 +175,7 @@ fun GradesContent(
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            text = studyGrades?.gpaTotal?.toString()
+                            text = studyGrades?.gpaTotal?.let { formatGrade(it) }
                                 ?: stringResource(R.string.not_available),
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
@@ -243,7 +243,7 @@ fun GradesContent(
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Text(
-                                text = studyGrades?.creditsGained?.toString() ?: "0",
+                                text = studyGrades?.creditsGained?.let { formatCredits(it) } ?: "0",
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -275,7 +275,7 @@ fun GradesContent(
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Text(
-                                text = studyGrades?.creditsTotal?.toString() ?: "0",
+                                text = studyGrades?.creditsTotal?.let { formatCredits(it) } ?: "0",
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.secondary,
@@ -406,5 +406,33 @@ fun GradesContent(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+/**
+ * Formats a Double value to display with exactly 2 decimal places
+ */
+private fun formatGrade(value: Double?): String {
+    return if (value != null) {
+        String.format(Locale.getDefault(), "%.2f", value)
+    } else {
+        "N/A"
+    }
+}
+
+/**
+ * Formats a Double value for credits display (typically whole numbers, but can handle decimals)
+ */
+private fun formatCredits(value: Double?): String {
+    return if (value != null) {
+        if (value == value.toInt().toDouble()) {
+            // If it's a whole number, display without decimals
+            value.toInt().toString()
+        } else {
+            // Otherwise, format with up to 1 decimal place
+            String.format(Locale.getDefault(), "%.1f", value)
+        }
+    } else {
+        "0"
     }
 }
