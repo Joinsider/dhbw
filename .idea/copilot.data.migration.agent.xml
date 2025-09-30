@@ -234,6 +234,7 @@
             <set>
               <option value="4427db05-05d1-4a3d-903c-c7f9ba356557" />
               <option value="4b25bcc6-b5ba-49a4-afde-28a3353b5683" />
+              <option value="940c932c-73e2-4635-b394-244508ba8dde" />
             </set>
           </value>
         </entry>
@@ -735,9 +736,8 @@
     <pendingWorkingSetItems>
       <entry key="4a69ac80-833a-47b9-a906-66547471ce4c">
         <set>
-          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/data/dualis/parser/StudyGradesParser.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/ui/screen/gradesScreen/GradesContent.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/ui/screen/gradesScreen/ModuleCard.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/MainActivity.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/ui/screen/MainScreen.kt" />
         </set>
       </entry>
       <entry key="971d683a-fa60-44aa-94cb-a01ddbcf1ffe" />

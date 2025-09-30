@@ -6,6 +6,7 @@
 
 package de.fampopprol.dhbwhorb
 
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -18,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.view.WindowCompat
 import de.fampopprol.dhbwhorb.data.cache.TimetableCacheManager
 import de.fampopprol.dhbwhorb.data.dualis.network.DualisService
 import de.fampopprol.dhbwhorb.data.security.CredentialManager
@@ -30,7 +32,16 @@ import de.fampopprol.dhbwhorb.ui.components.CalendarViewMode
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+
+        // Modern edge-to-edge implementation for Android 15+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            // Android 15+ uses automatic edge-to-edge
+            enableEdgeToEdge()
+        } else {
+            // For older versions, use the traditional approach
+            enableEdgeToEdge()
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+        }
 
         // Debug the cache contents first
         val cacheManager = TimetableCacheManager(this)

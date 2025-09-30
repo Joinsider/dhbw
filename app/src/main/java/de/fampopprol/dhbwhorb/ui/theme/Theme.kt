@@ -113,8 +113,23 @@ fun DHBWHorbTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = !darkTheme
+
+            // Modern approach for Android 15+ - avoid deprecated APIs
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                // Android 15+ handles edge-to-edge automatically
+                // No need to manually set status bar colors
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                // For Android 11+ but below Android 15
+                WindowCompat.getInsetsController(window, view).let { controller ->
+                    controller.isAppearanceLightStatusBars = !darkTheme
+                    controller.isAppearanceLightNavigationBars = !darkTheme
+                }
+            } else {
+                // For older Android versions, use the legacy approach
+                @Suppress("DEPRECATION")
+                (WindowCompat.getInsetsController(window, view).let { controller ->
+                    controller.isAppearanceLightStatusBars = !darkTheme
+                })
             }
         }
     }
