@@ -18,6 +18,7 @@
       <option value="4198dc32-082a-4fca-8336-38c1fc81eacb" />
       <option value="453605f2-1705-4ab9-8529-5261ceed25f1" />
       <option value="480e1d79-3000-4fa6-813c-98f0b86a528a" />
+      <option value="4a69ac80-833a-47b9-a906-66547471ce4c" />
       <option value="4c460514-4dd3-4993-bb04-59f2c60acb63" />
       <option value="4d5f9f92-7089-4156-a33f-d07e0ebbb561" />
       <option value="51eec56f-0f76-44ab-acad-ce74a70dba2a" />
@@ -225,6 +226,14 @@
             <set>
               <option value="3831cd70-33cd-4bd0-89bb-ae3613da5925" />
               <option value="eddf87ea-a4f6-48eb-a2ac-34b67a8b4dbb" />
+            </set>
+          </value>
+        </entry>
+        <entry key="4a69ac80-833a-47b9-a906-66547471ce4c">
+          <value>
+            <set>
+              <option value="4427db05-05d1-4a3d-903c-c7f9ba356557" />
+              <option value="4b25bcc6-b5ba-49a4-afde-28a3353b5683" />
             </set>
           </value>
         </entry>
@@ -724,13 +733,14 @@
       </map>
     </option>
     <pendingWorkingSetItems>
-      <entry key="971d683a-fa60-44aa-94cb-a01ddbcf1ffe">
+      <entry key="4a69ac80-833a-47b9-a906-66547471ce4c">
         <set>
-          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/data/cache/GradesCacheManager.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/ui/screen/gradesScreen/GradesDataManager.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/ui/screen/gradesScreen/GradesStateManager.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/data/dualis/parser/StudyGradesParser.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/ui/screen/gradesScreen/GradesContent.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/ui/screen/gradesScreen/ModuleCard.kt" />
         </set>
       </entry>
+      <entry key="971d683a-fa60-44aa-94cb-a01ddbcf1ffe" />
       <entry key="ab829af7-8cd4-4bb1-b4e2-32bc9c485b2c" />
     </pendingWorkingSetItems>
   </component>

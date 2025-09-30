@@ -96,18 +96,23 @@ class StudyGradesParser {
                     val creditsText = cells[3].text().trim()
                     val status = cells[4].text().trim()
 
-                    Log.d(TAG, "Parsing module: $moduleId - $moduleName - Grade: '$gradeText' - Credits: '$creditsText' - Status: '$status'")
+                    Log.d(
+                        TAG,
+                        "Parsing module: $moduleId - $moduleName - Grade: '$gradeText' - Credits: '$creditsText' - Status: '$status'"
+                    )
 
                     val credits = parseCredits(creditsText) ?: 0.0
                     val grade = parseGrade(gradeText)
 
-                    modules.add(ModuleData(
-                        id = moduleId,
-                        name = moduleName,
-                        grade = grade,
-                        credits = credits,
-                        status = status
-                    ))
+                    modules.add(
+                        ModuleData(
+                            id = moduleId,
+                            name = moduleName,
+                            grade = grade,
+                            credits = credits,
+                            status = status
+                        )
+                    )
                 } catch (e: Exception) {
                     Log.w(TAG, "Error parsing module row: ${e.message}")
                 }
@@ -120,10 +125,14 @@ class StudyGradesParser {
     /**
      * Calculates summary grades from individual modules
      */
-    private fun calculateSummaryFromModules(modules: List<ModuleData>, semesterArgument: String = "-N000307,"): StudyGrades {
+    private fun calculateSummaryFromModules(
+        modules: List<ModuleData>,
+        semesterArgument: String = "-N000307,"
+    ): StudyGrades {
         var totalCredits = 0.0
         var gainedCredits = 0.0
         var weightedGradeSum = 0.0
+        var gradedCredits = 0.0
         var gradeCount = 0
 
         // Convert ModuleData to Module objects
@@ -150,7 +159,8 @@ class StudyGradesParser {
             // Count as gained if status indicates completion or if grade is set
             if (module.status.contains("bestanden", ignoreCase = true) ||
                 module.status.contains("Prüfungen", ignoreCase = true) ||
-                (module.grade != null && module.grade > 0.0)) {
+                (module.grade != null && module.grade > 0.0)
+            ) {
                 gainedCredits += module.credits
             }
 
@@ -158,12 +168,13 @@ class StudyGradesParser {
             module.grade?.let { grade ->
                 if (grade > 0.0) {
                     weightedGradeSum += grade * module.credits
+                    gradedCredits += module.credits  // NEW: Only add credits from graded modules
                     gradeCount++
                 }
             }
         }
 
-        val gpaTotal = if (gainedCredits > 0.0) weightedGradeSum / gainedCredits else 0.0
+        val gpaTotal = if (gradedCredits > 0.0) weightedGradeSum / gradedCredits else 0.0
 
         // Determine semester identifier
         val semester = when (semesterArgument) {
@@ -176,6 +187,7 @@ class StudyGradesParser {
         Log.d(TAG, "Summary calculation:")
         Log.d(TAG, "  Total Credits: $totalCredits")
         Log.d(TAG, "  Gained Credits: $gainedCredits")
+        Log.d(TAG, "  Graded Credits: $gradedCredits")
         Log.d(TAG, "  Weighted Grade Sum: $weightedGradeSum")
         Log.d(TAG, "  GPA Total: $gpaTotal")
         Log.d(TAG, "  Modules: ${moduleList.size}")
