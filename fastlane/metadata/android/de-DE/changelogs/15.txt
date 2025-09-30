@@ -1,0 +1,3 @@
+Neu in Version 1.1.5
+    - Kleinere Fehlerbehebungen und Leistungsverbesserungen
+    - Fehler in der Notenanzeige behoben
