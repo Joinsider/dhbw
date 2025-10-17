@@ -1,22 +1,50 @@
-# DHBW Horb Student App
+This is a Kotlin Multiplatform project targeting Android, iOS, Desktop (JVM).
 
-This app is specially developed for students of the DHBW Stuttgart Campus Horb. It allows students to check their timetables and grades in a android app instead of manually login in to dualis every time.
+* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
+  It contains several subfolders:
+    - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
+    - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
+      For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
+      the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
+      Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
+      folder is the appropriate location.
 
+* [/iosApp](./iosApp/iosApp) contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform,
+  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
 
-## How to test the app?
-Demo Login which doesn't send API requests
+### Build and Run Android Application
 
-e-Mail: `demo@dhbw.de`
-password: `demo123`
+To build and run the development version of the Android app, use the run configuration from the run widget
+in your IDE’s toolbar or build it directly from the terminal:
 
-## Where can you install my app?
-- Google Play Store
-- F-Droid: Released in the IzzyOnDroid repository, you can find it [here](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
+- on macOS/Linux
+  ```shell
+  ./gradlew :composeApp:assembleDebug
+  ```
+- on Windows
+  ```shell
+  .\gradlew.bat :composeApp:assembleDebug
+  ```
 
-[<img height="80px" alt="image" src="https://github.com/user-attachments/assets/0731327c-7867-4b7e-b981-e07f38071304" />](https://play.google.com/store/apps/details?id=de.fampopprol.dhbwhorb&pcampaignid=web_share) 
-[<img src="./assets/izzyOnDroid.png" alt="IzzyOnDroid" height="80px">](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
-[<img height="80px" alt="image" src="https://github.com/user-attachments/assets/eb4410df-5e0a-4851-bf6b-6f951ffa2a9c" />](https://github.com/Joinsider/dhbw/releases)
+### Build and Run Desktop (JVM) Application
 
+To build and run the development version of the desktop app, use the run configuration from the run widget
+in your IDE’s toolbar or run it directly from the terminal:
 
+- on macOS/Linux
+  ```shell
+  ./gradlew :composeApp:run
+  ```
+- on Windows
+  ```shell
+  .\gradlew.bat :composeApp:run
+  ```
 
-[<img src="https://shields.rbtlog.dev/simple/de.fampopprol.dhbwhorb" alt="RB shield">](https://shields.rbtlog.dev/de.fampopprol.dhbwhorb)
+### Build and Run iOS Application
+
+To build and run the development version of the iOS app, use the run configuration from the run widget
+in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+
+---
+
+Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
