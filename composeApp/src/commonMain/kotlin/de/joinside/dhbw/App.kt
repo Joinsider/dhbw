@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.app_name
@@ -32,13 +33,16 @@ fun App() {
             modifier = Modifier
                 .fillMaxSize()
                 .safeContentPadding()
-                .background(MaterialTheme.colorScheme.background),
+                .background(MaterialTheme.colorScheme.background)
+                .testTag("appContainer"),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
 
             Text(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("appTitle"),
                 text = stringResource(Res.string.app_name),
                 style = MaterialTheme.typography.headlineLarge,
                 textAlign = TextAlign.Center,
@@ -58,7 +62,8 @@ fun App() {
 
             AnimatedVisibility(visible = !showLoginForm) {
                 Button(
-                    onClick = { showLoginForm = true }
+                    onClick = { showLoginForm = true },
+                    modifier = Modifier.testTag("loginWithDualisButton")
                 ) {
                     Text(text = stringResource(Res.string.login_with_dualis_account))
                 }
