@@ -20,31 +20,43 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import de.joinside.dhbw.i18n.strings
+import de.joinside.dhbw.resources.Res
+import de.joinside.dhbw.resources.enter_password
+import de.joinside.dhbw.resources.enter_username
+import de.joinside.dhbw.resources.login
+import de.joinside.dhbw.resources.login_successful
+import de.joinside.dhbw.resources.password
+import de.joinside.dhbw.resources.password_cannot_be_empty
+import de.joinside.dhbw.resources.username
+import de.joinside.dhbw.resources.username_cannot_be_empty
+import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginForm() {
-    val strings = strings()
-
     val usernameFieldValue = remember { mutableStateOf(TextFieldValue("")) }
     val passwordFieldState = remember { mutableStateOf(TextFieldValue("")) }
 
     val usernameError = remember { mutableStateOf<String?>(null) }
     val passwordError = remember { mutableStateOf<String?>(null) }
 
+    val usernameCannotBeEmpty = stringResource(Res.string.username_cannot_be_empty)
+    val passwordCannotBeEmpty = stringResource(Res.string.password_cannot_be_empty)
+    val loginSuccessfulText = stringResource(Res.string.login_successful)
+    val usernameText = stringResource(Res.string.username)
+
     val validateFields = {
         var isValid = true
 
         if (usernameFieldValue.value.text.isBlank()) {
-            usernameError.value = strings.usernameCannotBeEmpty
+            usernameError.value = usernameCannotBeEmpty
             isValid = false
         } else {
             usernameError.value = null
         }
 
         if (passwordFieldState.value.text.isBlank()) {
-            passwordError.value = strings.passwordCannotBeEmpty
+            passwordError.value = passwordCannotBeEmpty
             isValid = false
         } else {
             passwordError.value = null
@@ -70,9 +82,9 @@ fun LoginForm() {
                     usernameError.value = null
                 }
             },
-            label = { Text(strings.username) },
+            label = { Text(stringResource(Res.string.username)) },
             singleLine = true,
-            placeholder = { Text(strings.enterUsername) },
+            placeholder = { Text(stringResource(Res.string.enter_username)) },
             isError = usernameError.value != null,
             supportingText = {
                 usernameError.value?.let {
@@ -96,9 +108,9 @@ fun LoginForm() {
                     passwordError.value = null
                 }
             },
-            label = { Text(strings.password) },
+            label = { Text(stringResource(Res.string.password)) },
             singleLine = true,
-            placeholder = { Text(strings.enterPassword) },
+            placeholder = { Text(stringResource(Res.string.enter_password)) },
             isError = passwordError.value != null,
             supportingText = {
                 passwordError.value?.let {
@@ -116,7 +128,7 @@ fun LoginForm() {
             onClick = {
                 if (validateFields()) {
                     // TODO: Add login logic here
-                    println("${strings.loginSuccessful}! ${strings.username}: ${usernameFieldValue.value.text}")
+                    println("$loginSuccessfulText! $usernameText: ${usernameFieldValue.value.text}")
                 }
             },
             modifier = Modifier
@@ -127,7 +139,7 @@ fun LoginForm() {
                 contentColor = MaterialTheme.colorScheme.onPrimary
             )
         ) {
-            Text(strings.login)
+            Text(stringResource(Res.string.login))
         }
     }
 }

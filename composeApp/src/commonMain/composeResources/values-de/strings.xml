@@ -1,0 +1,45 @@
+<resources>
+    <!-- App general -->
+    <string name="app_name">DHBW Horb</string>
+
+    <!-- Login screen -->
+    <string name="login_with_dualis_account">Mit Ihrem Dualis-Konto anmelden</string>
+    <string name="login">Anmelden</string>
+    <string name="username">Benutzername</string>
+    <string name="password">Passwort</string>
+    <string name="enter_username">Benutzername eingeben</string>
+    <string name="enter_password">Passwort eingeben</string>
+    <string name="username_cannot_be_empty">Benutzername darf nicht leer sein</string>
+    <string name="password_cannot_be_empty">Passwort darf nicht leer sein</string>
+    <string name="login_successful">Anmeldung erfolgreich</string>
+    <string name="login_failed">Anmeldung fehlgeschlagen</string>
+
+    <!-- Common -->
+    <string name="ok">OK</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="yes">Ja</string>
+    <string name="no">Nein</string>
+    <string name="save">Speichern</string>
+    <string name="delete">Löschen</string>
+    <string name="edit">Bearbeiten</string>
+    <string name="back">Zurück</string>
+    <string name="next">Weiter</string>
+    <string name="finish">Fertig</string>
+    <string name="loading">Lädt...</string>
+    <string name="error">Fehler</string>
+    <string name="success">Erfolg</string>
+    <string name="retry">Wiederholen</string>
+
+    <!-- Settings -->
+    <string name="settings">Einstellungen</string>
+    <string name="language">Sprache</string>
+    <string name="dark_mode">Dunkelmodus</string>
+    <string name="light_mode">Hellmodus</string>
+    <string name="system_default">Systemstandard</string>
+
+    <!-- Error messages -->
+    <string name="network_error">Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.</string>
+    <string name="unknown_error">Ein unbekannter Fehler ist aufgetreten.</string>
+    <string name="invalid_credentials">Ungültiger Benutzername oder Passwort.</string>
+</resources>
+
