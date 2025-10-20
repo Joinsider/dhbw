@@ -6,119 +6,111 @@
 
 package de.joinside.dhbw.ui.theme
 
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.runComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 
-@OptIn(ExperimentalTestApi::class)
+/**
+ * Common theme tests that work on all platforms.
+ * These tests verify color scheme and typography values without requiring UI rendering.
+ */
 class ThemeTest {
 
     @Test
-    fun dhbwHorbTheme_appliesMaterialTheme() = runComposeUiTest {
-        setContent {
-            DHBWHorbTheme {
-                // Verify MaterialTheme is accessible
-                assertNotNull(MaterialTheme.colorScheme)
-                assertNotNull(MaterialTheme.typography)
-            }
-        }
+    fun lightColorScheme_hasValidPrimaryColor() {
+        assertNotNull(LightColorScheme.primary)
+        assertEquals(Purple40, LightColorScheme.primary)
     }
 
     @Test
-    fun dhbwHorbTheme_lightMode_usesLightColors() = runComposeUiTest {
-        setContent {
-            DHBWHorbTheme(darkTheme = false) {
-                val colorScheme = MaterialTheme.colorScheme
-                // The actual color depends on platform implementation
-                // but we can verify the color scheme is set
-                assertNotNull(colorScheme.primary)
-                assertNotNull(colorScheme.surface)
-                assertNotNull(colorScheme.background)
-            }
-        }
+    fun darkColorScheme_hasValidPrimaryColor() {
+        assertNotNull(DarkColorScheme.primary)
+        assertEquals(Purple80, DarkColorScheme.primary)
     }
 
     @Test
-    fun dhbwHorbTheme_darkMode_usesDarkColors() = runComposeUiTest {
-        setContent {
-            DHBWHorbTheme(darkTheme = true) {
-                val colorScheme = MaterialTheme.colorScheme
-                // Verify the color scheme is properly set
-                assertNotNull(colorScheme.primary)
-                assertNotNull(colorScheme.surface)
-                assertNotNull(colorScheme.background)
-            }
-        }
+    fun lightColorScheme_hasValidBackgroundColor() {
+        assertNotNull(LightColorScheme.background)
+        assertEquals(Neutral99, LightColorScheme.background)
     }
 
     @Test
-    fun dhbwHorbTheme_appliesTypography() = runComposeUiTest {
-        setContent {
-            DHBWHorbTheme {
-                val typography = MaterialTheme.typography
-                assertEquals(Typography, typography)
-                assertNotNull(typography.bodyLarge)
-            }
-        }
+    fun darkColorScheme_hasValidBackgroundColor() {
+        assertNotNull(DarkColorScheme.background)
+        assertEquals(Neutral10, DarkColorScheme.background)
     }
 
     @Test
-    fun dhbwHorbTheme_canNestContent() = runComposeUiTest {
-        var contentRendered = false
-
-        setContent {
-            DHBWHorbTheme {
-                contentRendered = true
-            }
-        }
-
-        waitForIdle()
-        assertEquals(true, contentRendered)
+    fun lightColorScheme_hasValidSurfaceColor() {
+        assertNotNull(LightColorScheme.surface)
+        assertEquals(Neutral99, LightColorScheme.surface)
     }
 
     @Test
-    fun dhbwHorbTheme_lightAndDarkMode_haveDifferentSchemes() = runComposeUiTest {
-        var lightPrimary: androidx.compose.ui.graphics.Color? = null
-        var darkPrimary: androidx.compose.ui.graphics.Color? = null
-
-        setContent {
-            DHBWHorbTheme(darkTheme = false) {
-                lightPrimary = MaterialTheme.colorScheme.primary
-            }
-        }
-
-        waitForIdle()
-
-        setContent {
-            DHBWHorbTheme(darkTheme = true) {
-                darkPrimary = MaterialTheme.colorScheme.primary
-            }
-        }
-
-        waitForIdle()
-
-        assertNotNull(lightPrimary)
-        assertNotNull(darkPrimary)
-        // On platforms without dynamic theming, the colors should be different
-        // On Android with Material You, they might be the same if system uses same colors
+    fun darkColorScheme_hasValidSurfaceColor() {
+        assertNotNull(DarkColorScheme.surface)
+        assertEquals(Neutral10, DarkColorScheme.surface)
     }
 
     @Test
-    fun dhbwHorbTheme_supportsNestedComposables() = runComposeUiTest {
-        var innerContentRendered = false
+    fun lightAndDarkColorSchemes_haveDifferentPrimaryColors() {
+        assertNotEquals(LightColorScheme.primary, DarkColorScheme.primary)
+    }
 
-        setContent {
-            DHBWHorbTheme {
-                DHBWHorbTheme(darkTheme = true) {
-                    innerContentRendered = true
-                }
-            }
-        }
+    @Test
+    fun lightAndDarkColorSchemes_haveDifferentBackgroundColors() {
+        assertNotEquals(LightColorScheme.background, DarkColorScheme.background)
+    }
 
-        waitForIdle()
-        assertEquals(true, innerContentRendered)
+    @Test
+    fun typography_hasValidBodyLarge() {
+        assertNotNull(Typography.bodyLarge)
+    }
+
+    @Test
+    fun typography_hasValidHeadlineLarge() {
+        assertNotNull(Typography.headlineLarge)
+    }
+
+    @Test
+    fun typography_hasValidTitleLarge() {
+        assertNotNull(Typography.titleLarge)
+    }
+
+    @Test
+    fun colorScheme_hasPrimaryContainer() {
+        assertNotNull(LightColorScheme.primaryContainer)
+        assertNotNull(DarkColorScheme.primaryContainer)
+    }
+
+    @Test
+    fun colorScheme_hasSecondaryColors() {
+        assertNotNull(LightColorScheme.secondary)
+        assertNotNull(DarkColorScheme.secondary)
+    }
+
+    @Test
+    fun colorScheme_hasTertiaryColors() {
+        assertNotNull(LightColorScheme.tertiary)
+        assertNotNull(DarkColorScheme.tertiary)
+    }
+
+    @Test
+    fun colorScheme_hasErrorColors() {
+        assertNotNull(LightColorScheme.error)
+        assertNotNull(DarkColorScheme.error)
+    }
+
+    @Test
+    fun colorScheme_hasOnPrimaryColors() {
+        assertNotNull(LightColorScheme.onPrimary)
+        assertNotNull(DarkColorScheme.onPrimary)
+    }
+
+    @Test
+    fun colorScheme_hasOnBackgroundColors() {
+        assertNotNull(LightColorScheme.onBackground)
+        assertNotNull(DarkColorScheme.onBackground)
     }
 }
