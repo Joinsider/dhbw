@@ -1,32 +1,32 @@
 package de.joinside.dhbw.data.database.dao.timetable
 
 import androidx.room.*
-import de.joinside.dhbw.data.database.entities.timetable.LectureEntity
+import de.joinside.dhbw.data.database.entities.timetable.LectureEventEntity
 import de.joinside.dhbw.data.database.entities.timetable.relations.LectureWithLecturers
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface LectureDao {
+interface LectureEventDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(lecture: LectureEntity): Long
+    suspend fun insert(lecture: LectureEventEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(lectures: List<LectureEntity>)
+    suspend fun insertAll(lectures: List<LectureEventEntity>)
 
     @Update
-    suspend fun update(lecture: LectureEntity)
+    suspend fun update(lecture: LectureEventEntity)
 
     @Delete
-    suspend fun delete(lecture: LectureEntity)
+    suspend fun delete(lecture: LectureEventEntity)
 
     @Query("SELECT * FROM lecture WHERE lectureId = :id")
-    suspend fun getById(id: Long): LectureEntity?
+    suspend fun getById(id: Long): LectureEventEntity?
 
     @Query("SELECT * FROM lecture")
-    fun getAllFlow(): Flow<List<LectureEntity>>
+    fun getAllFlow(): Flow<List<LectureEventEntity>>
 
     @Query("SELECT * FROM lecture")
-    suspend fun getAll(): List<LectureEntity>
+    suspend fun getAll(): List<LectureEventEntity>
 
     @Transaction
     @Query("SELECT * FROM lecture WHERE lectureId = :id")
@@ -37,7 +37,7 @@ interface LectureDao {
     fun getAllWithLecturersFlow(): Flow<List<LectureWithLecturers>>
 
     @Query("SELECT * FROM lecture WHERE subjectId = :subjectId")
-    suspend fun getBySubject(subjectId: Long): List<LectureEntity>
+    suspend fun getBySubject(subjectId: Long): List<LectureEventEntity>
 
     @Query("DELETE FROM lecture WHERE lectureId = :id")
     suspend fun deleteById(id: Long)

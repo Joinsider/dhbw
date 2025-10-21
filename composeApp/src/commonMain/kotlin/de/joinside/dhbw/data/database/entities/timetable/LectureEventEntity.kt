@@ -20,7 +20,7 @@ import kotlinx.datetime.LocalDateTime
         Index(value = ["subjectId"])
     ]
 )
-data class LectureEntity(
+data class LectureEventEntity(
     @PrimaryKey(autoGenerate = true) val lectureId: Long,
     val subjectId: Long, // Foreign Key zu Subject Tabelle
     val startTime: LocalDateTime,
