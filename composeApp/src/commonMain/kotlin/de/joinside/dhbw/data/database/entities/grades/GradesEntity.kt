@@ -1,4 +1,4 @@
-package de.joinside.dhbw.data.database.entities
+package de.joinside.dhbw.data.database.entities.grades
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
