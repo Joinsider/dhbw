@@ -1,4 +1,4 @@
-package de.joinside.dhbw.data.database.dao
+package de.joinside.dhbw.data.database.dao.grades
 
 import androidx.room.Dao
 import androidx.room.Insert
