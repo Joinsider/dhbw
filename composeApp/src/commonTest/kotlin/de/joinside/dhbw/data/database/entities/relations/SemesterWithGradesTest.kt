@@ -15,7 +15,8 @@ class SemesterWithGradesTest {
         // Given
         val semester = SemesterEntity(semesterName = "WS2023")
         val semesterWithGrades = SemesterWithGrades(
-            semester = semester, grades = emptyList()
+            semester = semester,
+            grades = emptyList()
         )
 
         // Then
@@ -29,15 +30,27 @@ class SemesterWithGradesTest {
         val semester = SemesterEntity(semesterName = "WS2023")
         val grades = listOf(
             GradesEntity(
-                gradesId = 1L, name = "Mathematics", gradeValue = 1.7, semesterName = "WS2023"
-            ), GradesEntity(
-                gradesId = 2L, name = "Physics", gradeValue = 2.0, semesterName = "WS2023"
-            ), GradesEntity(
-                gradesId = 3L, name = "Chemistry", gradeValue = 1.3, semesterName = "WS2023"
+                gradesId = 1L,
+                name = "Mathematics",
+                gradeValue = 1.7,
+                semesterName = "WS2023"
+            ),
+            GradesEntity(
+                gradesId = 2L,
+                name = "Physics",
+                gradeValue = 2.0,
+                semesterName = "WS2023"
+            ),
+            GradesEntity(
+                gradesId = 3L,
+                name = "Chemistry",
+                gradeValue = 1.3,
+                semesterName = "WS2023"
             )
         )
         val semesterWithGrades = SemesterWithGrades(
-            semester = semester, grades = grades
+            semester = semester,
+            grades = grades
         )
 
         // Then
@@ -54,7 +67,10 @@ class SemesterWithGradesTest {
         val semester = SemesterEntity(semesterName = "SS2024")
         val grades = listOf(
             GradesEntity(
-                gradesId = 1L, name = "Biology", gradeValue = 1.7, semesterName = "SS2024"
+                gradesId = 1L,
+                name = "Biology",
+                gradeValue = 1.7,
+                semesterName = "SS2024"
             )
         )
         val semesterWithGrades1 = SemesterWithGrades(semester = semester, grades = grades)
@@ -71,12 +87,18 @@ class SemesterWithGradesTest {
         val semester2 = SemesterEntity(semesterName = "SS2024")
         val grades1 = listOf(
             GradesEntity(
-                gradesId = 1L, name = "Mathematics", gradeValue = 1.7, semesterName = "WS2023"
+                gradesId = 1L,
+                name = "Mathematics",
+                gradeValue = 1.7,
+                semesterName = "WS2023"
             )
         )
         val grades2 = listOf(
             GradesEntity(
-                gradesId = 2L, name = "Physics", gradeValue = 2.0, semesterName = "SS2024"
+                gradesId = 2L,
+                name = "Physics",
+                gradeValue = 2.0,
+                semesterName = "SS2024"
             )
         )
         val semesterWithGrades1 = SemesterWithGrades(semester = semester1, grades = grades1)
@@ -92,7 +114,10 @@ class SemesterWithGradesTest {
         val semester = SemesterEntity(semesterName = "WS2023")
         val originalGrades = listOf(
             GradesEntity(
-                gradesId = 1L, name = "Mathematics", gradeValue = 1.7, semesterName = "WS2023"
+                gradesId = 1L,
+                name = "Mathematics",
+                gradeValue = 1.7,
+                semesterName = "WS2023"
             )
         )
         val original = SemesterWithGrades(semester = semester, grades = originalGrades)
@@ -100,9 +125,16 @@ class SemesterWithGradesTest {
         // When
         val newGrades = listOf(
             GradesEntity(
-                gradesId = 1L, name = "Mathematics", gradeValue = 1.7, semesterName = "WS2023"
-            ), GradesEntity(
-                gradesId = 2L, name = "Physics", gradeValue = 2.0, semesterName = "WS2023"
+                gradesId = 1L,
+                name = "Mathematics",
+                gradeValue = 1.7,
+                semesterName = "WS2023"
+            ),
+            GradesEntity(
+                gradesId = 2L,
+                name = "Physics",
+                gradeValue = 2.0,
+                semesterName = "WS2023"
             )
         )
         val modified = original.copy(grades = newGrades)
@@ -119,9 +151,16 @@ class SemesterWithGradesTest {
         val semester = SemesterEntity(semesterName = semesterName)
         val grades = listOf(
             GradesEntity(
-                gradesId = 1L, name = "Mathematics", gradeValue = 1.7, semesterName = semesterName
-            ), GradesEntity(
-                gradesId = 2L, name = "Physics", gradeValue = 2.0, semesterName = semesterName
+                gradesId = 1L,
+                name = "Mathematics",
+                gradeValue = 1.7,
+                semesterName = semesterName
+            ),
+            GradesEntity(
+                gradesId = 2L,
+                name = "Physics",
+                gradeValue = 2.0,
+                semesterName = semesterName
             )
         )
         val semesterWithGrades = SemesterWithGrades(semester = semester, grades = grades)
