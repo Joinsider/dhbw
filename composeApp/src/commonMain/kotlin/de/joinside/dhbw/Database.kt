@@ -4,8 +4,8 @@ import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
-import de.joinside.dhbw.data.database.dao.GradesDao
-import de.joinside.dhbw.data.database.dao.SemesterDao
+import de.joinside.dhbw.data.database.dao.grades.GradesDao
+import de.joinside.dhbw.data.database.dao.grades.SemesterDao
 import de.joinside.dhbw.data.database.entities.grades.GradesEntity
 import de.joinside.dhbw.data.database.entities.grades.SemesterEntity
 
