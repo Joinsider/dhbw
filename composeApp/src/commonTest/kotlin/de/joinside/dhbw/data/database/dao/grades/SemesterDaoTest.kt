@@ -1,7 +1,6 @@
-package de.joinside.dhbw.data.database.dao
+package de.joinside.dhbw.data.database.dao.grades
 
-import de.joinside.dhbw.AppDatabase
-import de.joinside.dhbw.data.database.dao.grades.SemesterDao
+import de.joinside.dhbw.data.database.AppDatabase
 import de.joinside.dhbw.data.database.entities.grades.SemesterEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -140,4 +139,3 @@ abstract class SemesterDaoTest {
         assertTrue(result.any { it.semesterName == "Q1 2024" })
     }
 }
-

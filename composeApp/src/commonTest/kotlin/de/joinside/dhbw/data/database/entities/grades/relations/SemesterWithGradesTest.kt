@@ -1,8 +1,7 @@
-package de.joinside.dhbw.data.database.entities.relations
+package de.joinside.dhbw.data.database.entities.grades.relations
 
 import de.joinside.dhbw.data.database.entities.grades.GradesEntity
 import de.joinside.dhbw.data.database.entities.grades.SemesterEntity
-import de.joinside.dhbw.data.database.entities.grades.relations.SemesterWithGrades
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -169,4 +168,3 @@ class SemesterWithGradesTest {
         assertTrue(semesterWithGrades.grades.all { it.semesterName == semesterName })
     }
 }
-
