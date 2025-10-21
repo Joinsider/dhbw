@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "ceb4b4ff65669a71e73943e0ab9b1384",
+    "identityHash": "b05a723eeb818791da8531c34bcafb37",
     "entities": [
       {
         "tableName": "semester",
@@ -81,11 +81,200 @@
             ]
           }
         ]
+      },
+      {
+        "tableName": "lecture",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`lectureId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `subjectId` INTEGER NOT NULL, `startTime` TEXT NOT NULL, `endTime` TEXT NOT NULL, `location` TEXT NOT NULL, `isTest` INTEGER NOT NULL, FOREIGN KEY(`subjectId`) REFERENCES `subject`(`subjectId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "lectureId",
+            "columnName": "lectureId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "subjectId",
+            "columnName": "subjectId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startTime",
+            "columnName": "startTime",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endTime",
+            "columnName": "endTime",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "location",
+            "columnName": "location",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isTest",
+            "columnName": "isTest",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "lectureId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_lecture_subjectId",
+            "unique": false,
+            "columnNames": [
+              "subjectId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_lecture_subjectId` ON `${TABLE_NAME}` (`subjectId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "subject",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "subjectId"
+            ],
+            "referencedColumns": [
+              "subjectId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "subject",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`subjectId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "subjectId",
+            "columnName": "subjectId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "subjectId"
+          ]
+        }
+      },
+      {
+        "tableName": "lecturer",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`lecturerId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `lecturerName` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "lecturerId",
+            "columnName": "lecturerId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lecturerName",
+            "columnName": "lecturerName",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "lecturerId"
+          ]
+        }
+      },
+      {
+        "tableName": "lecture_lecturer_cross_ref",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`lectureId` INTEGER NOT NULL, `lecturerId` INTEGER NOT NULL, PRIMARY KEY(`lectureId`, `lecturerId`), FOREIGN KEY(`lectureId`) REFERENCES `lecture`(`lectureId`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`lecturerId`) REFERENCES `lecturer`(`lecturerId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "lectureId",
+            "columnName": "lectureId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lecturerId",
+            "columnName": "lecturerId",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "lectureId",
+            "lecturerId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_lecture_lecturer_cross_ref_lectureId",
+            "unique": false,
+            "columnNames": [
+              "lectureId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_lecture_lecturer_cross_ref_lectureId` ON `${TABLE_NAME}` (`lectureId`)"
+          },
+          {
+            "name": "index_lecture_lecturer_cross_ref_lecturerId",
+            "unique": false,
+            "columnNames": [
+              "lecturerId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_lecture_lecturer_cross_ref_lecturerId` ON `${TABLE_NAME}` (`lecturerId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "lecture",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "lectureId"
+            ],
+            "referencedColumns": [
+              "lectureId"
+            ]
+          },
+          {
+            "table": "lecturer",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "lecturerId"
+            ],
+            "referencedColumns": [
+              "lecturerId"
+            ]
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ceb4b4ff65669a71e73943e0ab9b1384')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b05a723eeb818791da8531c34bcafb37')"
     ]
   }
 }

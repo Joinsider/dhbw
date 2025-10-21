@@ -2,6 +2,7 @@ package de.joinside.dhbw.data.database.entities.timetable
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.datetime.LocalDateTime
 
@@ -15,6 +16,9 @@ import kotlinx.datetime.LocalDateTime
             onDelete = ForeignKey.CASCADE
         )
     ],
+    indices = [
+        Index(value = ["subjectId"])
+    ]
 )
 data class LectureEntity(
     @PrimaryKey(autoGenerate = true) val lectureId: Long,
