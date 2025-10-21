@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,8 +31,10 @@ import de.joinside.dhbw.resources.password_cannot_be_empty
 import de.joinside.dhbw.resources.username
 import de.joinside.dhbw.resources.username_cannot_be_empty
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Preview
 @Composable
 fun LoginForm() {
     val usernameFieldValue = remember { mutableStateOf(TextFieldValue("")) }
@@ -99,7 +102,8 @@ fun LoginForm() {
         Spacer(modifier = Modifier.height(8.dp))
 
         TextField(
-            modifier = Modifier.testTag("passwordField"),
+            modifier = Modifier
+                .testTag("passwordField"),
             value = passwordFieldState.value,
             onValueChange = {
                 passwordFieldState.value = it
@@ -133,7 +137,8 @@ fun LoginForm() {
             },
             modifier = Modifier
                 .testTag("loginButton")
-                .fillMaxWidth(),
+                .padding(16.dp)
+                .width(300.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
