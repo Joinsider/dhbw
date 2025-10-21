@@ -6,8 +6,8 @@ import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import de.joinside.dhbw.data.database.dao.GradesDao
 import de.joinside.dhbw.data.database.dao.SemesterDao
-import de.joinside.dhbw.data.database.entities.GradesEntity
-import de.joinside.dhbw.data.database.entities.SemesterEntity
+import de.joinside.dhbw.data.database.entities.grades.GradesEntity
+import de.joinside.dhbw.data.database.entities.grades.SemesterEntity
 
 // shared/src/commonMain/kotlin/Database.kt
 

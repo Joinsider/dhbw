@@ -1,7 +1,8 @@
 package de.joinside.dhbw.data.database.entities.relations
 
-import de.joinside.dhbw.data.database.entities.GradesEntity
-import de.joinside.dhbw.data.database.entities.SemesterEntity
+import de.joinside.dhbw.data.database.entities.grades.GradesEntity
+import de.joinside.dhbw.data.database.entities.grades.SemesterEntity
+import de.joinside.dhbw.data.database.entities.grades.relations.SemesterWithGrades
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals

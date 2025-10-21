@@ -1,7 +1,7 @@
 package de.joinside.dhbw.data.database.dao
 
 import de.joinside.dhbw.AppDatabase
-import de.joinside.dhbw.data.database.entities.SemesterEntity
+import de.joinside.dhbw.data.database.entities.grades.SemesterEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest

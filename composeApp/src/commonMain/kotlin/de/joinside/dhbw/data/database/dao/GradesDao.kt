@@ -4,8 +4,8 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
-import de.joinside.dhbw.data.database.entities.GradesEntity
-import de.joinside.dhbw.data.database.entities.relations.SemesterWithGrades
+import de.joinside.dhbw.data.database.entities.grades.GradesEntity
+import de.joinside.dhbw.data.database.entities.grades.relations.SemesterWithGrades
 import kotlinx.coroutines.flow.Flow
 
 @Dao

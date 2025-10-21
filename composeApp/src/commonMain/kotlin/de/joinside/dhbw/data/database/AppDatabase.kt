@@ -6,8 +6,8 @@ import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import de.joinside.dhbw.data.database.dao.GradesDao
 import de.joinside.dhbw.data.database.dao.SemesterDao
-import de.joinside.dhbw.data.database.entities.GradesEntity
-import de.joinside.dhbw.data.database.entities.SemesterEntity
+import de.joinside.dhbw.data.database.entities.grades.GradesEntity
+import de.joinside.dhbw.data.database.entities.grades.SemesterEntity
 
 @Database(
     entities = [SemesterEntity::class, GradesEntity::class],
@@ -20,7 +20,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun gradesDao(): GradesDao
 }
 
-@Suppress("KotlinNoActualForExpected")
+@Suppress("KotlinNoActualForExpect")
 expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
     override fun initialize(): AppDatabase
 }
