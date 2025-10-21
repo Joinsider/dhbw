@@ -8,6 +8,8 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.androidx.room)
 }
 
 kotlin {
@@ -43,6 +45,8 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.androidx.room.runtime)
+            implementation(libs.androidx.sqlite.bundled)
         }
 
         commonTest.dependencies {
@@ -100,6 +104,10 @@ android {
 
 dependencies {
     debugImplementation(compose.uiTooling)
+    add("kspAndroid", libs.androidx.room.compiler)
+    add("kspIosSimulatorArm64", libs.androidx.room.compiler)
+    add("kspIosArm64", libs.androidx.room.compiler)
+    add("kspJvm", libs.androidx.room.compiler) // Jetzt funktioniert kspJvm
 }
 
 compose.desktop {
@@ -118,4 +126,8 @@ compose.resources {
     packageOfResClass = "de.joinside.dhbw.resources"
     publicResClass = true
     generateResClass = always
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
 }
