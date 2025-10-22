@@ -9,13 +9,13 @@ import androidx.core.content.edit
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class SecureStorage {
     private val sharedPreferences: SharedPreferences by lazy {
-        val context = getApplicationContext()
-        val masterKey = MasterKey.Builder(context)
+        val appContext = getApplicationContext()
+        val masterKey = MasterKey.Builder(appContext)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
 
         EncryptedSharedPreferences.create(
-            context,
+            appContext,
             "dualis_secure_prefs",
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
