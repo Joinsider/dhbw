@@ -1,96 +1,164 @@
 package de.joinside.dhbw.data.credentials
 
-// iosMain/SecureStorage.ios.kt
 import kotlinx.cinterop.*
-import platform.CoreFoundation.*
 import platform.Foundation.*
 import platform.Security.*
+import platform.CoreFoundation.*
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class SecureStorage {
-    private val serviceName = "de.joinside.dhbw"
+    private val serviceName = "DualisApp"
+    private val keysKey = "_stored_keys"
+
+    // Fallback storage for when Keychain is unavailable (e.g., in tests)
+    private val fallbackStorage = mutableMapOf<String, String>()
+    private var useKeychainFallback = false
 
     actual fun setString(key: String, value: String) {
-        val query = createQuery(key)
-        SecItemDelete(query.toCFDictionary()) // Erst löschen falls vorhanden
-
-        val addQuery = query.toMutableMap().apply {
-            put(kSecValueData, value.toNSData())
-            // WICHTIG: AfterFirstUnlock für Background-Zugriff!
-            put(kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlock)
+        if (useKeychainFallback) {
+            fallbackStorage[key] = value
+            return
         }
 
-        SecItemAdd(addQuery.toCFDictionary(), null)
+        // First, try to delete any existing value
+        deleteFromKeychain(key)
+
+        // Now add the new value
+        val valueData = value.toNSData()
+        val query = createKeychainQuery(key, includeData = true, data = valueData)
+
+        val status = SecItemAdd(query, null)
+        if (status == errSecNotAvailable) {
+            // Keychain not available, switch to fallback
+            useKeychainFallback = true
+            fallbackStorage[key] = value
+            return
+        } else if (status != errSecSuccess) {
+            println("Failed to save to keychain with status: $status")
+        }
+
+        addKeyToTracking(key)
     }
 
     actual fun getString(key: String, defaultValue: String): String {
-        val query = createQuery(key).toMutableMap().apply {
-            put(kSecReturnData, true)
-            put(kSecMatchLimit, kSecMatchLimitOne)
+        if (useKeychainFallback) {
+            return fallbackStorage[key] ?: defaultValue
         }
 
-        val result = memScoped {
-            val resultPtr = alloc<CFTypeRefVar>()
-            val status = SecItemCopyMatching(
-                query.toCFDictionary(),
-                resultPtr.ptr
-            )
+        val query = createKeychainQuery(key, returnData = true)
 
-            if (status == errSecSuccess) {
-                val data = CFBridgingRelease(resultPtr.value) as? NSData
-                data?.let {
-                    NSString.create(it, NSUTF8StringEncoding)?.toString()
-                }
-            } else {
-                null
+        memScoped {
+            val result = alloc<CFTypeRefVar>()
+            val status = SecItemCopyMatching(query, result.ptr)
+
+            if (status == errSecNotAvailable) {
+                // Keychain not available, switch to fallback
+                useKeychainFallback = true
+                return fallbackStorage[key] ?: defaultValue
+            }
+
+            if (status == errSecSuccess && result.value != null) {
+                val data = CFBridgingRelease(result.value) as? NSData
+                return data?.toKotlinString() ?: defaultValue
             }
         }
 
-        return result ?: defaultValue
+        return defaultValue
     }
 
     actual fun remove(key: String) {
-        val query = createQuery(key)
-        SecItemDelete(query.toCFDictionary())
+        if (useKeychainFallback) {
+            fallbackStorage.remove(key)
+            return
+        }
+
+        deleteFromKeychain(key)
+        removeKeyFromTracking(key)
     }
 
     actual fun clear() {
-        val query = mapOf(
-            kSecClass to kSecClassGenericPassword,
-            kSecAttrService to serviceName
-        )
-        SecItemDelete(query.toCFDictionary())
+        if (useKeychainFallback) {
+            fallbackStorage.clear()
+            return
+        }
+
+        val keys = getTrackedKeys()
+        keys.forEach { key ->
+            deleteFromKeychain(key)
+        }
+        deleteFromKeychain(keysKey)
     }
 
-    private fun createQuery(key: String) = mapOf(
-        kSecClass to kSecClassGenericPassword,
-        kSecAttrService to serviceName,
-        kSecAttrAccount to key
-    )
+    private fun deleteFromKeychain(key: String) {
+        val query = createKeychainQuery(key)
+        SecItemDelete(query)
+    }
+
+    private fun createKeychainQuery(
+        key: String,
+        returnData: Boolean = false,
+        includeData: Boolean = false,
+        data: NSData? = null
+    ): CFDictionaryRef? {
+        return CFDictionaryCreateMutable(
+            null,
+            0,
+            kCFTypeDictionaryKeyCallBacks.ptr,
+            kCFTypeDictionaryValueCallBacks.ptr
+        ).apply {
+            CFDictionarySetValue(this, kSecClass, kSecClassGenericPassword)
+            CFDictionarySetValue(this, kSecAttrService, CFBridgingRetain(NSString.create(serviceName)))
+            CFDictionarySetValue(this, kSecAttrAccount, CFBridgingRetain(NSString.create(key)))
+
+            if (returnData) {
+                CFDictionarySetValue(this, kSecReturnData, kCFBooleanTrue)
+                CFDictionarySetValue(this, kSecMatchLimit, kSecMatchLimitOne)
+            }
+
+            if (includeData && data != null) {
+                CFDictionarySetValue(this, kSecValueData, CFBridgingRetain(data))
+            }
+        }
+    }
+
+    private fun getTrackedKeys(): Set<String> {
+        val keysString = getString(keysKey, "")
+        return if (keysString.isEmpty()) emptySet() else keysString.split(",").toSet()
+    }
+
+    private fun addKeyToTracking(key: String) {
+        if (key == keysKey) return
+        val keys = getTrackedKeys().toMutableSet()
+        keys.add(key)
+
+        // Save without tracking to avoid recursion
+        deleteFromKeychain(keysKey)
+        val valueData = keys.joinToString(",").toNSData()
+        val query = createKeychainQuery(keysKey, includeData = true, data = valueData)
+        SecItemAdd(query, null)
+    }
+
+    private fun removeKeyFromTracking(key: String) {
+        if (key == keysKey) return
+        val keys = getTrackedKeys().toMutableSet()
+        keys.remove(key)
+
+        // Save without tracking to avoid recursion
+        deleteFromKeychain(keysKey)
+        if (keys.isNotEmpty()) {
+            val valueData = keys.joinToString(",").toNSData()
+            val query = createKeychainQuery(keysKey, includeData = true, data = valueData)
+            SecItemAdd(query, null)
+        }
+    }
 
     private fun String.toNSData(): NSData {
-        return NSString.create(string = this)
-            .dataUsingEncoding(NSUTF8StringEncoding)!!
+        return NSString.create(this)?.dataUsingEncoding(NSUTF8StringEncoding)!!
     }
 
-    private fun Map<*, *>.toCFDictionary(): CFDictionaryRef? {
-        return memScoped {
-            val keysList = this@toCFDictionary.keys.map { CFBridgingRetain(it) }
-            val valuesList = this@toCFDictionary.values.map { CFBridgingRetain(it) }
-
-            val keysArray = allocArrayOf(keysList)
-            val valuesArray = allocArrayOf(valuesList)
-
-            CFDictionaryCreate(
-                null,
-                keysArray,
-                valuesArray,
-                this@toCFDictionary.size.toLong(),
-                null,
-                null
-            )
-        }
+    private fun NSData.toKotlinString(): String {
+        return NSString.create(this, NSUTF8StringEncoding)?.toString() ?: ""
     }
 }
 

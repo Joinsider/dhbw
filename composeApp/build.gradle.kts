@@ -61,6 +61,9 @@ kotlin {
             implementation(libs.robolectric)
         }
 
+        iosMain.dependencies {
+        }
+
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
