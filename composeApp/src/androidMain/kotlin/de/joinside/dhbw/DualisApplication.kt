@@ -12,6 +12,5 @@ class DualisApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         appContext = applicationContext
-        // SecureStorage no longer requires explicit initialization when using KSafe
     }
 }
