@@ -23,6 +23,7 @@ room = "2.8.2"
 securityCrypto = "1.1.0"
 sqlite = "2.6.1"
 ksp = "2.2.20-2.0.4"
+coreKtx = "1.7.0"
 
 [libraries]
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "securityCrypto" }
@@ -45,6 +46,7 @@ robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectr
 androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+core-ktx = { group = "androidx.test", name = "core-ktx", version.ref = "coreKtx" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
