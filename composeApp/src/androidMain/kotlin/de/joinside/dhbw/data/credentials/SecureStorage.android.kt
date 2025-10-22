@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package de.joinside.dhbw.data.credentials
 
 import android.content.Context
