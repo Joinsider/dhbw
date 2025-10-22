@@ -36,8 +36,16 @@ class DatabaseFactoryTest {
         val driver = BundledSQLiteDriver()
 
         // Then - verify it's not null and is the correct type
+        // Note: BundledSQLiteDriver resolves to platform-specific implementations:
+        // - Android: BundledSQLiteDriver
+        // - iOS: NativeSQLiteDriver
+        // - JVM: BundledSQLiteDriver
         assertNotNull(driver)
-        assertEquals("BundledSQLiteDriver", driver::class.simpleName)
+        val driverName = driver::class.simpleName
+        assertTrue(
+            driverName == "BundledSQLiteDriver" || driverName == "NativeSQLiteDriver",
+            "Expected driver name to be either BundledSQLiteDriver or NativeSQLiteDriver, but was $driverName"
+        )
     }
 
     @Test

@@ -35,6 +35,7 @@ kotlin {
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
+            implementation(libs.androidx.security.crypto)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -60,9 +61,13 @@ kotlin {
             implementation(libs.robolectric)
         }
 
+        iosMain.dependencies {
+        }
+
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
+            implementation(libs.java.keyring)
         }
     }
 }
@@ -99,6 +104,11 @@ android {
         unitTests {
             isIncludeAndroidResources = true
             isReturnDefaultValues = true
+            all {
+                // Exclude Compose UI tests from Android unit tests
+                // These tests work on iOS and JVM but require instrumented tests on Android
+                it.exclude("**/AppTest.class", "**/LoginFormTest.class", "**/ui/**/*Test.class")
+            }
         }
     }
 }
