@@ -5,11 +5,12 @@
     <!-- Login screen -->
     <string name="login_with_dualis_account">Login with your Dualis Account</string>
     <string name="login">Login</string>
-    <string name="username">Username</string>
+    <string name="username">Email</string>
     <string name="password">Password</string>
-    <string name="enter_username">Enter your username</string>
-    <string name="enter_password">Enter your password</string>
-    <string name="username_cannot_be_empty">Username cannot be empty</string>
+    <string name="enter_username">Enter your DHBW Email</string>
+    <string name="enter_password">Enter your DHBW account password</string>
+    <string name="username_cannot_be_empty">Email cannot be empty</string>
+    <string name="username_must_be_valid_email">Email must be a valid email address ending with @hb.dhbw-stuttgart.de.</string>
     <string name="password_cannot_be_empty">Password cannot be empty</string>
     <string name="login_successful">Login successful</string>
     <string name="login_failed">Login failed</string>

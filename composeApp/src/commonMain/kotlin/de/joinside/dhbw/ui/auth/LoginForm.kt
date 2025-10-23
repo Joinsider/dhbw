@@ -3,7 +3,6 @@ package de.joinside.dhbw.ui.auth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -21,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import de.joinside.dhbw.data.credentials.CredentialsStorageProvider
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.enter_password
 import de.joinside.dhbw.resources.enter_username
@@ -30,13 +30,17 @@ import de.joinside.dhbw.resources.password
 import de.joinside.dhbw.resources.password_cannot_be_empty
 import de.joinside.dhbw.resources.username
 import de.joinside.dhbw.resources.username_cannot_be_empty
+import de.joinside.dhbw.resources.username_must_be_valid_email
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
-fun LoginForm() {
+fun LoginForm(
+    credentialsProvider: CredentialsStorageProvider? = null,
+    onLoginSuccess: () -> Unit = {}
+) {
     val usernameFieldValue = remember { mutableStateOf(TextFieldValue("")) }
     val passwordFieldState = remember { mutableStateOf(TextFieldValue("")) }
 
@@ -44,6 +48,7 @@ fun LoginForm() {
     val passwordError = remember { mutableStateOf<String?>(null) }
 
     val usernameCannotBeEmpty = stringResource(Res.string.username_cannot_be_empty)
+    val usernameInvalidFormat = stringResource(Res.string.username_must_be_valid_email)
     val passwordCannotBeEmpty = stringResource(Res.string.password_cannot_be_empty)
     val loginSuccessfulText = stringResource(Res.string.login_successful)
     val usernameText = stringResource(Res.string.username)
@@ -51,10 +56,16 @@ fun LoginForm() {
     val validateFields = {
         var isValid = true
 
+        val pattern = Regex("[a-zA-Z0-9]+@hb.dhbw-stuttgart.de")
+
         if (usernameFieldValue.value.text.isBlank()) {
             usernameError.value = usernameCannotBeEmpty
             isValid = false
-        } else {
+        } else if (!pattern.matches(usernameFieldValue.value.text)) {
+            usernameError.value = usernameInvalidFormat
+            isValid = false
+        }
+        else {
             usernameError.value = null
         }
 
@@ -131,8 +142,16 @@ fun LoginForm() {
         Button(
             onClick = {
                 if (validateFields()) {
-                    // TODO: Add login logic here
+                    // Store credentials securely
+                    credentialsProvider?.storeCredentials(
+                        username = usernameFieldValue.value.text,
+                        password = passwordFieldState.value.text
+                    )
+
                     println("$loginSuccessfulText! $usernameText: ${usernameFieldValue.value.text}")
+
+                    // Trigger success callback
+                    onLoginSuccess()
                 }
             },
             modifier = Modifier
