@@ -1,6 +1,5 @@
 package de.joinside.dhbw
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,18 +14,41 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
+import de.joinside.dhbw.data.credentials.CredentialsStorageProvider
+import de.joinside.dhbw.data.credentials.SecureStorage
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.app_name
 import de.joinside.dhbw.resources.login_with_dualis_account
 import de.joinside.dhbw.ui.auth.LoginForm
+import de.joinside.dhbw.ui.auth.LoginFormResultPage
 import de.joinside.dhbw.ui.theme.DHBWHorbTheme
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
+enum class AppScreen {
+    WELCOME,
+    LOGIN,
+    RESULT
+}
 
 @Composable
 @Preview
 fun App() {
+    // Initialize SecureStorage and CredentialsProvider
+    val secureStorage = remember { SecureStorage() }
+    val credentialsProvider = remember { CredentialsStorageProvider(secureStorage) }
+
+    // Navigation state
+    var currentScreen by remember { mutableStateOf(AppScreen.WELCOME) }
+    var isLoggedIn by remember { mutableStateOf(false) }
+
+    // Session check on startup
+    LaunchedEffect(Unit) {
+        isLoggedIn = credentialsProvider.hasStoredCredentials()
+        if (isLoggedIn) {
+            currentScreen = AppScreen.RESULT
+        }
+    }
 
     DHBWHorbTheme {
         Column(
@@ -38,39 +60,55 @@ fun App() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
+            when (currentScreen) {
+                AppScreen.WELCOME -> {
+                    Text(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("appTitle"),
+                        text = stringResource(Res.string.app_name),
+                        style = MaterialTheme.typography.headlineLarge,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
 
-            Text(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("appTitle"),
-                text = stringResource(Res.string.app_name),
-                style = MaterialTheme.typography.headlineLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            /*
-            Image(
-                painter = painterResource(),
-                contentDescription = "DHBW Horb Logo",
-                modifier = Modifier
-                    .fillMaxWidth()
-            )
-
-             */
-
-            var showLoginForm by remember { mutableStateOf(false) }
-
-            AnimatedVisibility(visible = !showLoginForm) {
-                Button(
-                    onClick = { showLoginForm = true },
-                    modifier = Modifier.testTag("loginWithDualisButton")
-                ) {
-                    Text(text = stringResource(Res.string.login_with_dualis_account))
+                    Button(
+                        onClick = { currentScreen = AppScreen.LOGIN },
+                        modifier = Modifier.testTag("loginWithDualisButton")
+                    ) {
+                        Text(text = stringResource(Res.string.login_with_dualis_account))
+                    }
                 }
-            }
 
-            AnimatedVisibility(visible = showLoginForm) {
-                LoginForm()
+                AppScreen.LOGIN -> {
+                    Text(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("appTitle"),
+                        text = stringResource(Res.string.app_name),
+                        style = MaterialTheme.typography.headlineLarge,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+
+                    LoginForm(
+                        credentialsProvider = credentialsProvider,
+                        onLoginSuccess = {
+                            isLoggedIn = true
+                            currentScreen = AppScreen.RESULT
+                        }
+                    )
+                }
+
+                AppScreen.RESULT -> {
+                    LoginFormResultPage(
+                        credentialsProvider = credentialsProvider,
+                        onLogout = {
+                            isLoggedIn = false
+                            currentScreen = AppScreen.WELCOME
+                        }
+                    )
+                }
             }
         }
     }
