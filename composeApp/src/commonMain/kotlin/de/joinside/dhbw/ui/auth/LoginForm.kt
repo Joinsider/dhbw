@@ -41,9 +41,10 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 @Preview
 @Composable
 fun LoginForm(
-    credentialsProvider: CredentialsStorageProvider? = null, onLoginSuccess: () -> Unit = {}
+    credentialsProvider: CredentialsStorageProvider? = null,
+    onLoginSuccess: () -> Unit = {},
+    viewModel: LoginFormViewModel = viewModel { LoginFormViewModel() }
 ) {
-    val viewModel: LoginFormViewModel = viewModel()
     val uiState = viewModel.uiState
 
     val usernameCannotBeEmpty = stringResource(Res.string.username_cannot_be_empty)
