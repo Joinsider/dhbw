@@ -49,6 +49,7 @@ kotlin {
             implementation(libs.androidx.room.runtime)
             implementation(libs.androidx.sqlite.bundled)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.material.icons.extended)
         }
 
         commonTest.dependencies {
@@ -127,11 +128,22 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "de.joinside.dhbw"
+            packageName = "DHBW Horb Studenten App"
             packageVersion = "1.0.0"
+
+            windows {
+                iconFile.set(project.file("icon.ico"))
+            }
+            macOS {
+                iconFile.set(project.file("icon.icns"))
+            }
+            linux {
+                iconFile.set(project.file("icon.png"))
+            }
         }
     }
 }
+
 
 compose.resources {
     packageOfResClass = "de.joinside.dhbw.resources"
