@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		E3D9F0C275BF0BFDE5506549 /* dhbw.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = dhbw.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E3D9F0C275BF0BFDE5506549 /* DHBW-Horb.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "DHBW-Horb.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -50,7 +50,7 @@
 		02732170D33EF15886F07EC8 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				E3D9F0C275BF0BFDE5506549 /* dhbw.app */,
+				E3D9F0C275BF0BFDE5506549 /* DHBW-Horb.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -87,7 +87,7 @@
 			packageProductDependencies = (
 			);
 			productName = iosApp;
-			productReference = E3D9F0C275BF0BFDE5506549 /* dhbw.app */;
+			productReference = E3D9F0C275BF0BFDE5506549 /* DHBW-Horb.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
