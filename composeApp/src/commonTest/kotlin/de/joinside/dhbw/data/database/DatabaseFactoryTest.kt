@@ -1,10 +1,10 @@
 package de.joinside.dhbw.data.database
 
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import de.joinside.dhbw.data.storage.database.createRoomDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 

@@ -1,9 +1,9 @@
 package de.joinside.dhbw.data.database.entities.timetable.relations
 
-import de.joinside.dhbw.data.database.entities.timetable.LectureEventEntity
-import de.joinside.dhbw.data.database.entities.timetable.LecturerEntity
-import de.joinside.dhbw.data.database.entities.timetable.SubjectEntity
-import de.joinside.dhbw.data.database.entities.timetable.relations.LectureWithLecturers
+import de.joinside.dhbw.data.storage.database.entities.timetable.LectureEventEntity
+import de.joinside.dhbw.data.storage.database.entities.timetable.LecturerEntity
+import de.joinside.dhbw.data.storage.database.entities.timetable.SubjectEntity
+import de.joinside.dhbw.data.storage.database.entities.timetable.relations.LectureWithLecturers
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals

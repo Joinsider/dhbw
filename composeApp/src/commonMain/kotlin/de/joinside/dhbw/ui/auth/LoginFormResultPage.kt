@@ -27,7 +27,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import de.joinside.dhbw.data.credentials.CredentialsStorageProvider
+import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable

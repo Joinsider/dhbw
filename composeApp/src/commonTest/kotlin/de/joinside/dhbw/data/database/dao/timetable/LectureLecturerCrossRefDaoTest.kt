@@ -1,10 +1,14 @@
 package de.joinside.dhbw.data.database.dao.timetable
 
-import de.joinside.dhbw.data.database.AppDatabase
-import de.joinside.dhbw.data.database.entities.timetable.LectureEventEntity
-import de.joinside.dhbw.data.database.entities.timetable.LectureLecturerCrossRef
-import de.joinside.dhbw.data.database.entities.timetable.LecturerEntity
-import de.joinside.dhbw.data.database.entities.timetable.SubjectEntity
+import de.joinside.dhbw.data.storage.database.AppDatabase
+import de.joinside.dhbw.data.storage.database.entities.timetable.LectureEventEntity
+import de.joinside.dhbw.data.storage.database.entities.timetable.LectureLecturerCrossRef
+import de.joinside.dhbw.data.storage.database.entities.timetable.LecturerEntity
+import de.joinside.dhbw.data.storage.database.entities.timetable.SubjectEntity
+import de.joinside.dhbw.data.storage.database.dao.timetable.LectureEventDao
+import de.joinside.dhbw.data.storage.database.dao.timetable.LectureLecturerCrossRefDao
+import de.joinside.dhbw.data.storage.database.dao.timetable.LecturerDao
+import de.joinside.dhbw.data.storage.database.dao.timetable.SubjectDao
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.AfterTest
