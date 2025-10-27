@@ -1,5 +1,6 @@
 package de.joinside.dhbw.data.database.entities.timetable
 
+import de.joinside.dhbw.data.storage.database.entities.timetable.SubjectEntity
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
