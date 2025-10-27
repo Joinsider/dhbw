@@ -14,7 +14,7 @@ navigationCompose = "2.9.5"
 okhttp = "5.1.0"
 jsoup = "1.21.2"
 securityCrypto = "1.1.0"
-workManager = "2.10.5"
+workManager = "2.11.0"
 lifecycleViewmodelKtx = "2.9.4"
 
 [libraries]
