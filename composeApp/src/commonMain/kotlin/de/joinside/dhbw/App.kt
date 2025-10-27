@@ -14,8 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
-import de.joinside.dhbw.data.credentials.CredentialsStorageProvider
-import de.joinside.dhbw.data.credentials.SecureStorage
+import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
+import de.joinside.dhbw.data.storage.credentials.SecureStorage
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.app_name
 import de.joinside.dhbw.resources.login_with_dualis_account

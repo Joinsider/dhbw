@@ -22,7 +22,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import de.joinside.dhbw.data.credentials.CredentialsStorageProvider
+import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.enter_password
 import de.joinside.dhbw.resources.enter_username

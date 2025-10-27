@@ -1,7 +1,8 @@
 package de.joinside.dhbw.data.database.dao.timetable
 
-import de.joinside.dhbw.data.database.AppDatabase
-import de.joinside.dhbw.data.database.entities.timetable.SubjectEntity
+import de.joinside.dhbw.data.storage.database.AppDatabase
+import de.joinside.dhbw.data.storage.database.dao.timetable.SubjectDao
+import de.joinside.dhbw.data.storage.database.entities.timetable.SubjectEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
