@@ -10,7 +10,7 @@ package de.joinside.dhbw.data.storage.credentials
  * - Check if user is logged in (has stored credentials)
  * - Clear credentials on logout
  */
-class CredentialsStorageProvider(private val secureStorage: SecureStorage) {
+class CredentialsStorageProvider(private val secureStorage: SecureStorageInterface) {
 
     companion object {
         private const val KEY_DUALIS_USERNAME = "dualis_username"
