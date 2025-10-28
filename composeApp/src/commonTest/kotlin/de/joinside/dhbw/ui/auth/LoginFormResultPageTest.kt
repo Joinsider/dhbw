@@ -216,32 +216,30 @@ class LoginFormResultPageTest {
         val mockEngine = MockEngine { request ->
             if (successful) {
                 respond(
-                    content = ByteReadChannel("""
+                    content = ByteReadChannel(
+                        """
                         <html>
                         <body>
                         <h1>Login successful</h1>
                         </body>
                         </html>
-                    """.trimIndent()),
-                    status = HttpStatusCode.OK,
-                    headers = headers {
+                    """.trimIndent()
+                    ), status = HttpStatusCode.OK, headers = headers {
                         append(HttpHeaders.ContentType, "text/html")
-                    }
-                )
+                    })
             } else {
                 respond(
-                    content = ByteReadChannel("""
+                    content = ByteReadChannel(
+                        """
                         <html>
                         <body>
                         <h1>LOGINCHECK failed</h1>
                         </body>
                         </html>
-                    """.trimIndent()),
-                    status = HttpStatusCode.OK,
-                    headers = headers {
+                    """.trimIndent()
+                    ), status = HttpStatusCode.OK, headers = headers {
                         append(HttpHeaders.ContentType, "text/html")
-                    }
-                )
+                    })
             }
         }
 

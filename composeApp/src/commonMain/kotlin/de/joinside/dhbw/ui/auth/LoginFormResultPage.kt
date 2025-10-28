@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -40,20 +41,20 @@ fun LoginFormResultPage(
 ) {
     var isLoggedIn by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf("") }
-    var dualisLoginSuccessful by remember { mutableStateOf(false) }
+    var authData by remember { mutableStateOf<de.joinside.dhbw.data.dualis.remote.models.AuthData?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
 
-    // Check credentials on composition and whenever they might change
+    // Check authentication status on composition
     LaunchedEffect(Unit) {
-        isLoggedIn = credentialsProvider.hasStoredCredentials()
-        if (isLoggedIn) {
-            username = credentialsProvider.getUsername()
-        }
+        isLoggedIn = authService.isAuthenticated()
+        isLoading = false
 
-        // Login to Dualis API was successful
-        dualisLoginSuccessful = authService.login(
-            username = credentialsProvider.getUsername(),
-            password = credentialsProvider.getPassword()
-        )
+        if (isLoggedIn) {
+            // Get session data
+            val sessionManager = authService.sessionManager
+            authData = sessionManager.getAuthData()
+            username = sessionManager.getStoredCredentials()?.first ?: credentialsProvider.getUsername()
+        }
     }
 
     Column(
@@ -64,8 +65,18 @@ fun LoginFormResultPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        if (isLoggedIn) {
-            // Success state - credentials are stored
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.testTag("loadingIndicator")
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Checking authentication...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        } else if (isLoggedIn) {
+            // Success state - user is authenticated
             Icon(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = "Success",
@@ -79,7 +90,7 @@ fun LoginFormResultPage(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Credentials Stored",
+                text = "Authentication Successful",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -102,18 +113,30 @@ fun LoginFormResultPage(
                 modifier = Modifier.testTag("passwordDisplayText")
             )
 
+            authData?.let { data ->
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (data.sessionId.isNotEmpty()) {
+                    Text(
+                        text = "Session ID: ${data.sessionId.take(10)}...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    )
+                }
+
+                if (data.authToken.isNotEmpty()) {
+                    Text(
+                        text = "Auth Token: ${data.authToken.take(10)}...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    )
+                }
+            }
+
             Text(
-                text = if (dualisLoginSuccessful) {
-                    "Dualis Login: Successful"
-                } else {
-                    "Dualis Login: Failed"
-                },
+                text = "Dualis Login: Successful",
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (dualisLoginSuccessful) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.error
-                },
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.testTag("dualisLoginStatusText")
             )
 
@@ -169,3 +192,4 @@ fun LoginFormResultPage(
         }
     }
 }
+

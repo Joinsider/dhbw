@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
+import de.joinside.dhbw.data.dualis.remote.session.SessionManager
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import de.joinside.dhbw.data.storage.credentials.SecureStorage
 import de.joinside.dhbw.data.storage.credentials.SecureStorageWrapper
@@ -36,10 +37,14 @@ enum class AppScreen {
 @Composable
 @Preview
 fun App() {
-    // Initialize SecureStorage and CredentialsProvider
+    // Initialize SecureStorage, SessionManager, and AuthenticationService
     val secureStorage = remember { SecureStorage() }
-    val credentialsProvider = remember { CredentialsStorageProvider(SecureStorageWrapper(secureStorage)) }
-    val authenticationService = remember { AuthenticationService() }
+    val secureStorageWrapper = remember { SecureStorageWrapper(secureStorage) }
+    val sessionManager = remember { SessionManager(secureStorageWrapper) }
+    val authenticationService = remember { AuthenticationService(sessionManager) }
+
+    // Keep CredentialsProvider for backward compatibility with existing UI
+    val credentialsProvider = remember { CredentialsStorageProvider(secureStorageWrapper) }
 
     // Navigation state
     var currentScreen by remember { mutableStateOf(AppScreen.WELCOME) }
@@ -47,7 +52,7 @@ fun App() {
 
     // Session check on startup
     LaunchedEffect(Unit) {
-        isLoggedIn = credentialsProvider.hasStoredCredentials()
+        isLoggedIn = authenticationService.isAuthenticated()
         if (isLoggedIn) {
             currentScreen = AppScreen.RESULT
         }
@@ -95,6 +100,7 @@ fun App() {
                     )
 
                     LoginForm(
+                        authenticationService = authenticationService,
                         credentialsProvider = credentialsProvider,
                         onLoginSuccess = {
                             isLoggedIn = true
@@ -107,6 +113,7 @@ fun App() {
                     LoginFormResultPage(
                         credentialsProvider = credentialsProvider,
                         onLogout = {
+                            authenticationService.logout()
                             isLoggedIn = false
                             currentScreen = AppScreen.WELCOME
                         },
@@ -117,3 +124,4 @@ fun App() {
         }
     }
 }
+
