@@ -10,10 +10,12 @@ import de.joinside.dhbw.data.storage.database.dao.grades.SemesterDao
 import de.joinside.dhbw.data.storage.database.entities.grades.GradesEntity
 import de.joinside.dhbw.data.storage.database.entities.grades.SemesterEntity
 import de.joinside.dhbw.data.storage.database.converters.DateTimeConverter
+import de.joinside.dhbw.data.storage.database.dao.SyncMetadataDao
 import de.joinside.dhbw.data.storage.database.dao.timetable.LectureEventDao
 import de.joinside.dhbw.data.storage.database.dao.timetable.LectureLecturerCrossRefDao
 import de.joinside.dhbw.data.storage.database.dao.timetable.LecturerDao
 import de.joinside.dhbw.data.storage.database.dao.timetable.SubjectDao
+import de.joinside.dhbw.data.storage.database.entities.SyncMetadataEntity
 import de.joinside.dhbw.data.storage.database.entities.timetable.LectureEventEntity
 import de.joinside.dhbw.data.storage.database.entities.timetable.LectureLecturerCrossRef
 import de.joinside.dhbw.data.storage.database.entities.timetable.LecturerEntity
@@ -26,7 +28,8 @@ import de.joinside.dhbw.data.storage.database.entities.timetable.SubjectEntity
         LectureEventEntity::class,
         SubjectEntity::class,
         LecturerEntity::class,
-        LectureLecturerCrossRef::class
+        LectureLecturerCrossRef::class,
+        SyncMetadataEntity::class
     ],
     version = 1,
     exportSchema = true
@@ -41,6 +44,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun subjectDao(): SubjectDao
     abstract fun lecturerDao(): LecturerDao
     abstract fun lectureLecturerCrossRefDao(): LectureLecturerCrossRefDao
+
+    abstract fun syncMetadataDao(): SyncMetadataDao
 }
 
 @Suppress("KotlinNoActualForExpect")
