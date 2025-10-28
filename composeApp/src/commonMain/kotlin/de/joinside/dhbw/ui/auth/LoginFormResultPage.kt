@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
@@ -34,10 +35,12 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 @Preview
 fun LoginFormResultPage(
     credentialsProvider: CredentialsStorageProvider,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    authService: AuthenticationService
 ) {
     var isLoggedIn by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf("") }
+    var dualisLoginSuccessful by remember { mutableStateOf(false) }
 
     // Check credentials on composition and whenever they might change
     LaunchedEffect(Unit) {
@@ -45,6 +48,12 @@ fun LoginFormResultPage(
         if (isLoggedIn) {
             username = credentialsProvider.getUsername()
         }
+
+        // Login to Dualis API was successful
+        dualisLoginSuccessful = authService.login(
+            username = credentialsProvider.getUsername(),
+            password = credentialsProvider.getPassword()
+        )
     }
 
     Column(
@@ -91,6 +100,21 @@ fun LoginFormResultPage(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.testTag("passwordDisplayText")
+            )
+
+            Text(
+                text = if (dualisLoginSuccessful) {
+                    "Dualis Login: Successful"
+                } else {
+                    "Dualis Login: Failed"
+                },
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (dualisLoginSuccessful) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
+                modifier = Modifier.testTag("dualisLoginStatusText")
             )
 
             Spacer(modifier = Modifier.height(24.dp))
