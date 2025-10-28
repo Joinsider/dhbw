@@ -1,10 +1,13 @@
 package de.joinside.dhbw.data.dualis.remote.services
 
+import de.joinside.dhbw.data.dualis.remote.session.SessionManager
+import de.joinside.dhbw.data.storage.credentials.FakeSecureStorage
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headers
@@ -13,15 +16,21 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class AuthenticationServiceTest {
+
+    private lateinit var fakeSecureStorage: FakeSecureStorage
+    private lateinit var sessionManager: SessionManager
 
     @BeforeTest
     fun setup() {
         // Initialize Napier for logging in tests
         Napier.base(DebugAntilog())
+
+        // Initialize fake storage and session manager
+        fakeSecureStorage = FakeSecureStorage()
+        sessionManager = SessionManager(fakeSecureStorage)
     }
 
     @AfterTest
@@ -31,9 +40,9 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    fun login_withDemoCredentials_returnsTrue() = runTest {
+    fun login_withDemoCredentials_returnsSuccess() = runTest {
         // Given
-        val service = AuthenticationService()
+        val service = AuthenticationService(sessionManager)
         val username = "demo@dhbw.de"
         val password = "demopassword"
 
@@ -41,43 +50,12 @@ class AuthenticationServiceTest {
         val result = service.login(username, password)
 
         // Then
-        assertTrue(result, "Demo credentials should always return true")
+        assertTrue(result is LoginResult.Success, "Demo credentials should return Success")
         service.close()
     }
 
     @Test
-    fun login_withValidCredentials_returnsTrue() = runTest {
-        // Given
-        val mockEngine = MockEngine { request ->
-            respond(
-                content = ByteReadChannel("""
-                    <html>
-                    <body>
-                    <h1>Login successful</h1>
-                    </body>
-                    </html>
-                """.trimIndent()),
-                status = HttpStatusCode.OK,
-                headers = headers {
-                    append(HttpHeaders.ContentType, "text/html")
-                }
-            )
-        }
-
-        val service = createAuthenticationServiceWithMockEngine(mockEngine)
-        val username = "valid@dhbw.de"
-        val password = "validpassword"
-
-        // When
-        val result = service.login(username, password)
-
-        // Then
-        assertTrue(result, "Valid credentials should return true")
-        service.close()
-    }
-
-    @Test
-    fun login_withInvalidCredentials_returnsFalse() = runTest {
+    fun login_withInvalidCredentials_returnsFailure() = runTest {
         // Given
         val mockEngine = MockEngine { request ->
             respond(
@@ -103,12 +81,12 @@ class AuthenticationServiceTest {
         val result = service.login(username, password)
 
         // Then
-        assertFalse(result, "Invalid credentials should return false")
+        assertTrue(result is LoginResult.Failure, "Invalid credentials should return Failure")
         service.close()
     }
 
     @Test
-    fun login_withHttpError_returnsFalse() = runTest {
+    fun login_withHttpError_returnsFailure() = runTest {
         // Given
         val mockEngine = MockEngine { request ->
             respond(
@@ -128,12 +106,12 @@ class AuthenticationServiceTest {
         val result = service.login(username, password)
 
         // Then
-        assertFalse(result, "HTTP error should return false")
+        assertTrue(result is LoginResult.Failure, "HTTP error should return Failure")
         service.close()
     }
 
     @Test
-    fun login_withNetworkException_returnsFalse() = runTest {
+    fun login_withNetworkException_returnsFailure() = runTest {
         // Given
         val mockEngine = MockEngine { request ->
             throw Exception("Network error")
@@ -147,34 +125,25 @@ class AuthenticationServiceTest {
         val result = service.login(username, password)
 
         // Then
-        assertFalse(result, "Network exception should return false")
+        assertTrue(result is LoginResult.Failure, "Network exception should return Failure")
         service.close()
     }
 
     @Test
-    fun login_withEmptyCredentials_returnsFalse() = runTest {
-        // Given
-        val service = AuthenticationService()
-        val username = ""
-        val password = ""
-
-        // When
-        val result = service.login(username, password)
-
-        // Then
-        assertFalse(result, "Empty credentials should return false")
-        service.close()
-    }
-
-    @Test
-    fun login_withRedirectResponse_returnsFalse() = runTest {
+    fun login_withNoRedirectHeader_returnsFailure() = runTest {
         // Given
         val mockEngine = MockEngine { request ->
             respond(
-                content = ByteReadChannel(""),
-                status = HttpStatusCode.Found,
+                content = ByteReadChannel("""
+                    <html>
+                    <body>
+                    <h1>Login response without redirect</h1>
+                    </body>
+                    </html>
+                """.trimIndent()),
+                status = HttpStatusCode.OK,
                 headers = headers {
-                    append(HttpHeaders.Location, "/error")
+                    append(HttpHeaders.ContentType, "text/html")
                 }
             )
         }
@@ -187,7 +156,36 @@ class AuthenticationServiceTest {
         val result = service.login(username, password)
 
         // Then
-        assertFalse(result, "Redirect should return false")
+        assertTrue(result is LoginResult.Failure, "No redirect header should return Failure")
+        service.close()
+    }
+
+    @Test
+    fun isAuthenticated_returnsTrueWhenDemoMode() = runTest {
+        // Given
+        val service = AuthenticationService(sessionManager)
+        sessionManager.setDemoMode(true)
+
+        // When
+        val isAuth = service.isAuthenticated()
+
+        // Then
+        assertTrue(isAuth, "Should be authenticated in demo mode")
+        service.close()
+    }
+
+    @Test
+    fun logout_clearsSessionData() = runTest {
+        // Given
+        val service = AuthenticationService(sessionManager)
+        sessionManager.storeCredentials("test@dhbw.de", "password")
+        sessionManager.setDemoMode(true)
+
+        // When
+        service.logout()
+
+        // Then
+        assertTrue(!service.isAuthenticated(), "Should not be authenticated after logout")
         service.close()
     }
 
@@ -195,8 +193,9 @@ class AuthenticationServiceTest {
     private fun createAuthenticationServiceWithMockEngine(mockEngine: MockEngine): AuthenticationService {
         val mockClient = HttpClient(mockEngine) {
             expectSuccess = false
+            install(HttpCookies)
         }
-        return AuthenticationService(mockClient)
+        return AuthenticationService(sessionManager, client = mockClient)
     }
 }
 
