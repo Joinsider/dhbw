@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextAlign
 import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import de.joinside.dhbw.data.storage.credentials.SecureStorage
+import de.joinside.dhbw.data.storage.credentials.SecureStorageWrapper
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.app_name
 import de.joinside.dhbw.resources.login_with_dualis_account
@@ -37,7 +38,7 @@ enum class AppScreen {
 fun App() {
     // Initialize SecureStorage and CredentialsProvider
     val secureStorage = remember { SecureStorage() }
-    val credentialsProvider = remember { CredentialsStorageProvider(secureStorage) }
+    val credentialsProvider = remember { CredentialsStorageProvider(SecureStorageWrapper(secureStorage)) }
     val authenticationService = remember { AuthenticationService() }
 
     // Navigation state
