@@ -23,9 +23,8 @@ interface SyncMetadataDao {
     @Delete
     suspend fun delete(syncMetadataEntity: SyncMetadataEntity)
 
-    @Query("SELECT lastSyncTimestamp FROM sync_metadata WHERE key = :key")
+    @Query("SELECT * FROM sync_metadata WHERE `key` = :key")
     suspend fun getSyncMetadata(key: String): SyncMetadataEntity?
-
 
     @Query("DELETE FROM sync_metadata")
     suspend fun clearAllSyncMetadata()
@@ -33,6 +32,6 @@ interface SyncMetadataDao {
     @Query("SELECT * FROM sync_metadata")
     suspend fun getAllSyncMetadata(): List<SyncMetadataEntity>
 
-    @Query("DELETE FROM sync_metadata WHERE key = :key")
+    @Query("DELETE FROM sync_metadata WHERE `key` = :key")
     suspend fun deleteByKey(key: String)
 }

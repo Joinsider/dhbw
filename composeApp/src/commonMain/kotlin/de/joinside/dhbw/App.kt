@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
+import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import de.joinside.dhbw.data.storage.credentials.SecureStorage
 import de.joinside.dhbw.resources.Res
@@ -37,6 +38,7 @@ fun App() {
     // Initialize SecureStorage and CredentialsProvider
     val secureStorage = remember { SecureStorage() }
     val credentialsProvider = remember { CredentialsStorageProvider(secureStorage) }
+    val authenticationService = remember { AuthenticationService() }
 
     // Navigation state
     var currentScreen by remember { mutableStateOf(AppScreen.WELCOME) }
@@ -106,7 +108,8 @@ fun App() {
                         onLogout = {
                             isLoggedIn = false
                             currentScreen = AppScreen.WELCOME
-                        }
+                        },
+                        authService = authenticationService
                     )
                 }
             }
