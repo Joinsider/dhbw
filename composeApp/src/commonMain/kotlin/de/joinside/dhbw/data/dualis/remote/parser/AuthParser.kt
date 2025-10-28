@@ -17,7 +17,7 @@ class AuthParser {
 
     /**
      * Extract auth token from a URL.
-     * The auth token is typically in the format: -N[token_value]
+     * The auth token is typically in the format: -N\[token_value]
      * Example URL: https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=STARTPAGE_DISPATCH&ARGUMENTS=-N123456789012345,-N000000000000000,-N000000000000000
      */
     fun extractAuthToken(url: String): String? {

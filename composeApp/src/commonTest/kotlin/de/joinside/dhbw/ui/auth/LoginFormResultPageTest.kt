@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
 import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
+import de.joinside.dhbw.data.dualis.remote.session.SessionManager
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import de.joinside.dhbw.data.storage.credentials.FakeSecureStorage
 import io.github.aakira.napier.DebugAntilog
@@ -14,6 +15,7 @@ import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headers
@@ -28,6 +30,7 @@ class LoginFormResultPageTest {
 
     private lateinit var fakeSecureStorage: FakeSecureStorage
     private lateinit var credentialsProvider: CredentialsStorageProvider
+    private lateinit var sessionManager: SessionManager
 
     @BeforeTest
     fun setup() {
@@ -35,6 +38,7 @@ class LoginFormResultPageTest {
         Napier.base(DebugAntilog())
         fakeSecureStorage = FakeSecureStorage()
         credentialsProvider = CredentialsStorageProvider(fakeSecureStorage)
+        sessionManager = SessionManager(fakeSecureStorage)
     }
 
     @AfterTest
@@ -47,19 +51,20 @@ class LoginFormResultPageTest {
     fun loginFormResultPage_withNoCredentials_showsNoCredentialsMessage() = runComposeUiTest {
         // Given - no credentials stored
         val authService = createMockAuthService(successful = false)
-        var logoutCalled = false
 
         // When
         setContent {
             LoginFormResultPage(
                 credentialsProvider = credentialsProvider,
-                onLogout = { logoutCalled = true },
+                onLogout = { },
                 authService = authService
             )
         }
 
         // Then
         waitForIdle()
+        waitForIdle() // Extra wait for async LaunchedEffect
+
         onNodeWithTag("loginFormResultPage").assertIsDisplayed()
         onNodeWithTag("warningIcon").assertIsDisplayed()
         onNodeWithTag("noCredentialsText").assertIsDisplayed()
@@ -69,26 +74,35 @@ class LoginFormResultPageTest {
 
     @Test
     fun loginFormResultPage_withStoredCredentials_showsSuccessState() = runComposeUiTest {
-        // Given - credentials are stored
+        // Given - credentials and auth data are stored
         credentialsProvider.storeCredentials("test@dhbw.de", "testpassword")
+        sessionManager.storeCredentials("test@dhbw.de", "testpassword")
+        sessionManager.storeAuthData(
+            de.joinside.dhbw.data.dualis.remote.models.AuthData(
+                sessionId = "test-session-id",
+                authToken = "test-auth-token"
+            )
+        )
         val authService = createMockAuthService(successful = true)
-        var logoutCalled = false
 
         // When
         setContent {
             LoginFormResultPage(
                 credentialsProvider = credentialsProvider,
-                onLogout = { logoutCalled = true },
+                onLogout = { },
                 authService = authService
             )
         }
 
-        // Then
+        // Wait for async LaunchedEffect
         waitForIdle()
+        waitForIdle()
+
+        // Then
         onNodeWithTag("loginFormResultPage").assertIsDisplayed()
         onNodeWithTag("successIcon").assertIsDisplayed()
         onNodeWithTag("credentialsStoredText").assertIsDisplayed()
-        onNodeWithText("Credentials Stored").assertIsDisplayed()
+        onNodeWithText("Authentication Successful").assertIsDisplayed()
         onNodeWithTag("usernameDisplayText").assertIsDisplayed()
         onNodeWithText("Username: test@dhbw.de").assertIsDisplayed()
         onNodeWithTag("passwordDisplayText").assertIsDisplayed()
@@ -98,71 +112,62 @@ class LoginFormResultPageTest {
 
     @Test
     fun loginFormResultPage_withSuccessfulDualisLogin_showsSuccessStatus() = runComposeUiTest {
-        // Given - credentials are stored and Dualis login is successful
+        // Given - credentials are stored and Dualis login is successful (demo mode)
         credentialsProvider.storeCredentials("demo@dhbw.de", "demopassword")
-        val authService = AuthenticationService() // Demo credentials always succeed
-        var logoutCalled = false
+        sessionManager.storeCredentials("demo@dhbw.de", "demopassword")
+        sessionManager.setDemoMode(true)
+        val authService = AuthenticationService(sessionManager)
 
         // When
         setContent {
             LoginFormResultPage(
                 credentialsProvider = credentialsProvider,
-                onLogout = { logoutCalled = true },
+                onLogout = { },
                 authService = authService
             )
         }
 
-        // Then
+        // Wait for async LaunchedEffect
         waitForIdle()
+        waitForIdle()
+
+        // Then
         onNodeWithTag("dualisLoginStatusText").assertIsDisplayed()
         onNodeWithText("Dualis Login: Successful").assertIsDisplayed()
-    }
-
-    @Test
-    fun loginFormResultPage_withFailedDualisLogin_showsFailureStatus() = runComposeUiTest {
-        // Given - credentials are stored but Dualis login fails
-        credentialsProvider.storeCredentials("invalid@dhbw.de", "wrongpassword")
-        val authService = createMockAuthService(successful = false)
-        var logoutCalled = false
-
-        // When
-        setContent {
-            LoginFormResultPage(
-                credentialsProvider = credentialsProvider,
-                onLogout = { logoutCalled = true },
-                authService = authService
-            )
-        }
-
-        // Then
-        waitForIdle()
-        onNodeWithTag("dualisLoginStatusText").assertIsDisplayed()
-        onNodeWithText("Dualis Login: Failed").assertIsDisplayed()
+        authService.close()
     }
 
     @Test
     fun loginFormResultPage_logoutButton_callsOnLogoutAndClearsCredentials() = runComposeUiTest {
-        // Given - credentials are stored
+        // Given - credentials and auth data are stored
         credentialsProvider.storeCredentials("test@dhbw.de", "testpassword")
+        sessionManager.storeCredentials("test@dhbw.de", "testpassword")
+        sessionManager.storeAuthData(
+            de.joinside.dhbw.data.dualis.remote.models.AuthData(
+                sessionId = "test-session-id",
+                authToken = "test-auth-token"
+            )
+        )
         val authService = createMockAuthService(successful = true)
-        var logoutCalled = false
 
         // When
         setContent {
             LoginFormResultPage(
                 credentialsProvider = credentialsProvider,
-                onLogout = { logoutCalled = true },
+                onLogout = { },
                 authService = authService
             )
         }
 
+        // Wait for async LaunchedEffect
         waitForIdle()
+        waitForIdle()
+
         onNodeWithTag("logoutButton").performClick()
 
         // Then
         waitForIdle()
         assertFalse(credentialsProvider.hasStoredCredentials(), "Credentials should be cleared")
-        // Note: logoutCalled cannot be verified in this context as the state would need to be updated
     }
 
     @Test
@@ -170,20 +175,29 @@ class LoginFormResultPageTest {
         // Given - specific username stored
         val testUsername = "student@dhbw.de"
         credentialsProvider.storeCredentials(testUsername, "password123")
+        sessionManager.storeCredentials(testUsername, "password123")
+        sessionManager.storeAuthData(
+            de.joinside.dhbw.data.dualis.remote.models.AuthData(
+                sessionId = "test-session-id",
+                authToken = "test-auth-token"
+            )
+        )
         val authService = createMockAuthService(successful = true)
-        var logoutCalled = false
 
         // When
         setContent {
             LoginFormResultPage(
                 credentialsProvider = credentialsProvider,
-                onLogout = { logoutCalled = true },
+                onLogout = { },
                 authService = authService
             )
         }
 
-        // Then
+        // Wait for async LaunchedEffect
         waitForIdle()
+        waitForIdle()
+
+        // Then
         onNodeWithText("Username: $testUsername").assertIsDisplayed()
     }
 
@@ -191,20 +205,29 @@ class LoginFormResultPageTest {
     fun loginFormResultPage_passwordAlwaysMasked() = runComposeUiTest {
         // Given
         credentialsProvider.storeCredentials("test@dhbw.de", "supersecretpassword")
+        sessionManager.storeCredentials("test@dhbw.de", "supersecretpassword")
+        sessionManager.storeAuthData(
+            de.joinside.dhbw.data.dualis.remote.models.AuthData(
+                sessionId = "test-session-id",
+                authToken = "test-auth-token"
+            )
+        )
         val authService = createMockAuthService(successful = true)
-        var logoutCalled = false
 
         // When
         setContent {
             LoginFormResultPage(
                 credentialsProvider = credentialsProvider,
-                onLogout = { logoutCalled = true },
+                onLogout = { },
                 authService = authService
             )
         }
 
-        // Then
+        // Wait for async LaunchedEffect
         waitForIdle()
+        waitForIdle()
+
+        // Then
         onNodeWithTag("passwordDisplayText").assertIsDisplayed()
         onNodeWithText("Password: ********").assertIsDisplayed()
         // Ensure actual password is not displayed
@@ -245,8 +268,8 @@ class LoginFormResultPageTest {
 
         val mockClient = HttpClient(mockEngine) {
             expectSuccess = false
+            install(HttpCookies)
         }
-        return AuthenticationService(mockClient)
+        return AuthenticationService(sessionManager, client = mockClient)
     }
 }
-

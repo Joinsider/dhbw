@@ -42,8 +42,11 @@ class HtmlParser {
      * Extract title from HTML page for debugging.
      */
     fun extractTitle(htmlContent: String): String? {
-        val titlePattern = """<title>(.*?)</title>""".toRegex(RegexOption.IGNORE_CASE)
+        // Use [\s\S] instead of . to match any character including newlines
+        val titlePattern = """<title>([\s\S]*?)</title>""".toRegex(RegexOption.IGNORE_CASE)
         val match = titlePattern.find(htmlContent)
-        return match?.groupValues?.get(1)?.trim()
+        val titleText = match?.groupValues?.get(1)?.trim()
+        Napier.d("Extracted title: $titleText", tag = TAG)
+        return titleText
     }
 }
