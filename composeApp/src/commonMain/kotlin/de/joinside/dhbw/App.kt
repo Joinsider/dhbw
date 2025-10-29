@@ -27,6 +27,8 @@ import de.joinside.dhbw.ui.auth.LoginFormResultPage
 import de.joinside.dhbw.ui.theme.DHBWHorbTheme
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import io.github.aakira.napier.DebugAntilog
+import io.github.aakira.napier.Napier
 
 enum class AppScreen {
     WELCOME,
@@ -37,6 +39,18 @@ enum class AppScreen {
 @Composable
 @Preview
 fun App() {
+    // Ensure Napier is initialized (fallback in case platform didn't initialize it)
+    LaunchedEffect(Unit) {
+        try {
+            // Test if Napier is initialized by attempting to log
+            Napier.d("App() composable started", tag = "App")
+        } catch (_: Exception) {
+            // If not initialized, initialize it now
+            Napier.base(DebugAntilog())
+            Napier.d("Napier initialized from App() composable", tag = "App")
+        }
+    }
+
     // Initialize SecureStorage, SessionManager, and AuthenticationService
     val secureStorage = remember { SecureStorage() }
     val secureStorageWrapper = remember { SecureStorageWrapper(secureStorage) }

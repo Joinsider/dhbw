@@ -274,5 +274,146 @@ class HtmlParserTest {
         // Then
         assertTrue(isRedirect)
     }
+
+    @Test
+    fun `extractUserFullName returns full name from welcome message`() {
+        // Given
+        val html = """
+            <html>
+            <body>
+                <h1>Herzlich willkommen, Johannes Popp!</h1>
+            </body>
+            </html>
+        """.trimIndent()
+
+        // When
+        val fullName = htmlParser.extractUserFullName(html)
+
+        // Then
+        assertNotNull(fullName)
+        assertEquals("Johannes Popp", fullName)
+    }
+
+    @Test
+    fun `extractUserFullName returns null when welcome message not found`() {
+        // Given
+        val html = """
+            <html>
+            <body>
+                <h1>Some other content</h1>
+            </body>
+            </html>
+        """.trimIndent()
+
+        // When
+        val fullName = htmlParser.extractUserFullName(html)
+
+        // Then
+        assertNull(fullName)
+    }
+
+    @Test
+    fun `extractUserFullName handles name with special characters`() {
+        // Given
+        val html = """
+            <html>
+            <body>
+                <h1>Herzlich willkommen, Müller-Schmödt, Anna-Maria!</h1>
+            </body>
+            </html>
+        """.trimIndent()
+
+        // When
+        val fullName = htmlParser.extractUserFullName(html)
+
+        // Then
+        assertNotNull(fullName)
+        assertEquals("Müller-Schmödt, Anna-Maria", fullName)
+    }
+
+    @Test
+    fun `extractUserFullName trims whitespace`() {
+        // Given
+        val html = """
+            <html>
+            <body>
+                <h1>Herzlich willkommen,   Max Mustermann  !</h1>
+            </body>
+            </html>
+        """.trimIndent()
+
+        // When
+        val fullName = htmlParser.extractUserFullName(html)
+
+        // Then
+        assertNotNull(fullName)
+        assertEquals("Max Mustermann", fullName)
+    }
+
+    @Test
+    fun `extractUserFullName is case-insensitive`() {
+        // Given
+        val html = """
+            <html>
+            <body>
+                <H1>HERZLICH WILLKOMMEN, Test User!</H1>
+            </body>
+            </html>
+        """.trimIndent()
+
+        // When
+        val fullName = htmlParser.extractUserFullName(html)
+
+        // Then
+        assertNotNull(fullName)
+        assertEquals("Test User", fullName)
+    }
+
+    @Test
+    fun `extractUserFullName works with realistic Dualis HTML structure`() {
+        // Given - realistic HTML structure from Dualis main page
+        val html = """
+            <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+            <html>
+            <head>
+                <title>Dualis - Startseite</title>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>Herzlich willkommen, Johannes Popp!</h1>
+                </div>
+                <div class="content">
+                    <!-- other page content -->
+                </div>
+            </body>
+            </html>
+        """.trimIndent()
+
+        // When
+        val fullName = htmlParser.extractUserFullName(html)
+
+        // Then
+        assertNotNull(fullName)
+        assertEquals("Johannes Popp", fullName)
+    }
+
+    @Test
+    fun `isMainPage detects page with welcome message`() {
+        // Given
+        val html = """
+            <html>
+            <body>
+                <h1>Herzlich willkommen, Johannes Popp!</h1>
+                <div>Main page content</div>
+            </body>
+            </html>
+        """.trimIndent()
+
+        // When
+        val isMain = htmlParser.isMainPage(html)
+
+        // Then
+        assertTrue(isMain)
+    }
 }
 

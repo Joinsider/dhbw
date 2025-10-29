@@ -107,10 +107,30 @@ class AuthenticationService(
             }
 
             // Follow redirects to reach main page
+            Napier.d("About to follow redirects to main page", tag = TAG)
             val mainPageResult = followRedirects(redirectUrl)
             if (mainPageResult !is RedirectResult.Success) {
                 Napier.e("Failed to follow redirects to main page", tag = TAG)
                 return LoginResult.Failure("Failed to reach main page")
+            }
+
+            Napier.d("Successfully reached main page", tag = TAG)
+            Napier.d("Main page content length: ${mainPageResult.htmlContent.length}", tag = TAG)
+
+            // Log a snippet of the main page to verify we have the right content
+            val titleSnippet = htmlParser.extractTitle(mainPageResult.htmlContent)
+            Napier.d("Main page title: $titleSnippet", tag = TAG)
+
+            // Extract user's full name from main page
+            Napier.d("Attempting to extract user's full name from main page", tag = TAG)
+            val userFullName = htmlParser.extractUserFullName(mainPageResult.htmlContent)
+            if (userFullName != null) {
+                Napier.d("✓ Successfully extracted user full name: '$userFullName'", tag = TAG)
+            } else {
+                Napier.w("✗ Failed to extract user full name from main page", tag = TAG)
+                // Log a snippet of the HTML to help debug
+                val snippet = mainPageResult.htmlContent.take(500)
+                Napier.d("Main page HTML snippet: $snippet", tag = TAG)
             }
 
             // Extract session ID from cookies
@@ -120,11 +140,17 @@ class AuthenticationService(
             // Create and store auth data
             val authData = AuthData(
                 sessionId = sessionId ?: "",
-                authToken = authToken ?: ""
+                authToken = authToken ?: "",
+                userFullName = userFullName
             )
 
+            Napier.d("Created AuthData with userFullName: ${authData.userFullName}", tag = TAG)
+
             sessionManager.storeAuthData(authData)
+            Napier.d("Stored AuthData in SessionManager", tag = TAG)
+
             sessionManager.storeCredentials(username, password)
+            Napier.d("Stored credentials in SessionManager", tag = TAG)
 
             Napier.d("Login completed successfully", tag = TAG)
             LoginResult.Success(authData)
