@@ -29,7 +29,13 @@ kotlin {
         }
     }
 
-    jvm()
+    macosArm64()
+    macosX64()
+
+    jvm("desktop")
+
+    // Configure source set hierarchy
+    applyDefaultHierarchyTemplate()
 
     sourceSets {
         androidMain.dependencies {
@@ -71,11 +77,17 @@ kotlin {
             implementation(libs.ktor.client.darwin)
         }
 
-        jvmMain.dependencies {
-            implementation(compose.desktop.currentOs)
-            implementation(libs.kotlinx.coroutinesSwing)
-            implementation(libs.java.keyring)
-            implementation(libs.ktor.client.cio)
+        macosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+        }
+
+        val desktopMain by getting {
+            dependencies {
+                implementation(compose.desktop.currentOs)
+                implementation(libs.kotlinx.coroutinesSwing)
+                implementation(libs.java.keyring)
+                implementation(libs.ktor.client.cio)
+            }
         }
     }
 }
@@ -128,7 +140,9 @@ dependencies {
     add("kspAndroid", libs.androidx.room.compiler)
     add("kspIosSimulatorArm64", libs.androidx.room.compiler)
     add("kspIosArm64", libs.androidx.room.compiler)
-    add("kspJvm", libs.androidx.room.compiler) // Jetzt funktioniert kspJvm
+    add("kspMacosArm64", libs.androidx.room.compiler)
+    add("kspMacosX64", libs.androidx.room.compiler)
+    add("kspDesktop", libs.androidx.room.compiler)
 }
 
 compose.desktop {
@@ -145,6 +159,13 @@ compose.desktop {
             }
             macOS {
                 iconFile.set(project.file("icon.icns"))
+                bundleID = "de.joinside.dhbw"
+                // For Mac App Store, you'll need to configure signing:
+                // signing {
+                //     sign.set(true)
+                //     identity.set("3rd Party Mac Developer Application: Your Name (TEAM_ID)")
+                // }
+                // appStore.set(true)
             }
             linux {
                 iconFile.set(project.file("icon.png"))
