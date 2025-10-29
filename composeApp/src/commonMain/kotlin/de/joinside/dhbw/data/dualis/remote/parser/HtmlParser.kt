@@ -26,15 +26,20 @@ class HtmlParser {
 
     /**
      * Check if the HTML content is the main page after successful login.
-     * The main page typically contains navigation elements and user info.
+     * The main page typically contains the welcome message with the user's name.
      */
     fun isMainPage(htmlContent: String): Boolean {
-        val isMain = (htmlContent.contains("STARTPAGE", ignoreCase = true) ||
-                htmlContent.contains("Notenspiegel", ignoreCase = true) ||
-                htmlContent.contains("Prüfungsergebnisse", ignoreCase = true)) &&
-                !isRedirectPage(htmlContent)
+        // Check for the welcome message which appears on the actual main page (MLSSTART)
+        val hasWelcomeMessage = htmlContent.contains("Herzlich willkommen,", ignoreCase = true) || htmlContent.contains("Welcome,", ignoreCase = true)
 
-        Napier.d("Is main page: $isMain", tag = TAG)
+        // Also check for other main page indicators as fallback
+        val hasMainPageIndicators = htmlContent.contains("STARTPAGE", ignoreCase = true) ||
+                htmlContent.contains("Home", ignoreCase = true) ||
+                htmlContent.contains("Prüfungsergebnisse", ignoreCase = true)
+
+        val isMain = (hasWelcomeMessage || hasMainPageIndicators) && !isRedirectPage(htmlContent)
+
+        Napier.d("Is main page: $isMain (hasWelcome: $hasWelcomeMessage, hasIndicators: $hasMainPageIndicators)", tag = TAG)
         return isMain
     }
 
@@ -48,5 +53,59 @@ class HtmlParser {
         val titleText = match?.groupValues?.get(1)?.trim()
         Napier.d("Extracted title: $titleText", tag = TAG)
         return titleText
+    }
+
+    /**
+     * Extract user's full name from the main page welcome message.
+     * Looks for pattern: <h1>Herzlich willkommen, \[Name]!</h1>
+     */
+    fun extractUserFullName(htmlContent: String): String? {
+        Napier.d("Searching for welcome message in HTML content", tag = TAG)
+
+        // Check if the content contains the welcome phrase
+        val hasWelcome = htmlContent.contains("Herzlich willkommen", ignoreCase = true) || htmlContent.contains("Welcome", ignoreCase = true)
+        Napier.d("HTML contains 'Herzlich willkommen': $hasWelcome", tag = TAG)
+
+        if (hasWelcome) {
+            // Find the surrounding context
+            val welcomeIndex = htmlContent.indexOf("Herzlich willkommen", ignoreCase = true)
+                .takeIf { it >= 0 } ?: htmlContent.indexOf("Welcome", ignoreCase = true)
+            val contextStart = maxOf(0, welcomeIndex - 50)
+            val contextEnd = minOf(htmlContent.length, welcomeIndex + 150)
+            val context = htmlContent.substring(contextStart, contextEnd)
+            Napier.d("Welcome message context: $context", tag = TAG)
+        }
+
+        val namePattern = """<h1>\s*(?:Herzlich willkommen|Welcome),\s*([^!<]+)!\s*</h1>""".toRegex(RegexOption.IGNORE_CASE)
+        val match = namePattern.find(htmlContent)
+
+        if (match != null) {
+            val fullName = match.groupValues[1].trim()
+            Napier.d("✓ Regex matched! Extracted user full name: '$fullName'", tag = TAG)
+            return fullName
+        } else {
+            Napier.w("✗ Regex pattern did not match in HTML content", tag = TAG)
+
+            // Try alternative patterns for debugging and as fallback
+            val altH1Pattern = """<h1>\s*(?:Herzlich willkommen|Welcome),\s*([^!<]+)!""".toRegex(RegexOption.IGNORE_CASE)
+            val altH1Match = altH1Pattern.find(htmlContent)
+            if (altH1Match != null) {
+                val candidate = altH1Match.groupValues[1].trim()
+                Napier.d("Alternative h1 pattern matched: '$candidate'", tag = TAG)
+                return candidate
+            }
+
+            val simplePattern = """(?:Herzlich willkommen|Welcome),\s*([^!<]+)!""".toRegex(RegexOption.IGNORE_CASE)
+            val simpleMatch = simplePattern.find(htmlContent)
+            if (simpleMatch != null) {
+                val candidate = simpleMatch.groupValues[1].trim()
+                Napier.d("Alternative simple pattern matched: '$candidate'", tag = TAG)
+                return candidate
+            } else {
+                Napier.d("Even simple pattern didn't match", tag = TAG)
+            }
+
+            return null
+        }
     }
 }

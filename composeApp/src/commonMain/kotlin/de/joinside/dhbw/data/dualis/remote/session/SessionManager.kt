@@ -16,6 +16,7 @@ class SessionManager(private val secureStorage: SecureStorageInterface) {
         private const val KEY_PASSWORD = "dualis_password"
         private const val KEY_SESSION_ID = "dualis_session_id"
         private const val KEY_AUTH_TOKEN = "dualis_auth_token"
+        private const val KEY_USER_FULL_NAME = "dualis_user_full_name"
         private const val KEY_IS_DEMO_MODE = "dualis_is_demo_mode"
 
         const val DEMO_EMAIL = "demo@dhbw.de"
@@ -60,26 +61,49 @@ class SessionManager(private val secureStorage: SecureStorageInterface) {
      * Store authentication data (session ID and auth token).
      */
     fun storeAuthData(authData: AuthData) {
-        Napier.d("Storing auth data - SessionID: ${authData.sessionId.take(10)}..., AuthToken: ${authData.authToken.take(10)}...", tag = TAG)
+        Napier.d("Storing auth data - SessionID: ${authData.sessionId.take(10)}..., AuthToken: ${authData.authToken.take(10)}..., FullName: ${authData.userFullName}", tag = TAG)
         currentAuthData = authData
         secureStorage.setString(KEY_SESSION_ID, authData.sessionId)
         secureStorage.setString(KEY_AUTH_TOKEN, authData.authToken)
+
+        // Store user's full name if available
+        if (authData.userFullName != null) {
+            Napier.d("Storing user full name: '${authData.userFullName}'", tag = TAG)
+            secureStorage.setString(KEY_USER_FULL_NAME, authData.userFullName)
+        } else {
+            Napier.w("User full name is null, clearing stored value", tag = TAG)
+            secureStorage.setString(KEY_USER_FULL_NAME, "")
+        }
     }
 
     /**
      * Get stored authentication data.
      */
     fun getAuthData(): AuthData? {
+        Napier.d("Getting auth data from SessionManager", tag = TAG)
+
         if (currentAuthData != null) {
+            Napier.d("Returning cached auth data: $currentAuthData", tag = TAG)
             return currentAuthData
         }
 
         val sessionId = secureStorage.getString(KEY_SESSION_ID, "")
         val authToken = secureStorage.getString(KEY_AUTH_TOKEN, "")
+        val userFullName = secureStorage.getString(KEY_USER_FULL_NAME, "").takeIf { it.isNotEmpty() }
+
+        Napier.d("Retrieved from storage - SessionID: ${sessionId.take(10)}..., AuthToken: ${authToken.take(10)}..., FullName: $userFullName", tag = TAG)
 
         return if (sessionId.isNotEmpty() || authToken.isNotEmpty()) {
-            AuthData(sessionId, authToken).also { currentAuthData = it }
+            AuthData(
+                sessionId = sessionId,
+                authToken = authToken,
+                userFullName = userFullName
+            ).also {
+                currentAuthData = it
+                Napier.d("Created and cached AuthData: $it", tag = TAG)
+            }
         } else {
+            Napier.d("No auth data found in storage", tag = TAG)
             null
         }
     }
@@ -136,6 +160,7 @@ class SessionManager(private val secureStorage: SecureStorageInterface) {
         secureStorage.remove(KEY_PASSWORD)
         secureStorage.remove(KEY_SESSION_ID)
         secureStorage.remove(KEY_AUTH_TOKEN)
+        secureStorage.remove(KEY_USER_FULL_NAME)
         secureStorage.remove(KEY_IS_DEMO_MODE)
     }
 
@@ -147,5 +172,6 @@ class SessionManager(private val secureStorage: SecureStorageInterface) {
         currentAuthData = null
         secureStorage.remove(KEY_SESSION_ID)
         secureStorage.remove(KEY_AUTH_TOKEN)
+        secureStorage.remove(KEY_USER_FULL_NAME)
     }
 }

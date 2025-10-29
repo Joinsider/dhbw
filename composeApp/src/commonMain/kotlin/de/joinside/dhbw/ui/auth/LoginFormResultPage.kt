@@ -46,14 +46,23 @@ fun LoginFormResultPage(
 
     // Check authentication status on composition
     LaunchedEffect(Unit) {
+        println("LoginFormResultPage: Starting authentication check")
         isLoggedIn = authService.isAuthenticated()
+        println("LoginFormResultPage: isLoggedIn = $isLoggedIn")
         isLoading = false
 
         if (isLoggedIn) {
             // Get session data
             val sessionManager = authService.sessionManager
             authData = sessionManager.getAuthData()
+            println("LoginFormResultPage: Retrieved authData from SessionManager")
+            println("LoginFormResultPage: authData = $authData")
+            println("LoginFormResultPage: authData.userFullName = ${authData?.userFullName}")
+
             username = sessionManager.getStoredCredentials()?.first ?: credentialsProvider.getUsername()
+            println("LoginFormResultPage: username = $username")
+        } else {
+            println("LoginFormResultPage: User is not logged in")
         }
     }
 
@@ -105,6 +114,20 @@ fun LoginFormResultPage(
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.testTag("usernameDisplayText")
             )
+
+            // Display user's full name if available
+            authData?.userFullName?.let { fullName ->
+                println("LoginFormResultPage: Displaying full name: '$fullName'")
+                Text(
+                    text = "Name: $fullName",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.testTag("fullNameDisplayText")
+                )
+            } ?: run {
+                println("LoginFormResultPage: Full name is null, not displaying")
+            }
 
             Text(
                 text = "Password: ********",
