@@ -9,6 +9,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.resources.Res
@@ -36,7 +38,8 @@ fun formatEventTime(dateTime: LocalDateTime): String {
 @Preview
 fun EventModule(
     lecture: LectureModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    smallFont: Boolean = false
 ) {
     Column(
         modifier = modifier
@@ -45,21 +48,24 @@ fun EventModule(
             .background(lecture.color, shape = RoundedCornerShape(4.dp))
             .padding(4.dp)
     ) {
-        Text(
-            text = "${formatEventTime(lecture.start)} - ${formatEventTime(lecture.end)}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onPrimary,
-            overflow = TextOverflow.Clip
-        )
+        if(!smallFont) {
+            Text(
+                text = "${formatEventTime(lecture.start)} - ${formatEventTime(lecture.end)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimary,
+                overflow = TextOverflow.Clip
+            )
+        }
 
         Text(
             text = lecture.name,
-            style = MaterialTheme.typography.bodyMedium,
+            style = if(smallFont) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimary,
             overflow = TextOverflow.MiddleEllipsis
         )
 
-        if(lecture.lecturer.isNotEmpty()) {
+        if(lecture.lecturer.isNotEmpty() && !smallFont) {
             Text(
                 text = stringResource(Res.string.lecturers) + ": ${lecture.lecturer}",
                 style = MaterialTheme.typography.bodySmall,
@@ -70,7 +76,7 @@ fun EventModule(
 
         if(lecture.location.isNotEmpty()) {
             Text(
-                text = stringResource(Res.string.room) + ": ${lecture.location}",
+                text = if (smallFont) lecture.location else stringResource(Res.string.room) + ": ${lecture.location}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimary,
                 overflow = TextOverflow.Ellipsis

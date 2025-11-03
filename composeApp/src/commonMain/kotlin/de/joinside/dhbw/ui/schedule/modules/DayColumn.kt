@@ -13,21 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import de.joinside.dhbw.resources.Res
 import kotlinx.datetime.DayOfWeek
-import org.jetbrains.compose.resources.StringResource
-import de.joinside.dhbw.resources.monday_short
-import de.joinside.dhbw.resources.tuesday_short
-import de.joinside.dhbw.resources.wednesday_short
-import de.joinside.dhbw.resources.thursday_short
-import de.joinside.dhbw.resources.friday_short
-import de.joinside.dhbw.resources.saturday_short
-import de.joinside.dhbw.resources.sunday_short
-import org.jetbrains.compose.resources.InternalResourceApi
-import org.jetbrains.compose.resources.stringResource
-
-
-
 
 
 @Composable
@@ -35,13 +21,13 @@ fun DayColumn(
     dayOfWeek: DayOfWeek,
     lectures: List<LectureModel>,
     startHour: Int = 8,
+    endHour: Int = 18,
     hourHeight: Float = 80f,
     modifier: Modifier = Modifier,
     width: Dp
 ) {
     Column(
         modifier = modifier
-            .padding(horizontal = 4.dp)
     ) {
         var short = true
         if(width > 100.dp) {
@@ -66,7 +52,7 @@ fun DayColumn(
         ) {
             // Background grid lines for each hour
             Column {
-                repeat(18 - startHour + 1) {
+                repeat(endHour - startHour + 1) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -80,7 +66,7 @@ fun DayColumn(
             }
 
             // Lectures positioned by time
-            Column {
+            Box(modifier = Modifier.fillMaxWidth()) {
                 lectures.forEach { lecture ->
                     val startMinutes = lecture.start.hour * 60 + lecture.start.minute
                     val endMinutes = lecture.end.hour * 60 + lecture.end.minute
@@ -100,7 +86,10 @@ fun DayColumn(
                     ) {
                         EventModule(
                             lecture = lecture,
-                            modifier = Modifier.padding(2.dp)
+                            modifier = Modifier
+                                .padding(2.dp)
+                                .height(heightDp),
+                            smallFont = width < 100.dp
                         )
                     }
                 }
