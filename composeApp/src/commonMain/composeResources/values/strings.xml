@@ -42,4 +42,9 @@
     <string name="network_error">Network error. Please check your connection.</string>
     <string name="unknown_error">An unknown error occurred.</string>
     <string name="invalid_credentials">Invalid username or password.</string>
+
+    <!-- Timetable -->
+    <string name="lecturers">Lecturers</string>
+    <string name="room">Room</string>
+    <string name="no-lectures-this-week">No lectures scheduled for this week.</string>
 </resources>

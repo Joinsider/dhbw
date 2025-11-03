@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import de.joinside.dhbw.data.dualis.remote.models.AuthData
 import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -37,11 +38,12 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 fun LoginFormResultPage(
     credentialsProvider: CredentialsStorageProvider,
     onLogout: () -> Unit,
-    authService: AuthenticationService
+    authService: AuthenticationService,
+    onNavigateToTimetable: () -> Unit = {}
 ) {
     var isLoggedIn by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf("") }
-    var authData by remember { mutableStateOf<de.joinside.dhbw.data.dualis.remote.models.AuthData?>(null) }
+    var authData by remember { mutableStateOf<AuthData?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
     // Check authentication status on composition
@@ -59,7 +61,8 @@ fun LoginFormResultPage(
             println("LoginFormResultPage: authData = $authData")
             println("LoginFormResultPage: authData.userFullName = ${authData?.userFullName}")
 
-            username = sessionManager.getStoredCredentials()?.first ?: credentialsProvider.getUsername()
+            username =
+                sessionManager.getStoredCredentials()?.first ?: credentialsProvider.getUsername()
             println("LoginFormResultPage: username = $username")
         } else {
             println("LoginFormResultPage: User is not logged in")
@@ -164,6 +167,21 @@ fun LoginFormResultPage(
             )
 
             Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = {
+                    onNavigateToTimetable()
+                },
+                modifier = Modifier
+                    .testTag("goToTimetableButton")
+                    .width(250.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Text("Go to Timetable page")
+            }
 
             Button(
                 onClick = {

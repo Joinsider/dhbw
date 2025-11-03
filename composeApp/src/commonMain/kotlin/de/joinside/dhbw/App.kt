@@ -4,28 +4,21 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.safeContentPadding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextAlign
 import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
 import de.joinside.dhbw.data.dualis.remote.session.SessionManager
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import de.joinside.dhbw.data.storage.credentials.SecureStorage
 import de.joinside.dhbw.data.storage.credentials.SecureStorageWrapper
-import de.joinside.dhbw.resources.Res
-import de.joinside.dhbw.resources.app_name
-import de.joinside.dhbw.resources.login_with_dualis_account
-import de.joinside.dhbw.ui.auth.LoginForm
 import de.joinside.dhbw.ui.auth.LoginFormResultPage
+import de.joinside.dhbw.ui.pages.Startpage
+import de.joinside.dhbw.ui.pages.TimetablePage
 import de.joinside.dhbw.ui.theme.DHBWHorbTheme
-import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
@@ -33,7 +26,8 @@ import io.github.aakira.napier.Napier
 enum class AppScreen {
     WELCOME,
     LOGIN,
-    RESULT
+    RESULT,
+    TIMETABLE
 }
 
 @Composable
@@ -84,42 +78,23 @@ fun App() {
         ) {
             when (currentScreen) {
                 AppScreen.WELCOME -> {
-                    Text(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("appTitle"),
-                        text = stringResource(Res.string.app_name),
-                        style = MaterialTheme.typography.headlineLarge,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onBackground
+                    Startpage(
+                        onLoginSuccess = {
+                            currentScreen = AppScreen.LOGIN
+                        },
+                        authenticationService = authenticationService,
+                        credentialsProvider = credentialsProvider,
                     )
-
-                    Button(
-                        onClick = { currentScreen = AppScreen.LOGIN },
-                        modifier = Modifier.testTag("loginWithDualisButton")
-                    ) {
-                        Text(text = stringResource(Res.string.login_with_dualis_account))
-                    }
                 }
 
                 AppScreen.LOGIN -> {
-                    Text(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("appTitle"),
-                        text = stringResource(Res.string.app_name),
-                        style = MaterialTheme.typography.headlineLarge,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-
-                    LoginForm(
-                        authenticationService = authenticationService,
-                        credentialsProvider = credentialsProvider,
+                    Startpage(
                         onLoginSuccess = {
                             isLoggedIn = true
                             currentScreen = AppScreen.RESULT
-                        }
+                        },
+                        authenticationService = authenticationService,
+                        credentialsProvider = credentialsProvider,
                     )
                 }
 
@@ -131,7 +106,18 @@ fun App() {
                             isLoggedIn = false
                             currentScreen = AppScreen.WELCOME
                         },
-                        authService = authenticationService
+                        authService = authenticationService,
+                        onNavigateToTimetable = {
+                            currentScreen = AppScreen.TIMETABLE
+                        }
+                    )
+                }
+
+                AppScreen.TIMETABLE -> {
+                    TimetablePage(
+                        onNavigateToResult = {
+                            currentScreen = AppScreen.RESULT
+                        }
                     )
                 }
             }
