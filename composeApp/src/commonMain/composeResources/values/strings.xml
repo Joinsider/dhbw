@@ -64,4 +64,10 @@
     <string name="friday_short">Fri</string>
     <string name="saturday_short">Sat</string>
     <string name="sunday_short">Sun</string>
+
+    <!-- Navigation Drawer -->
+    <string name="nav_timetable">Timetable</string>
+    <string name="nav_exams">Exams</string>
+    <string name="nav_grades">Grades</string>
+    <string name="nav_settings">Settings</string>
 </resources>

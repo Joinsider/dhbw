@@ -1,22 +1,29 @@
 package de.joinside.dhbw.ui.pages
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import de.joinside.dhbw.ui.navigation.BottomNavItem
+import de.joinside.dhbw.ui.navigation.BottomNavigationBar
 import de.joinside.dhbw.ui.schedule.modules.LectureModel
 import de.joinside.dhbw.ui.schedule.views.WeeklyLecturesView
+import de.joinside.dhbw.util.isMobilePlatform
 import kotlinx.datetime.LocalDateTime
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
 @Preview
 fun TimetablePage(
-    onNavigateToResult: () -> Unit = {}
+    onNavigateToResult: () -> Unit = {},
+    onNavigateToGrades: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
+    isLoggedIn: Boolean = true,
+    modifier: Modifier = Modifier
 ) {
 
     // Future-odo: Fetch real timetable data and display it here from dualis
@@ -48,14 +55,36 @@ fun TimetablePage(
         )
     )
 
-    Column(
-        modifier = Modifier,
-        //verticalArrangement = Arrangement.SpaceBetween,
-        //horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-
-        WeeklyLecturesView(
-            lectures = lectures
-        )
+    Scaffold(
+        modifier = if (isMobilePlatform()) {
+            modifier.statusBarsPadding()
+        } else {
+            modifier
+        },
+        bottomBar = {
+            if (isLoggedIn) {
+                BottomNavigationBar(
+                    currentItem = BottomNavItem.TIMETABLE,
+                    onItemSelected = { item ->
+                        when (item) {
+                            BottomNavItem.TIMETABLE -> { /* Already here */ }
+                            BottomNavItem.GRADES -> onNavigateToGrades()
+                            BottomNavItem.SETTINGS -> onNavigateToSettings()
+                        }
+                    }
+                )
+            }
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = paddingValues.calculateBottomPadding())
+        ) {
+            WeeklyLecturesView(
+                lectures = lectures,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
     }
 }
