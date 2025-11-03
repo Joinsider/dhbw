@@ -59,6 +59,7 @@ kotlin {
             implementation(libs.material.icons.extended)
             implementation(libs.napier)
             implementation(libs.ktor.client.core)
+            implementation(libs.kotlinx.datetime.v040)
         }
 
         commonTest.dependencies {

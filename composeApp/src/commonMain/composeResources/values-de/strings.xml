@@ -42,5 +42,10 @@
     <string name="network_error">Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.</string>
     <string name="unknown_error">Ein unbekannter Fehler ist aufgetreten.</string>
     <string name="invalid_credentials">Ungültiger Benutzername oder Passwort.</string>
+
+    <!-- Timetable -->
+    <string name="lecturers">Dozenten</string>
+    <string name="room">Raum</string>
+    <string name="no-lectures-this-week">In dieser Woche sind keine Vorlesungen geplant.</string>
 </resources>
 
