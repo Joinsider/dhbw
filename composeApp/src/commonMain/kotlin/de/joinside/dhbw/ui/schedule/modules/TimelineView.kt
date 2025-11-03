@@ -22,7 +22,8 @@ fun TimelineView(
 ) {
     Column(
         modifier = modifier
-            .width(50.dp)
+            .width(50.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Add spacing to match DayColumn header (titleMedium text + vertical padding + divider padding)
         // Text with vertical padding (8dp top + 8dp bottom) + divider bottom padding (4dp)

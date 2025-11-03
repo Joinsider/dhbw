@@ -1,6 +1,8 @@
 package de.joinside.dhbw.ui.schedule.views
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -53,6 +55,7 @@ fun WeeklyLecturesView(
 
         Row(
             modifier = modifier
+                .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
             // Timeline on the left
@@ -66,6 +69,7 @@ fun WeeklyLecturesView(
             // Days of the week (Monday to Friday)
             Row(modifier = Modifier
                 .weight(1f)
+                .fillMaxWidth()
                 .onGloballyPositioned { coordinates ->
                     rowWidth.value = with(density) { coordinates.size.width.toDp() }
                 }

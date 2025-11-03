@@ -64,5 +64,11 @@
     <string name="friday_short">Fr</string>
     <string name="saturday_short">Sa</string>
     <string name="sunday_short">So</string>
+
+    <!-- Navigation -->
+    <string name="nav_timetable">Stundenplan</string>
+    <string name="nav_exams">Prüfungen</string>
+    <string name="nav_grades">Noten</string>
+    <string name="nav_settings">Einstellungen</string>
 </resources>
 
