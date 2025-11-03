@@ -1,47 +1,96 @@
 package de.joinside.dhbw.ui.schedule.views
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.no_lectures_this_week
-import de.joinside.dhbw.ui.schedule.modules.EventModule
 import de.joinside.dhbw.ui.schedule.modules.LectureModel
+import kotlinx.datetime.DayOfWeek
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import de.joinside.dhbw.ui.schedule.modules.DayColumn
+import de.joinside.dhbw.ui.schedule.modules.TimelineView
+
+
 
 @Composable
 @Preview
 fun WeeklyLecturesView(
     lectures: List<LectureModel> = emptyList(), modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-    ) {
-        if (lectures.isEmpty()) {
+    if (lectures.isEmpty()) {
+        Text(
+            text = stringResource(Res.string.no_lectures_this_week),
+            modifier = modifier.padding(16.dp)
+        )
+    } else {
+        // Group lectures by day of week
+        val lecturesByDay = lectures
+            .groupBy { it.start.dayOfWeek }
+            .mapValues { (_, dayLectures) ->
+                // Sort lectures by start time within each day
+                dayLectures.sortedBy { it.start }
+            }
 
-            Text(
-                text = stringResource(Res.string.no_lectures_this_week)
+        // Find the earliest and latest hours to set timeline bounds
+        val startHour = lectures.minOfOrNull { it.start.hour }?.coerceAtMost(8) ?: 8
+        val endHour = lectures.maxOfOrNull { it.end.hour }?.coerceAtLeast(18) ?: 18
+        val hourHeight = 80f
+
+        val rowWidth = remember { mutableStateOf(0.dp) }
+        val density = LocalDensity.current
+
+        Row(
+            modifier = modifier
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+        ) {
+            // Timeline on the left
+            TimelineView(
+                startHour = startHour,
+                endHour = endHour,
+                hourHeight = hourHeight
             )
 
-        } else {
 
-            for (lecture in lectures) {
-
-                // TODO: Get Weekday from lecture date and then display then display the lecture on that day
-                // TODO: Add a weekly view with all weekdays and their lectures
-                // TODO: Group lectures by day and display them under the respective day
-                // TODO: Order the lectures on each day by their start time and display them accordingly
-                // TODO: Add a timeline to the left side showing the hours of the day and position the lectures accordingly
-
-                EventModule(
-                    lecture,
-                    modifier = Modifier.padding(vertical = 2.dp)
-                )
-
+            // Days of the week (Monday to Friday)
+            Row(modifier = Modifier
+                .weight(1f)
+                .onGloballyPositioned { coordinates ->
+                    rowWidth.value = with(density) { coordinates.size.width.toDp() }
+                }
+            ) {
+                val dayColumnWidth = rowWidth.value / 5
+                listOf(
+                    DayOfWeek.MONDAY,
+                    DayOfWeek.TUESDAY,
+                    DayOfWeek.WEDNESDAY,
+                    DayOfWeek.THURSDAY,
+                    DayOfWeek.FRIDAY
+                ).forEach { day ->
+                    DayColumn(
+                        dayOfWeek = day,
+                        lectures = lecturesByDay[day] ?: emptyList(),
+                        startHour = startHour,
+                        hourHeight = hourHeight,
+                        modifier = Modifier
+                            .padding(bottom = 16.dp)
+                            .width(dayColumnWidth),
+                        width = dayColumnWidth
+                    )
+                }
             }
         }
     }
