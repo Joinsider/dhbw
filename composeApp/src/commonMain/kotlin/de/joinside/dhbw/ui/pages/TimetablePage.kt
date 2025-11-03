@@ -50,20 +50,12 @@ fun TimetablePage(
 
     Column(
         modifier = Modifier,
-        verticalArrangement = Arrangement.SpaceBetween,
-        horizontalAlignment = Alignment.CenterHorizontally
+        //verticalArrangement = Arrangement.SpaceBetween,
+        //horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
         WeeklyLecturesView(
             lectures = lectures
         )
-
-        Button(
-            onClick = {
-                onNavigateToResult()
-            },
-            modifier = Modifier
-        ) {
-            Text("Go to Login Success Page")
-        }
     }
 }

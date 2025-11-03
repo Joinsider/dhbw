@@ -2,7 +2,7 @@ package de.joinside.dhbw.ui.schedule.modules
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -24,6 +24,10 @@ fun TimelineView(
         modifier = modifier
             .width(50.dp)
     ) {
+        // Add spacing to match DayColumn header (titleMedium text + vertical padding + divider padding)
+        // Text with vertical padding (8dp top + 8dp bottom) + divider bottom padding (4dp)
+        Spacer(modifier = Modifier.height(48.dp))
+
         for (hour in startHour..endHour) {
             Box(
                 modifier = Modifier.height(hourHeight.dp),
