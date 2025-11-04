@@ -80,6 +80,7 @@ fun LoginForm(
             singleLine = true,
             placeholder = { Text(stringResource(Res.string.enter_username)) },
             isError = uiState.usernameError != null,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             supportingText = {
                 uiState.usernameError?.let {
                     Text(

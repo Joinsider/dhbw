@@ -39,7 +39,10 @@ enum class AppScreen {
 
 @Composable
 @Preview
-fun App() {
+fun App(
+    testAuthenticationService: AuthenticationService? = null,
+    testCredentialsProvider: CredentialsStorageProvider? = null
+) {
     // Ensure Napier is initialized (fallback in case platform didn't initialize it)
     LaunchedEffect(Unit) {
         try {
@@ -53,13 +56,14 @@ fun App() {
     }
 
     // Initialize SecureStorage, SessionManager, and AuthenticationService
+    // Use test dependencies if provided, otherwise create real ones
     val secureStorage = remember { SecureStorage() }
     val secureStorageWrapper = remember { SecureStorageWrapper(secureStorage) }
     val sessionManager = remember { SessionManager(secureStorageWrapper) }
-    val authenticationService = remember { AuthenticationService(sessionManager) }
+    val authenticationService = testAuthenticationService ?: remember { AuthenticationService(sessionManager) }
 
     // Keep CredentialsProvider for backward compatibility with existing UI
-    val credentialsProvider = remember { CredentialsStorageProvider(secureStorageWrapper) }
+    val credentialsProvider = testCredentialsProvider ?: remember { CredentialsStorageProvider(secureStorageWrapper) }
 
     // Navigation state
     var currentScreen by remember { mutableStateOf(AppScreen.WELCOME) }

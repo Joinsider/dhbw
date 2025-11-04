@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.no_lectures_this_week
 import de.joinside.dhbw.ui.schedule.modules.LectureModel
+import androidx.compose.ui.platform.testTag
 import kotlinx.datetime.DayOfWeek
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -34,7 +35,7 @@ fun WeeklyLecturesView(
     if (lectures.isEmpty()) {
         Text(
             text = stringResource(Res.string.no_lectures_this_week),
-            modifier = modifier.padding(16.dp)
+            modifier = modifier.padding(16.dp).testTag("noLecturesMessage")
         )
     } else {
         // Group lectures by day of week

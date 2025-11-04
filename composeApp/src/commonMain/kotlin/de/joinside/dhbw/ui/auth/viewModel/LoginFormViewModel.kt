@@ -59,7 +59,7 @@ class LoginFormViewModel : ViewModel() {
                 uiState = uiState.copy(usernameError = usernameCannotBeEmpty)
                 isValid = false
             }
-            !pattern.matches(uiState.username) -> {
+            !pattern.matches(uiState.username.lowercase()) -> {
                 uiState = uiState.copy(usernameError = usernameInvalidFormat)
                 isValid = false
             }

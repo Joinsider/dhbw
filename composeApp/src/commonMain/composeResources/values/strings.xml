@@ -46,7 +46,7 @@
     <!-- Timetable -->
     <string name="lecturers">Lecturers</string>
     <string name="room">Room</string>
-    <string name="no-lectures-this-week">No lectures scheduled for this week.</string>
+    <string name="no_lectures_this_week">No lectures scheduled this week</string>
 
     <!-- Weekdays -->
     <string name="monday">Monday</string>
