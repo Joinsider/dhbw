@@ -35,7 +35,8 @@ class HtmlParser {
         // Also check for other main page indicators as fallback
         val hasMainPageIndicators = htmlContent.contains("STARTPAGE", ignoreCase = true) ||
                 htmlContent.contains("Home", ignoreCase = true) ||
-                htmlContent.contains("Prüfungsergebnisse", ignoreCase = true)
+                htmlContent.contains("Prüfungsergebnisse", ignoreCase = true) ||
+                htmlContent.contains("Notenspiegel", ignoreCase = true)
 
         val isMain = (hasWelcomeMessage || hasMainPageIndicators) && !isRedirectPage(htmlContent)
 

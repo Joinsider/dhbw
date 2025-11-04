@@ -19,7 +19,7 @@ import io.ktor.http.isSuccess
  * Service for authenticating with Dualis.
  * Handles login, redirect following, session management, and re-authentication.
  */
-class AuthenticationService(
+open class AuthenticationService(
     val sessionManager: SessionManager,
     private val authParser: AuthParser = AuthParser(),
     private val htmlParser: HtmlParser = HtmlParser(),
@@ -39,7 +39,7 @@ class AuthenticationService(
      * Perform login with username and password.
      * @return LoginResult indicating success with auth data or failure
      */
-    suspend fun login(username: String, password: String): LoginResult {
+    open suspend fun login(username: String, password: String): LoginResult {
         Napier.d("=== STARTING LOGIN PROCESS ===", tag = TAG)
         Napier.d("Username: $username", tag = TAG)
         Napier.d("Password length: ${password.length}", tag = TAG)
@@ -241,14 +241,14 @@ class AuthenticationService(
     /**
      * Check if user is authenticated.
      */
-    fun isAuthenticated(): Boolean {
+    open fun isAuthenticated(): Boolean {
         return sessionManager.isAuthenticated()
     }
 
     /**
      * Logout and clear all session data.
      */
-    fun logout() {
+    open fun logout() {
         Napier.d("Logging out", tag = TAG)
         sessionManager.logout()
     }
