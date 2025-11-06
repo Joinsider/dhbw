@@ -7,4 +7,6 @@ import androidx.room.PrimaryKey
 data class LecturerEntity(
     @PrimaryKey(autoGenerate = true) val lecturerId: Long,
     val lecturerName: String,
+    val lecturerEmail: String? = null,
+    val lecturerPhoneNumber: String? = null
 )

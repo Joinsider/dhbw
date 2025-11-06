@@ -8,23 +8,25 @@ import kotlinx.datetime.LocalDateTime
 
 @Entity(
     tableName = "lecture",
+    indices = [
+        Index(value = ["lecturerId"])
+    ],
     foreignKeys = [
         ForeignKey(
-            entity = SubjectEntity::class,
-            parentColumns = ["subjectId"],
-            childColumns = ["subjectId"],
+            entity = LecturerEntity::class,
+            parentColumns = ["lecturerId"],
+            childColumns = ["lecturerId"],
             onDelete = ForeignKey.CASCADE
         )
-    ],
-    indices = [
-        Index(value = ["subjectId"])
     ]
 )
 data class LectureEventEntity(
     @PrimaryKey(autoGenerate = true) val lectureId: Long,
-    val subjectId: Long, // Foreign Key zu Subject Tabelle
+    val subjectName: String,
     val startTime: LocalDateTime,
     val endTime: LocalDateTime,
     val location: String,
-    val isTest: Boolean = false
+    val isTest: Boolean = false,
+    val lecturerId: Long, // Foreign Key zu LecturerEntity
+    val fetchedAt: LocalDateTime? = null
 )

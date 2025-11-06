@@ -2,13 +2,9 @@ package de.joinside.dhbw.data.database.dao.timetable
 
 import de.joinside.dhbw.data.storage.database.AppDatabase
 import de.joinside.dhbw.data.storage.database.entities.timetable.LectureEventEntity
-import de.joinside.dhbw.data.storage.database.entities.timetable.LectureLecturerCrossRef
 import de.joinside.dhbw.data.storage.database.entities.timetable.LecturerEntity
-import de.joinside.dhbw.data.storage.database.entities.timetable.SubjectEntity
 import de.joinside.dhbw.data.storage.database.dao.timetable.LectureEventDao
-import de.joinside.dhbw.data.storage.database.dao.timetable.LectureLecturerCrossRefDao
 import de.joinside.dhbw.data.storage.database.dao.timetable.LecturerDao
-import de.joinside.dhbw.data.storage.database.dao.timetable.SubjectDao
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
@@ -33,17 +29,13 @@ abstract class LectureEventDaoTest {
 
     private lateinit var database: AppDatabase
     private lateinit var lectureDao: LectureEventDao
-    private lateinit var subjectDao: SubjectDao
     private lateinit var lecturerDao: LecturerDao
-    private lateinit var crossRefDao: LectureLecturerCrossRefDao
 
     @BeforeTest
     fun setup() {
         database = createDatabase()
         lectureDao = database.lectureDao()
-        subjectDao = database.subjectDao()
         lecturerDao = database.lecturerDao()
-        crossRefDao = database.lectureLecturerCrossRefDao()
     }
 
     @AfterTest
@@ -54,14 +46,15 @@ abstract class LectureEventDaoTest {
     @Test
     fun insert_and_retrieve_lecture() = runTest {
         // Given
-        val subjectId = subjectDao.insert(SubjectEntity(0L, "Mathematics"))
+        val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Prof. Smith"))
         val lecture = LectureEventEntity(
             lectureId = 0L,
-            subjectId = subjectId,
+            subjectName = "Mathematics",
             startTime = LocalDateTime(2024, 1, 15, 10, 0),
             endTime = LocalDateTime(2024, 1, 15, 12, 0),
             location = "Room A101",
-            isTest = false
+            isTest = false,
+            lecturerId = lecturerId
         )
 
         // When
@@ -70,31 +63,34 @@ abstract class LectureEventDaoTest {
 
         // Then
         assertNotNull(result)
-        assertEquals(subjectId, result.subjectId)
+        assertEquals("Mathematics", result.subjectName)
         assertEquals("Room A101", result.location)
+        assertEquals(lecturerId, result.lecturerId)
         assertTrue(insertedId > 0)
     }
 
     @Test
     fun insertAll_and_getAll() = runTest {
         // Given
-        val subjectId = subjectDao.insert(SubjectEntity(0L, "Physics"))
+        val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Dr. Johnson"))
         val lectures = listOf(
             LectureEventEntity(
                 lectureId = 0L,
-                subjectId = subjectId,
+                subjectName = "Physics",
                 startTime = LocalDateTime(2024, 1, 15, 10, 0),
                 endTime = LocalDateTime(2024, 1, 15, 12, 0),
                 location = "Room A101",
-                isTest = false
+                isTest = false,
+                lecturerId = lecturerId
             ),
             LectureEventEntity(
                 lectureId = 0L,
-                subjectId = subjectId,
+                subjectName = "Physics",
                 startTime = LocalDateTime(2024, 1, 16, 14, 0),
                 endTime = LocalDateTime(2024, 1, 16, 16, 0),
                 location = "Room B202",
-                isTest = false
+                isTest = false,
+                lecturerId = lecturerId
             )
         )
 
@@ -109,14 +105,15 @@ abstract class LectureEventDaoTest {
     @Test
     fun getAllFlow_returns_flow_of_lectures() = runTest {
         // Given
-        val subjectId = subjectDao.insert(SubjectEntity(0L, "Chemistry"))
+        val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Prof. Anderson"))
         val lecture = LectureEventEntity(
             lectureId = 0L,
-            subjectId = subjectId,
+            subjectName = "Chemistry",
             startTime = LocalDateTime(2024, 1, 15, 10, 0),
             endTime = LocalDateTime(2024, 1, 15, 12, 0),
             location = "Lab 1",
-            isTest = false
+            isTest = false,
+            lecturerId = lecturerId
         )
 
         // When
@@ -125,19 +122,21 @@ abstract class LectureEventDaoTest {
 
         // Then
         assertEquals(1, result.size)
+        assertEquals("Chemistry", result[0].subjectName)
     }
 
     @Test
     fun update_lecture() = runTest {
         // Given
-        val subjectId = subjectDao.insert(SubjectEntity(0L, "Biology"))
+        val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Prof. Brown"))
         val lecture = LectureEventEntity(
             lectureId = 0L,
-            subjectId = subjectId,
+            subjectName = "Biology",
             startTime = LocalDateTime(2024, 1, 15, 10, 0),
             endTime = LocalDateTime(2024, 1, 15, 12, 0),
             location = "Room A101",
-            isTest = false
+            isTest = false,
+            lecturerId = lecturerId
         )
         val insertedId = lectureDao.insert(lecture)
 
@@ -156,14 +155,15 @@ abstract class LectureEventDaoTest {
     @Test
     fun delete_lecture() = runTest {
         // Given
-        val subjectId = subjectDao.insert(SubjectEntity(0L, "Mathematics"))
+        val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Dr. Wilson"))
         val lecture = LectureEventEntity(
             lectureId = 0L,
-            subjectId = subjectId,
+            subjectName = "Mathematics",
             startTime = LocalDateTime(2024, 1, 15, 10, 0),
             endTime = LocalDateTime(2024, 1, 15, 12, 0),
             location = "Room A101",
-            isTest = false
+            isTest = false,
+            lecturerId = lecturerId
         )
         val insertedId = lectureDao.insert(lecture)
 
@@ -179,14 +179,15 @@ abstract class LectureEventDaoTest {
     @Test
     fun deleteById_removes_lecture() = runTest {
         // Given
-        val subjectId = subjectDao.insert(SubjectEntity(0L, "Physics"))
+        val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Prof. Garcia"))
         val lecture = LectureEventEntity(
             lectureId = 0L,
-            subjectId = subjectId,
+            subjectName = "Physics",
             startTime = LocalDateTime(2024, 1, 15, 10, 0),
             endTime = LocalDateTime(2024, 1, 15, 12, 0),
             location = "Room A101",
-            isTest = false
+            isTest = false,
+            lecturerId = lecturerId
         )
         val insertedId = lectureDao.insert(lecture)
 
@@ -199,131 +200,24 @@ abstract class LectureEventDaoTest {
     }
 
     @Test
-    fun getBySubject_returns_lectures_for_subject() = runTest {
+    fun cascade_delete_when_lecturer_is_deleted() = runTest {
         // Given
-        val subjectId1 = subjectDao.insert(SubjectEntity(0L, "Mathematics"))
-        val subjectId2 = subjectDao.insert(SubjectEntity(0L, "Physics"))
-
-        lectureDao.insert(
-            LectureEventEntity(
-                lectureId = 0L,
-                subjectId = subjectId1,
-                startTime = LocalDateTime(2024, 1, 15, 10, 0),
-                endTime = LocalDateTime(2024, 1, 15, 12, 0),
-                location = "Room A101",
-                isTest = false
-            )
-        )
-        lectureDao.insert(
-            LectureEventEntity(
-                lectureId = 0L,
-                subjectId = subjectId1,
-                startTime = LocalDateTime(2024, 1, 16, 10, 0),
-                endTime = LocalDateTime(2024, 1, 16, 12, 0),
-                location = "Room A101",
-                isTest = false
-            )
-        )
-        lectureDao.insert(
-            LectureEventEntity(
-                lectureId = 0L,
-                subjectId = subjectId2,
-                startTime = LocalDateTime(2024, 1, 17, 10, 0),
-                endTime = LocalDateTime(2024, 1, 17, 12, 0),
-                location = "Lab 1",
-                isTest = false
-            )
-        )
-
-        // When
-        val mathLectures = lectureDao.getBySubject(subjectId1)
-        val physicsLectures = lectureDao.getBySubject(subjectId2)
-
-        // Then
-        assertEquals(2, mathLectures.size)
-        assertEquals(1, physicsLectures.size)
-        assertTrue(mathLectures.all { it.subjectId == subjectId1 })
-        assertTrue(physicsLectures.all { it.subjectId == subjectId2 })
-    }
-
-    @Test
-    fun getWithLecturers_returns_lecture_with_relations() = runTest {
-        // Given
-        val subjectId = subjectDao.insert(SubjectEntity(0L, "Database Systems"))
-        val lecturerId1 = lecturerDao.insert(LecturerEntity(0L, "Prof. Dr. Smith"))
-        val lecturerId2 = lecturerDao.insert(LecturerEntity(0L, "Dr. Johnson"))
-
+        val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Prof. Martinez"))
         val lectureId = lectureDao.insert(
             LectureEventEntity(
                 lectureId = 0L,
-                subjectId = subjectId,
+                subjectName = "Mathematics",
                 startTime = LocalDateTime(2024, 1, 15, 10, 0),
                 endTime = LocalDateTime(2024, 1, 15, 12, 0),
                 location = "Room A101",
-                isTest = false
-            )
-        )
-
-        crossRefDao.insert(LectureLecturerCrossRef(lectureId, lecturerId1))
-        crossRefDao.insert(LectureLecturerCrossRef(lectureId, lecturerId2))
-
-        // When
-        val result = lectureDao.getWithLecturers(lectureId)
-
-        // Then
-        assertNotNull(result)
-        assertEquals(lectureId, result.lecture.lectureId)
-        assertEquals("Database Systems", result.subject.name)
-        assertEquals(2, result.lecturers.size)
-        assertEquals(setOf("Prof. Dr. Smith", "Dr. Johnson"), result.lecturers.map { it.lecturerName }.toSet())
-    }
-
-    @Test
-    fun getAllWithLecturersFlow_returns_all_lectures_with_relations() = runTest {
-        // Given
-        val subjectId = subjectDao.insert(SubjectEntity(0L, "Software Engineering"))
-        val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Prof. Anderson"))
-
-        val lectureId = lectureDao.insert(
-            LectureEventEntity(
-                lectureId = 0L,
-                subjectId = subjectId,
-                startTime = LocalDateTime(2024, 1, 15, 10, 0),
-                endTime = LocalDateTime(2024, 1, 15, 12, 0),
-                location = "Room A101",
-                isTest = false
-            )
-        )
-
-        crossRefDao.insert(LectureLecturerCrossRef(lectureId, lecturerId))
-
-        // When
-        val result = lectureDao.getAllWithLecturersFlow().first()
-
-        // Then
-        assertEquals(1, result.size)
-        assertEquals("Software Engineering", result[0].subject.name)
-        assertEquals(1, result[0].lecturers.size)
-        assertEquals("Prof. Anderson", result[0].lecturers[0].lecturerName)
-    }
-
-    @Test
-    fun cascade_delete_when_subject_is_deleted() = runTest {
-        // Given
-        val subjectId = subjectDao.insert(SubjectEntity(0L, "Mathematics"))
-        val lectureId = lectureDao.insert(
-            LectureEventEntity(
-                lectureId = 0L,
-                subjectId = subjectId,
-                startTime = LocalDateTime(2024, 1, 15, 10, 0),
-                endTime = LocalDateTime(2024, 1, 15, 12, 0),
-                location = "Room A101",
-                isTest = false
+                isTest = false,
+                lecturerId = lecturerId
             )
         )
 
         // When
-        subjectDao.deleteById(subjectId)
+        val lecturer = lecturerDao.getById(lecturerId)!!
+        lecturerDao.delete(lecturer)
         val result = lectureDao.getById(lectureId)
 
         // Then - lecture should be deleted due to CASCADE
@@ -342,14 +236,15 @@ abstract class LectureEventDaoTest {
     @Test
     fun insert_test_lecture() = runTest {
         // Given
-        val subjectId = subjectDao.insert(SubjectEntity(0L, "Mathematics"))
+        val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Dr. Lee"))
         val testLecture = LectureEventEntity(
             lectureId = 0L,
-            subjectId = subjectId,
+            subjectName = "Mathematics",
             startTime = LocalDateTime(2024, 1, 15, 10, 0),
             endTime = LocalDateTime(2024, 1, 15, 12, 0),
             location = "Room A101",
-            isTest = true
+            isTest = true,
+            lecturerId = lecturerId
         )
 
         // When
@@ -368,5 +263,42 @@ abstract class LectureEventDaoTest {
 
         // Then
         assertNull(result)
+    }
+
+    @Test
+    fun multiple_lectures_with_same_subject_name() = runTest {
+        // Given
+        val lecturerId1 = lecturerDao.insert(LecturerEntity(0L, "Prof. A"))
+        val lecturerId2 = lecturerDao.insert(LecturerEntity(0L, "Prof. B"))
+
+        lectureDao.insert(
+            LectureEventEntity(
+                lectureId = 0L,
+                subjectName = "Computer Science",
+                startTime = LocalDateTime(2024, 1, 15, 10, 0),
+                endTime = LocalDateTime(2024, 1, 15, 12, 0),
+                location = "Room A101",
+                isTest = false,
+                lecturerId = lecturerId1
+            )
+        )
+        lectureDao.insert(
+            LectureEventEntity(
+                lectureId = 0L,
+                subjectName = "Computer Science",
+                startTime = LocalDateTime(2024, 1, 16, 14, 0),
+                endTime = LocalDateTime(2024, 1, 16, 16, 0),
+                location = "Room B202",
+                isTest = false,
+                lecturerId = lecturerId2
+            )
+        )
+
+        // When
+        val result = lectureDao.getAll()
+
+        // Then
+        assertEquals(2, result.size)
+        assertTrue(result.all { it.subjectName == "Computer Science" })
     }
 }
