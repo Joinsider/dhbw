@@ -41,11 +41,13 @@ fun EventModule(
     modifier: Modifier = Modifier,
     smallFont: Boolean = false
 ) {
+    val color = if(lecture.isTest) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(end = 2.dp, bottom = 2.dp)
-            .background(lecture.color, shape = RoundedCornerShape(4.dp))
+            .background(color, shape = RoundedCornerShape(4.dp))
             .padding(4.dp)
     ) {
         if(!smallFont) {

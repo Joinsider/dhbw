@@ -47,25 +47,25 @@ class TimetableParser {
         val lectures = mutableListOf<TempLectureModel>()
 
         try {
-            // Extract the date range from caption (e.g., "Stundenplan vom 03.11. bis 09.11.")
-            val captionPattern = """<caption>\s*Stundenplan vom (\d{2}\.\d{2}\.) bis (\d{2}\.\d{2}\.)\s*</caption>""".toRegex()
-            val captionMatch = captionPattern.find(htmlContent)
-            val weekStart = captionMatch?.groupValues?.get(1)
-            Napier.d("Parsing week starting: $weekStart", tag = TAG)
+            // Extract all weekday dates from headers
+            // Format: <th class="weekday"><a href="...">Mo 03.11.</a></th>
+            val weekDates = extractWeekDates(htmlContent)
+            Napier.d("Extracted week dates: $weekDates", tag = TAG)
 
-            // Pattern to match appointment cells with lecture information
-            val appointmentPattern = """<td class="appointment"[^>]*>([\s\S]*?)</td>""".toRegex()
+            // Pattern to match appointment cells WITH the abbr attribute to determine the day
+            val appointmentPattern = """<td class="appointment"[^>]*abbr="([^"]*)"[^>]*>([\s\S]*?)</td>""".toRegex()
 
             val matches = appointmentPattern.findAll(htmlContent)
 
             for (match in matches) {
-                val cellContent = match.groupValues[1]
+                val abbr = match.groupValues[1] // e.g., "Montag Spalte 1"
+                val cellContent = match.groupValues[2]
 
                 try {
-                    val tempLecture = parseLectureCell(cellContent, htmlContent)
+                    val tempLecture = parseLectureCell(cellContent, abbr, weekDates)
                     if (tempLecture != null) {
                         lectures.add(tempLecture)
-                        Napier.d("Parsed lecture: ${tempLecture.shortSubjectName} at ${tempLecture.startTime}", tag = TAG)
+                        Napier.d("Parsed lecture: ${tempLecture.shortSubjectName} on ${tempLecture.startTime}", tag = TAG)
                     }
                 } catch (e: Exception) {
                     Napier.w("Failed to parse lecture cell: ${e.message}", tag = TAG)
@@ -81,9 +81,53 @@ class TimetableParser {
     }
 
     /**
+     * Extract week dates from table headers.
+     * Returns a map of day name to LocalDateTime.
+     */
+    @OptIn(ExperimentalTime::class)
+    private fun extractWeekDates(htmlContent: String): Map<String, LocalDateTime> {
+        val weekDates = mutableMapOf<String, LocalDateTime>()
+
+        // Pattern: <th class="weekday"><a href="...">Mo 03.11.</a></th>
+        val headerPattern = """<th class="weekday"[^>]*><a[^>]*>(Mo|Di|Mi|Do|Fr|Sa|So) (\d{2})\.(\d{2})\.</a></th>""".toRegex()
+        val matches = headerPattern.findAll(htmlContent)
+
+        val now = kotlin.time.Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val currentYear = now.year
+
+        for (match in matches) {
+            val dayAbbr = match.groupValues[1] // Mo, Di, Mi, etc.
+            val day = match.groupValues[2].toInt()
+            val month = match.groupValues[3].toInt()
+
+            // Map German day abbreviations to full names
+            val fullDayName = when (dayAbbr) {
+                "Mo" -> "Montag"
+                "Di" -> "Dienstag"
+                "Mi" -> "Mittwoch"
+                "Do" -> "Donnerstag"
+                "Fr" -> "Freitag"
+                "Sa" -> "Samstag"
+                "So" -> "Sonntag"
+                else -> dayAbbr
+            }
+
+            val dateTime = LocalDateTime(currentYear, Month(month), day, 0, 0)
+            weekDates[fullDayName] = dateTime
+            Napier.d("Mapped $fullDayName -> $dateTime", tag = TAG)
+        }
+
+        return weekDates
+    }
+
+    /**
      * Parse a single lecture appointment cell from the weekly timetable.
      */
-    private fun parseLectureCell(cellContent: String, fullHtml: String): TempLectureModel? {
+    private fun parseLectureCell(
+        cellContent: String,
+        abbr: String,
+        weekDates: Map<String, LocalDateTime>
+    ): TempLectureModel? {
         try {
             // Extract time period (e.g., "08:15 - 12:00")
             val timePattern = """(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})""".toRegex()
@@ -100,15 +144,15 @@ class TimetableParser {
 
             // Extract location (appears after time, before <br />)
             val locationLines = cellContent.substringAfter(timeMatch.value).substringBefore("<br")
-            val location = locationLines.trim().takeIf { it.isNotEmpty() } ?: "Unknown"
+            // Remove any HTML tags including </span>
+            val location = locationLines
+                .replace("""<[^>]*>""".toRegex(), "")  // Remove all HTML tags
+                .trim()
+                .takeIf { it.isNotEmpty() } ?: "Unknown"
 
             // Extract short subject name and link from <a> tag
             val linkPattern = """<a\s+href="([^"]*)"[^>]*title="([^"]*)"[^>]*>\s*([^<]+)\s*</a>""".toRegex()
-            val linkMatch = linkPattern.find(cellContent)
-
-            if (linkMatch == null) {
-                return null
-            }
+            val linkMatch = linkPattern.find(cellContent) ?: return null
 
             val linkPath = linkMatch.groupValues[1]
             val fullTitle = linkMatch.groupValues[2] // e.g., "Paralleles Programmieren  HOR-TINF2024"
@@ -123,21 +167,27 @@ class TimetableParser {
                 "$BASE_URL/$linkPath"
             }
 
-            // Extract date - need to find which day column this is in
-            val date = extractDateFromContext(cellContent, fullHtml)
+            // Extract day from abbr (e.g., "Montag Spalte 1" -> "Montag")
+            val dayName = abbr.substringBefore(" Spalte").substringBefore(" spalte")
+            val baseDate = weekDates[dayName]
+
+            if (baseDate == null) {
+                Napier.w("Could not find date for day: $dayName (abbr: $abbr)", tag = TAG)
+                return null
+            }
 
             val startTime = LocalDateTime(
-                year = date.year,
-                month = date.month,
-                day = date.day,
+                year = baseDate.year,
+                month = baseDate.month,
+                day = baseDate.day,
                 hour = startHour,
                 minute = startMinute
             )
 
             val endTime = LocalDateTime(
-                year = date.year,
-                month = date.month,
-                day = date.day,
+                year = baseDate.year,
+                month = baseDate.month,
+                day = baseDate.day,
                 hour = endHour,
                 minute = endMinute
             )
@@ -162,30 +212,6 @@ class TimetableParser {
         }
     }
 
-    /**
-     * Extract date from the week table header based on context.
-     * Looks for patterns like "Mo 03.11.", "Di 04.11.", etc.
-     */
-    @OptIn(ExperimentalTime::class)
-    private fun extractDateFromContext(@Suppress("UNUSED_PARAMETER") cellContent: String, fullHtml: String): LocalDateTime {
-        // Try to extract from the table headers
-        val headerPattern = """<th class="weekday"[^>]*><a[^>]*>(?:Mo|Di|Mi|Do|Fr|Sa|So) (\d{2})\.(\d{2})\.</a></th>""".toRegex()
-        val matches = headerPattern.findAll(fullHtml)
-
-        // For now, use the first date found or current date as fallback
-        val firstMatch = matches.firstOrNull()
-        if (firstMatch != null) {
-            val day = firstMatch.groupValues[1].toInt()
-            val month = firstMatch.groupValues[2].toInt()
-            val now = kotlin.time.Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-            val year = now.year // Assume current year
-
-            return LocalDateTime(year, Month(month), day, 0, 0)
-        }
-
-        // Fallback to current date
-        return kotlin.time.Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-    }
 
     /**
      * Parse the individual lecture page HTML and extract detailed information.
@@ -212,7 +238,11 @@ class TimetableParser {
             // Extract full subject name from <h1> tag
             val subjectPattern = """<h1>\s*([^<]+?)\s*</h1>""".toRegex()
             val subjectMatch = subjectPattern.find(htmlContent)
-            val fullSubjectName = subjectMatch?.groupValues?.get(1)?.trim()?.replace("&nbsp;", " ")
+            var fullSubjectName = subjectMatch?.groupValues?.get(1)?.trim()?.replace("&nbsp;", " ")
+
+            // Remove HOR-*** e.g. HOR-TINF2024 from fullSubjectName
+            fullSubjectName = fullSubjectName?.replace(Regex("""HOR-\w+"""), "")?.trim()
+
 
             if (fullSubjectName == null) {
                 Napier.w("Could not extract full subject name from individual page", tag = TAG)

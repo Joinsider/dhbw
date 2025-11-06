@@ -1,5 +1,6 @@
 package de.joinside.dhbw.ui.pages
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -26,18 +27,6 @@ class TimetableViewModel(
 ) {
     companion object {
         private const val TAG = "TimetableViewModel"
-
-        // Color palette for lectures
-        private val lectureColors = listOf(
-            Color(0xFF6200EE), // Purple
-            Color(0xFF03DAC5), // Teal
-            Color(0xFFFF6F00), // Orange
-            Color(0xFF2196F3), // Blue
-            Color(0xFF4CAF50), // Green
-            Color(0xFFE91E63), // Pink
-            Color(0xFF9C27B0), // Deep Purple
-            Color(0xFF00BCD4), // Cyan
-        )
     }
 
     var uiState by mutableStateOf(TimetableUiState())
@@ -84,8 +73,8 @@ class TimetableViewModel(
                 Napier.d("Loading lectures for week offset: $weekOffset", tag = TAG)
 
                 val lectureEntities = lectureService.getLecturesForWeek(weekOffset)
-                val lectureModels = lectureEntities.mapIndexed { index, entity ->
-                    entity.toLectureModel(lectureColors[index % lectureColors.size])
+                val lectureModels = lectureEntities.map { entity ->
+                    entity.toLectureModel()
                 }
 
                 val weekLabel = generateWeekLabel(weekOffset)
@@ -143,11 +132,14 @@ class TimetableViewModel(
 
     /**
      * Convert LectureEventEntity to LectureModel for UI.
+     * Uses primary purple color for regular lectures and red for tests/exams.
      */
-    private fun LectureEventEntity.toLectureModel(color: Color): LectureModel {
+    private fun LectureEventEntity.toLectureModel(): LectureModel {
+        // Use red color for tests/exams, primary purple for regular lectures
+
         return LectureModel(
             name = fullSubjectName ?: shortSubjectName,
-            color = color,
+            isTest = isTest,
             start = startTime,
             end = endTime,
             lecturer = lecturerId?.toString() ?: "Unknown", // TODO: Fetch actual lecturer name
