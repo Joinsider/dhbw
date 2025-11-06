@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
+import kotlin.collections.filter
 
 /**
  * The lecture service handles the business logic for lectures.
@@ -55,12 +56,9 @@ class LectureService(
      */
     suspend fun getLecturesForWeek(week: Int): List<LectureEventEntity> {
         Napier.d("Getting lectures for week $week")
-        val (startDate, endDate) = TimeHelper.getCurrentWeekDates()
+        val (start, end) = TimeHelper.getWeekDatesRelativeToCurrentWeek(week)
 
-        // TODO: Get the start and end date of the given week relative to the current week with the number
-
-
-        return getLecturesForDateRange(startDate, endDate)
+        return getLecturesForDateRange(start, end)
     }
 
     /**
@@ -138,17 +136,24 @@ class LectureService(
     private suspend fun storeLecturesInDatabase(lectures: List<LectureEventEntity>) {
         Napier.d("Storing ${lectures.size} lectures in database")
 
+        // Get the first date and last date of the lectures
+        val firstDate = lectures.minByOrNull { it.startTime }?.startTime
+        val lastDate = lectures.maxByOrNull { it.endTime } ?.endTime
+
         // Delete all existing lectures before inserting new ones
-        // TODO: Consider implementing a more sophisticated sync strategy that only updates changed lectures
-        val existingLectures = database.lectureDao().getAll()
+        if(firstDate == null || lastDate == null || firstDate > lastDate || lectures.isEmpty()) return
+
+        Napier.d("Deleting existing lectures before inserting new ones")
+        val existingLectures = database.lectureDao().getAll().filter {
+            it.startTime >= firstDate && it.endTime <= lastDate
+        }
+
         existingLectures.forEach { lecture ->
             database.lectureDao().delete(lecture)
         }
 
         // Insert new lectures
-        if (lectures.isNotEmpty()) {
-            database.lectureDao().insertAll(lectures)
-        }
+        database.lectureDao().insertAll(lectures)
 
         // Update sync metadata with current timestamp
         val currentTime = TimeHelper.now()

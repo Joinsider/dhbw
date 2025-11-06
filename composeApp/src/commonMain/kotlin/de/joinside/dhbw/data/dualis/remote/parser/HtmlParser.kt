@@ -30,7 +30,11 @@ class HtmlParser {
      */
     fun isMainPage(htmlContent: String): Boolean {
         // Check for the welcome message which appears on the actual main page (MLSSTART)
-        val hasWelcomeMessage = htmlContent.contains("Herzlich willkommen,", ignoreCase = true) || htmlContent.contains("Welcome,", ignoreCase = true)
+        val hasWelcomeMessage =
+            htmlContent.contains("Herzlich willkommen,", ignoreCase = true) || htmlContent.contains(
+                "Welcome,",
+                ignoreCase = true
+            )
 
         // Also check for other main page indicators as fallback
         val hasMainPageIndicators = htmlContent.contains("STARTPAGE", ignoreCase = true) ||
@@ -40,7 +44,10 @@ class HtmlParser {
 
         val isMain = (hasWelcomeMessage || hasMainPageIndicators) && !isRedirectPage(htmlContent)
 
-        Napier.d("Is main page: $isMain (hasWelcome: $hasWelcomeMessage, hasIndicators: $hasMainPageIndicators)", tag = TAG)
+        Napier.d(
+            "Is main page: $isMain (hasWelcome: $hasWelcomeMessage, hasIndicators: $hasMainPageIndicators)",
+            tag = TAG
+        )
         return isMain
     }
 
@@ -64,7 +71,10 @@ class HtmlParser {
         Napier.d("Searching for welcome message in HTML content", tag = TAG)
 
         // Check if the content contains the welcome phrase
-        val hasWelcome = htmlContent.contains("Herzlich willkommen", ignoreCase = true) || htmlContent.contains("Welcome", ignoreCase = true)
+        val hasWelcome = htmlContent.contains(
+            "Herzlich willkommen",
+            ignoreCase = true
+        ) || htmlContent.contains("Welcome", ignoreCase = true)
         Napier.d("HTML contains 'Herzlich willkommen': $hasWelcome", tag = TAG)
 
         if (hasWelcome) {
@@ -77,7 +87,8 @@ class HtmlParser {
             Napier.d("Welcome message context: $context", tag = TAG)
         }
 
-        val namePattern = """<h1>\s*(?:Herzlich willkommen|Welcome),\s*([^!<]+)!\s*</h1>""".toRegex(RegexOption.IGNORE_CASE)
+        val namePattern =
+            """<h1>\s*(?:Herzlich willkommen|Welcome),\s*([^!<]+)!\s*</h1>""".toRegex(RegexOption.IGNORE_CASE)
         val match = namePattern.find(htmlContent)
 
         if (match != null) {
@@ -88,7 +99,8 @@ class HtmlParser {
             Napier.w("✗ Regex pattern did not match in HTML content", tag = TAG)
 
             // Try alternative patterns for debugging and as fallback
-            val altH1Pattern = """<h1>\s*(?:Herzlich willkommen|Welcome),\s*([^!<]+)!""".toRegex(RegexOption.IGNORE_CASE)
+            val altH1Pattern =
+                """<h1>\s*(?:Herzlich willkommen|Welcome),\s*([^!<]+)!""".toRegex(RegexOption.IGNORE_CASE)
             val altH1Match = altH1Pattern.find(htmlContent)
             if (altH1Match != null) {
                 val candidate = altH1Match.groupValues[1].trim()
@@ -96,7 +108,8 @@ class HtmlParser {
                 return candidate
             }
 
-            val simplePattern = """(?:Herzlich willkommen|Welcome),\s*([^!<]+)!""".toRegex(RegexOption.IGNORE_CASE)
+            val simplePattern =
+                """(?:Herzlich willkommen|Welcome),\s*([^!<]+)!""".toRegex(RegexOption.IGNORE_CASE)
             val simpleMatch = simplePattern.find(htmlContent)
             if (simpleMatch != null) {
                 val candidate = simpleMatch.groupValues[1].trim()
@@ -108,5 +121,52 @@ class HtmlParser {
 
             return null
         }
+    }
+
+    /**
+     * Check if page is an error page
+     * This could include something like invalid, timeout, expired, missing credentials etc.
+     * @returns true if page is an error page
+     */
+    fun isErrorPage(htmlContent: String): Boolean {
+        // Check for the specific error page patterns from Dualis
+
+        // 1. Check for "Zugang verweigert" (Access denied) - most common error
+        if (htmlContent.contains("Zugang verweigert", ignoreCase = true)) {
+            Napier.d("Error page detected: Zugang verweigert (Access denied)", tag = TAG)
+            return true
+        }
+
+        // 2. Check for access_denied body class
+        if (htmlContent.contains("class=\"access_denied\"", ignoreCase = true) ||
+            htmlContent.contains("class='access_denied'", ignoreCase = true)) {
+            Napier.d("Error page detected: access_denied body class", tag = TAG)
+            return true
+        }
+
+        // 3. Check for other common German/English error patterns
+        val errorPatterns = listOf(
+            "fehler",                           // German for 'error'
+            "ungültig",                         // Invalid in German
+            "anmeldung fehlgeschlagen",         // Login failed in German
+            "login failed",                     // Login failed
+            "session.*ungültig",                // Invalid session in German
+            "session.*expired",                 // Session expired
+            "abgelaufen",                       // Expired in German
+            "keine berechtigung",               // No permission in German
+            "not authorized",                   // Not authorized
+            "zugriff.*verweigert",              // Access denied pattern
+            "access.*denied"                    // Access denied pattern
+        )
+
+        for (pattern in errorPatterns) {
+            if (htmlContent.contains(pattern.toRegex(RegexOption.IGNORE_CASE))) {
+                Napier.d("Error page detected: pattern '$pattern'", tag = TAG)
+                return true
+            }
+        }
+
+        Napier.d("No error patterns detected in page", tag = TAG)
+        return false
     }
 }

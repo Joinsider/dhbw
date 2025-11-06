@@ -22,11 +22,12 @@ import kotlinx.datetime.LocalDateTime
 )
 data class LectureEventEntity(
     @PrimaryKey(autoGenerate = true) val lectureId: Long,
-    val subjectName: String,
+    val shortSubjectName: String,
+    val fullSubjectName: String? = null, // TODO: Add tests for the fullLectureName
     val startTime: LocalDateTime,
     val endTime: LocalDateTime,
     val location: String,
     val isTest: Boolean = false,
-    val lecturerId: Long, // Foreign Key zu LecturerEntity
+    val lecturerId: Long? = null, // Foreign Key zu LecturerEntity // TODO: Add tests for the lecturerId if it is not there
     val fetchedAt: LocalDateTime? = null
 )

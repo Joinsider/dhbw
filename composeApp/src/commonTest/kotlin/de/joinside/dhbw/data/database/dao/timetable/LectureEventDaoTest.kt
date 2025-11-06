@@ -49,7 +49,7 @@ abstract class LectureEventDaoTest {
         val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Prof. Smith"))
         val lecture = LectureEventEntity(
             lectureId = 0L,
-            subjectName = "Mathematics",
+            shortSubjectName = "Mathematics",
             startTime = LocalDateTime(2024, 1, 15, 10, 0),
             endTime = LocalDateTime(2024, 1, 15, 12, 0),
             location = "Room A101",
@@ -63,7 +63,7 @@ abstract class LectureEventDaoTest {
 
         // Then
         assertNotNull(result)
-        assertEquals("Mathematics", result.subjectName)
+        assertEquals("Mathematics", result.shortSubjectName)
         assertEquals("Room A101", result.location)
         assertEquals(lecturerId, result.lecturerId)
         assertTrue(insertedId > 0)
@@ -76,7 +76,7 @@ abstract class LectureEventDaoTest {
         val lectures = listOf(
             LectureEventEntity(
                 lectureId = 0L,
-                subjectName = "Physics",
+                shortSubjectName = "Physics",
                 startTime = LocalDateTime(2024, 1, 15, 10, 0),
                 endTime = LocalDateTime(2024, 1, 15, 12, 0),
                 location = "Room A101",
@@ -85,7 +85,7 @@ abstract class LectureEventDaoTest {
             ),
             LectureEventEntity(
                 lectureId = 0L,
-                subjectName = "Physics",
+                shortSubjectName = "Physics",
                 startTime = LocalDateTime(2024, 1, 16, 14, 0),
                 endTime = LocalDateTime(2024, 1, 16, 16, 0),
                 location = "Room B202",
@@ -108,7 +108,7 @@ abstract class LectureEventDaoTest {
         val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Prof. Anderson"))
         val lecture = LectureEventEntity(
             lectureId = 0L,
-            subjectName = "Chemistry",
+            shortSubjectName = "Chemistry",
             startTime = LocalDateTime(2024, 1, 15, 10, 0),
             endTime = LocalDateTime(2024, 1, 15, 12, 0),
             location = "Lab 1",
@@ -122,7 +122,7 @@ abstract class LectureEventDaoTest {
 
         // Then
         assertEquals(1, result.size)
-        assertEquals("Chemistry", result[0].subjectName)
+        assertEquals("Chemistry", result[0].shortSubjectName)
     }
 
     @Test
@@ -131,7 +131,7 @@ abstract class LectureEventDaoTest {
         val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Prof. Brown"))
         val lecture = LectureEventEntity(
             lectureId = 0L,
-            subjectName = "Biology",
+            shortSubjectName = "Biology",
             startTime = LocalDateTime(2024, 1, 15, 10, 0),
             endTime = LocalDateTime(2024, 1, 15, 12, 0),
             location = "Room A101",
@@ -158,7 +158,7 @@ abstract class LectureEventDaoTest {
         val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Dr. Wilson"))
         val lecture = LectureEventEntity(
             lectureId = 0L,
-            subjectName = "Mathematics",
+            shortSubjectName = "Mathematics",
             startTime = LocalDateTime(2024, 1, 15, 10, 0),
             endTime = LocalDateTime(2024, 1, 15, 12, 0),
             location = "Room A101",
@@ -182,7 +182,7 @@ abstract class LectureEventDaoTest {
         val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Prof. Garcia"))
         val lecture = LectureEventEntity(
             lectureId = 0L,
-            subjectName = "Physics",
+            shortSubjectName = "Physics",
             startTime = LocalDateTime(2024, 1, 15, 10, 0),
             endTime = LocalDateTime(2024, 1, 15, 12, 0),
             location = "Room A101",
@@ -206,7 +206,7 @@ abstract class LectureEventDaoTest {
         val lectureId = lectureDao.insert(
             LectureEventEntity(
                 lectureId = 0L,
-                subjectName = "Mathematics",
+                shortSubjectName = "Mathematics",
                 startTime = LocalDateTime(2024, 1, 15, 10, 0),
                 endTime = LocalDateTime(2024, 1, 15, 12, 0),
                 location = "Room A101",
@@ -239,7 +239,7 @@ abstract class LectureEventDaoTest {
         val lecturerId = lecturerDao.insert(LecturerEntity(0L, "Dr. Lee"))
         val testLecture = LectureEventEntity(
             lectureId = 0L,
-            subjectName = "Mathematics",
+            shortSubjectName = "Mathematics",
             startTime = LocalDateTime(2024, 1, 15, 10, 0),
             endTime = LocalDateTime(2024, 1, 15, 12, 0),
             location = "Room A101",
@@ -274,7 +274,7 @@ abstract class LectureEventDaoTest {
         lectureDao.insert(
             LectureEventEntity(
                 lectureId = 0L,
-                subjectName = "Computer Science",
+                shortSubjectName = "Computer Science",
                 startTime = LocalDateTime(2024, 1, 15, 10, 0),
                 endTime = LocalDateTime(2024, 1, 15, 12, 0),
                 location = "Room A101",
@@ -285,7 +285,7 @@ abstract class LectureEventDaoTest {
         lectureDao.insert(
             LectureEventEntity(
                 lectureId = 0L,
-                subjectName = "Computer Science",
+                shortSubjectName = "Computer Science",
                 startTime = LocalDateTime(2024, 1, 16, 14, 0),
                 endTime = LocalDateTime(2024, 1, 16, 16, 0),
                 location = "Room B202",
@@ -299,6 +299,6 @@ abstract class LectureEventDaoTest {
 
         // Then
         assertEquals(2, result.size)
-        assertTrue(result.all { it.subjectName == "Computer Science" })
+        assertTrue(result.all { it.shortSubjectName == "Computer Science" })
     }
 }
