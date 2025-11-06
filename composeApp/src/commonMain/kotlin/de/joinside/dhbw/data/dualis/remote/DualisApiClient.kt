@@ -17,15 +17,26 @@ import io.ktor.http.isSuccess
  *
  * This client is used by all Dualis services (lecture service, grades service, etc.).
  * Rate limiting can be added here in the future.
+ *
+ * IMPORTANT: Pass the same HttpClient instance used by AuthenticationService to share cookies!
  */
 class DualisApiClient(
-    private val client: HttpClient = HttpClient {
-        expectSuccess = false
-        install(HttpCookies)
-    }
+    private val client: HttpClient
 ) {
     companion object {
         private const val TAG = "DualisApiClient"
+
+        /**
+         * Create a new DualisApiClient with a default HttpClient configuration.
+         * For production use, prefer passing the same HttpClient used by AuthenticationService.
+         */
+        fun createDefault(): DualisApiClient {
+            val client = HttpClient {
+                expectSuccess = false
+                install(HttpCookies)
+            }
+            return DualisApiClient(client)
+        }
     }
 
     /**

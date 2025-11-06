@@ -12,6 +12,7 @@ import io.github.aakira.napier.Napier
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -97,7 +98,7 @@ class DualisLectureService(
             }
 
             // Format date as DD.MM.YYYY (German format used by Dualis)
-            val dateString = "${date.day.toString().padStart(2, '0')}.${date.month.toString().padStart(2, '0')}.${date.year}"
+            val dateString = "${date.day.toString().padStart(2, '0')}.${date.month.number.toString().padStart(2, '0')}.${date.year}"
 
             // Build URL parameters
             // Note: User ID and course ID would normally be extracted from session
