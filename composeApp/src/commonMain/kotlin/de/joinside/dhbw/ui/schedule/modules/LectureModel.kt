@@ -5,7 +5,7 @@ import kotlinx.datetime.LocalDateTime
 
 data class LectureModel(
     val name: String,
-    val color: Color,
+    val isTest: Boolean,
     val start: LocalDateTime,
     val end: LocalDateTime,
     val lecturer: String,
