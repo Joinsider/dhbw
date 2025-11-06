@@ -11,7 +11,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
-import kotlin.collections.filter
 
 /**
  * The lecture service handles the business logic for lectures.
@@ -21,11 +20,11 @@ import kotlin.collections.filter
  * If lectures are found in the database, but the stored fetchDate is older than 3 days ago,
  * it will fetch the dualis API again in the background and return the new lectures but in the meantime it should still return the stored lectures.
  * That way the user won't have to wait until dualis is fetched successfully.
- *
  */
 class LectureService(
     private val database: AppDatabase,
-    private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
+    private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO),
+    private val dualisLectureService: DualisLectureService
 ) {
     companion object {
         private const val SYNC_KEY_TIMETABLE = "timetable"
@@ -80,51 +79,95 @@ class LectureService(
         val lectures = getLecturesForWeekFromDatabase(startDate, endDate)
         if (lectures.isEmpty()) {
             Napier.d("No lectures in database, fetching from Dualis")
-            val dualisLectures = DualisLectureService.getWeeklyLecturesForWeek(startDate, endDate)
-            storeLecturesInDatabase(dualisLectures)
-            return dualisLectures
+            return fetchAndStoreLecturesFromDualis(startDate, endDate)
         }
+
         // Check if data is stale (older than 3 days)
-        // TODO: Only check the dates within this week not every event in the db as this would result in a lot of false positives
-        checkAndRefreshIfStale()
+        checkAndRefreshIfStale(startDate, endDate)
         return lectures
     }
 
+    /**
+     * Get lectures from database for a specific week.
+     */
     private suspend fun getLecturesForWeekFromDatabase(
         monday: LocalDateTime,
         sunday: LocalDateTime
     ): List<LectureEventEntity> {
         Napier.d("Getting lectures for week from database")
-        return database.lectureDao().getAll().filter(
-            { lecture ->
-                lecture.startTime >= monday && lecture.endTime <= sunday
+        return database.lectureDao().getAll().filter { lecture ->
+            lecture.startTime >= monday && lecture.endTime <= sunday
+        }
+    }
+
+    /**
+     * Fetch lectures from Dualis API for a specific date range and store them in database.
+     *
+     * @param startDate LocalDateTime - Start of the date range
+     * @param endDate LocalDateTime - End of the date range
+     * @return List<LectureEventEntity>
+     */
+    private suspend fun fetchAndStoreLecturesFromDualis(
+        startDate: LocalDateTime,
+        endDate: LocalDateTime
+    ): List<LectureEventEntity> {
+        Napier.d("Fetching lectures from Dualis for range: $startDate to $endDate")
+
+        try {
+            val result = dualisLectureService.getWeeklyLecturesForWeek(startDate, endDate)
+
+            return when {
+                result.isSuccess -> {
+                    val lectures = result.getOrNull() ?: emptyList()
+                    if (lectures.isNotEmpty()) {
+                        storeLecturesInDatabase(lectures)
+                        Napier.d("Successfully fetched and stored ${lectures.size} lectures from Dualis")
+                    } else {
+                        Napier.w("Dualis returned no lectures for the requested range")
+                    }
+                    lectures
+                }
+                result.isFailure -> {
+                    val error = result.exceptionOrNull()
+                    Napier.e("Failed to fetch lectures from Dualis: ${error?.message}", error)
+                    emptyList()
+                }
+                else -> emptyList()
             }
-        )
+        } catch (e: Exception) {
+            Napier.e("Exception while fetching lectures from Dualis: ${e.message}", e)
+            return emptyList()
+        }
     }
 
     /**
-     * Get lectures from database.
+     * Fetch lectures from Dualis API for current week.
      *
      * @return List<LectureEventEntity>
      */
-    private suspend fun getAllLecturesFromDatabase(): List<LectureEventEntity> {
-        Napier.d("Getting lectures from database")
-        return database.lectureDao().getAll()
-    }
+    private suspend fun fetchLecturesFromDualisForCurrentWeek(): List<LectureEventEntity> {
+        Napier.d("Fetching current week lectures from Dualis")
 
-    /**
-     * Get lectures from dualis api.
-     *
-     * @return List<LectureEventEntity>
-     */
-    private fun getAllLecturesFromDualis(): List<LectureEventEntity> {
-        Napier.d("Getting lectures from dualis")
-        // TODO: Implement Dualis API integration
-        // TODO: 1. Use DualisLectureService to fetch lectures from Dualis
-        // TODO: 2. Parse the response and convert to LectureEventEntity list
-        // TODO: 3. Handle authentication errors and network errors
-        // TODO: 4. Return the parsed lectures
-        return emptyList()
+        try {
+            val result = dualisLectureService.getWeeklyLecturesForCurrentWeek()
+
+            return when {
+                result.isSuccess -> {
+                    val lectures = result.getOrNull() ?: emptyList()
+                    Napier.d("Successfully fetched ${lectures.size} lectures from Dualis")
+                    lectures
+                }
+                result.isFailure -> {
+                    val error = result.exceptionOrNull()
+                    Napier.e("Failed to fetch current week lectures from Dualis: ${error?.message}", error)
+                    emptyList()
+                }
+                else -> emptyList()
+            }
+        } catch (e: Exception) {
+            Napier.e("Exception while fetching current week lectures from Dualis: ${e.message}", e)
+            return emptyList()
+        }
     }
 
     /**
@@ -138,10 +181,10 @@ class LectureService(
 
         // Get the first date and last date of the lectures
         val firstDate = lectures.minByOrNull { it.startTime }?.startTime
-        val lastDate = lectures.maxByOrNull { it.endTime } ?.endTime
+        val lastDate = lectures.maxByOrNull { it.endTime }?.endTime
 
         // Delete all existing lectures before inserting new ones
-        if(firstDate == null || lastDate == null || firstDate > lastDate || lectures.isEmpty()) return
+        if (firstDate == null || lastDate == null || firstDate > lastDate || lectures.isEmpty()) return
 
         Napier.d("Deleting existing lectures before inserting new ones")
         val existingLectures = database.lectureDao().getAll().filter {
@@ -169,8 +212,11 @@ class LectureService(
     /**
      * Check if data is stale and trigger background refresh if needed.
      * Does not block the current thread.
+     *
+     * @param startDate LocalDateTime - Start of the date range
+     * @param endDate LocalDateTime - End of the date range
      */
-    private suspend fun checkAndRefreshIfStale() {
+    private suspend fun checkAndRefreshIfStale(startDate: LocalDateTime, endDate: LocalDateTime) {
         val syncMetadata = database.syncMetadataDao().getSyncMetadata(SYNC_KEY_TIMETABLE)
         if (syncMetadata != null && TimeHelper.isDataStale(
                 syncMetadata.lastSyncTimestamp,
@@ -178,28 +224,29 @@ class LectureService(
             )
         ) {
             Napier.d("Lectures are stale (last sync: ${syncMetadata.lastSyncTimestamp}), refreshing in background")
-            refreshLecturesInBackground()
+            refreshLecturesInBackground(startDate, endDate)
         }
     }
 
     /**
      * Refresh lectures in background without blocking the current thread.
      * Fetches from Dualis and updates the database.
+     *
+     * @param startDate LocalDateTime - Start of the date range
+     * @param endDate LocalDateTime - End of the date range
      */
-    private fun refreshLecturesInBackground() {
-        Napier.d("Triggering background refresh of lectures")
+    private fun refreshLecturesInBackground(startDate: LocalDateTime, endDate: LocalDateTime) {
+        Napier.d("Triggering background refresh of lectures for range: $startDate to $endDate")
         coroutineScope.launch {
             try {
-                val dualisLectures = getAllLecturesFromDualis()
+                val dualisLectures = fetchAndStoreLecturesFromDualis(startDate, endDate)
                 if (dualisLectures.isNotEmpty()) {
-                    storeLecturesInDatabase(dualisLectures)
-                    Napier.d("Background refresh completed successfully")
+                    Napier.d("Background refresh completed successfully with ${dualisLectures.size} lectures")
                 } else {
                     Napier.w("Background refresh returned no lectures")
                 }
             } catch (e: Exception) {
                 Napier.e("Error during background refresh: ${e.message}", e)
-                // TODO: Consider implementing retry logic or error handling strategy
             }
         }
     }
