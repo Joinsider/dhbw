@@ -4,39 +4,66 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
+import de.joinside.dhbw.data.dualis.remote.session.SessionManager
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import de.joinside.dhbw.data.storage.credentials.SecureStorage
-import de.joinside.dhbw.resources.Res
-import de.joinside.dhbw.resources.app_name
-import de.joinside.dhbw.resources.login_with_dualis_account
-import de.joinside.dhbw.ui.auth.LoginForm
+import de.joinside.dhbw.data.storage.credentials.SecureStorageWrapper
 import de.joinside.dhbw.ui.auth.LoginFormResultPage
+import de.joinside.dhbw.ui.pages.GradesPage
+import de.joinside.dhbw.ui.pages.SettingsPage
+import de.joinside.dhbw.ui.pages.Startpage
+import de.joinside.dhbw.ui.pages.TimetablePage
 import de.joinside.dhbw.ui.theme.DHBWHorbTheme
-import org.jetbrains.compose.resources.stringResource
+import de.joinside.dhbw.util.isMobilePlatform
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import io.github.aakira.napier.DebugAntilog
+import io.github.aakira.napier.Napier
 
 enum class AppScreen {
     WELCOME,
     LOGIN,
-    RESULT
+    RESULT,
+    TIMETABLE,
+    GRADES,
+    SETTINGS
 }
 
 @Composable
 @Preview
-fun App() {
-    // Initialize SecureStorage and CredentialsProvider
+fun App(
+    testAuthenticationService: AuthenticationService? = null,
+    testCredentialsProvider: CredentialsStorageProvider? = null
+) {
+    // Ensure Napier is initialized (fallback in case platform didn't initialize it)
+    LaunchedEffect(Unit) {
+        try {
+            // Test if Napier is initialized by attempting to log
+            Napier.d("App() composable started", tag = "App")
+        } catch (_: Exception) {
+            // If not initialized, initialize it now
+            Napier.base(DebugAntilog())
+            Napier.d("Napier initialized from App() composable", tag = "App")
+        }
+    }
+
+    // Initialize SecureStorage, SessionManager, and AuthenticationService
+    // Use test dependencies if provided, otherwise create real ones
     val secureStorage = remember { SecureStorage() }
-    val credentialsProvider = remember { CredentialsStorageProvider(secureStorage) }
+    val secureStorageWrapper = remember { SecureStorageWrapper(secureStorage) }
+    val sessionManager = remember { SessionManager(secureStorageWrapper) }
+    val authenticationService = testAuthenticationService ?: remember { AuthenticationService(sessionManager) }
+
+    // Keep CredentialsProvider for backward compatibility with existing UI
+    val credentialsProvider = testCredentialsProvider ?: remember { CredentialsStorageProvider(secureStorageWrapper) }
 
     // Navigation state
     var currentScreen by remember { mutableStateOf(AppScreen.WELCOME) }
@@ -44,7 +71,7 @@ fun App() {
 
     // Session check on startup
     LaunchedEffect(Unit) {
-        isLoggedIn = credentialsProvider.hasStoredCredentials()
+        isLoggedIn = authenticationService.isAuthenticated()
         if (isLoggedIn) {
             currentScreen = AppScreen.RESULT
         }
@@ -54,62 +81,120 @@ fun App() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .safeContentPadding()
                 .background(MaterialTheme.colorScheme.background)
-                .testTag("appContainer"),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+                .testTag("appContainer")
         ) {
             when (currentScreen) {
                 AppScreen.WELCOME -> {
-                    Text(
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("appTitle"),
-                        text = stringResource(Res.string.app_name),
-                        style = MaterialTheme.typography.headlineLarge,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-
-                    Button(
-                        onClick = { currentScreen = AppScreen.LOGIN },
-                        modifier = Modifier.testTag("loginWithDualisButton")
+                            .fillMaxSize()
+                            .safeContentPadding(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Text(text = stringResource(Res.string.login_with_dualis_account))
+                        Startpage(
+                            onLoginSuccess = {
+                                currentScreen = AppScreen.LOGIN
+                            },
+                            authenticationService = authenticationService,
+                            credentialsProvider = credentialsProvider,
+                        )
                     }
                 }
 
                 AppScreen.LOGIN -> {
-                    Text(
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("appTitle"),
-                        text = stringResource(Res.string.app_name),
-                        style = MaterialTheme.typography.headlineLarge,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-
-                    LoginForm(
-                        credentialsProvider = credentialsProvider,
-                        onLoginSuccess = {
-                            isLoggedIn = true
-                            currentScreen = AppScreen.RESULT
-                        }
-                    )
+                            .fillMaxSize()
+                            .safeContentPadding(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Startpage(
+                            onLoginSuccess = {
+                                isLoggedIn = true
+                                currentScreen = AppScreen.RESULT
+                            },
+                            authenticationService = authenticationService,
+                            credentialsProvider = credentialsProvider,
+                        )
+                    }
                 }
 
                 AppScreen.RESULT -> {
-                    LoginFormResultPage(
-                        credentialsProvider = credentialsProvider,
-                        onLogout = {
-                            isLoggedIn = false
-                            currentScreen = AppScreen.WELCOME
-                        }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 16.dp)
+                            .safeContentPadding(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        LoginFormResultPage(
+                            credentialsProvider = credentialsProvider,
+                            onLogout = {
+                                authenticationService.logout()
+                                isLoggedIn = false
+                                currentScreen = AppScreen.WELCOME
+                            },
+                            authService = authenticationService,
+                            onNavigateToTimetable = {
+                                currentScreen = AppScreen.TIMETABLE
+                            }
+                        )
+                    }
+                }
+
+                AppScreen.TIMETABLE -> {
+                    TimetablePage(
+                        onNavigateToResult = {
+                            currentScreen = AppScreen.RESULT
+                        },
+                        onNavigateToGrades = {
+                            currentScreen = AppScreen.GRADES
+                        },
+                        onNavigateToSettings = {
+                            currentScreen = AppScreen.SETTINGS
+                        },
+                        isLoggedIn = isLoggedIn,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 16.dp)
+                    )
+                }
+
+                AppScreen.GRADES -> {
+                    GradesPage(
+                        onNavigateToTimetable = {
+                            currentScreen = AppScreen.TIMETABLE
+                        },
+                        onNavigateToSettings = {
+                            currentScreen = AppScreen.SETTINGS
+                        },
+                        isLoggedIn = isLoggedIn,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 16.dp)
+                    )
+                }
+
+                AppScreen.SETTINGS -> {
+                    SettingsPage(
+                        onNavigateToTimetable = {
+                            currentScreen = AppScreen.TIMETABLE
+                        },
+                        onNavigateToGrades = {
+                            currentScreen = AppScreen.GRADES
+                        },
+                        isLoggedIn = isLoggedIn,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 16.dp)
                     )
                 }
             }
         }
     }
 }
+

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,6 +28,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import de.joinside.dhbw.data.dualis.remote.models.AuthData
+import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
@@ -34,16 +37,35 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 @Preview
 fun LoginFormResultPage(
     credentialsProvider: CredentialsStorageProvider,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    authService: AuthenticationService,
+    onNavigateToTimetable: () -> Unit = {}
 ) {
     var isLoggedIn by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf("") }
+    var authData by remember { mutableStateOf<AuthData?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
 
-    // Check credentials on composition and whenever they might change
+    // Check authentication status on composition
     LaunchedEffect(Unit) {
-        isLoggedIn = credentialsProvider.hasStoredCredentials()
+        println("LoginFormResultPage: Starting authentication check")
+        isLoggedIn = authService.isAuthenticated()
+        println("LoginFormResultPage: isLoggedIn = $isLoggedIn")
+        isLoading = false
+
         if (isLoggedIn) {
-            username = credentialsProvider.getUsername()
+            // Get session data
+            val sessionManager = authService.sessionManager
+            authData = sessionManager.getAuthData()
+            println("LoginFormResultPage: Retrieved authData from SessionManager")
+            println("LoginFormResultPage: authData = $authData")
+            println("LoginFormResultPage: authData.userFullName = ${authData?.userFullName}")
+
+            username =
+                sessionManager.getStoredCredentials()?.first ?: credentialsProvider.getUsername()
+            println("LoginFormResultPage: username = $username")
+        } else {
+            println("LoginFormResultPage: User is not logged in")
         }
     }
 
@@ -55,8 +77,18 @@ fun LoginFormResultPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        if (isLoggedIn) {
-            // Success state - credentials are stored
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.testTag("loadingIndicator")
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Checking authentication...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        } else if (isLoggedIn) {
+            // Success state - user is authenticated
             Icon(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = "Success",
@@ -70,7 +102,7 @@ fun LoginFormResultPage(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Credentials Stored",
+                text = "Authentication Successful",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -86,6 +118,20 @@ fun LoginFormResultPage(
                 modifier = Modifier.testTag("usernameDisplayText")
             )
 
+            // Display user's full name if available
+            authData?.userFullName?.let { fullName ->
+                println("LoginFormResultPage: Displaying full name: '$fullName'")
+                Text(
+                    text = "Name: $fullName",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.testTag("fullNameDisplayText")
+                )
+            } ?: run {
+                println("LoginFormResultPage: Full name is null, not displaying")
+            }
+
             Text(
                 text = "Password: ********",
                 style = MaterialTheme.typography.bodyLarge,
@@ -93,7 +139,49 @@ fun LoginFormResultPage(
                 modifier = Modifier.testTag("passwordDisplayText")
             )
 
+            authData?.let { data ->
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (data.sessionId.isNotEmpty()) {
+                    Text(
+                        text = "Session ID: ${data.sessionId.take(10)}...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    )
+                }
+
+                if (data.authToken.isNotEmpty()) {
+                    Text(
+                        text = "Auth Token: ${data.authToken.take(10)}...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    )
+                }
+            }
+
+            Text(
+                text = "Dualis Login: Successful",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.testTag("dualisLoginStatusText")
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = {
+                    onNavigateToTimetable()
+                },
+                modifier = Modifier
+                    .testTag("goToTimetableButton")
+                    .width(250.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Text("Go to Timetable page")
+            }
 
             Button(
                 onClick = {
@@ -145,3 +233,4 @@ fun LoginFormResultPage(
         }
     }
 }
+

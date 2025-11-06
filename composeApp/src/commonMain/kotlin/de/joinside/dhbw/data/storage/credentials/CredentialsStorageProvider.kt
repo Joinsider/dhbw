@@ -10,7 +10,7 @@ package de.joinside.dhbw.data.storage.credentials
  * - Check if user is logged in (has stored credentials)
  * - Clear credentials on logout
  */
-class CredentialsStorageProvider(private val secureStorage: SecureStorage) {
+open class CredentialsStorageProvider(private val secureStorage: SecureStorageInterface) {
 
     companion object {
         private const val KEY_DUALIS_USERNAME = "dualis_username"
@@ -22,7 +22,7 @@ class CredentialsStorageProvider(private val secureStorage: SecureStorage) {
      * @param username The Dualis username
      * @param password The Dualis password
      */
-    fun storeCredentials(username: String, password: String) {
+    open fun storeCredentials(username: String, password: String) {
         secureStorage.setString(KEY_DUALIS_USERNAME, username)
         secureStorage.setString(KEY_DUALIS_PASSWORD, password)
     }
@@ -31,7 +31,7 @@ class CredentialsStorageProvider(private val secureStorage: SecureStorage) {
      * Retrieve stored Dualis username.
      * @return The username or empty string if not stored
      */
-    fun getUsername(): String {
+    open fun getUsername(): String {
         return secureStorage.getString(KEY_DUALIS_USERNAME, "")
     }
 
@@ -39,7 +39,7 @@ class CredentialsStorageProvider(private val secureStorage: SecureStorage) {
      * Retrieve stored Dualis password.
      * @return The password or empty string if not stored
      */
-    fun getPassword(): String {
+    open fun getPassword(): String {
         return secureStorage.getString(KEY_DUALIS_PASSWORD, "")
     }
 
@@ -69,7 +69,7 @@ class CredentialsStorageProvider(private val secureStorage: SecureStorage) {
      * Clear only Dualis credentials from secure storage.
      * Use this for logout functionality.
      */
-    fun clearCredentials() {
+    open fun clearCredentials() {
         secureStorage.remove(KEY_DUALIS_USERNAME)
         secureStorage.remove(KEY_DUALIS_PASSWORD)
     }

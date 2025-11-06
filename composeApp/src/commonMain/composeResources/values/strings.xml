@@ -42,4 +42,32 @@
     <string name="network_error">Network error. Please check your connection.</string>
     <string name="unknown_error">An unknown error occurred.</string>
     <string name="invalid_credentials">Invalid username or password.</string>
+
+    <!-- Timetable -->
+    <string name="lecturers">Lecturers</string>
+    <string name="room">Room</string>
+    <string name="no_lectures_this_week">No lectures scheduled this week</string>
+
+    <!-- Weekdays -->
+    <string name="monday">Monday</string>
+    <string name="tuesday">Tuesday</string>
+    <string name="wednesday">Wednesday</string>
+    <string name="thursday">Thursday</string>
+    <string name="friday">Friday</string>
+    <string name="saturday">Saturday</string>
+    <string name="sunday">Sunday</string>
+
+    <string name="monday_short">Mon</string>
+    <string name="tuesday_short">Tue</string>
+    <string name="wednesday_short">Wed</string>
+    <string name="thursday_short">Thu</string>
+    <string name="friday_short">Fri</string>
+    <string name="saturday_short">Sat</string>
+    <string name="sunday_short">Sun</string>
+
+    <!-- Navigation Drawer -->
+    <string name="nav_timetable">Timetable</string>
+    <string name="nav_exams">Exams</string>
+    <string name="nav_grades">Grades</string>
+    <string name="nav_settings">Settings</string>
 </resources>
