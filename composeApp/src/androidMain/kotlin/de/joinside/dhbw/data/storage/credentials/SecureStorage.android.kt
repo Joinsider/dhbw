@@ -16,13 +16,30 @@ actual class SecureStorage {
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
 
-        EncryptedSharedPreferences.create(
-            appContext,
-            "dualis_secure_prefs",
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+        try {
+            EncryptedSharedPreferences.create(
+                appContext,
+                "dualis_secure_prefs",
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            // Handle corrupted keystore - delete and recreate
+            android.util.Log.e("SecureStorage", "Encrypted storage corrupted, recreating...", e)
+
+            // Delete the corrupted preferences file
+            appContext.deleteSharedPreferences("dualis_secure_prefs")
+
+            // Recreate the encrypted preferences
+            EncryptedSharedPreferences.create(
+                appContext,
+                "dualis_secure_prefs",
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        }
     }
 
     private val keysKey = "_stored_keys"

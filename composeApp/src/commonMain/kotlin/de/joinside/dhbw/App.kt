@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
 import de.joinside.dhbw.data.dualis.remote.session.SessionManager
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
@@ -22,11 +23,13 @@ import de.joinside.dhbw.ui.pages.GradesPage
 import de.joinside.dhbw.ui.pages.SettingsPage
 import de.joinside.dhbw.ui.pages.Startpage
 import de.joinside.dhbw.ui.pages.TimetablePage
+import de.joinside.dhbw.ui.pages.TimetableViewModel
 import de.joinside.dhbw.ui.theme.DHBWHorbTheme
-import de.joinside.dhbw.util.isMobilePlatform
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
+import io.ktor.client.HttpClient
+import io.ktor.client.plugins.cookies.HttpCookies
 
 enum class AppScreen {
     WELCOME,
@@ -41,7 +44,8 @@ enum class AppScreen {
 @Preview
 fun App(
     testAuthenticationService: AuthenticationService? = null,
-    testCredentialsProvider: CredentialsStorageProvider? = null
+    testCredentialsProvider: CredentialsStorageProvider? = null,
+    timetableViewModel: TimetableViewModel? = null
 ) {
     // Ensure Napier is initialized (fallback in case platform didn't initialize it)
     LaunchedEffect(Unit) {
@@ -55,12 +59,27 @@ fun App(
         }
     }
 
-    // Initialize SecureStorage, SessionManager, and AuthenticationService
+    // Initialize SecureStorage, SessionManager, and Services
     // Use test dependencies if provided, otherwise create real ones
     val secureStorage = remember { SecureStorage() }
     val secureStorageWrapper = remember { SecureStorageWrapper(secureStorage) }
     val sessionManager = remember { SessionManager(secureStorageWrapper) }
-    val authenticationService = testAuthenticationService ?: remember { AuthenticationService(sessionManager) }
+
+    // Create shared HttpClient for all Dualis services (IMPORTANT for cookie sharing!)
+    val sharedHttpClient = remember {
+        HttpClient {
+            expectSuccess = false
+            install(HttpCookies)
+        }
+    }
+
+    // Initialize services with shared HttpClient
+    val authenticationService = testAuthenticationService ?: remember {
+        AuthenticationService(
+            sessionManager = sessionManager,
+            client = sharedHttpClient
+        )
+    }
 
     // Keep CredentialsProvider for backward compatibility with existing UI
     val credentialsProvider = testCredentialsProvider ?: remember { CredentialsStorageProvider(secureStorageWrapper) }
@@ -148,9 +167,7 @@ fun App(
 
                 AppScreen.TIMETABLE -> {
                     TimetablePage(
-                        onNavigateToResult = {
-                            currentScreen = AppScreen.RESULT
-                        },
+                        viewModel = timetableViewModel,
                         onNavigateToGrades = {
                             currentScreen = AppScreen.GRADES
                         },
