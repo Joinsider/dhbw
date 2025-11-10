@@ -3,9 +3,17 @@ package de.joinside.dhbw.ui.pages
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -25,6 +33,7 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 fun SettingsPage(
     onNavigateToTimetable: () -> Unit = {},
     onNavigateToGrades: () -> Unit = {},
+    onLogout: () -> Unit = {},
     isLoggedIn: Boolean = true,
     modifier: Modifier = Modifier
 ) {
@@ -73,6 +82,28 @@ fun SettingsPage(
                     modifier = Modifier.padding(top = 8.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                if (isLoggedIn) {
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    Button(
+                        onClick = onLogout,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 32.dp)
+                            .testTag("logoutButton"),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = "Logout",
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text("Logout")
+                    }
+                }
             }
         }
     }

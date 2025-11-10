@@ -37,6 +37,19 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun lectureDao(): LectureEventDao
     abstract fun lecturerDao(): LecturerDao
     abstract fun syncMetadataDao(): SyncMetadataDao
+
+    /**
+     * Clear all data from the database.
+     * This is used during logout to remove all cached data.
+     */
+    suspend fun clearAllData() {
+        // Clear all tables
+        lectureDao().deleteAll()
+        lecturerDao().deleteAll()
+        gradesDao().deleteAll()
+        semesterDao().deleteAll()
+        syncMetadataDao().clearAllSyncMetadata()
+    }
 }
 
 @Suppress("KotlinNoActualForExpect")

@@ -19,4 +19,7 @@ interface GradesDao {
     @Transaction
     @Query("SELECT * FROM semester")
     fun getAllSemestersWithGrades(): Flow<List<SemesterWithGrades>>
+
+    @Query("DELETE FROM grades")
+    suspend fun deleteAll()
 }

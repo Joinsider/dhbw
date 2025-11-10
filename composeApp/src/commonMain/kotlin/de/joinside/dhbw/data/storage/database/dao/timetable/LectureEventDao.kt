@@ -29,4 +29,7 @@ interface LectureEventDao {
 
     @Query("DELETE FROM lecture WHERE lectureId = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM lecture")
+    suspend fun deleteAll()
 }
