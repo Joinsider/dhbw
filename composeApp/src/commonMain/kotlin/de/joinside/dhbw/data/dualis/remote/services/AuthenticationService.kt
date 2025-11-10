@@ -85,6 +85,14 @@ open class AuthenticationService(
 
             val responseBody = response.bodyAsText()
             Napier.d("Response status: ${response.status}", tag = TAG)
+            Napier.d("Response body length: ${responseBody.length}", tag = TAG)
+            Napier.d("Response body snippet: ${responseBody.take(300)}", tag = TAG)
+
+            // Log response headers for debugging
+            Napier.d("Response headers:", tag = TAG)
+            response.headers.forEach { key, values ->
+                Napier.d("  $key: ${values.joinToString()}", tag = TAG)
+            }
 
             if (!response.status.isSuccess()) {
                 Napier.e("Login request failed with status: ${response.status}", tag = TAG)
@@ -92,9 +100,15 @@ open class AuthenticationService(
             }
 
             // Check for login errors
-            if (responseBody.contains("LOGINCHECK", ignoreCase = true) ||
-                responseBody.contains("Anmeldung fehlgeschlagen", ignoreCase = true)) {
+            val containsLoginCheck = responseBody.contains("LOGINCHECK", ignoreCase = true)
+            val containsLoginFailed = responseBody.contains("Anmeldung fehlgeschlagen", ignoreCase = true)
+
+            Napier.d("Response contains LOGINCHECK: $containsLoginCheck", tag = TAG)
+            Napier.d("Response contains 'Anmeldung fehlgeschlagen': $containsLoginFailed", tag = TAG)
+
+            if (containsLoginCheck || containsLoginFailed) {
                 Napier.e("Login failed - invalid credentials", tag = TAG)
+                Napier.d("Full response body for debugging: $responseBody", tag = TAG)
                 return LoginResult.Failure("Invalid username or password")
             }
 
