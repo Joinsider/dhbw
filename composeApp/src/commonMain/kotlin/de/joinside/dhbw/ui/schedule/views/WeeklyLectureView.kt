@@ -35,6 +35,7 @@ fun WeeklyLecturesView(
     weekLabel: String = "Week 42",
     onPreviousWeek: () -> Unit = {},
     onNextWeek: () -> Unit = {},
+    onWeekLabelClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -42,6 +43,7 @@ fun WeeklyLecturesView(
             weekLabel = weekLabel,
             onPreviousWeek = onPreviousWeek,
             onNextWeek = onNextWeek,
+            onWeekLabelClick = onWeekLabelClick,
             modifier = Modifier.padding(8.dp)
         )
 

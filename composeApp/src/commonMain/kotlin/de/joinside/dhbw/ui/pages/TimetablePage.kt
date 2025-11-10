@@ -130,6 +130,12 @@ fun TimetablePage(
                         weekLabel = weekLabel,
                         onPreviousWeek = { viewModel?.goToPreviousWeek() },
                         onNextWeek = { viewModel?.goToNextWeek() },
+                        onWeekLabelClick = {
+                            // Return to current week if not already there
+                            if (uiState.currentWeekOffset != 0) {
+                                viewModel?.loadLecturesForCurrentWeek()
+                            }
+                        },
                         modifier = Modifier.fillMaxSize()
                     )
                 }
