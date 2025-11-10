@@ -51,13 +51,14 @@ class LectureService(
      * If the database update was successful it will return the new lectures and update the UI.
      *
      * @param week Int - The number of weeks relative to the current week. So -1 is the last week, 0 is the current week, 1 is the next week, etc.
+     * @param forceRefresh Boolean - If true, forces a fresh fetch from Dualis API regardless of cache age
      * @return List<LectureEventEntity>
      */
-    suspend fun getLecturesForWeek(week: Int): List<LectureEventEntity> {
-        Napier.d("Getting lectures for week $week")
+    suspend fun getLecturesForWeek(week: Int, forceRefresh: Boolean = false): List<LectureEventEntity> {
+        Napier.d("Getting lectures for week $week (forceRefresh: $forceRefresh)")
         val (start, end) = TimeHelper.getWeekDatesRelativeToCurrentWeek(week)
 
-        return getLecturesForDateRange(start, end)
+        return getLecturesForDateRange(start, end, forceRefresh)
     }
 
     /**
@@ -67,13 +68,21 @@ class LectureService(
      *
      * @param startDate LocalDateTime - Start of the date range
      * @param endDate LocalDateTime - End of the date range
+     * @param forceRefresh Boolean - If true, forces a fresh fetch from Dualis API regardless of cache age
      * @return List<LectureEventEntity> - Lectures within the specified date range
      */
     suspend fun getLecturesForDateRange(
         startDate: LocalDateTime,
-        endDate: LocalDateTime
+        endDate: LocalDateTime,
+        forceRefresh: Boolean = false
     ): List<LectureEventEntity> {
-        Napier.d("Getting lectures for date range: $startDate to $endDate")
+        Napier.d("Getting lectures for date range: $startDate to $endDate (forceRefresh: $forceRefresh)")
+
+        // If forceRefresh is true, fetch fresh data from Dualis
+        if (forceRefresh) {
+            Napier.d("Force refresh requested, fetching from Dualis")
+            return fetchAndStoreLecturesFromDualis(startDate, endDate)
+        }
 
         // Check if we need to fetch from Dualis first
         val lectures = getLecturesForWeekFromDatabase(startDate, endDate)

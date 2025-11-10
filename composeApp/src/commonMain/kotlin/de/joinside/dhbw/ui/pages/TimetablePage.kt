@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -35,6 +37,7 @@ import kotlinx.datetime.Month
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimetablePage(
     viewModel: TimetableViewModel? = null,
@@ -119,25 +122,33 @@ fun TimetablePage(
                     }
                 }
                 else -> {
-                    // Show lectures
+                    // Show lectures with pull-to-refresh
                     // Format week label from WeekLabelData
                     val weekLabel = uiState.weekLabelData?.let { data ->
                         formatWeekLabel(data)
                     } ?: "This Week"
 
-                    WeeklyLecturesView(
-                        lectures = uiState.lectures,
-                        weekLabel = weekLabel,
-                        onPreviousWeek = { viewModel?.goToPreviousWeek() },
-                        onNextWeek = { viewModel?.goToNextWeek() },
-                        onWeekLabelClick = {
-                            // Return to current week if not already there
-                            if (uiState.currentWeekOffset != 0) {
-                                viewModel?.loadLecturesForCurrentWeek()
-                            }
+                    PullToRefreshBox(
+                        isRefreshing = uiState.isRefreshing,
+                        onRefresh = {
+                            viewModel?.refreshLectures()
                         },
                         modifier = Modifier.fillMaxSize()
-                    )
+                    ) {
+                        WeeklyLecturesView(
+                            lectures = uiState.lectures,
+                            weekLabel = weekLabel,
+                            onPreviousWeek = { viewModel?.goToPreviousWeek() },
+                            onNextWeek = { viewModel?.goToNextWeek() },
+                            onWeekLabelClick = {
+                                // Return to current week if not already there
+                                if (uiState.currentWeekOffset != 0) {
+                                    viewModel?.loadLecturesForCurrentWeek()
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
         }

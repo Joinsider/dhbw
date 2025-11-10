@@ -65,6 +65,44 @@ class TimetableViewModel(
     }
 
     /**
+     * Refresh lectures for the current week from the API.
+     * This forces a fresh fetch and only updates if new data is received.
+     */
+    fun refreshLectures() {
+        uiState = uiState.copy(isRefreshing = true)
+
+        coroutineScope.launch {
+            try {
+                Napier.d("Refreshing lectures for current week offset: $currentWeekOffset", tag = TAG)
+
+                // Force fetch from API
+                val lectureEntities = lectureService.getLecturesForWeek(currentWeekOffset, forceRefresh = true)
+                val lectureModels = lectureEntities.map { entity ->
+                    entity.toLectureModel()
+                }
+
+                val weekLabelData = generateWeekLabelData(currentWeekOffset)
+
+                uiState = uiState.copy(
+                    lectures = lectureModels,
+                    weekLabelData = weekLabelData,
+                    currentWeekOffset = currentWeekOffset,
+                    isRefreshing = false,
+                    error = null
+                )
+
+                Napier.d("Successfully refreshed ${lectureModels.size} lectures", tag = TAG)
+            } catch (e: Exception) {
+                Napier.e("Error refreshing lectures: ${e.message}", e, tag = TAG)
+                uiState = uiState.copy(
+                    isRefreshing = false,
+                    error = "Failed to refresh lectures: ${e.message}"
+                )
+            }
+        }
+    }
+
+    /**
      * Load lectures for a specific week offset from current week.
      */
     private fun loadLecturesForWeek(weekOffset: Int) {
@@ -166,6 +204,7 @@ data class TimetableUiState(
     val weekLabelData: WeekLabelData? = null,
     val currentWeekOffset: Int = 0,
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val error: String? = null
 )
 
