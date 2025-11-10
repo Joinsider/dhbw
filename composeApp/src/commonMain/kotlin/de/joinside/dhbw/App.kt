@@ -12,12 +12,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
 import de.joinside.dhbw.data.dualis.remote.session.SessionManager
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import de.joinside.dhbw.data.storage.credentials.SecureStorage
 import de.joinside.dhbw.data.storage.credentials.SecureStorageWrapper
+import de.joinside.dhbw.data.storage.database.AppDatabase
 import de.joinside.dhbw.ui.pages.GradesPage
 import de.joinside.dhbw.ui.pages.SettingsPage
 import de.joinside.dhbw.ui.pages.Startpage
@@ -29,6 +29,10 @@ import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.cookies.HttpCookies
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.launch
 
 enum class AppScreen {
     WELCOME,
@@ -43,7 +47,8 @@ enum class AppScreen {
 fun App(
     testAuthenticationService: AuthenticationService? = null,
     testCredentialsProvider: CredentialsStorageProvider? = null,
-    timetableViewModel: TimetableViewModel? = null
+    timetableViewModel: TimetableViewModel? = null,
+    database: AppDatabase? = null
 ) {
     // Ensure Napier is initialized (fallback in case platform didn't initialize it)
     LaunchedEffect(Unit) {
@@ -92,6 +97,36 @@ fun App(
         if (isLoggedIn) {
             currentScreen = AppScreen.TIMETABLE
         }
+    }
+
+    // Logout handler
+    val handleLogout: () -> Unit = {
+        Napier.d("Logout initiated", tag = "App")
+
+        // Clear session data
+        sessionManager.logout()
+
+        // Clear credentials
+        credentialsProvider.clearCredentials()
+
+        // Clear database if available
+        database?.let { db ->
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    Napier.d("Clearing database...", tag = "App")
+                    db.clearAllData()
+                    Napier.d("Database cleared successfully", tag = "App")
+                } catch (e: Exception) {
+                    Napier.e("Error clearing database: ${e.message}", e, tag = "App")
+                }
+            }
+        }
+
+        // Update UI state
+        isLoggedIn = false
+        currentScreen = AppScreen.WELCOME
+
+        Napier.d("Logout completed", tag = "App")
     }
 
     DHBWHorbTheme {
@@ -178,6 +213,7 @@ fun App(
                         onNavigateToGrades = {
                             currentScreen = AppScreen.GRADES
                         },
+                        onLogout = handleLogout,
                         isLoggedIn = isLoggedIn,
                         modifier = Modifier
                             .fillMaxSize()

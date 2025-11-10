@@ -14,4 +14,7 @@ interface SemesterDao {
 
     @Query("SELECT * FROM semester")
     fun getAllSemesters(): Flow<List<SemesterEntity>>
+
+    @Query("DELETE FROM semester")
+    suspend fun deleteAll()
 }

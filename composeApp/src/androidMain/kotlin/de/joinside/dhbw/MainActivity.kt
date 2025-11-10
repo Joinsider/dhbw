@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
     // Services initialized once
     private lateinit var timetableViewModel: TimetableViewModel
     private lateinit var authenticationService: AuthenticationService
+    private lateinit var database: de.joinside.dhbw.data.storage.database.AppDatabase
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -43,7 +44,8 @@ class MainActivity : ComponentActivity() {
             Napier.d("Setting content with App()", tag = "MainActivity")
             App(
                 testAuthenticationService = authenticationService,
-                timetableViewModel = timetableViewModel
+                timetableViewModel = timetableViewModel,
+                database = database
             )
         }
     }
@@ -52,7 +54,7 @@ class MainActivity : ComponentActivity() {
         Napier.d("Initializing services...", tag = "MainActivity")
 
         // Create database with Android context
-        val database = createRoomDatabase(
+        database = createRoomDatabase(
             getDatabaseBuilder(applicationContext)
         )
         Napier.d("Database initialized", tag = "MainActivity")
