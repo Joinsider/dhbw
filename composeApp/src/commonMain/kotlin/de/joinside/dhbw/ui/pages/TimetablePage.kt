@@ -14,10 +14,25 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import de.joinside.dhbw.resources.Res
+import de.joinside.dhbw.resources.april_short
+import de.joinside.dhbw.resources.august_short
+import de.joinside.dhbw.resources.december_short
+import de.joinside.dhbw.resources.february_short
+import de.joinside.dhbw.resources.january_short
+import de.joinside.dhbw.resources.july_short
+import de.joinside.dhbw.resources.june_short
+import de.joinside.dhbw.resources.march_short
+import de.joinside.dhbw.resources.may_short
+import de.joinside.dhbw.resources.november_short
+import de.joinside.dhbw.resources.october_short
+import de.joinside.dhbw.resources.september_short
 import de.joinside.dhbw.ui.navigation.BottomNavItem
 import de.joinside.dhbw.ui.navigation.BottomNavigationBar
 import de.joinside.dhbw.ui.schedule.views.WeeklyLecturesView
 import de.joinside.dhbw.util.isMobilePlatform
+import kotlinx.datetime.Month
+import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
@@ -105,9 +120,14 @@ fun TimetablePage(
                 }
                 else -> {
                     // Show lectures
+                    // Format week label from WeekLabelData
+                    val weekLabel = uiState.weekLabelData?.let { data ->
+                        formatWeekLabel(data)
+                    } ?: "This Week"
+
                     WeeklyLecturesView(
                         lectures = uiState.lectures,
-                        weekLabel = uiState.weekLabel,
+                        weekLabel = weekLabel,
                         onPreviousWeek = { viewModel?.goToPreviousWeek() },
                         onNextWeek = { viewModel?.goToNextWeek() },
                         modifier = Modifier.fillMaxSize()
@@ -129,3 +149,40 @@ fun TimetablePagePreview() {
         isLoggedIn = true
     )
 }
+
+/**
+ * Format WeekLabelData into a localized string.
+ * Examples: "04 - 08 Nov" or "28 Nov - 02 Dec"
+ */
+@Composable
+private fun formatWeekLabel(data: WeekLabelData): String {
+    val mondayMonthStr = stringResource(getMonthResource(data.mondayMonth))
+    val fridayMonthStr = stringResource(getMonthResource(data.fridayMonth))
+
+    return if (data.mondayMonth == data.fridayMonth) {
+        // Same month: "04 - 08 Nov"
+        "${data.mondayDay.toString().padStart(2, '0')} - ${data.fridayDay.toString().padStart(2, '0')} $mondayMonthStr"
+    } else {
+        // Different months: "28 Nov - 02 Dec"
+        "${data.mondayDay.toString().padStart(2, '0')} $mondayMonthStr - ${data.fridayDay.toString().padStart(2, '0')} $fridayMonthStr"
+    }
+}
+
+/**
+ * Map Month enum to string resource.
+ */
+private fun getMonthResource(month: Month) = when (month) {
+    Month.JANUARY -> Res.string.january_short
+    Month.FEBRUARY -> Res.string.february_short
+    Month.MARCH -> Res.string.march_short
+    Month.APRIL -> Res.string.april_short
+    Month.MAY -> Res.string.may_short
+    Month.JUNE -> Res.string.june_short
+    Month.JULY -> Res.string.july_short
+    Month.AUGUST -> Res.string.august_short
+    Month.SEPTEMBER -> Res.string.september_short
+    Month.OCTOBER -> Res.string.october_short
+    Month.NOVEMBER -> Res.string.november_short
+    Month.DECEMBER -> Res.string.december_short
+}
+

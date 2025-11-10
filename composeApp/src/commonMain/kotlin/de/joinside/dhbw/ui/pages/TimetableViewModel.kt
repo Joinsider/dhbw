@@ -1,10 +1,8 @@
 package de.joinside.dhbw.ui.pages
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Color
 import de.joinside.dhbw.data.storage.database.entities.timetable.LectureEventEntity
 import de.joinside.dhbw.services.LectureService
 import de.joinside.dhbw.ui.schedule.modules.LectureModel
@@ -13,8 +11,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
@@ -77,11 +79,11 @@ class TimetableViewModel(
                     entity.toLectureModel()
                 }
 
-                val weekLabel = generateWeekLabel(weekOffset)
+                val weekLabelData = generateWeekLabelData(weekOffset)
 
                 uiState = uiState.copy(
                     lectures = lectureModels,
-                    weekLabel = weekLabel,
+                    weekLabelData = weekLabelData,
                     currentWeekOffset = weekOffset,
                     isLoading = false,
                     error = null
@@ -99,35 +101,33 @@ class TimetableViewModel(
     }
 
     /**
-     * Generate a week label based on the offset from current week.
+     * Generate week label data for formatting in the UI layer.
+     * Returns the Monday-Friday date range information.
      */
     @OptIn(ExperimentalTime::class)
-    private fun generateWeekLabel(weekOffset: Int): String {
-        val now = kotlin.time.Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    private fun generateWeekLabelData(weekOffset: Int): WeekLabelData {
+        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val currentDate = now.date
 
-        // Calculate the week number (ISO 8601 week numbering)
-        // This is a simplified version - you might want to use a proper week calculation library
-        val currentWeekNumber = getWeekNumber(now)
-        val targetWeekNumber = currentWeekNumber + weekOffset
+        // Calculate days to add to get to Monday of the target week
+        // In kotlinx.datetime, DayOfWeek.MONDAY.ordinal = 0, SUNDAY.ordinal = 6
+        val currentDayOfWeek = currentDate.dayOfWeek.ordinal // Monday = 0, Sunday = 6
+        val daysToMonday = -currentDayOfWeek + (weekOffset * 7)
 
-        return when (weekOffset) {
-            0 -> "This Week (Week $targetWeekNumber)"
-            -1 -> "Last Week (Week $targetWeekNumber)"
-            1 -> "Next Week (Week $targetWeekNumber)"
-            else -> "Week $targetWeekNumber"
-        }
-    }
+        // Get Monday and Friday of the target week (always show full week)
+        val monday = currentDate.plus(daysToMonday, DateTimeUnit.DAY)
+        val friday = monday.plus(4, DateTimeUnit.DAY)
 
-    /**
-     * Simple week number calculation (simplified ISO 8601).
-     * You might want to use a proper library for accurate week numbers.
-     */
-    private fun getWeekNumber(dateTime: kotlinx.datetime.LocalDateTime): Int {
-        val dayOfYear = dateTime.dayOfYear
-        val dayOfWeek = dateTime.dayOfWeek.ordinal + 1 // Monday = 1, Sunday = 7
+        Napier.d("Current date: $currentDate, Day of week: ${currentDate.dayOfWeek} (ordinal: $currentDayOfWeek)", tag = TAG)
+        Napier.d("Week offset: $weekOffset, Days to Monday: $daysToMonday", tag = TAG)
+        Napier.d("Monday: $monday, Friday: $friday", tag = TAG)
 
-        // Simplified week calculation: (dayOfYear + dayOfWeek) / 7
-        return ((dayOfYear + dayOfWeek - 1) / 7) + 1
+        return WeekLabelData(
+            mondayDay = monday.day,
+            mondayMonth = monday.month,
+            fridayDay = friday.day,
+            fridayMonth = friday.month
+        )
     }
 
     /**
@@ -149,11 +149,21 @@ class TimetableViewModel(
 }
 
 /**
+ * Data class containing week label information for formatting in the UI.
+ */
+data class WeekLabelData(
+    val mondayDay: Int,
+    val mondayMonth: Month,
+    val fridayDay: Int,
+    val fridayMonth: Month
+)
+
+/**
  * UI State for TimetablePage.
  */
 data class TimetableUiState(
     val lectures: List<LectureModel> = emptyList(),
-    val weekLabel: String = "This Week",
+    val weekLabelData: WeekLabelData? = null,
     val currentWeekOffset: Int = 0,
     val isLoading: Boolean = false,
     val error: String? = null
