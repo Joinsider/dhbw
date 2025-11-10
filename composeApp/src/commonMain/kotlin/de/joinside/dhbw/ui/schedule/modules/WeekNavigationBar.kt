@@ -24,6 +24,7 @@ fun WeekNavigationBar(
     weekLabel: String = "Week Example",
     onPreviousWeek: () -> Unit = {},
     onNextWeek: () -> Unit = {},
+    onWeekLabelClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -45,7 +46,11 @@ fun WeekNavigationBar(
         Text(
             text = weekLabel,
             style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier
+                .clickable { onWeekLabelClick() }
+                .padding(8.dp)
+                .testTag("weekLabelButton")
         )
         Spacer(Modifier.weight(1f))
         Icon(
