@@ -42,11 +42,13 @@
     <string name="network_error">Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.</string>
     <string name="unknown_error">Ein unbekannter Fehler ist aufgetreten.</string>
     <string name="invalid_credentials">Ungültiger Benutzername oder Passwort.</string>
+    <string name="error_loading_lectures">Fehler beim Laden des Stundenplans.</string>
 
     <!-- Timetable -->
     <string name="lecturers">Dozenten</string>
     <string name="room">Raum</string>
     <string name="no_lectures_this_week">In dieser Woche sind keine Vorlesungen geplant.</string>
+    <string name="loading_lectures">Stundenplan wird geladen... Das kann ein paar Sekunden dauern.</string>
 
     <!-- Weekdays -->
     <string name="monday">Montag</string>
@@ -97,5 +99,13 @@
     <string name="nav_exams">Prüfungen</string>
     <string name="nav_grades">Noten</string>
     <string name="nav_settings">Einstellungen</string>
+
+    <!-- Timetable Page -->
+    <string name="this_week">Diese Woche</string>
+
+    <!-- Settings Page -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="coming_soon">Demnächst verfügbar...</string>
+    <string name="logout">Abmelden</string>
 </resources>
 

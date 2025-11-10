@@ -42,11 +42,13 @@
     <string name="network_error">Network error. Please check your connection.</string>
     <string name="unknown_error">An unknown error occurred.</string>
     <string name="invalid_credentials">Invalid username or password.</string>
+    <string name="error_loading_lectures">Error loading lectures.</string>
 
     <!-- Timetable -->
     <string name="lecturers">Lecturers</string>
     <string name="room">Room</string>
     <string name="no_lectures_this_week">No lectures scheduled this week</string>
+    <string name="loading_lectures">Loading lectures... this can take a few seconds.</string>
 
     <!-- Weekdays -->
     <string name="monday">Monday</string>
@@ -98,4 +100,12 @@
     <string name="nav_exams">Exams</string>
     <string name="nav_grades">Grades</string>
     <string name="nav_settings">Settings</string>
+
+    <!-- Timetable Page -->
+    <string name="this_week">This Week</string>
+
+    <!-- Settings Page -->
+    <string name="settings_title">Settings</string>
+    <string name="coming_soon">Coming soon...</string>
+    <string name="logout">Logout</string>
 </resources>

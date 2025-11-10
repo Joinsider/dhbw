@@ -20,24 +20,28 @@ import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.april_short
 import de.joinside.dhbw.resources.august_short
 import de.joinside.dhbw.resources.december_short
+import de.joinside.dhbw.resources.error_loading_lectures
 import de.joinside.dhbw.resources.february_short
 import de.joinside.dhbw.resources.january_short
 import de.joinside.dhbw.resources.july_short
 import de.joinside.dhbw.resources.june_short
+import de.joinside.dhbw.resources.loading_lectures
 import de.joinside.dhbw.resources.march_short
 import de.joinside.dhbw.resources.may_short
 import de.joinside.dhbw.resources.november_short
 import de.joinside.dhbw.resources.october_short
 import de.joinside.dhbw.resources.september_short
+import de.joinside.dhbw.resources.this_week
 import de.joinside.dhbw.ui.navigation.BottomNavItem
 import de.joinside.dhbw.ui.navigation.BottomNavigationBar
 import de.joinside.dhbw.ui.schedule.views.WeeklyLecturesView
 import de.joinside.dhbw.util.isMobilePlatform
 import kotlinx.datetime.Month
+import org.jetbrains.compose.resources.InternalResourceApi
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, InternalResourceApi::class)
 @Composable
 fun TimetablePage(
     viewModel: TimetableViewModel? = null,
@@ -91,7 +95,7 @@ fun TimetablePage(
                         ) {
                             CircularProgressIndicator()
                             Text(
-                                text = "Loading lectures...",
+                                text = stringResource(Res.string.loading_lectures),
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(top = 16.dp)
                             )
@@ -108,7 +112,7 @@ fun TimetablePage(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Error",
+                                text = stringResource(Res.string.error_loading_lectures),
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = MaterialTheme.colorScheme.error
                             )
@@ -126,7 +130,7 @@ fun TimetablePage(
                     // Format week label from WeekLabelData
                     val weekLabel = uiState.weekLabelData?.let { data ->
                         formatWeekLabel(data)
-                    } ?: "This Week"
+                    } ?: stringResource(Res.string.this_week)
 
                     PullToRefreshBox(
                         isRefreshing = uiState.isRefreshing,
