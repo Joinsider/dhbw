@@ -18,7 +18,6 @@ import de.joinside.dhbw.data.dualis.remote.session.SessionManager
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import de.joinside.dhbw.data.storage.credentials.SecureStorage
 import de.joinside.dhbw.data.storage.credentials.SecureStorageWrapper
-import de.joinside.dhbw.ui.auth.LoginFormResultPage
 import de.joinside.dhbw.ui.pages.GradesPage
 import de.joinside.dhbw.ui.pages.SettingsPage
 import de.joinside.dhbw.ui.pages.Startpage
@@ -34,7 +33,6 @@ import io.ktor.client.plugins.cookies.HttpCookies
 enum class AppScreen {
     WELCOME,
     LOGIN,
-    RESULT,
     TIMETABLE,
     GRADES,
     SETTINGS
@@ -92,7 +90,7 @@ fun App(
     LaunchedEffect(Unit) {
         isLoggedIn = authenticationService.isAuthenticated()
         if (isLoggedIn) {
-            currentScreen = AppScreen.RESULT
+            currentScreen = AppScreen.TIMETABLE
         }
     }
 
@@ -133,34 +131,10 @@ fun App(
                         Startpage(
                             onLoginSuccess = {
                                 isLoggedIn = true
-                                currentScreen = AppScreen.RESULT
+                                currentScreen = AppScreen.TIMETABLE
                             },
                             authenticationService = authenticationService,
                             credentialsProvider = credentialsProvider,
-                        )
-                    }
-                }
-
-                AppScreen.RESULT -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 16.dp)
-                            .safeContentPadding(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        LoginFormResultPage(
-                            credentialsProvider = credentialsProvider,
-                            onLogout = {
-                                authenticationService.logout()
-                                isLoggedIn = false
-                                currentScreen = AppScreen.WELCOME
-                            },
-                            authService = authenticationService,
-                            onNavigateToTimetable = {
-                                currentScreen = AppScreen.TIMETABLE
-                            }
                         )
                     }
                 }
