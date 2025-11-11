@@ -86,13 +86,6 @@ actual class SecureStorage {
     }
 
     private fun getApplicationContext(): Context {
-        return try {
-            val dualisApplication = Class.forName("de.joinside.dhbw.DualisApplication")
-            val contextField = dualisApplication.getDeclaredField("appContext")
-            contextField.isAccessible = true
-            contextField.get(null) as Context
-        } catch (e: Exception) {
-            throw IllegalStateException("DualisApplication.appContext not found. Make sure to initialize it in your Application class.", e)
-        }
+        return de.joinside.dhbw.DualisApplication.appContext
     }
 }
