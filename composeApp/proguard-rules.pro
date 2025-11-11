@@ -6,3 +6,11 @@
 -dontwarn com.google.errorprone.annotations.Immutable
 -dontwarn com.google.errorprone.annotations.RestrictedApi
 
+# Keep DualisApplication and all its members (accessed via reflection in SecureStorage)
+-keep class de.joinside.dhbw.DualisApplication {
+    *;
+}
+-keep class de.joinside.dhbw.DualisApplication$Companion {
+    *;
+}
+
