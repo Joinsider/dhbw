@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "e626ba78ec4b1114c4cb05a3d85144ad",
+    "identityHash": "379a01dc54d3bcfaee3355a1660a46b7",
     "entities": [
       {
         "tableName": "semester",
@@ -84,7 +84,7 @@
       },
       {
         "tableName": "lecture",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`lectureId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `subjectId` INTEGER NOT NULL, `startTime` TEXT NOT NULL, `endTime` TEXT NOT NULL, `location` TEXT NOT NULL, `isTest` INTEGER NOT NULL, FOREIGN KEY(`subjectId`) REFERENCES `subject`(`subjectId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`lectureId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `shortSubjectName` TEXT NOT NULL, `fullSubjectName` TEXT, `startTime` TEXT NOT NULL, `endTime` TEXT NOT NULL, `location` TEXT NOT NULL, `isTest` INTEGER NOT NULL, `lecturerId` INTEGER, `fetchedAt` TEXT, FOREIGN KEY(`lecturerId`) REFERENCES `lecturer`(`lecturerId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "lectureId",
@@ -93,10 +93,15 @@
             "notNull": true
           },
           {
-            "fieldPath": "subjectId",
-            "columnName": "subjectId",
-            "affinity": "INTEGER",
+            "fieldPath": "shortSubjectName",
+            "columnName": "shortSubjectName",
+            "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "fullSubjectName",
+            "columnName": "fullSubjectName",
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "startTime",
@@ -121,6 +126,16 @@
             "columnName": "isTest",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "lecturerId",
+            "columnName": "lecturerId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "fetchedAt",
+            "columnName": "fetchedAt",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -131,133 +146,16 @@
         },
         "indices": [
           {
-            "name": "index_lecture_subjectId",
-            "unique": false,
-            "columnNames": [
-              "subjectId"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_lecture_subjectId` ON `${TABLE_NAME}` (`subjectId`)"
-          }
-        ],
-        "foreignKeys": [
-          {
-            "table": "subject",
-            "onDelete": "CASCADE",
-            "onUpdate": "NO ACTION",
-            "columns": [
-              "subjectId"
-            ],
-            "referencedColumns": [
-              "subjectId"
-            ]
-          }
-        ]
-      },
-      {
-        "tableName": "subject",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`subjectId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL)",
-        "fields": [
-          {
-            "fieldPath": "subjectId",
-            "columnName": "subjectId",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "name",
-            "columnName": "name",
-            "affinity": "TEXT",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": true,
-          "columnNames": [
-            "subjectId"
-          ]
-        }
-      },
-      {
-        "tableName": "lecturer",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`lecturerId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `lecturerName` TEXT NOT NULL)",
-        "fields": [
-          {
-            "fieldPath": "lecturerId",
-            "columnName": "lecturerId",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "lecturerName",
-            "columnName": "lecturerName",
-            "affinity": "TEXT",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": true,
-          "columnNames": [
-            "lecturerId"
-          ]
-        }
-      },
-      {
-        "tableName": "lecture_lecturer_cross_ref",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`lectureId` INTEGER NOT NULL, `lecturerId` INTEGER NOT NULL, PRIMARY KEY(`lectureId`, `lecturerId`), FOREIGN KEY(`lectureId`) REFERENCES `lecture`(`lectureId`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`lecturerId`) REFERENCES `lecturer`(`lecturerId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
-        "fields": [
-          {
-            "fieldPath": "lectureId",
-            "columnName": "lectureId",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "lecturerId",
-            "columnName": "lecturerId",
-            "affinity": "INTEGER",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "lectureId",
-            "lecturerId"
-          ]
-        },
-        "indices": [
-          {
-            "name": "index_lecture_lecturer_cross_ref_lectureId",
-            "unique": false,
-            "columnNames": [
-              "lectureId"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_lecture_lecturer_cross_ref_lectureId` ON `${TABLE_NAME}` (`lectureId`)"
-          },
-          {
-            "name": "index_lecture_lecturer_cross_ref_lecturerId",
+            "name": "index_lecture_lecturerId",
             "unique": false,
             "columnNames": [
               "lecturerId"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_lecture_lecturer_cross_ref_lecturerId` ON `${TABLE_NAME}` (`lecturerId`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_lecture_lecturerId` ON `${TABLE_NAME}` (`lecturerId`)"
           }
         ],
         "foreignKeys": [
-          {
-            "table": "lecture",
-            "onDelete": "CASCADE",
-            "onUpdate": "NO ACTION",
-            "columns": [
-              "lectureId"
-            ],
-            "referencedColumns": [
-              "lectureId"
-            ]
-          },
           {
             "table": "lecturer",
             "onDelete": "CASCADE",
@@ -270,6 +168,40 @@
             ]
           }
         ]
+      },
+      {
+        "tableName": "lecturer",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`lecturerId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `lecturerName` TEXT NOT NULL, `lecturerEmail` TEXT, `lecturerPhoneNumber` TEXT)",
+        "fields": [
+          {
+            "fieldPath": "lecturerId",
+            "columnName": "lecturerId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lecturerName",
+            "columnName": "lecturerName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lecturerEmail",
+            "columnName": "lecturerEmail",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lecturerPhoneNumber",
+            "columnName": "lecturerPhoneNumber",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "lecturerId"
+          ]
+        }
       },
       {
         "tableName": "sync_metadata",
@@ -309,7 +241,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e626ba78ec4b1114c4cb05a3d85144ad')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '379a01dc54d3bcfaee3355a1660a46b7')"
     ]
   }
 }

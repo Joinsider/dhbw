@@ -42,11 +42,13 @@
     <string name="network_error">Network error. Please check your connection.</string>
     <string name="unknown_error">An unknown error occurred.</string>
     <string name="invalid_credentials">Invalid username or password.</string>
+    <string name="error_loading_lectures">Error loading lectures.</string>
 
     <!-- Timetable -->
     <string name="lecturers">Lecturers</string>
     <string name="room">Room</string>
     <string name="no_lectures_this_week">No lectures scheduled this week</string>
+    <string name="loading_lectures">Loading lectures... this can take a few seconds.</string>
 
     <!-- Weekdays -->
     <string name="monday">Monday</string>
@@ -65,9 +67,45 @@
     <string name="saturday_short">Sat</string>
     <string name="sunday_short">Sun</string>
 
+    <!-- Months -->
+    <string name="january">January</string>
+    <string name="february">February</string>
+    <string name="march">March</string>
+    <string name="april">April</string>
+    <string name="may">May</string>
+    <string name="june">June</string>
+    <string name="july">July</string>
+    <string name="august">August</string>
+    <string name="september">September</string>
+    <string name="october">October</string>
+    <string name="november">November</string>
+    <string name="december">December</string>
+
+    <string name="january_short">Jan</string>
+    <string name="february_short">Feb</string>
+    <string name="march_short">Mar</string>
+    <string name="april_short">Apr</string>
+    <string name="may_short">May</string>
+    <string name="june_short">Jun</string>
+    <string name="july_short">Jul</string>
+    <string name="august_short">Aug</string>
+    <string name="september_short">Sep</string>
+    <string name="october_short">Oct</string>
+    <string name="november_short">Nov</string>
+    <string name="december_short">Dec</string>
+
+
     <!-- Navigation Drawer -->
     <string name="nav_timetable">Timetable</string>
     <string name="nav_exams">Exams</string>
     <string name="nav_grades">Grades</string>
     <string name="nav_settings">Settings</string>
+
+    <!-- Timetable Page -->
+    <string name="this_week">This Week</string>
+
+    <!-- Settings Page -->
+    <string name="settings_title">Settings</string>
+    <string name="coming_soon">Coming soon...</string>
+    <string name="logout">Logout</string>
 </resources>

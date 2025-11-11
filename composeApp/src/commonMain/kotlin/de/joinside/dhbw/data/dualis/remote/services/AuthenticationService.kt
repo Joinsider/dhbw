@@ -18,21 +18,32 @@ import io.ktor.http.isSuccess
 /**
  * Service for authenticating with Dualis.
  * Handles login, redirect following, session management, and re-authentication.
+ *
+ * IMPORTANT: The HttpClient instance is shared with other services (like DualisApiClient)
+ * to ensure cookies and session state are maintained across all requests.
  */
 open class AuthenticationService(
     val sessionManager: SessionManager,
+    private val client: HttpClient,
     private val authParser: AuthParser = AuthParser(),
-    private val htmlParser: HtmlParser = HtmlParser(),
-    private val client: HttpClient = HttpClient {
-        expectSuccess = false
-        install(HttpCookies)
-    }
+    private val htmlParser: HtmlParser = HtmlParser()
 ) {
 
     companion object {
         private const val TAG = "AuthenticationService"
         private const val LOGIN_URL = "https://dualis.dhbw.de/scripts/mgrqispi.dll"
         private const val MAX_REDIRECT_DEPTH = 10
+
+        /**
+         * Create a shared HttpClient for use across all Dualis services.
+         * This ensures cookies are shared between AuthenticationService and DualisApiClient.
+         */
+        fun createSharedHttpClient(): HttpClient {
+            return HttpClient {
+                expectSuccess = false
+                install(HttpCookies)
+            }
+        }
     }
 
     /**
@@ -74,6 +85,14 @@ open class AuthenticationService(
 
             val responseBody = response.bodyAsText()
             Napier.d("Response status: ${response.status}", tag = TAG)
+            Napier.d("Response body length: ${responseBody.length}", tag = TAG)
+            Napier.d("Response body snippet: ${responseBody.take(300)}", tag = TAG)
+
+            // Log response headers for debugging
+            Napier.d("Response headers:", tag = TAG)
+            response.headers.forEach { key, values ->
+                Napier.d("  $key: ${values.joinToString()}", tag = TAG)
+            }
 
             if (!response.status.isSuccess()) {
                 Napier.e("Login request failed with status: ${response.status}", tag = TAG)
@@ -81,9 +100,15 @@ open class AuthenticationService(
             }
 
             // Check for login errors
-            if (responseBody.contains("LOGINCHECK", ignoreCase = true) ||
-                responseBody.contains("Anmeldung fehlgeschlagen", ignoreCase = true)) {
+            val containsLoginCheck = responseBody.contains("LOGINCHECK", ignoreCase = true)
+            val containsLoginFailed = responseBody.contains("Anmeldung fehlgeschlagen", ignoreCase = true)
+
+            Napier.d("Response contains LOGINCHECK: $containsLoginCheck", tag = TAG)
+            Napier.d("Response contains 'Anmeldung fehlgeschlagen': $containsLoginFailed", tag = TAG)
+
+            if (containsLoginCheck || containsLoginFailed) {
                 Napier.e("Login failed - invalid credentials", tag = TAG)
+                Napier.d("Full response body for debugging: $responseBody", tag = TAG)
                 return LoginResult.Failure("Invalid username or password")
             }
 
@@ -133,18 +158,30 @@ open class AuthenticationService(
                 Napier.d("Main page HTML snippet: $snippet", tag = TAG)
             }
 
-            // Extract session ID from cookies
-            val sessionId = extractSessionId()
-            Napier.d("Session ID: ${sessionId?.take(10)}...", tag = TAG)
+            // Extract session ID from cookies (optional - Dualis uses authToken as session ID)
+            val cookieSessionId = extractSessionId()
+            if (cookieSessionId != null) {
+                Napier.d("Found cookie session ID: ${cookieSessionId.take(10)}...", tag = TAG)
+            } else {
+                Napier.d("No cookie session ID found (this is normal for Dualis)", tag = TAG)
+            }
+
+            Napier.d("AuthToken value: ${authToken?.take(10)}...", tag = TAG)
+
+            // For Dualis, the authToken IS the session identifier
+            // Use it as sessionId for API requests
+            val sessionId = authToken ?: cookieSessionId ?: ""
+            Napier.d("✓ Using authToken as session ID: ${sessionId.take(10)}...", tag = TAG)
+            Napier.d("Session ID length: ${sessionId.length} characters", tag = TAG)
 
             // Create and store auth data
             val authData = AuthData(
-                sessionId = sessionId ?: "",
+                sessionId = sessionId,
                 authToken = authToken ?: "",
                 userFullName = userFullName
             )
 
-            Napier.d("Created AuthData with userFullName: ${authData.userFullName}", tag = TAG)
+            Napier.d("Created AuthData - sessionId: ${authData.sessionId.take(10)}..., authToken: ${authData.authToken.take(10)}...", tag = TAG)
 
             sessionManager.storeAuthData(authData)
             Napier.d("Stored AuthData in SessionManager", tag = TAG)
@@ -208,7 +245,17 @@ open class AuthenticationService(
      */
     private suspend fun extractSessionId(): String? {
         val cookies = client.cookies("https://dualis.dhbw.de")
+        Napier.d("Total cookies found: ${cookies.size}", tag = TAG)
+        cookies.forEach { cookie ->
+            Napier.d("Cookie: ${cookie.name} = ${cookie.value.take(20)}...", tag = TAG)
+        }
+
         val sessionCookie = cookies.find { it.name == "JSESSIONID" || it.name == "cnsc" }
+        if (sessionCookie != null) {
+            Napier.d("Found session cookie: ${sessionCookie.name} = ${sessionCookie.value}", tag = TAG)
+        } else {
+            Napier.w("No session cookie found! Looking for: JSESSIONID or cnsc", tag = TAG)
+        }
         return sessionCookie?.value
     }
 

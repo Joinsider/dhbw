@@ -17,20 +17,22 @@ class LectureEventEntityTest {
         val endTime = LocalDateTime(2024, 1, 15, 12, 0)
         val lecture = LectureEventEntity(
             lectureId = 1L,
-            subjectId = 10L,
+            shortSubjectName = "Mathematics",
             startTime = startTime,
             endTime = endTime,
             location = "Room A101",
-            isTest = false
+            isTest = false,
+            lecturerId = 10L
         )
 
         // Then
         assertEquals(1L, lecture.lectureId)
-        assertEquals(10L, lecture.subjectId)
+        assertEquals("Mathematics", lecture.shortSubjectName)
         assertEquals(startTime, lecture.startTime)
         assertEquals(endTime, lecture.endTime)
         assertEquals("Room A101", lecture.location)
         assertFalse(lecture.isTest)
+        assertEquals(10L, lecture.lecturerId)
     }
 
     @Test
@@ -40,11 +42,12 @@ class LectureEventEntityTest {
         val endTime = LocalDateTime(2024, 1, 15, 12, 0)
         val lecture = LectureEventEntity(
             lectureId = 1L,
-            subjectId = 10L,
+            shortSubjectName = "Physics",
             startTime = startTime,
             endTime = endTime,
             location = "Room B202",
-            isTest = true
+            isTest = true,
+            lecturerId = 10L
         )
 
         // Then
@@ -58,10 +61,11 @@ class LectureEventEntityTest {
         val endTime = LocalDateTime(2024, 1, 15, 12, 0)
         val lecture = LectureEventEntity(
             lectureId = 1L,
-            subjectId = 10L,
+            shortSubjectName = "Chemistry",
             startTime = startTime,
             endTime = endTime,
-            location = "Room A101"
+            location = "Room A101",
+            lecturerId = 10L
         )
 
         // Then
@@ -75,19 +79,21 @@ class LectureEventEntityTest {
         val endTime = LocalDateTime(2024, 1, 15, 12, 0)
         val lecture1 = LectureEventEntity(
             lectureId = 1L,
-            subjectId = 10L,
+            shortSubjectName = "Biology",
             startTime = startTime,
             endTime = endTime,
             location = "Room A101",
-            isTest = false
+            isTest = false,
+            lecturerId = 10L
         )
         val lecture2 = LectureEventEntity(
             lectureId = 1L,
-            subjectId = 10L,
+            shortSubjectName = "Biology",
             startTime = startTime,
             endTime = endTime,
             location = "Room A101",
-            isTest = false
+            isTest = false,
+            lecturerId = 10L
         )
 
         // Then
@@ -102,19 +108,21 @@ class LectureEventEntityTest {
         val endTime = LocalDateTime(2024, 1, 15, 12, 0)
         val lecture1 = LectureEventEntity(
             lectureId = 1L,
-            subjectId = 10L,
+            shortSubjectName = "History",
             startTime = startTime,
             endTime = endTime,
             location = "Room A101",
-            isTest = false
+            isTest = false,
+            lecturerId = 10L
         )
         val lecture2 = LectureEventEntity(
             lectureId = 2L,
-            subjectId = 10L,
+            shortSubjectName = "History",
             startTime = startTime,
             endTime = endTime,
             location = "Room A101",
-            isTest = false
+            isTest = false,
+            lecturerId = 10L
         )
 
         // Then
@@ -130,19 +138,21 @@ class LectureEventEntityTest {
         val endTime2 = LocalDateTime(2024, 1, 15, 16, 0)
         val lecture1 = LectureEventEntity(
             lectureId = 1L,
-            subjectId = 10L,
+            shortSubjectName = "Geography",
             startTime = startTime1,
             endTime = endTime1,
             location = "Room A101",
-            isTest = false
+            isTest = false,
+            lecturerId = 10L
         )
         val lecture2 = LectureEventEntity(
             lectureId = 1L,
-            subjectId = 10L,
+            shortSubjectName = "Geography",
             startTime = startTime2,
             endTime = endTime2,
             location = "Room A101",
-            isTest = false
+            isTest = false,
+            lecturerId = 10L
         )
 
         // Then
@@ -156,11 +166,12 @@ class LectureEventEntityTest {
         val endTime = LocalDateTime(2024, 1, 15, 12, 0)
         val originalLecture = LectureEventEntity(
             lectureId = 1L,
-            subjectId = 10L,
+            shortSubjectName = "Computer Science",
             startTime = startTime,
             endTime = endTime,
             location = "Room A101",
-            isTest = false
+            isTest = false,
+            lecturerId = 10L
         )
 
         // When
@@ -169,7 +180,7 @@ class LectureEventEntityTest {
         // Then
         assertEquals("Room B202", modifiedLecture.location)
         assertEquals(originalLecture.lectureId, modifiedLecture.lectureId)
-        assertEquals(originalLecture.subjectId, modifiedLecture.subjectId)
+        assertEquals(originalLecture.shortSubjectName, modifiedLecture.shortSubjectName)
         assertNotEquals(originalLecture, modifiedLecture)
     }
 
@@ -180,11 +191,12 @@ class LectureEventEntityTest {
         val endTime = LocalDateTime(2024, 1, 15, 12, 0)
         val originalLecture = LectureEventEntity(
             lectureId = 1L,
-            subjectId = 10L,
+            shortSubjectName = "English",
             startTime = startTime,
             endTime = endTime,
             location = "Room A101",
-            isTest = false
+            isTest = false,
+            lecturerId = 10L
         )
 
         // When
@@ -207,13 +219,36 @@ class LectureEventEntityTest {
         locations.forEach { location ->
             val lecture = LectureEventEntity(
                 lectureId = 1L,
-                subjectId = 10L,
+                shortSubjectName = "Art",
                 startTime = startTime,
                 endTime = endTime,
                 location = location,
-                isTest = false
+                isTest = false,
+                lecturerId = 10L
             )
             assertEquals(location, lecture.location)
+        }
+    }
+
+    @Test
+    fun `LectureEventEntity handles different subject names`() {
+        // Given
+        val startTime = LocalDateTime(2024, 1, 15, 10, 0)
+        val endTime = LocalDateTime(2024, 1, 15, 12, 0)
+        val subjects = listOf("Mathematics", "Physics", "Chemistry", "Computer Science")
+
+        // When & Then
+        subjects.forEach { subject ->
+            val lecture = LectureEventEntity(
+                lectureId = 1L,
+                shortSubjectName = subject,
+                startTime = startTime,
+                endTime = endTime,
+                location = "Room A101",
+                isTest = false,
+                lecturerId = 10L
+            )
+            assertEquals(subject, lecture.shortSubjectName)
         }
     }
 }

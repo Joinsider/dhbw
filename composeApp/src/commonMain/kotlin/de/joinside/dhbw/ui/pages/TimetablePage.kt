@@ -1,125 +1,61 @@
 package de.joinside.dhbw.ui.pages
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import de.joinside.dhbw.resources.Res
+import de.joinside.dhbw.resources.april_short
+import de.joinside.dhbw.resources.august_short
+import de.joinside.dhbw.resources.december_short
+import de.joinside.dhbw.resources.error_loading_lectures
+import de.joinside.dhbw.resources.february_short
+import de.joinside.dhbw.resources.january_short
+import de.joinside.dhbw.resources.july_short
+import de.joinside.dhbw.resources.june_short
+import de.joinside.dhbw.resources.loading_lectures
+import de.joinside.dhbw.resources.march_short
+import de.joinside.dhbw.resources.may_short
+import de.joinside.dhbw.resources.november_short
+import de.joinside.dhbw.resources.october_short
+import de.joinside.dhbw.resources.september_short
+import de.joinside.dhbw.resources.this_week
 import de.joinside.dhbw.ui.navigation.BottomNavItem
 import de.joinside.dhbw.ui.navigation.BottomNavigationBar
-import de.joinside.dhbw.ui.schedule.modules.LectureModel
 import de.joinside.dhbw.ui.schedule.views.WeeklyLecturesView
 import de.joinside.dhbw.util.isMobilePlatform
-import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.Month
+import org.jetbrains.compose.resources.InternalResourceApi
+import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
+@OptIn(ExperimentalMaterial3Api::class, InternalResourceApi::class)
 @Composable
-@Preview
 fun TimetablePage(
-    onNavigateToResult: () -> Unit = {},
+    viewModel: TimetableViewModel? = null,
     onNavigateToGrades: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     isLoggedIn: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    // Track current week number
-    var currentWeek by remember { mutableStateOf(45) } // Start with week 45 (early November 2025)
+    val uiState = viewModel?.uiState ?: TimetableUiState()
 
-    // Future-todo: Fetch real timetable data and display it here from dualis
-    // Week 1 lectures (even weeks)
-    val week1Lectures = listOf(
-        LectureModel(
-            name = "Software Engineering",
-            color = MaterialTheme.colorScheme.primary,
-            start = LocalDateTime(2024, 6, 10, 9, 0),
-            end = LocalDateTime(2024, 6, 10, 10, 30),
-            lecturer = "Dr. John Doe",
-            location = "Room 101"
-        ),
-        LectureModel(
-            name = "Database Systems",
-            color = MaterialTheme.colorScheme.secondary,
-            start = LocalDateTime(2024, 6, 10, 11, 0),
-            end = LocalDateTime(2024, 6, 10, 12, 30),
-            lecturer = "Prof. Smith",
-            location = "Room 202"
-        ),
-        LectureModel(
-            name = "Web Development",
-            color = MaterialTheme.colorScheme.tertiary,
-            start = LocalDateTime(2024, 6, 10, 14, 0),
-            end = LocalDateTime(2024, 6, 10, 15, 30),
-            lecturer = "Dr. Brown",
-            location = "Lab 3"
-        ),
-        LectureModel(
-            name = "Algorithms",
-            color = MaterialTheme.colorScheme.primary,
-            start = LocalDateTime(2024, 6, 12, 16, 0),
-            end = LocalDateTime(2024, 6, 12, 17, 30),
-            lecturer = "Prof. Johnson",
-            location = "Room 305"
-        )
-    )
-
-    // Week 2 lectures (odd weeks)
-    val week2Lectures = listOf(
-        LectureModel(
-            name = "Machine Learning",
-            color = MaterialTheme.colorScheme.error,
-            start = LocalDateTime(2024, 6, 10, 8, 0),
-            end = LocalDateTime(2024, 6, 10, 9, 30),
-            lecturer = "Dr. Williams",
-            location = "Lab 1"
-        ),
-        LectureModel(
-            name = "Computer Networks",
-            color = MaterialTheme.colorScheme.tertiary,
-            start = LocalDateTime(2024, 6, 10, 10, 0),
-            end = LocalDateTime(2024, 6, 10, 11, 30),
-            lecturer = "Prof. Davis",
-            location = "Room 404"
-        ),
-        LectureModel(
-            name = "Mobile Development",
-            color = MaterialTheme.colorScheme.secondary,
-            start = LocalDateTime(2024, 6, 11, 13, 0),
-            end = LocalDateTime(2024, 6, 11, 14, 30),
-            lecturer = "Dr. Martinez",
-            location = "Lab 2"
-        ),
-        LectureModel(
-            name = "Project Management",
-            color = MaterialTheme.colorScheme.primary,
-            start = LocalDateTime(2024, 6, 11, 15, 0),
-            end = LocalDateTime(2024, 6, 11, 16, 30),
-            lecturer = "Prof. Garcia",
-            location = "Room 501"
-        ),
-        LectureModel(
-            name = "Security",
-            color = MaterialTheme.colorScheme.error,
-            start = LocalDateTime(2024, 6, 13, 9, 0),
-            end = LocalDateTime(2024, 6, 13, 10, 30),
-            lecturer = "Dr. Lee",
-            location = "Room 203"
-        )
-    )
-
-    // Alternate between lecture sets based on week number
-    val lectures = if (currentWeek % 2 == 0) week1Lectures else week2Lectures
-
-    // Generate week label (format: "Week XX")
-    val weekLabel = "Week $currentWeek"
+    // Reload lectures when page is displayed
+    LaunchedEffect(Unit) {
+        viewModel?.loadLecturesForCurrentWeek()
+    }
 
     Scaffold(
         modifier = if (isMobilePlatform()) {
@@ -147,13 +83,127 @@ fun TimetablePage(
                 .fillMaxSize()
                 .padding(bottom = paddingValues.calculateBottomPadding())
         ) {
-            WeeklyLecturesView(
-                lectures = lectures,
-                weekLabel = weekLabel,
-                onPreviousWeek = { currentWeek-- },
-                onNextWeek = { currentWeek++ },
-                modifier = Modifier.fillMaxSize()
-            )
+            when {
+                uiState.isLoading -> {
+                    // Show loading indicator
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator()
+                            Text(
+                                text = stringResource(Res.string.loading_lectures),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(top = 16.dp)
+                            )
+                        }
+                    }
+                }
+                uiState.error != null -> {
+                    // Show error message
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.error_loading_lectures),
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Text(
+                                text = uiState.error,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(top = 8.dp, start = 16.dp, end = 16.dp),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    // Show lectures with pull-to-refresh
+                    // Format week label from WeekLabelData
+                    val weekLabel = uiState.weekLabelData?.let { data ->
+                        formatWeekLabel(data)
+                    } ?: stringResource(Res.string.this_week)
+
+                    PullToRefreshBox(
+                        isRefreshing = uiState.isRefreshing,
+                        onRefresh = {
+                            viewModel?.refreshLectures()
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        WeeklyLecturesView(
+                            lectures = uiState.lectures,
+                            weekLabel = weekLabel,
+                            onPreviousWeek = { viewModel?.goToPreviousWeek() },
+                            onNextWeek = { viewModel?.goToNextWeek() },
+                            onWeekLabelClick = {
+                                // Return to current week if not already there
+                                if (uiState.currentWeekOffset != 0) {
+                                    viewModel?.loadLecturesForCurrentWeek()
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+            }
         }
     }
 }
+
+/**
+ * Preview version with mock data for design testing
+ */
+@Composable
+@Preview
+fun TimetablePagePreview() {
+    TimetablePage(
+        viewModel = null,
+        isLoggedIn = true
+    )
+}
+
+/**
+ * Format WeekLabelData into a localized string.
+ * Examples: "04 - 08 Nov" or "28 Nov - 02 Dec"
+ */
+@Composable
+private fun formatWeekLabel(data: WeekLabelData): String {
+    val mondayMonthStr = stringResource(getMonthResource(data.mondayMonth))
+    val fridayMonthStr = stringResource(getMonthResource(data.fridayMonth))
+
+    return if (data.mondayMonth == data.fridayMonth) {
+        // Same month: "04 - 08 Nov"
+        "${data.mondayDay.toString().padStart(2, '0')} - ${data.fridayDay.toString().padStart(2, '0')} $mondayMonthStr"
+    } else {
+        // Different months: "28 Nov - 02 Dec"
+        "${data.mondayDay.toString().padStart(2, '0')} $mondayMonthStr - ${data.fridayDay.toString().padStart(2, '0')} $fridayMonthStr"
+    }
+}
+
+/**
+ * Map Month enum to string resource.
+ */
+private fun getMonthResource(month: Month) = when (month) {
+    Month.JANUARY -> Res.string.january_short
+    Month.FEBRUARY -> Res.string.february_short
+    Month.MARCH -> Res.string.march_short
+    Month.APRIL -> Res.string.april_short
+    Month.MAY -> Res.string.may_short
+    Month.JUNE -> Res.string.june_short
+    Month.JULY -> Res.string.july_short
+    Month.AUGUST -> Res.string.august_short
+    Month.SEPTEMBER -> Res.string.september_short
+    Month.OCTOBER -> Res.string.october_short
+    Month.NOVEMBER -> Res.string.november_short
+    Month.DECEMBER -> Res.string.december_short
+}
+

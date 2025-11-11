@@ -4,5 +4,32 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+
+	<!-- App Transport Security Settings -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Allow all HTTP connections (for development/testing) -->
+		<!-- In production, you should specify exact domains instead -->
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+
+		<!-- Exception for Dualis domain (uses HTTPS, but may have certificate issues) -->
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>dualis.dhbw.de</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionMinimumTLSVersion</key>
+				<string>TLSv1.2</string>
+			</dict>
+		</dict>
+	</dict>
+
+	<!-- Network Usage Description (required for iOS 14+) -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app needs network access to connect to the DHBW Dualis system.</string>
 </dict>
 </plist>

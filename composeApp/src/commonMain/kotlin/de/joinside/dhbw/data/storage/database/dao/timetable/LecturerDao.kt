@@ -32,4 +32,7 @@ interface LecturerDao {
 
     @Query("DELETE FROM lecturer WHERE lecturerId = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM lecturer")
+    suspend fun deleteAll()
 }

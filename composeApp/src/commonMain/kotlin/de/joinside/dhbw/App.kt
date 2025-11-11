@@ -17,21 +17,26 @@ import de.joinside.dhbw.data.dualis.remote.session.SessionManager
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import de.joinside.dhbw.data.storage.credentials.SecureStorage
 import de.joinside.dhbw.data.storage.credentials.SecureStorageWrapper
-import de.joinside.dhbw.ui.auth.LoginFormResultPage
+import de.joinside.dhbw.data.storage.database.AppDatabase
 import de.joinside.dhbw.ui.pages.GradesPage
 import de.joinside.dhbw.ui.pages.SettingsPage
 import de.joinside.dhbw.ui.pages.Startpage
 import de.joinside.dhbw.ui.pages.TimetablePage
+import de.joinside.dhbw.ui.pages.TimetableViewModel
 import de.joinside.dhbw.ui.theme.DHBWHorbTheme
-import de.joinside.dhbw.util.isMobilePlatform
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
+import io.ktor.client.HttpClient
+import io.ktor.client.plugins.cookies.HttpCookies
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.launch
 
 enum class AppScreen {
     WELCOME,
     LOGIN,
-    RESULT,
     TIMETABLE,
     GRADES,
     SETTINGS
@@ -41,7 +46,9 @@ enum class AppScreen {
 @Preview
 fun App(
     testAuthenticationService: AuthenticationService? = null,
-    testCredentialsProvider: CredentialsStorageProvider? = null
+    testCredentialsProvider: CredentialsStorageProvider? = null,
+    timetableViewModel: TimetableViewModel? = null,
+    database: AppDatabase? = null
 ) {
     // Ensure Napier is initialized (fallback in case platform didn't initialize it)
     LaunchedEffect(Unit) {
@@ -55,12 +62,27 @@ fun App(
         }
     }
 
-    // Initialize SecureStorage, SessionManager, and AuthenticationService
+    // Initialize SecureStorage, SessionManager, and Services
     // Use test dependencies if provided, otherwise create real ones
     val secureStorage = remember { SecureStorage() }
     val secureStorageWrapper = remember { SecureStorageWrapper(secureStorage) }
     val sessionManager = remember { SessionManager(secureStorageWrapper) }
-    val authenticationService = testAuthenticationService ?: remember { AuthenticationService(sessionManager) }
+
+    // Create shared HttpClient for all Dualis services (IMPORTANT for cookie sharing!)
+    val sharedHttpClient = remember {
+        HttpClient {
+            expectSuccess = false
+            install(HttpCookies)
+        }
+    }
+
+    // Initialize services with shared HttpClient
+    val authenticationService = testAuthenticationService ?: remember {
+        AuthenticationService(
+            sessionManager = sessionManager,
+            client = sharedHttpClient
+        )
+    }
 
     // Keep CredentialsProvider for backward compatibility with existing UI
     val credentialsProvider = testCredentialsProvider ?: remember { CredentialsStorageProvider(secureStorageWrapper) }
@@ -73,8 +95,38 @@ fun App(
     LaunchedEffect(Unit) {
         isLoggedIn = authenticationService.isAuthenticated()
         if (isLoggedIn) {
-            currentScreen = AppScreen.RESULT
+            currentScreen = AppScreen.TIMETABLE
         }
+    }
+
+    // Logout handler
+    val handleLogout: () -> Unit = {
+        Napier.d("Logout initiated", tag = "App")
+
+        // Clear session data
+        sessionManager.logout()
+
+        // Clear credentials
+        credentialsProvider.clearCredentials()
+
+        // Clear database if available
+        database?.let { db ->
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    Napier.d("Clearing database...", tag = "App")
+                    db.clearAllData()
+                    Napier.d("Database cleared successfully", tag = "App")
+                } catch (e: Exception) {
+                    Napier.e("Error clearing database: ${e.message}", e, tag = "App")
+                }
+            }
+        }
+
+        // Update UI state
+        isLoggedIn = false
+        currentScreen = AppScreen.WELCOME
+
+        Napier.d("Logout completed", tag = "App")
     }
 
     DHBWHorbTheme {
@@ -114,7 +166,7 @@ fun App(
                         Startpage(
                             onLoginSuccess = {
                                 isLoggedIn = true
-                                currentScreen = AppScreen.RESULT
+                                currentScreen = AppScreen.TIMETABLE
                             },
                             authenticationService = authenticationService,
                             credentialsProvider = credentialsProvider,
@@ -122,35 +174,9 @@ fun App(
                     }
                 }
 
-                AppScreen.RESULT -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 16.dp)
-                            .safeContentPadding(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        LoginFormResultPage(
-                            credentialsProvider = credentialsProvider,
-                            onLogout = {
-                                authenticationService.logout()
-                                isLoggedIn = false
-                                currentScreen = AppScreen.WELCOME
-                            },
-                            authService = authenticationService,
-                            onNavigateToTimetable = {
-                                currentScreen = AppScreen.TIMETABLE
-                            }
-                        )
-                    }
-                }
-
                 AppScreen.TIMETABLE -> {
                     TimetablePage(
-                        onNavigateToResult = {
-                            currentScreen = AppScreen.RESULT
-                        },
+                        viewModel = timetableViewModel,
                         onNavigateToGrades = {
                             currentScreen = AppScreen.GRADES
                         },
@@ -187,6 +213,7 @@ fun App(
                         onNavigateToGrades = {
                             currentScreen = AppScreen.GRADES
                         },
+                        onLogout = handleLogout,
                         isLoggedIn = isLoggedIn,
                         modifier = Modifier
                             .fillMaxSize()
