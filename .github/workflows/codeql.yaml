@@ -38,7 +38,7 @@ jobs:
 
     - name: Build Kotlin Multiplatform
       run: |
-        ./gradlew compileKotlinJvm compileKotlinAndroid compileKotlinIos --no-daemon
+        ./gradlew :composeApp:compileKotlinAndroid :composeApp:compileKotlinDesktop --no-daemon
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
