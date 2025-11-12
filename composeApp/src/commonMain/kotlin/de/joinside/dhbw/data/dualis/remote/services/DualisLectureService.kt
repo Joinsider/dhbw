@@ -220,8 +220,8 @@ class DualisLectureService(
      * Fetch and parse individual lecture page details.
      * Follows the same pattern: Service -> API Client -> Service -> Parser
      */
-    private suspend fun fetchLectureDetails(url: String): Pair<String, List<String>>? {
-        Napier.d("Fetching lecture details from: $url", tag = TAG)
+    private suspend fun fetchLectureDetails(url: String, attemptCount: Int = 0): Pair<String, List<String>>? {
+        Napier.d("Fetching lecture details from: $url (attempt $attemptCount)", tag = TAG)
 
         try {
             // Parse URL to extract query parameters
@@ -235,10 +235,23 @@ class DualisLectureService(
                 is DualisApiClient.ApiResult.Success -> {
                     val htmlContent = apiResult.htmlContent
 
-                    // Check for errors
+                    // Check for errors (likely session expired)
                     if (htmlParser.isErrorPage(htmlContent)) {
-                        Napier.w("Individual page returned error, skipping", tag = TAG)
-                        return null
+                        Napier.w("Individual page returned error, attempting re-authentication", tag = TAG)
+                        
+                        if (attemptCount >= MAX_RETRY_ATTEMPTS) {
+                            Napier.e("Max retry attempts reached for lecture details", tag = TAG)
+                            return null
+                        }
+
+                        val reAuthResult = reAuthenticate()
+                        if (reAuthResult.isFailure) {
+                            Napier.e("Re-authentication failed for lecture details", tag = TAG)
+                            return null
+                        }
+
+                        // Retry the request
+                        return fetchLectureDetails(url, attemptCount + 1)
                     }
 
                     // Parse via parser
@@ -316,11 +329,15 @@ class DualisLectureService(
 
     /**
      * Parse URL parameters from a full URL string.
+     * Handles HTML-encoded URLs (replaces &amp; with &).
      */
     private fun parseUrlParameters(url: String): Map<String, String> {
         val parameters = mutableMapOf<String, String>()
 
-        val queryString = url.substringAfter("?", "")
+        // Decode HTML entities first (e.g., &amp; -> &)
+        val decodedUrl = url.replace("&amp;", "&")
+
+        val queryString = decodedUrl.substringAfter("?", "")
         if (queryString.isEmpty()) {
             return parameters
         }
