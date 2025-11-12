@@ -329,11 +329,15 @@ class DualisLectureService(
 
     /**
      * Parse URL parameters from a full URL string.
+     * Handles HTML-encoded URLs (replaces &amp; with &).
      */
     private fun parseUrlParameters(url: String): Map<String, String> {
         val parameters = mutableMapOf<String, String>()
 
-        val queryString = url.substringAfter("?", "")
+        // Decode HTML entities first (e.g., &amp; -> &)
+        val decodedUrl = url.replace("&amp;", "&")
+
+        val queryString = decodedUrl.substringAfter("?", "")
         if (queryString.isEmpty()) {
             return parameters
         }
