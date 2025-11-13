@@ -117,12 +117,29 @@ class DualisLectureService(
                 is DualisApiClient.ApiResult.Success -> {
                     val htmlContent = apiResult.htmlContent
 
-                    // Step 2: Validate HTML
+                    // Step 2: Validate HTML - check for explicit errors
                     if (htmlParser.isErrorPage(htmlContent)) {
                         Napier.w("Received error page, attempting re-authentication", tag = TAG)
 
                         if (attemptCount >= MAX_RETRY_ATTEMPTS) {
                             return Result.failure(Exception("Max retry attempts reached"))
+                        }
+
+                        val reAuthResult = reAuthenticate()
+                        if (reAuthResult.isFailure) {
+                            return Result.failure(reAuthResult.exceptionOrNull()!!)
+                        }
+
+                        // Retry the request
+                        return fetchWeeklyLecturesWithRetry(date, attemptCount + 1)
+                    }
+
+                    // Step 2b: Validate that it's actually a timetable page (not session expired)
+                    if (!htmlParser.isValidTimetablePage(htmlContent)) {
+                        Napier.w("Received invalid timetable page (likely session expired), attempting re-authentication", tag = TAG)
+
+                        if (attemptCount >= MAX_RETRY_ATTEMPTS) {
+                            return Result.failure(Exception("Max retry attempts reached - invalid timetable page"))
                         }
 
                         val reAuthResult = reAuthenticate()
@@ -303,6 +320,10 @@ class DualisLectureService(
         sessionManager.setReAuthenticating(true)
         try {
             Napier.d("Attempting re-authentication", tag = TAG)
+
+            // Clear cached auth data to force fresh login
+            sessionManager.clearAuthData()
+
             val credentials = sessionManager.getStoredCredentials()
 
             if (credentials == null) {

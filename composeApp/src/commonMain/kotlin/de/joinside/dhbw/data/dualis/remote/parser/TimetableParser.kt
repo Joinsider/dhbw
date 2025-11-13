@@ -47,6 +47,19 @@ class TimetableParser {
         val lectures = mutableListOf<TempLectureModel>()
 
         try {
+            // Log a sample of the HTML around the weekday class to help debug
+            val weekdayIndex = htmlContent.indexOf("class=\"weekday\"")
+            if (weekdayIndex >= 0) {
+                val start = maxOf(0, weekdayIndex - 100)
+                val end = minOf(htmlContent.length, weekdayIndex + 300)
+                val sample = htmlContent.substring(start, end)
+                Napier.d("HTML sample around weekday header: $sample", tag = TAG)
+            } else {
+                Napier.w("No 'class=\"weekday\"' found in HTML!", tag = TAG)
+                // Log first 500 chars to see what we're getting
+                Napier.d("HTML start: ${htmlContent.take(500)}", tag = TAG)
+            }
+
             // Extract all weekday dates from headers
             // Format: <th class="weekday"><a href="...">Mo 03.11.</a></th>
             val weekDates = extractWeekDates(htmlContent)
@@ -88,13 +101,17 @@ class TimetableParser {
     private fun extractWeekDates(htmlContent: String): Map<String, LocalDateTime> {
         val weekDates = mutableMapOf<String, LocalDateTime>()
 
-        // Pattern: <th class="weekday"><a href="...">Mo 03.11.</a></th>
-        val headerPattern = """<th class="weekday"[^>]*><a[^>]*>(Mo|Di|Mi|Do|Fr|Sa|So) (\d{2})\.(\d{2})\.</a></th>""".toRegex()
+        // Pattern: <th class="weekday" ...><a ...>Mo 03.11.</a></th>
+        // More lenient pattern to handle variations in HTML formatting
+        val headerPattern = """<th\s+class="weekday"[^>]*>\s*<a[^>]*>\s*(Mo|Di|Mi|Do|Fr|Sa|So)\s+(\d{2})\.(\d{2})\.\s*</a>\s*</th>""".toRegex()
         val matches = headerPattern.findAll(htmlContent)
 
         val now = kotlin.time.Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
         val currentYear = now.year
 
+        Napier.d("Attempting to extract week dates from HTML (length: ${htmlContent.length})", tag = TAG)
+
+        var matchCount = 0
         for (match in matches) {
             val dayAbbr = match.groupValues[1] // Mo, Di, Mi, etc.
             val day = match.groupValues[2].toInt()
@@ -114,7 +131,37 @@ class TimetableParser {
 
             val dateTime = LocalDateTime(currentYear, Month(month), day, 0, 0)
             weekDates[fullDayName] = dateTime
+            matchCount++
             Napier.d("Mapped $fullDayName -> $dateTime", tag = TAG)
+        }
+
+        if (matchCount == 0) {
+            Napier.w("No week dates found in HTML! Trying alternative pattern...", tag = TAG)
+
+            // Try alternative pattern without strict whitespace requirements
+            val alternativePattern = """class="weekday"[^>]*>.*?>(Mo|Di|Mi|Do|Fr|Sa|So)\s+(\d{2})\.(\d{2})\.""".toRegex()
+            val altMatches = alternativePattern.findAll(htmlContent)
+
+            for (match in altMatches) {
+                val dayAbbr = match.groupValues[1]
+                val day = match.groupValues[2].toInt()
+                val month = match.groupValues[3].toInt()
+
+                val fullDayName = when (dayAbbr) {
+                    "Mo" -> "Montag"
+                    "Di" -> "Dienstag"
+                    "Mi" -> "Mittwoch"
+                    "Do" -> "Donnerstag"
+                    "Fr" -> "Freitag"
+                    "Sa" -> "Samstag"
+                    "So" -> "Sonntag"
+                    else -> dayAbbr
+                }
+
+                val dateTime = LocalDateTime(currentYear, Month(month), day, 0, 0)
+                weekDates[fullDayName] = dateTime
+                Napier.d("Mapped (alternative) $fullDayName -> $dateTime", tag = TAG)
+            }
         }
 
         return weekDates
