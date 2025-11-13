@@ -1,5 +1,6 @@
 package de.joinside.dhbw.data.dualis.remote.services
 
+import de.joinside.dhbw.data.dualis.demo.DemoDataProvider
 import de.joinside.dhbw.data.dualis.remote.DualisApiClient
 import de.joinside.dhbw.data.dualis.remote.parser.HtmlParser
 import de.joinside.dhbw.data.dualis.remote.parser.TimetableParser
@@ -86,8 +87,36 @@ class DualisLectureService(
 
         // Handle demo mode
         if (sessionManager.isDemoMode()) {
-            Napier.d("Demo mode active, returning empty list", tag = TAG)
-            return Result.success(emptyList())
+            Napier.d("Demo mode active, returning demo lectures", tag = TAG)
+            val demoStartDate = LocalDateTime(date.year, date.month, date.day, 0, 0, 0)
+            val demoLectures = DemoDataProvider.generateDemoLecturesForWeek(demoStartDate)
+
+            // Save demo lecturers to database if not already present
+            val demoLecturers = DemoDataProvider.generateDemoLecturers()
+            demoLecturers.forEach { lecturer ->
+                try {
+                    val existingLecturer = lecturerDao.getById(lecturer.lecturerId)
+                    if (existingLecturer == null) {
+                        lecturerDao.insert(lecturer)
+                    }
+                } catch (e: Exception) {
+                    Napier.w("Could not check/insert demo lecturer: ${e.message}", tag = TAG)
+                }
+            }
+
+            // Save demo lectures to database
+            demoLectures.forEach { lecture ->
+                try {
+                    val existingLecture = lectureEventDao.getById(lecture.lectureId)
+                    if (existingLecture == null) {
+                        lectureEventDao.insert(lecture)
+                    }
+                } catch (e: Exception) {
+                    Napier.w("Could not insert demo lecture: ${e.message}", tag = TAG)
+                }
+            }
+
+            return Result.success(demoLectures)
         }
 
         try {
@@ -383,4 +412,3 @@ class DualisLectureService(
         return getWeeklyLecturesForDate(start.date)
     }
 }
-
