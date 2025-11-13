@@ -83,7 +83,7 @@ class DualisLectureServiceSessionExpirationTest {
             
             when {
                 // Login request
-                url.contains("LOGINCHECK") -> {
+                url.contains("LOGINCHECK") || url.contains("login") -> {
                     loginCallCount++
                     respond(
                         content = ByteReadChannel("""
@@ -155,6 +155,23 @@ class DualisLectureServiceSessionExpirationTest {
                             }
                         )
                     }
+                }
+                // Default Dualis requests (catch-all for authentication)
+                url.contains("dualis.dhbw.de") -> {
+                    respond(
+                        content = ByteReadChannel("""
+                            <html>
+                            <head>
+                                <meta http-equiv="refresh" content="0; URL=https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=MLSSTART&ARGUMENTS=-Ntest-token">
+                            </head>
+                            </html>
+                        """.trimIndent()),
+                        status = HttpStatusCode.OK,
+                        headers = headers {
+                            append(HttpHeaders.ContentType, "text/html")
+                            append("refresh", "0; URL=https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=MLSSTART&ARGUMENTS=-Ntest-token")
+                        }
+                    )
                 }
                 else -> {
                     respond(

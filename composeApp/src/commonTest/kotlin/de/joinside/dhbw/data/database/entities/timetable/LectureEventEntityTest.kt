@@ -22,7 +22,6 @@ class LectureEventEntityTest {
             endTime = endTime,
             location = "Room A101",
             isTest = false,
-            lecturerId = 10L
         )
 
         // Then
@@ -32,7 +31,6 @@ class LectureEventEntityTest {
         assertEquals(endTime, lecture.endTime)
         assertEquals("Room A101", lecture.location)
         assertFalse(lecture.isTest)
-        assertEquals(10L, lecture.lecturerId)
     }
 
     @Test
@@ -47,7 +45,6 @@ class LectureEventEntityTest {
             endTime = endTime,
             location = "Room B202",
             isTest = true,
-            lecturerId = 10L
         )
 
         // Then
@@ -65,7 +62,6 @@ class LectureEventEntityTest {
             startTime = startTime,
             endTime = endTime,
             location = "Room A101",
-            lecturerId = 10L
         )
 
         // Then
@@ -84,7 +80,6 @@ class LectureEventEntityTest {
             endTime = endTime,
             location = "Room A101",
             isTest = false,
-            lecturerId = 10L
         )
         val lecture2 = LectureEventEntity(
             lectureId = 1L,
@@ -93,7 +88,6 @@ class LectureEventEntityTest {
             endTime = endTime,
             location = "Room A101",
             isTest = false,
-            lecturerId = 10L
         )
 
         // Then
@@ -113,7 +107,6 @@ class LectureEventEntityTest {
             endTime = endTime,
             location = "Room A101",
             isTest = false,
-            lecturerId = 10L
         )
         val lecture2 = LectureEventEntity(
             lectureId = 2L,
@@ -122,7 +115,6 @@ class LectureEventEntityTest {
             endTime = endTime,
             location = "Room A101",
             isTest = false,
-            lecturerId = 10L
         )
 
         // Then
@@ -143,7 +135,6 @@ class LectureEventEntityTest {
             endTime = endTime1,
             location = "Room A101",
             isTest = false,
-            lecturerId = 10L
         )
         val lecture2 = LectureEventEntity(
             lectureId = 1L,
@@ -152,7 +143,6 @@ class LectureEventEntityTest {
             endTime = endTime2,
             location = "Room A101",
             isTest = false,
-            lecturerId = 10L
         )
 
         // Then
@@ -171,7 +161,6 @@ class LectureEventEntityTest {
             endTime = endTime,
             location = "Room A101",
             isTest = false,
-            lecturerId = 10L
         )
 
         // When
@@ -196,7 +185,6 @@ class LectureEventEntityTest {
             endTime = endTime,
             location = "Room A101",
             isTest = false,
-            lecturerId = 10L
         )
 
         // When
@@ -224,7 +212,6 @@ class LectureEventEntityTest {
                 endTime = endTime,
                 location = location,
                 isTest = false,
-                lecturerId = 10L
             )
             assertEquals(location, lecture.location)
         }
@@ -246,7 +233,6 @@ class LectureEventEntityTest {
                 endTime = endTime,
                 location = "Room A101",
                 isTest = false,
-                lecturerId = 10L
             )
             assertEquals(subject, lecture.shortSubjectName)
         }
