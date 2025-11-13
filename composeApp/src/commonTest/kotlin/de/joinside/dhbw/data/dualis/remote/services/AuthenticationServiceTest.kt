@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 package de.joinside.dhbw.data.dualis.remote.services
 
 import de.joinside.dhbw.data.dualis.remote.session.SessionManager
@@ -18,6 +24,10 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
+/**
+ * Tests for AuthenticationService functionality.
+ * These tests verify login, logout, and authentication state management.
+ */
 class AuthenticationServiceTest {
 
     private lateinit var fakeSecureStorage: FakeSecureStorage
@@ -42,9 +52,15 @@ class AuthenticationServiceTest {
     @Test
     fun login_withDemoCredentials_returnsSuccess() = runTest {
         // Given
-        val service = AuthenticationService(sessionManager)
-        val username = "demo@dhbw.de"
-        val password = "demopassword"
+        val mockClient = HttpClient(MockEngine {
+            // This should never be called for demo credentials
+            respond(ByteReadChannel("Should not reach here"), HttpStatusCode.InternalServerError)
+        }) {
+            expectSuccess = false
+        }
+        val service = AuthenticationService(sessionManager, mockClient)
+        val username = "demo@hb.dhbw-stuttgart.de"
+        val password = "demo123"
 
         // When
         val result = service.login(username, password)
@@ -57,7 +73,7 @@ class AuthenticationServiceTest {
     @Test
     fun login_withInvalidCredentials_returnsFailure() = runTest {
         // Given
-        val mockEngine = MockEngine { request ->
+        val mockEngine = MockEngine {
             respond(
                 content = ByteReadChannel("""
                     <html>
@@ -88,7 +104,7 @@ class AuthenticationServiceTest {
     @Test
     fun login_withHttpError_returnsFailure() = runTest {
         // Given
-        val mockEngine = MockEngine { request ->
+        val mockEngine = MockEngine {
             respond(
                 content = ByteReadChannel("Internal Server Error"),
                 status = HttpStatusCode.InternalServerError,
@@ -113,7 +129,7 @@ class AuthenticationServiceTest {
     @Test
     fun login_withNetworkException_returnsFailure() = runTest {
         // Given
-        val mockEngine = MockEngine { request ->
+        val mockEngine = MockEngine {
             throw Exception("Network error")
         }
 
@@ -132,7 +148,7 @@ class AuthenticationServiceTest {
     @Test
     fun login_withNoRedirectHeader_returnsFailure() = runTest {
         // Given
-        val mockEngine = MockEngine { request ->
+        val mockEngine = MockEngine {
             respond(
                 content = ByteReadChannel("""
                     <html>
@@ -163,7 +179,12 @@ class AuthenticationServiceTest {
     @Test
     fun isAuthenticated_returnsTrueWhenDemoMode() = runTest {
         // Given
-        val service = AuthenticationService(sessionManager)
+        val mockClient = HttpClient(MockEngine {
+            respond(ByteReadChannel(""), HttpStatusCode.OK)
+        }) {
+            expectSuccess = false
+        }
+        val service = AuthenticationService(sessionManager, mockClient)
         sessionManager.setDemoMode(true)
 
         // When
@@ -177,7 +198,12 @@ class AuthenticationServiceTest {
     @Test
     fun logout_clearsSessionData() = runTest {
         // Given
-        val service = AuthenticationService(sessionManager)
+        val mockClient = HttpClient(MockEngine {
+            respond(ByteReadChannel(""), HttpStatusCode.OK)
+        }) {
+            expectSuccess = false
+        }
+        val service = AuthenticationService(sessionManager, mockClient)
         sessionManager.storeCredentials("test@dhbw.de", "password")
         sessionManager.setDemoMode(true)
 
@@ -198,4 +224,3 @@ class AuthenticationServiceTest {
         return AuthenticationService(sessionManager, client = mockClient)
     }
 }
-

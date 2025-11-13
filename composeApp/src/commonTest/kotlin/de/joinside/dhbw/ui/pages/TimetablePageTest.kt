@@ -6,10 +6,14 @@
 
 package de.joinside.dhbw.ui.pages
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runComposeUiTest
+import de.joinside.dhbw.ui.schedule.models.LectureModel
+import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
 
 @OptIn(ExperimentalTestApi::class)
@@ -17,8 +21,11 @@ class TimetablePageTest {
 
     @Test
     fun timetablePage_displaysWeeklyLecturesView() = runComposeUiTest {
+        val mockViewModel = createMockViewModel()
+
         setContent {
             TimetablePage(
+                viewModel = mockViewModel as? TimetableViewModel,
                 isLoggedIn = true
             )
         }
@@ -31,8 +38,11 @@ class TimetablePageTest {
 
     @Test
     fun timetablePage_displaysBottomNavigation_whenLoggedIn() = runComposeUiTest {
+        val mockViewModel = createMockViewModel()
+
         setContent {
             TimetablePage(
+                viewModel = mockViewModel as? TimetableViewModel,
                 isLoggedIn = true
             )
         }
@@ -47,8 +57,11 @@ class TimetablePageTest {
 
     @Test
     fun timetablePage_hidesBottomNavigation_whenNotLoggedIn() = runComposeUiTest {
+        val mockViewModel = createMockViewModel()
+
         setContent {
             TimetablePage(
+                viewModel = mockViewModel as? TimetableViewModel,
                 isLoggedIn = false
             )
         }
@@ -63,8 +76,11 @@ class TimetablePageTest {
 
     @Test
     fun timetablePage_displaysMultipleLectures() = runComposeUiTest {
+        val mockViewModel = createMockViewModel()
+
         setContent {
             TimetablePage(
+                viewModel = mockViewModel as? TimetableViewModel,
                 isLoggedIn = true
             )
         }
@@ -76,5 +92,74 @@ class TimetablePageTest {
         onNodeWithText("Advanced Topics").assertIsDisplayed()
         onNodeWithText("Practical Session").assertIsDisplayed()
     }
+
+    private fun createMockViewModel(): Any {
+        val sampleLectures = listOf(
+            LectureModel(
+                name = "Sample Lecture",
+                isTest = false,
+                start = LocalDateTime(2024, 1, 15, 9, 0),
+                end = LocalDateTime(2024, 1, 15, 10, 30),
+                lecturers = listOf("Dr. Smith"),
+                location = "Room 101"
+            ),
+            LectureModel(
+                name = "Advanced Topics",
+                isTest = false,
+                start = LocalDateTime(2024, 1, 16, 11, 0),
+                end = LocalDateTime(2024, 1, 16, 12, 30),
+                lecturers = listOf("Prof. Johnson"),
+                location = "Room 202"
+            ),
+            LectureModel(
+                name = "Practical Session",
+                isTest = false,
+                start = LocalDateTime(2024, 1, 17, 14, 0),
+                end = LocalDateTime(2024, 1, 17, 15, 30),
+                lecturers = listOf("Ms. Wilson"),
+                location = "Lab 303"
+            )
+        )
+
+        return object {
+            @Suppress("UNUSED")
+            val uiState by mutableStateOf(
+                TimetableUiState(
+                    lectures = sampleLectures,
+                    weekLabelData = WeekLabelData(
+                        mondayDay = 15,
+                        fridayDay = 19,
+                        mondayMonth = kotlinx.datetime.Month.JANUARY,
+                        fridayMonth = kotlinx.datetime.Month.JANUARY
+                    )
+                )
+            )
+
+            @Suppress("UNUSED")
+            fun loadLecturesForCurrentWeek() {
+                // Mock implementation - do nothing
+            }
+
+            @Suppress("UNUSED")
+            fun goToPreviousWeek() {
+                // Mock implementation - do nothing
+            }
+
+            @Suppress("UNUSED")
+            fun goToNextWeek() {
+                // Mock implementation - do nothing
+            }
+
+            @Suppress("UNUSED")
+            fun refreshLectures() {
+                // Mock implementation - do nothing
+            }
+        }
+    }
 }
+
+
+
+
+
 
