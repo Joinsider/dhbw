@@ -169,4 +169,35 @@ class HtmlParser {
         Napier.d("No error patterns detected in page", tag = TAG)
         return false
     }
+
+    /**
+     * Check if a timetable/schedule page is valid by looking for expected content.
+     * This helps detect session expired pages that don't have explicit error messages.
+     * @returns true if the page appears to be a valid timetable page
+     */
+    fun isValidTimetablePage(htmlContent: String): Boolean {
+        // A valid timetable page should have the weekday headers
+        val hasWeekdayHeaders = htmlContent.contains("class=\"weekday\"", ignoreCase = false)
+
+        // Should also have appointment cells
+        val hasAppointments = htmlContent.contains("class=\"appointment\"", ignoreCase = false)
+
+        // Should NOT be a redirect page
+        val isNotRedirect = !isRedirectPage(htmlContent)
+
+        val isValid = hasWeekdayHeaders && isNotRedirect
+
+        if (!isValid) {
+            Napier.w("Invalid timetable page: hasWeekdayHeaders=$hasWeekdayHeaders, hasAppointments=$hasAppointments, isNotRedirect=$isNotRedirect", tag = TAG)
+
+            // Log what we found instead
+            if (htmlContent.contains("login", ignoreCase = true)) {
+                Napier.w("Page appears to be a login page (session likely expired)", tag = TAG)
+            }
+        } else {
+            Napier.d("Valid timetable page detected", tag = TAG)
+        }
+
+        return isValid
+    }
 }
