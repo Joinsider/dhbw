@@ -188,6 +188,7 @@ class TimetableViewModel(
 
         return LectureModel(
             name = fullSubjectName ?: shortSubjectName,
+            shortName = shortSubjectName,
             isTest = isTest,
             start = startTime,
             end = endTime,

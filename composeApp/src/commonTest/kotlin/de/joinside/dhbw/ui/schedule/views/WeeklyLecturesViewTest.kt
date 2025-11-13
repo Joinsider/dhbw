@@ -35,7 +35,7 @@ class WeeklyLecturesViewTest {
     fun weeklyLecturesView_displaysLectures_whenNotEmpty() = runComposeUiTest {
         val lecture = LectureModel(
             name = "Test Lecture",
-            color = androidx.compose.ui.graphics.Color.Blue,
+            isTest = false,
             start = LocalDateTime(2024, 6, 10, 9, 0),
             end = LocalDateTime(2024, 6, 10, 10, 30),
             lecturer = "Dr. Test",
@@ -61,7 +61,7 @@ class WeeklyLecturesViewTest {
         val lectures = listOf(
             LectureModel(
                 name = "Lecture 1",
-                color = androidx.compose.ui.graphics.Color.Blue,
+                isTest = false,
                 start = LocalDateTime(2024, 6, 10, 9, 0),
                 end = LocalDateTime(2024, 6, 10, 10, 30),
                 lecturer = "Dr. One",
@@ -69,7 +69,7 @@ class WeeklyLecturesViewTest {
             ),
             LectureModel(
                 name = "Lecture 2",
-                color = androidx.compose.ui.graphics.Color.Green,
+                isTest = false,
                 start = LocalDateTime(2024, 6, 10, 11, 0),
                 end = LocalDateTime(2024, 6, 10, 12, 30),
                 lecturer = "Dr. Two",
@@ -77,7 +77,7 @@ class WeeklyLecturesViewTest {
             ),
             LectureModel(
                 name = "Lecture 3",
-                color = androidx.compose.ui.graphics.Color.Red,
+                isTest = true,
                 start = LocalDateTime(2024, 6, 11, 14, 0),
                 end = LocalDateTime(2024, 6, 11, 15, 30),
                 lecturer = "Dr. Three",
@@ -103,7 +103,7 @@ class WeeklyLecturesViewTest {
     fun weeklyLecturesView_displaysTimelineForLectures() = runComposeUiTest {
         val lecture = LectureModel(
             name = "Morning Lecture",
-            color = androidx.compose.ui.graphics.Color.Blue,
+            isTest = false,
             start = LocalDateTime(2024, 6, 10, 9, 0),
             end = LocalDateTime(2024, 6, 10, 10, 30),
             lecturer = "Dr. Morning",
@@ -128,7 +128,7 @@ class WeeklyLecturesViewTest {
         val lecturesOnDifferentDays = listOf(
             LectureModel(
                 name = "Monday Lecture",
-                color = androidx.compose.ui.graphics.Color.Blue,
+                isTest = false,
                 start = LocalDateTime(2024, 6, 10, 9, 0), // Monday
                 end = LocalDateTime(2024, 6, 10, 10, 30),
                 lecturer = "Dr. Monday",
@@ -136,7 +136,7 @@ class WeeklyLecturesViewTest {
             ),
             LectureModel(
                 name = "Wednesday Lecture",
-                color = androidx.compose.ui.graphics.Color.Green,
+                isTest = false,
                 start = LocalDateTime(2024, 6, 12, 9, 0), // Wednesday
                 end = LocalDateTime(2024, 6, 12, 10, 30),
                 lecturer = "Dr. Wednesday",
