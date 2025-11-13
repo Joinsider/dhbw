@@ -80,7 +80,8 @@ fun main() {
 
     // Create timetable ViewModel
     val timetableViewModel = TimetableViewModel(
-        lectureService = lectureService
+        lectureService = lectureService,
+        lecturerDao = database.lecturerDao()
     )
     Napier.d("TimetableViewModel initialized", tag = "Main")
 
