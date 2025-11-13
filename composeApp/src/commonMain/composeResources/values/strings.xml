@@ -48,6 +48,7 @@
     <string name="lecturers">Lecturers</string>
     <string name="lecturer">Lecturer</string>
     <string name="room">Room</string>
+    <string name="rooms">Rooms</string>
     <string name="location">Location</string>
     <string name="no_lectures_this_week">No lectures scheduled this week</string>
     <string name="loading_lectures">Loading lectures... this can take a few seconds.</string>

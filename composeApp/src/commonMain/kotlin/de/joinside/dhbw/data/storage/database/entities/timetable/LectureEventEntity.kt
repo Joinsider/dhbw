@@ -1,24 +1,11 @@
 package de.joinside.dhbw.data.storage.database.entities.timetable
 
 import androidx.room.Entity
-import androidx.room.ForeignKey
-import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.datetime.LocalDateTime
 
 @Entity(
-    tableName = "lecture",
-    indices = [
-        Index(value = ["lecturerId"])
-    ],
-    foreignKeys = [
-        ForeignKey(
-            entity = LecturerEntity::class,
-            parentColumns = ["lecturerId"],
-            childColumns = ["lecturerId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ]
+    tableName = "lecture"
 )
 data class LectureEventEntity(
     @PrimaryKey(autoGenerate = true) val lectureId: Long,
@@ -28,6 +15,5 @@ data class LectureEventEntity(
     val endTime: LocalDateTime,
     val location: String,
     val isTest: Boolean = false,
-    val lecturerId: Long? = null, // Foreign Key zu LecturerEntity // TODO: Add tests for the lecturerId if it is not there
     val fetchedAt: LocalDateTime? = null
 )

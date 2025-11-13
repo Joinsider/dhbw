@@ -40,7 +40,6 @@ object DemoDataProvider {
                 endHour = 9,
                 endMinute = 30,
                 location = "Raum A1.01",
-                lecturerId = 1L
             )
         )
         lectures.add(
@@ -54,7 +53,6 @@ object DemoDataProvider {
                 endHour = 11,
                 endMinute = 15,
                 location = "Raum A1.01",
-                lecturerId = 1L
             )
         )
         lectures.add(
@@ -68,7 +66,6 @@ object DemoDataProvider {
                 endHour = 13,
                 endMinute = 0,
                 location = "Raum B2.05",
-                lecturerId = 2L
             )
         )
         lectures.add(
@@ -82,7 +79,6 @@ object DemoDataProvider {
                 endHour = 15,
                 endMinute = 30,
                 location = "Raum C3.12",
-                lecturerId = 3L
             )
         )
 
@@ -99,7 +95,6 @@ object DemoDataProvider {
                 endHour = 9,
                 endMinute = 30,
                 location = "Raum A2.15",
-                lecturerId = 4L
             )
         )
         lectures.add(
@@ -113,7 +108,6 @@ object DemoDataProvider {
                 endHour = 11,
                 endMinute = 15,
                 location = "Raum D1.08",
-                lecturerId = 5L
             )
         )
         lectures.add(
@@ -127,7 +121,6 @@ object DemoDataProvider {
                 endHour = 15,
                 endMinute = 0,
                 location = "Raum B1.03",
-                lecturerId = 6L
             )
         )
 
@@ -144,7 +137,6 @@ object DemoDataProvider {
                 endHour = 9,
                 endMinute = 30,
                 location = "Raum A1.01",
-                lecturerId = 1L
             )
         )
         lectures.add(
@@ -158,7 +150,6 @@ object DemoDataProvider {
                 endHour = 11,
                 endMinute = 30,
                 location = "Raum C2.20",
-                lecturerId = 7L
             )
         )
         lectures.add(
@@ -172,7 +163,6 @@ object DemoDataProvider {
                 endHour = 13,
                 endMinute = 15,
                 location = "Raum A3.05",
-                lecturerId = 8L
             )
         )
 
@@ -189,7 +179,6 @@ object DemoDataProvider {
                 endHour = 9,
                 endMinute = 30,
                 location = "Raum D2.11",
-                lecturerId = 9L
             )
         )
         lectures.add(
@@ -203,7 +192,6 @@ object DemoDataProvider {
                 endHour = 11,
                 endMinute = 15,
                 location = "Raum B2.05",
-                lecturerId = 2L
             )
         )
         lectures.add(
@@ -217,7 +205,6 @@ object DemoDataProvider {
                 endHour = 14,
                 endMinute = 30,
                 location = "Raum A1.15",
-                lecturerId = 10L
             )
         )
 
@@ -234,7 +221,6 @@ object DemoDataProvider {
                 endHour = 9,
                 endMinute = 30,
                 location = "Raum D1.08",
-                lecturerId = 5L
             )
         )
         lectures.add(
@@ -248,7 +234,6 @@ object DemoDataProvider {
                 endHour = 11,
                 endMinute = 30,
                 location = "Raum C3.12",
-                lecturerId = 3L
             )
         )
         lectures.add(
@@ -262,7 +247,6 @@ object DemoDataProvider {
                 endHour = 13,
                 endMinute = 15,
                 location = "Raum A2.15",
-                lecturerId = 4L,
                 isTest = false
             )
         )
@@ -339,6 +323,26 @@ object DemoDataProvider {
     }
 
     /**
+     * Get lecturer IDs for a specific lecture ID.
+     * Maps demo lectures to their lecturers.
+     */
+    fun getLecturerIdsForLecture(lectureId: Long): List<Long> {
+        return when (lectureId) {
+            1L, 2L, 8L -> listOf(1L) // PROG1 - Prof. Dr. Schmidt
+            3L, 12L -> listOf(2L) // MATH1 - Prof. Dr. Müller
+            4L, 15L -> listOf(3L) // DBIS - Prof. Dr. Weber
+            5L, 16L -> listOf(4L) // SWENG - Prof. Dr. Fischer
+            6L, 14L -> listOf(5L) // WEB - Prof. Dr. Meyer
+            7L -> listOf(6L) // THEO - Prof. Dr. Wagner
+            9L -> listOf(7L) // ALGO - Prof. Dr. Becker
+            10L -> listOf(8L) // BWL - Prof. Dr. Schulz
+            11L -> listOf(9L) // NETZ - Prof. Dr. Hoffmann
+            13L -> listOf(10L) // PROJ - Prof. Dr. Koch
+            else -> emptyList()
+        }
+    }
+
+    /**
      * Helper function to create a lecture event.
      */
     @OptIn(ExperimentalTime::class)
@@ -352,7 +356,6 @@ object DemoDataProvider {
         endHour: Int,
         endMinute: Int,
         location: String,
-        lecturerId: Long,
         isTest: Boolean = false
     ): LectureEventEntity {
         val now = kotlin.time.Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
@@ -365,7 +368,6 @@ object DemoDataProvider {
             endTime = LocalDateTime(date.year, date.month, date.day, endHour, endMinute, 0),
             location = location,
             isTest = isTest,
-            lecturerId = lecturerId,
             fetchedAt = now
         )
     }

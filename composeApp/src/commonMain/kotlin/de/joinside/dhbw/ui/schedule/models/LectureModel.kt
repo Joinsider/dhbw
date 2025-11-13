@@ -1,4 +1,4 @@
-package de.joinside.dhbw.ui.schedule.modules
+package de.joinside.dhbw.ui.schedule.models
 
 import kotlinx.datetime.LocalDateTime
 
@@ -8,6 +8,6 @@ data class LectureModel(
     val isTest: Boolean,
     val start: LocalDateTime,
     val end: LocalDateTime,
-    val lecturer: String,
+    val lecturers: List<String>,
     val location: String
 )

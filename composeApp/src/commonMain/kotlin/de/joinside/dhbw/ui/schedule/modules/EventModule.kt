@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.lecturers
 import de.joinside.dhbw.resources.room
+import de.joinside.dhbw.ui.schedule.models.LectureModel
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.format
@@ -69,9 +70,9 @@ fun EventModule(
             overflow = TextOverflow.MiddleEllipsis
         )
 
-        if(lecture.lecturer.isNotEmpty() && !smallFont) {
+        if(lecture.lecturers.isNotEmpty() && !smallFont) {
             Text(
-                text = stringResource(Res.string.lecturers) + ": ${lecture.lecturer}",
+                text = stringResource(Res.string.lecturers) + ": ${lecture.lecturers.joinToString(", ")}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimary,
                 overflow = TextOverflow.Ellipsis

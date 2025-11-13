@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import de.joinside.dhbw.ui.schedule.models.LectureModel
 import kotlinx.datetime.DayOfWeek
 
 

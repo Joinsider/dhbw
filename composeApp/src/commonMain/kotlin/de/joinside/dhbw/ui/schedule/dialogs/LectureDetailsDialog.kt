@@ -26,11 +26,14 @@ import de.joinside.dhbw.resources.date
 import de.joinside.dhbw.resources.end_time
 import de.joinside.dhbw.resources.lecture_details
 import de.joinside.dhbw.resources.lecturer
+import de.joinside.dhbw.resources.lecturers
 import de.joinside.dhbw.resources.location
+import de.joinside.dhbw.resources.room
+import de.joinside.dhbw.resources.rooms
 import de.joinside.dhbw.resources.start_time
 import de.joinside.dhbw.resources.subject
 import de.joinside.dhbw.resources.test_exam
-import de.joinside.dhbw.ui.schedule.modules.LectureModel
+import de.joinside.dhbw.ui.schedule.models.LectureModel
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.format
 import kotlinx.datetime.format.FormatStringsInDatetimeFormats
@@ -110,18 +113,20 @@ fun LectureDetailsDialog(
 
                 // Location
                 if (lecture.location.isNotEmpty()) {
+                    val roomCount = lecture.location.count { it == ',' } + 1
                     DetailRow(
-                        label = stringResource(Res.string.location),
+                        label = if(roomCount > 1) stringResource(Res.string.rooms) else stringResource(Res.string.room),
                         value = lecture.location
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
                 // Lecturer
-                if (lecture.lecturer.isNotEmpty() && lecture.lecturer != "Unknown") {
+                if (lecture.lecturers.isNotEmpty() && !lecture.lecturers.all { it == "Unknown" }) {
                     DetailRow(
-                        label = stringResource(Res.string.lecturer),
-                        value = lecture.lecturer
+                        label = if (lecture.lecturers.size > 1) stringResource(Res.string.lecturers) else stringResource(Res.string.lecturer),
+                        // value should be one lecturer per line for better readability
+                        value = lecture.lecturers.joinToString("\n")
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }

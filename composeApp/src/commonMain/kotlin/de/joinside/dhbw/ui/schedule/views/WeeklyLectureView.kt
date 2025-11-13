@@ -18,7 +18,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.no_lectures_this_week
-import de.joinside.dhbw.ui.schedule.modules.LectureModel
+import de.joinside.dhbw.ui.schedule.models.LectureModel
 import androidx.compose.ui.platform.testTag
 import kotlinx.datetime.DayOfWeek
 import org.jetbrains.compose.resources.stringResource

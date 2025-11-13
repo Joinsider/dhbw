@@ -11,7 +11,7 @@ fun getDatabaseBuilder(): RoomDatabase.Builder<AppDatabase> {
     val dbFilePath = applicationSupportDirectory() + "/grades_database.db"
     return Room.databaseBuilder<AppDatabase>(
         name = dbFilePath,
-    )
+    ).fallbackToDestructiveMigration(dropAllTables = true)
 }
 
 @OptIn(ExperimentalForeignApi::class)

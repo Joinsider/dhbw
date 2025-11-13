@@ -4,9 +4,12 @@ import de.joinside.dhbw.data.dualis.demo.DemoDataProvider
 import de.joinside.dhbw.data.dualis.remote.DualisApiClient
 import de.joinside.dhbw.data.dualis.remote.parser.HtmlParser
 import de.joinside.dhbw.data.dualis.remote.parser.TimetableParser
+import de.joinside.dhbw.data.dualis.remote.parser.temp_models.TempLectureModel
 import de.joinside.dhbw.data.dualis.remote.session.SessionManager
+import de.joinside.dhbw.data.storage.database.dao.timetable.LectureLecturerCrossRefDao
 import de.joinside.dhbw.data.storage.database.dao.timetable.LectureEventDao
 import de.joinside.dhbw.data.storage.database.dao.timetable.LecturerDao
+import de.joinside.dhbw.data.storage.database.entities.timetable.LectureLecturerCrossRef
 import de.joinside.dhbw.data.storage.database.entities.timetable.LectureEventEntity
 import de.joinside.dhbw.data.storage.database.entities.timetable.LecturerEntity
 import io.github.aakira.napier.Napier
@@ -38,7 +41,8 @@ class DualisLectureService(
     private val timetableParser: TimetableParser,
     private val htmlParser: HtmlParser,
     private val lectureEventDao: LectureEventDao,
-    private val lecturerDao: LecturerDao
+    private val lecturerDao: LecturerDao,
+    private val lectureLecturerCrossRefDao: LectureLecturerCrossRefDao
 ) {
     companion object {
         private const val TAG = "DualisLectureService"
@@ -110,6 +114,16 @@ class DualisLectureService(
                     val existingLecture = lectureEventDao.getById(lecture.lectureId)
                     if (existingLecture == null) {
                         lectureEventDao.insert(lecture)
+
+                        // Create lecturer associations
+                        val lecturerIds = DemoDataProvider.getLecturerIdsForLecture(lecture.lectureId)
+                        lecturerIds.forEach { lecturerId ->
+                            val crossRef = LectureLecturerCrossRef(
+                                lectureId = lecture.lectureId,
+                                lecturerId = lecturerId
+                            )
+                            lectureLecturerCrossRefDao.insert(crossRef)
+                        }
                     }
                 } catch (e: Exception) {
                     Napier.w("Could not insert demo lecture: ${e.message}", tag = TAG)
@@ -140,9 +154,7 @@ class DualisLectureService(
 
             // Step 1: Fetch HTML via API client
             Napier.d("Fetching weekly timetable HTML", tag = TAG)
-            val apiResult = apiClient.get(BASE_URL, urlParameters)
-
-            when (apiResult) {
+            when (val apiResult = apiClient.get(BASE_URL, urlParameters)) {
                 is DualisApiClient.ApiResult.Success -> {
                     val htmlContent = apiResult.htmlContent
 
@@ -207,7 +219,7 @@ class DualisLectureService(
      */
     @OptIn(ExperimentalTime::class)
     private suspend fun enrichAndSaveLectures(
-        tempLectures: List<de.joinside.dhbw.data.dualis.remote.parser.temp_models.TempLectureModel>
+        tempLectures: List<TempLectureModel>
     ): List<LectureEventEntity> {
         Napier.d("Enriching ${tempLectures.size} lectures with detailed information", tag = TAG)
 
@@ -218,6 +230,9 @@ class DualisLectureService(
             try {
                 var fullSubjectName: String? = tempLecture.fullSubjectName
                 var lecturers: List<String> = tempLecture.lecturers ?: emptyList()
+                var rooms: List<String> = listOf(tempLecture.location)
+
+                Napier.d("Processing lecture: ${tempLecture.shortSubjectName}, initial lecturers: $lecturers, has link: ${tempLecture.linkToIndividualPage != null}", tag = TAG)
 
                 // If we have a link to the individual page, fetch additional details
                 if (tempLecture.linkToIndividualPage != null) {
@@ -225,14 +240,11 @@ class DualisLectureService(
                     if (detailsResult != null) {
                         fullSubjectName = detailsResult.first
                         lecturers = detailsResult.second
+                        rooms = detailsResult.third
+                        Napier.d("Fetched details - fullName: $fullSubjectName, lecturers: $lecturers", tag = TAG)
+                    } else {
+                        Napier.w("Failed to fetch details for lecture: ${tempLecture.shortSubjectName}", tag = TAG)
                     }
-                }
-
-                // Find or create lecturer entity
-                val lecturerId = if (lecturers.isNotEmpty()) {
-                    findOrCreateLecturer(lecturers.first())
-                } else {
-                    null
                 }
 
                 // Create lecture event entity
@@ -242,9 +254,8 @@ class DualisLectureService(
                     fullSubjectName = fullSubjectName,
                     startTime = tempLecture.startTime,
                     endTime = tempLecture.endTime,
-                    location = tempLecture.location,
+                    location = rooms.joinToString(", "),
                     isTest = tempLecture.isTest,
-                    lecturerId = lecturerId,
                     fetchedAt = now
                 )
 
@@ -253,7 +264,23 @@ class DualisLectureService(
                 val savedEntity = lectureEntity.copy(lectureId = insertedId)
                 lectureEntities.add(savedEntity)
 
-                Napier.d("Saved lecture: ${savedEntity.shortSubjectName}", tag = TAG)
+                // Create and save lecturer associations
+                if (lecturers.isNotEmpty()) {
+                    for (lecturerName in lecturers) {
+                        if (lecturerName.isNotBlank()) {
+                            val lecturerId = findOrCreateLecturer(lecturerName)
+                            val crossRef = LectureLecturerCrossRef(
+                                lectureId = insertedId,
+                                lecturerId = lecturerId
+                            )
+                            lectureLecturerCrossRefDao.insert(crossRef)
+                            Napier.d("Created association: lecture ${insertedId} -> lecturer ${lecturerId} (${lecturerName})", tag = TAG)
+                        }
+                    }
+                    Napier.d("Saved lecture: ${savedEntity.shortSubjectName} with ${lecturers.size} lecturer(s)", tag = TAG)
+                } else {
+                    Napier.w("No lecturers found for lecture: ${savedEntity.shortSubjectName}", tag = TAG)
+                }
             } catch (e: Exception) {
                 Napier.e("Error enriching lecture ${tempLecture.shortSubjectName}: ${e.message}", e, tag = TAG)
             }
@@ -266,7 +293,7 @@ class DualisLectureService(
      * Fetch and parse individual lecture page details.
      * Follows the same pattern: Service -> API Client -> Service -> Parser
      */
-    private suspend fun fetchLectureDetails(url: String, attemptCount: Int = 0): Pair<String, List<String>>? {
+    private suspend fun fetchLectureDetails(url: String, attemptCount: Int = 0): Triple<String, List<String>, List<String>>? {
         Napier.d("Fetching lecture details from: $url (attempt $attemptCount)", tag = TAG)
 
         try {
@@ -274,12 +301,13 @@ class DualisLectureService(
             val urlParameters = parseUrlParameters(url)
             val baseUrl = url.substringBefore("?")
 
-            // Fetch via API client
-            val apiResult = apiClient.get(baseUrl, urlParameters)
+            Napier.d("Parsed URL - base: $baseUrl, params: $urlParameters", tag = TAG)
 
-            when (apiResult) {
+            // Fetch via API client
+            when (val apiResult = apiClient.get(baseUrl, urlParameters)) {
                 is DualisApiClient.ApiResult.Success -> {
                     val htmlContent = apiResult.htmlContent
+                    Napier.d("Received HTML content (${htmlContent.length} chars)", tag = TAG)
 
                     // Check for errors (likely session expired)
                     if (htmlParser.isErrorPage(htmlContent)) {
@@ -301,7 +329,13 @@ class DualisLectureService(
                     }
 
                     // Parse via parser
-                    return timetableParser.parseIndividualPage(htmlContent)
+                    val result = timetableParser.parseIndividualPage(htmlContent)
+                    if (result != null) {
+                        Napier.d("Successfully parsed individual page: ${result.first} with ${result.second.size} lecturer(s): ${result.second} and rooms: ${result.third}", tag = TAG)
+                    } else {
+                        Napier.w("Parser returned null for individual page", tag = TAG)
+                    }
+                    return result
                 }
                 is DualisApiClient.ApiResult.Failure -> {
                     Napier.w("Failed to fetch lecture details: ${apiResult.message}", tag = TAG)
