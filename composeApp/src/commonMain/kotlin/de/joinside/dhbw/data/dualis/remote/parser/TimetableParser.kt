@@ -178,11 +178,7 @@ class TimetableParser {
         try {
             // Extract time period (e.g., "08:15 - 12:00")
             val timePattern = """(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})""".toRegex()
-            val timeMatch = timePattern.find(cellContent)
-
-            if (timeMatch == null) {
-                return null
-            }
+            val timeMatch = timePattern.find(cellContent) ?: return null
 
             val startHour = timeMatch.groupValues[1].toInt()
             val startMinute = timeMatch.groupValues[2].toInt()
@@ -283,7 +279,7 @@ class TimetableParser {
     fun parseIndividualPage(htmlContent: String): Pair<String, List<String>>? {
         try {
             // Extract full subject name from <h1> tag
-            val subjectPattern = """<h1>\s*([^<]+?)\s*</h1>""".toRegex()
+            val subjectPattern = """<h1>\s*[^&]+&nbsp;\s*([^<]+?)\s+HOR-[^<]*</h1>""".toRegex()
             val subjectMatch = subjectPattern.find(htmlContent)
             var fullSubjectName = subjectMatch?.groupValues?.get(1)?.trim()?.replace("&nbsp;", " ")
 

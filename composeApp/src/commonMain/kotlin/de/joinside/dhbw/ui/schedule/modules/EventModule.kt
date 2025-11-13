@@ -60,7 +60,7 @@ fun EventModule(
         }
 
         Text(
-            text = lecture.name,
+            text = if(smallFont) lecture.shortName else lecture.name,
             style = if(smallFont) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimary,
