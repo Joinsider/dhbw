@@ -36,6 +36,7 @@ fun WeeklyLecturesView(
     onPreviousWeek: () -> Unit = {},
     onNextWeek: () -> Unit = {},
     onWeekLabelClick: () -> Unit = {},
+    onLectureClick: (LectureModel) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -98,7 +99,8 @@ fun WeeklyLecturesView(
                             endHour = endHour,
                             hourHeight = hourHeight,
                             modifier = Modifier.padding(bottom = 16.dp).width(dayColumnWidth),
-                            width = dayColumnWidth
+                            width = dayColumnWidth,
+                            onLectureClick = onLectureClick
                         )
                     }
                 }

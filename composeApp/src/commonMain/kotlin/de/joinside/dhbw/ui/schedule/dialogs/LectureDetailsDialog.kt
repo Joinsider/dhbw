@@ -1,0 +1,182 @@
+package de.joinside.dhbw.ui.schedule.dialogs
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import de.joinside.dhbw.resources.Res
+import de.joinside.dhbw.resources.close
+import de.joinside.dhbw.resources.date
+import de.joinside.dhbw.resources.end_time
+import de.joinside.dhbw.resources.lecture_details
+import de.joinside.dhbw.resources.lecturer
+import de.joinside.dhbw.resources.location
+import de.joinside.dhbw.resources.start_time
+import de.joinside.dhbw.resources.subject
+import de.joinside.dhbw.resources.test_exam
+import de.joinside.dhbw.ui.schedule.modules.LectureModel
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.format
+import kotlinx.datetime.format.FormatStringsInDatetimeFormats
+import kotlinx.datetime.format.byUnicodePattern
+import org.jetbrains.compose.resources.stringResource
+
+@OptIn(FormatStringsInDatetimeFormats::class)
+val DateFormatter = LocalDate.Format {
+    byUnicodePattern("dd.MM.yyyy")
+}
+
+@OptIn(FormatStringsInDatetimeFormats::class)
+val TimeFormatter = kotlinx.datetime.LocalTime.Format {
+    byUnicodePattern("HH:mm")
+}
+
+/**
+ * Dialog displaying detailed information about a lecture event.
+ * Shows full name, date, time, location, and lecturer information.
+ */
+@Composable
+fun LectureDetailsDialog(
+    lecture: LectureModel,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(Res.string.lecture_details),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Subject name (use full name, fallback to short name)
+                DetailRow(
+                    label = stringResource(Res.string.subject),
+                    value = lecture.name
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Date
+                DetailRow(
+                    label = stringResource(Res.string.date),
+                    value = lecture.start.date.format(DateFormatter)
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Time range
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        DetailRow(
+                            label = stringResource(Res.string.start_time),
+                            value = lecture.start.time.format(TimeFormatter)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        DetailRow(
+                            label = stringResource(Res.string.end_time),
+                            value = lecture.end.time.format(TimeFormatter)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Location
+                if (lecture.location.isNotEmpty()) {
+                    DetailRow(
+                        label = stringResource(Res.string.location),
+                        value = lecture.location
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Lecturer
+                if (lecture.lecturer.isNotEmpty() && lecture.lecturer != "Unknown") {
+                    DetailRow(
+                        label = stringResource(Res.string.lecturer),
+                        value = lecture.lecturer
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Test/Exam indicator
+                if (lecture.isTest) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                MaterialTheme.colorScheme.errorContainer,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "⚠️ " + stringResource(Res.string.test_exam),
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.close))
+            }
+        }
+    )
+}
+
+/**
+ * Helper composable to display a label-value pair.
+ */
+@Composable
+private fun DetailRow(
+    label: String,
+    value: String
+) {
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
