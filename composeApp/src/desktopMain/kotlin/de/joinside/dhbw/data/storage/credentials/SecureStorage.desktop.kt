@@ -11,6 +11,13 @@ actual class SecureStorage {
 
     actual fun setString(key: String, value: String) {
         try {
+            // Windows Credential Manager doesn't accept empty strings
+            // If value is empty, remove the key instead
+            if (value.isEmpty()) {
+                remove(key)
+                return
+            }
+
             keyring.setPassword(serviceName, key, value)
             addKeyToTracking(key)
         } catch (e: PasswordAccessException) {
@@ -66,7 +73,11 @@ actual class SecureStorage {
         val keys = getTrackedKeys().toMutableSet()
         keys.add(key)
         try {
-            keyring.setPassword(serviceName, keysKey, keys.joinToString(","))
+            val keysString = keys.joinToString(",")
+            // Only store if we have actual keys to track
+            if (keysString.isNotEmpty()) {
+                keyring.setPassword(serviceName, keysKey, keysString)
+            }
         } catch (e: PasswordAccessException) {
             e.printStackTrace()
         }
@@ -76,7 +87,13 @@ actual class SecureStorage {
         val keys = getTrackedKeys().toMutableSet()
         keys.remove(key)
         try {
-            keyring.setPassword(serviceName, keysKey, keys.joinToString(","))
+            val keysString = keys.joinToString(",")
+            // If no keys left, remove the tracking key entirely instead of storing empty string
+            if (keysString.isEmpty()) {
+                keyring.deletePassword(serviceName, keysKey)
+            } else {
+                keyring.setPassword(serviceName, keysKey, keysString)
+            }
         } catch (e: PasswordAccessException) {
             e.printStackTrace()
         }
