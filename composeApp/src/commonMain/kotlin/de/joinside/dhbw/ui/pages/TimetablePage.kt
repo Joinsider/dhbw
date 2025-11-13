@@ -39,7 +39,7 @@ import de.joinside.dhbw.resources.this_week
 import de.joinside.dhbw.ui.navigation.BottomNavItem
 import de.joinside.dhbw.ui.navigation.BottomNavigationBar
 import de.joinside.dhbw.ui.schedule.dialogs.LectureDetailsDialog
-import de.joinside.dhbw.ui.schedule.modules.LectureModel
+import de.joinside.dhbw.ui.schedule.models.LectureModel
 import de.joinside.dhbw.ui.schedule.views.WeeklyLecturesView
 import de.joinside.dhbw.util.isMobilePlatform
 import kotlinx.datetime.Month

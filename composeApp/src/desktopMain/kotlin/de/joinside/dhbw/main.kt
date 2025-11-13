@@ -67,7 +67,8 @@ fun main() {
         timetableParser = timetableParser,
         htmlParser = htmlParser,
         lectureEventDao = database.lectureDao(),
-        lecturerDao = database.lecturerDao()
+        lecturerDao = database.lecturerDao(),
+        lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
     )
     Napier.d("DualisLectureService initialized", tag = "Main")
 
@@ -81,7 +82,8 @@ fun main() {
     // Create timetable ViewModel
     val timetableViewModel = TimetableViewModel(
         lectureService = lectureService,
-        lecturerDao = database.lecturerDao()
+        lecturerDao = database.lecturerDao(),
+        lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
     )
     Napier.d("TimetableViewModel initialized", tag = "Main")
 

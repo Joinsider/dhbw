@@ -48,6 +48,7 @@
     <string name="lecturers">Dozenten</string>
     <string name="lecturer">Dozent</string>
     <string name="room">Raum</string>
+    <string name="rooms">Räume</string>
     <string name="location">Standort</string>
     <string name="no_lectures_this_week">In dieser Woche sind keine Vorlesungen geplant.</string>
     <string name="loading_lectures">Stundenplan wird geladen... Das kann ein paar Sekunden dauern.</string>
