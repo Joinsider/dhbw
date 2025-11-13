@@ -12,11 +12,13 @@ import de.joinside.dhbw.data.dualis.remote.parser.HtmlParser
 import de.joinside.dhbw.data.dualis.remote.parser.TimetableParser
 import de.joinside.dhbw.data.dualis.remote.session.SessionManager
 import de.joinside.dhbw.data.storage.credentials.FakeSecureStorage
-import de.joinside.dhbw.data.storage.database.AppDatabase
+import de.joinside.dhbw.data.storage.database.dao.timetable.LectureLecturerCrossRefDao
 import de.joinside.dhbw.data.storage.database.dao.timetable.LectureEventDao
 import de.joinside.dhbw.data.storage.database.dao.timetable.LecturerDao
 import de.joinside.dhbw.data.storage.database.entities.timetable.LectureEventEntity
+import de.joinside.dhbw.data.storage.database.entities.timetable.LectureLecturerCrossRef
 import de.joinside.dhbw.data.storage.database.entities.timetable.LecturerEntity
+import de.joinside.dhbw.data.storage.database.entities.timetable.LectureWithLecturers
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
@@ -27,9 +29,9 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headers
 import io.ktor.utils.io.ByteReadChannel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.LocalDateTime
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -180,7 +182,8 @@ class DualisLectureServiceSessionExpirationTest {
             timetableParser = timetableParser,
             htmlParser = htmlParser,
             lectureEventDao = mockDatabase.lectureDao(),
-            lecturerDao = mockDatabase.lecturerDao()
+            lecturerDao = mockDatabase.lecturerDao(),
+            lectureLecturerCrossRefDao = mockDatabase.lectureLecturerCrossRefDao()
         )
 
         // When
@@ -202,9 +205,11 @@ class DualisLectureServiceSessionExpirationTest {
 private class MockAppDatabase {
     private val mockLectureDao = MockLectureEventDao()
     private val mockLecturerDao = MockLecturerDao()
-    
+    private val mockCrossRefDao = MockLectureLecturerCrossRefDao()
+
     fun lectureDao() = mockLectureDao
     fun lecturerDao() = mockLecturerDao
+    fun lectureLecturerCrossRefDao() = mockCrossRefDao
 }
 
 /**
@@ -240,7 +245,8 @@ private class MockLectureEventDao : LectureEventDao {
     }
     
     override suspend fun deleteById(id: Long) {
-        lectures.removeIf { it.lectureId == id }
+        val toRemove = lectures.filter { it.lectureId == id }
+        lectures.removeAll(toRemove)
     }
     
     override suspend fun deleteAll() {
@@ -249,6 +255,18 @@ private class MockLectureEventDao : LectureEventDao {
     
     override suspend fun getById(id: Long): LectureEventEntity? {
         return lectures.find { it.lectureId == id }
+    }
+
+    override suspend fun getByIdWithLecturers(id: Long): LectureWithLecturers? {
+        throw NotImplementedError("Not needed for this test")
+    }
+
+    override suspend fun getAllWithLecturers(): List<LectureWithLecturers> {
+        throw NotImplementedError("Not needed for this test")
+    }
+
+    override fun getAllWithLecturersFlow(): Flow<List<LectureWithLecturers>> {
+        throw NotImplementedError("Flow not needed for this test")
     }
 }
 
@@ -293,10 +311,52 @@ private class MockLecturerDao : LecturerDao {
     }
     
     override suspend fun deleteById(id: Long) {
-        lecturers.removeIf { it.lecturerId == id }
+        val toRemove = lecturers.filter { it.lecturerId == id }
+        lecturers.removeAll(toRemove)
     }
     
     override suspend fun deleteAll() {
         lecturers.clear()
+    }
+}
+
+/**
+ * Mock implementation of LectureLecturerCrossRefDao for testing.
+ */
+private class MockLectureLecturerCrossRefDao : LectureLecturerCrossRefDao {
+    private val crossRefs = mutableListOf<LectureLecturerCrossRef>()
+
+    override suspend fun insert(crossRef: LectureLecturerCrossRef) {
+        crossRefs.add(crossRef)
+    }
+
+    override suspend fun insertAll(crossRefs: List<LectureLecturerCrossRef>) {
+        this.crossRefs.addAll(crossRefs)
+    }
+
+    override suspend fun delete(crossRef: LectureLecturerCrossRef) {
+        crossRefs.remove(crossRef)
+    }
+
+    override suspend fun deleteByLectureId(lectureId: Long) {
+        val toRemove = crossRefs.filter { it.lectureId == lectureId }
+        crossRefs.removeAll(toRemove)
+    }
+
+    override suspend fun deleteByLecturerId(lecturerId: Long) {
+        val toRemove = crossRefs.filter { it.lecturerId == lecturerId }
+        crossRefs.removeAll(toRemove)
+    }
+
+    override suspend fun deleteAll() {
+        crossRefs.clear()
+    }
+
+    override suspend fun getByLectureId(lectureId: Long): List<LectureLecturerCrossRef> {
+        return crossRefs.filter { it.lectureId == lectureId }
+    }
+
+    override suspend fun getByLecturerId(lecturerId: Long): List<LectureLecturerCrossRef> {
+        return crossRefs.filter { it.lecturerId == lecturerId }
     }
 }
