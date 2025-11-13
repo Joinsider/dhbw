@@ -71,8 +71,8 @@ class SessionManager(private val secureStorage: SecureStorageInterface) {
             Napier.d("Storing user full name: '${authData.userFullName}'", tag = TAG)
             secureStorage.setString(KEY_USER_FULL_NAME, authData.userFullName)
         } else {
-            Napier.w("User full name is null, clearing stored value", tag = TAG)
-            secureStorage.setString(KEY_USER_FULL_NAME, "")
+            Napier.w("User full name is null, removing stored value", tag = TAG)
+            secureStorage.remove(KEY_USER_FULL_NAME)
         }
     }
 
