@@ -92,7 +92,8 @@ fun MainViewController() = ComposeUIViewController {
     // Create timetable ViewModel (cached with remember)
     val timetableViewModel = remember {
         TimetableViewModel(
-            lectureService = lectureService
+            lectureService = lectureService,
+            lecturerDao = database.lecturerDao()
         ).also {
             Napier.d("TimetableViewModel initialized", tag = "MainViewController")
             Napier.i("All services initialized successfully!", tag = "MainViewController")

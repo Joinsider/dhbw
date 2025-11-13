@@ -106,7 +106,8 @@ class MainActivity : ComponentActivity() {
 
         // Create timetable ViewModel
         timetableViewModel = TimetableViewModel(
-            lectureService = lectureService
+            lectureService = lectureService,
+            lecturerDao = database.lecturerDao()
         )
         Napier.d("TimetableViewModel initialized", tag = "MainActivity")
 
