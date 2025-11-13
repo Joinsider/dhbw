@@ -161,7 +161,7 @@ class SessionManagerTest {
         val (sessionManager, _) = createSessionManager()
 
         // When
-        val isDemoUser = sessionManager.isDemoUser("test@dhbw.de", "password")
+        val isDemoUser = sessionManager.isDemoUser("demo@hb.dhbw-stuttgart.de", "password")
 
         // Then
         assertFalse(isDemoUser)

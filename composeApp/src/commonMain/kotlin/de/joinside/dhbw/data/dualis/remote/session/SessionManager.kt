@@ -19,8 +19,8 @@ class SessionManager(private val secureStorage: SecureStorageInterface) {
         private const val KEY_USER_FULL_NAME = "dualis_user_full_name"
         private const val KEY_IS_DEMO_MODE = "dualis_is_demo_mode"
 
-        const val DEMO_EMAIL = "demo@dhbw.de"
-        const val DEMO_PASSWORD = "demopassword"
+        const val DEMO_EMAIL = "demo@hb.dhbw-stuttgart.de"
+        const val DEMO_PASSWORD = "demo123"
     }
 
     private var currentAuthData: AuthData? = null
