@@ -112,6 +112,12 @@ class LectureService(
     /**
      * Fetch lectures from Dualis API for a specific date range and store them in database.
      *
+     * Flow:
+     * 1. Fetch from Dualis (gets temp models, DualisLectureService converts and saves to DB)
+     * 2. If successful, delete old entries from the database
+     * 3. Update sync metadata
+     * 4. Return new lectures for UI update
+     *
      * @param startDate LocalDateTime - Start of the date range
      * @param endDate LocalDateTime - End of the date range
      * @return List<LectureEventEntity>
@@ -123,18 +129,29 @@ class LectureService(
         Napier.d("Fetching lectures from Dualis for range: $startDate to $endDate")
 
         try {
+            // Step 1: Fetch from Dualis (this also saves to database with associations)
             val result = dualisLectureService.getWeeklyLecturesForWeek(startDate, endDate)
 
             return when {
                 result.isSuccess -> {
-                    val lectures = result.getOrNull() ?: emptyList()
-                    if (lectures.isNotEmpty()) {
-                        storeLecturesInDatabase(lectures)
-                        Napier.d("Successfully fetched and stored ${lectures.size} lectures from Dualis")
+                    val newLectures = result.getOrNull() ?: emptyList()
+
+                    if (newLectures.isNotEmpty()) {
+                        // Step 2: Delete old entries now that we have new ones
+                        // Get the IDs of newly inserted lectures to avoid deleting them
+                        val newLectureIds = newLectures.map { it.lectureId }.toSet()
+                        deleteOldLecturesInRange(startDate, endDate, excludeIds = newLectureIds)
+
+                        // Step 3: Update sync metadata
+                        updateSyncMetadata()
+
+                        Napier.d("Successfully fetched and stored ${newLectures.size} lectures from Dualis")
                     } else {
                         Napier.w("Dualis returned no lectures for the requested range")
                     }
-                    lectures
+
+                    // Step 4: Return new lectures for UI update
+                    newLectures
                 }
                 result.isFailure -> {
                     val error = result.exceptionOrNull()
@@ -147,6 +164,47 @@ class LectureService(
             Napier.e("Exception while fetching lectures from Dualis: ${e.message}", e)
             return emptyList()
         }
+    }
+
+    /**
+     * Delete old lectures in the specified date range, excluding the newly inserted ones.
+     * This is called AFTER fetching new lectures to clean up old data.
+     *
+     * @param startDate Start of the date range
+     * @param endDate End of the date range
+     * @param excludeIds Set of lecture IDs to exclude from deletion (the newly inserted ones)
+     */
+    private suspend fun deleteOldLecturesInRange(
+        startDate: LocalDateTime,
+        endDate: LocalDateTime,
+        excludeIds: Set<Long>
+    ) {
+        Napier.d("Deleting old lectures in range: $startDate to $endDate (excluding ${excludeIds.size} new lectures)")
+
+        val existingLectures = database.lectureDao().getAll().filter { lecture ->
+            lecture.startTime >= startDate &&
+            lecture.endTime <= endDate &&
+            lecture.lectureId !in excludeIds
+        }
+
+        existingLectures.forEach { lecture ->
+            database.lectureDao().delete(lecture)
+        }
+
+        Napier.d("Deleted ${existingLectures.size} old lectures")
+    }
+
+    /**
+     * Update sync metadata after lectures have been fetched.
+     */
+    private suspend fun updateSyncMetadata() {
+        val currentTime = TimeHelper.now()
+        val syncMetadata = SyncMetadataEntity(
+            key = SYNC_KEY_TIMETABLE,
+            lastSyncTimestamp = currentTime
+        )
+        database.syncMetadataDao().insert(syncMetadata)
+        Napier.d("Updated sync metadata")
     }
 
     /**
@@ -179,44 +237,6 @@ class LectureService(
         }
     }
 
-    /**
-     * Store lectures in database.
-     * Clears existing lectures and inserts new ones, then updates sync metadata.
-     *
-     * @param lectures List<LectureEventEntity>
-     */
-    private suspend fun storeLecturesInDatabase(lectures: List<LectureEventEntity>) {
-        Napier.d("Storing ${lectures.size} lectures in database")
-
-        // Get the first date and last date of the lectures
-        val firstDate = lectures.minByOrNull { it.startTime }?.startTime
-        val lastDate = lectures.maxByOrNull { it.endTime }?.endTime
-
-        // Delete all existing lectures before inserting new ones
-        if (firstDate == null || lastDate == null || firstDate > lastDate || lectures.isEmpty()) return
-
-        Napier.d("Deleting existing lectures before inserting new ones")
-        val existingLectures = database.lectureDao().getAll().filter {
-            it.startTime >= firstDate && it.endTime <= lastDate
-        }
-
-        existingLectures.forEach { lecture ->
-            database.lectureDao().delete(lecture)
-        }
-
-        // Insert new lectures
-        database.lectureDao().insertAll(lectures)
-
-        // Update sync metadata with current timestamp
-        val currentTime = TimeHelper.now()
-        val syncMetadata = SyncMetadataEntity(
-            key = SYNC_KEY_TIMETABLE,
-            lastSyncTimestamp = currentTime
-        )
-        database.syncMetadataDao().insert(syncMetadata)
-
-        Napier.d("Successfully stored lectures and updated sync metadata")
-    }
 
     /**
      * Check if data is stale and trigger background refresh if needed.

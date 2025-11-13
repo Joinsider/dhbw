@@ -13,6 +13,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -34,6 +38,8 @@ import de.joinside.dhbw.resources.september_short
 import de.joinside.dhbw.resources.this_week
 import de.joinside.dhbw.ui.navigation.BottomNavItem
 import de.joinside.dhbw.ui.navigation.BottomNavigationBar
+import de.joinside.dhbw.ui.schedule.dialogs.LectureDetailsDialog
+import de.joinside.dhbw.ui.schedule.models.LectureModel
 import de.joinside.dhbw.ui.schedule.views.WeeklyLecturesView
 import de.joinside.dhbw.util.isMobilePlatform
 import kotlinx.datetime.Month
@@ -51,6 +57,9 @@ fun TimetablePage(
     modifier: Modifier = Modifier
 ) {
     val uiState = viewModel?.uiState ?: TimetableUiState()
+
+    // State for selected lecture dialog
+    var selectedLecture by remember { mutableStateOf<LectureModel?>(null) }
 
     // Reload lectures when page is displayed
     LaunchedEffect(Unit) {
@@ -150,10 +159,21 @@ fun TimetablePage(
                                     viewModel?.loadLecturesForCurrentWeek()
                                 }
                             },
+                            onLectureClick = { lecture ->
+                                selectedLecture = lecture
+                            },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
                 }
+            }
+
+            // Show lecture details dialog when a lecture is selected
+            selectedLecture?.let { lecture ->
+                LectureDetailsDialog(
+                    lecture = lecture,
+                    onDismiss = { selectedLecture = null }
+                )
             }
         }
     }

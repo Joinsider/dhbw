@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import de.joinside.dhbw.ui.schedule.models.LectureModel
 import kotlinx.datetime.DayOfWeek
 
 
@@ -24,7 +25,8 @@ fun DayColumn(
     endHour: Int = 18,
     hourHeight: Float = 80f,
     modifier: Modifier = Modifier,
-    width: Dp
+    width: Dp,
+    onLectureClick: (LectureModel) -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -89,7 +91,8 @@ fun DayColumn(
                             modifier = Modifier
                                 .padding(2.dp)
                                 .height(heightDp),
-                            smallFont = width < 100.dp
+                            smallFont = width < 100.dp,
+                            onClick = { onLectureClick(lecture) }
                         )
                     }
                 }

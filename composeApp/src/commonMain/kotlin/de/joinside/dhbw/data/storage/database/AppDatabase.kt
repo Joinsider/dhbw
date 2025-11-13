@@ -1,3 +1,5 @@
+@file:Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
+
 package de.joinside.dhbw.data.storage.database
 
 import androidx.room.ConstructedBy
@@ -11,9 +13,11 @@ import de.joinside.dhbw.data.storage.database.entities.grades.GradesEntity
 import de.joinside.dhbw.data.storage.database.entities.grades.SemesterEntity
 import de.joinside.dhbw.data.storage.database.converters.DateTimeConverter
 import de.joinside.dhbw.data.storage.database.dao.SyncMetadataDao
+import de.joinside.dhbw.data.storage.database.dao.timetable.LectureLecturerCrossRefDao
 import de.joinside.dhbw.data.storage.database.dao.timetable.LectureEventDao
 import de.joinside.dhbw.data.storage.database.dao.timetable.LecturerDao
 import de.joinside.dhbw.data.storage.database.entities.SyncMetadataEntity
+import de.joinside.dhbw.data.storage.database.entities.timetable.LectureLecturerCrossRef
 import de.joinside.dhbw.data.storage.database.entities.timetable.LectureEventEntity
 import de.joinside.dhbw.data.storage.database.entities.timetable.LecturerEntity
 
@@ -23,9 +27,10 @@ import de.joinside.dhbw.data.storage.database.entities.timetable.LecturerEntity
         GradesEntity::class,
         LectureEventEntity::class,
         LecturerEntity::class,
+        LectureLecturerCrossRef::class,
         SyncMetadataEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(DateTimeConverter::class)
@@ -36,6 +41,7 @@ abstract class AppDatabase : RoomDatabase() {
 
     abstract fun lectureDao(): LectureEventDao
     abstract fun lecturerDao(): LecturerDao
+    abstract fun lectureLecturerCrossRefDao(): LectureLecturerCrossRefDao
     abstract fun syncMetadataDao(): SyncMetadataDao
 
     /**
@@ -44,6 +50,7 @@ abstract class AppDatabase : RoomDatabase() {
      */
     suspend fun clearAllData() {
         // Clear all tables
+        lectureLecturerCrossRefDao().deleteAll()
         lectureDao().deleteAll()
         lecturerDao().deleteAll()
         gradesDao().deleteAll()

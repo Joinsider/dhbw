@@ -71,11 +71,12 @@ class TimetableParser {
             val matches = appointmentPattern.findAll(htmlContent)
 
             for (match in matches) {
+                val isTest = match.value.contains("background-color:#FF6666", ignoreCase = true)
                 val abbr = match.groupValues[1] // e.g., "Montag Spalte 1"
                 val cellContent = match.groupValues[2]
 
                 try {
-                    val tempLecture = parseLectureCell(cellContent, abbr, weekDates)
+                    val tempLecture = parseLectureCell(cellContent, abbr, weekDates, isTest)
                     if (tempLecture != null) {
                         lectures.add(tempLecture)
                         Napier.d("Parsed lecture: ${tempLecture.shortSubjectName} on ${tempLecture.startTime}", tag = TAG)
@@ -173,16 +174,13 @@ class TimetableParser {
     private fun parseLectureCell(
         cellContent: String,
         abbr: String,
-        weekDates: Map<String, LocalDateTime>
+        weekDates: Map<String, LocalDateTime>,
+        isTest: Boolean
     ): TempLectureModel? {
         try {
             // Extract time period (e.g., "08:15 - 12:00")
             val timePattern = """(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})""".toRegex()
-            val timeMatch = timePattern.find(cellContent)
-
-            if (timeMatch == null) {
-                return null
-            }
+            val timeMatch = timePattern.find(cellContent) ?: return null
 
             val startHour = timeMatch.groupValues[1].toInt()
             val startMinute = timeMatch.groupValues[2].toInt()
@@ -239,11 +237,6 @@ class TimetableParser {
                 minute = endMinute
             )
 
-            // Check if this is a test (from the yellow background or title)
-            val isTest = cellContent.contains("background-color:#FFFF00", ignoreCase = true) ||
-                        fullTitle.contains("klausur", ignoreCase = true) ||
-                        fullTitle.contains("prüfung", ignoreCase = true)
-
             return TempLectureModel(
                 shortSubjectName = shortSubjectName,
                 fullSubjectName = fullTitle.takeIf { it != shortSubjectName },
@@ -280,15 +273,21 @@ class TimetableParser {
      * @param htmlContent The HTML content of the individual lecture page
      * @return Pair of (fullSubjectName, list of lecturer names) or null if parsing failed
      */
-    fun parseIndividualPage(htmlContent: String): Pair<String, List<String>>? {
+    fun parseIndividualPage(htmlContent: String): Triple<String, List<String>, List<String>>? {
         try {
             // Extract full subject name from <h1> tag
-            val subjectPattern = """<h1>\s*([^<]+?)\s*</h1>""".toRegex()
+            val subjectPattern = """<h1>\s*[^&]+&nbsp;\s*([^<]+?)\s+HOR-[^<]*</h1>""".toRegex()
             val subjectMatch = subjectPattern.find(htmlContent)
             var fullSubjectName = subjectMatch?.groupValues?.get(1)?.trim()?.replace("&nbsp;", " ")
 
             // Remove HOR-*** e.g. HOR-TINF2024 from fullSubjectName
             fullSubjectName = fullSubjectName?.replace(Regex("""HOR-\w+"""), "")?.trim()
+
+            // Extract room details <span name="appoinmentRooms">HOR-ONLINE</span>
+            val roomPattern = """<span\sname="appoinmentRooms">\s*([^<]+?)\s*</span>""".toRegex()
+            val roomMatch = roomPattern.findAll(htmlContent)
+            val rooms = roomMatch.map { it.groupValues[1].trim() }.toList()
+            Napier.d("Found rooms: $rooms", tag = TAG)
 
 
             if (fullSubjectName == null) {
@@ -306,7 +305,7 @@ class TimetableParser {
 
             Napier.d("Parsed individual page: '$fullSubjectName' with ${lecturers.size} lecturer(s)", tag = TAG)
 
-            return Pair(fullSubjectName, lecturers)
+            return Triple(fullSubjectName, lecturers, rooms)
         } catch (e: Exception) {
             Napier.e("Error parsing individual lecture page: ${e.message}", e, tag = TAG)
             return null

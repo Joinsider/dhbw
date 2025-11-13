@@ -3,9 +3,11 @@ package de.joinside.dhbw.ui.pages
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import de.joinside.dhbw.data.storage.database.dao.timetable.LecturerDao
+import de.joinside.dhbw.data.storage.database.dao.timetable.LectureLecturerCrossRefDao
 import de.joinside.dhbw.data.storage.database.entities.timetable.LectureEventEntity
 import de.joinside.dhbw.services.LectureService
-import de.joinside.dhbw.ui.schedule.modules.LectureModel
+import de.joinside.dhbw.ui.schedule.models.LectureModel
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +18,7 @@ import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import kotlin.collections.emptyList
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
@@ -25,6 +28,8 @@ import kotlin.time.ExperimentalTime
  */
 class TimetableViewModel(
     private val lectureService: LectureService,
+    private val lecturerDao: LecturerDao,
+    private val lectureLecturerCrossRefDao: LectureLecturerCrossRefDao,
     private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
     companion object {
@@ -171,16 +176,27 @@ class TimetableViewModel(
     /**
      * Convert LectureEventEntity to LectureModel for UI.
      * Uses primary purple color for regular lectures and red for tests/exams.
+     * Fetches the actual lecturer names from the database via the junction table.
      */
-    private fun LectureEventEntity.toLectureModel(): LectureModel {
-        // Use red color for tests/exams, primary purple for regular lectures
+    private suspend fun LectureEventEntity.toLectureModel(): LectureModel {
+        // Fetch lecturer names from database via junction table
+        val lecturerNames = try {
+            val crossRefs = lectureLecturerCrossRefDao.getByLectureId(lectureId)
+            crossRefs.mapNotNull { crossRef ->
+                lecturerDao.getById(crossRef.lecturerId)?.lecturerName
+            }
+        } catch (e: Exception) {
+            Napier.w("Failed to fetch lecturer names for lecture ID $lectureId: ${e.message}", tag = TAG)
+            emptyList()
+        }
 
         return LectureModel(
             name = fullSubjectName ?: shortSubjectName,
+            shortName = shortSubjectName,
             isTest = isTest,
             start = startTime,
             end = endTime,
-            lecturer = lecturerId?.toString() ?: "Unknown", // TODO: Fetch actual lecturer name
+            lecturers = lecturerNames,
             location = location
         )
     }

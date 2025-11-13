@@ -93,7 +93,8 @@ class MainActivity : ComponentActivity() {
             timetableParser = timetableParser,
             htmlParser = htmlParser,
             lectureEventDao = database.lectureDao(),
-            lecturerDao = database.lecturerDao()
+            lecturerDao = database.lecturerDao(),
+            lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
         )
         Napier.d("DualisLectureService initialized", tag = "MainActivity")
 
@@ -106,7 +107,9 @@ class MainActivity : ComponentActivity() {
 
         // Create timetable ViewModel
         timetableViewModel = TimetableViewModel(
-            lectureService = lectureService
+            lectureService = lectureService,
+            lecturerDao = database.lecturerDao(),
+            lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
         )
         Napier.d("TimetableViewModel initialized", tag = "MainActivity")
 

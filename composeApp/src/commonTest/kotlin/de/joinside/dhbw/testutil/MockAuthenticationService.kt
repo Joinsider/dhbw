@@ -10,6 +10,11 @@ import de.joinside.dhbw.data.dualis.remote.models.AuthData
 import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
 import de.joinside.dhbw.data.dualis.remote.services.LoginResult
 import de.joinside.dhbw.data.dualis.remote.session.SessionManager
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
+import io.ktor.utils.io.ByteReadChannel
 
 /**
  * Mock authentication service for testing.
@@ -18,7 +23,10 @@ import de.joinside.dhbw.data.dualis.remote.session.SessionManager
 class MockAuthenticationService(
     isAuthenticatedState: Boolean = false
 ) : AuthenticationService(
-    sessionManager = SessionManager(TestSecureStorage())
+    sessionManager = SessionManager(TestSecureStorage()),
+    client = HttpClient(MockEngine { respond(ByteReadChannel(""), HttpStatusCode.OK) }) {
+        expectSuccess = false
+    }
 ) {
 
     init {

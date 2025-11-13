@@ -2,6 +2,7 @@ package de.joinside.dhbw.data.storage.database.dao.timetable
 
 import androidx.room.*
 import de.joinside.dhbw.data.storage.database.entities.timetable.LectureEventEntity
+import de.joinside.dhbw.data.storage.database.entities.timetable.LectureWithLecturers
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -26,6 +27,18 @@ interface LectureEventDao {
 
     @Query("SELECT * FROM lecture")
     suspend fun getAll(): List<LectureEventEntity>
+
+    @Transaction
+    @Query("SELECT * FROM lecture WHERE lectureId = :id")
+    suspend fun getByIdWithLecturers(id: Long): LectureWithLecturers?
+
+    @Transaction
+    @Query("SELECT * FROM lecture")
+    suspend fun getAllWithLecturers(): List<LectureWithLecturers>
+
+    @Transaction
+    @Query("SELECT * FROM lecture")
+    fun getAllWithLecturersFlow(): Flow<List<LectureWithLecturers>>
 
     @Query("DELETE FROM lecture WHERE lectureId = :id")
     suspend fun deleteById(id: Long)

@@ -73,7 +73,8 @@ fun MainViewController() = ComposeUIViewController {
             timetableParser = timetableParser,
             htmlParser = htmlParser,
             lectureEventDao = database.lectureDao(),
-            lecturerDao = database.lecturerDao()
+            lecturerDao = database.lecturerDao(),
+            lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
         ).also {
             Napier.d("DualisLectureService initialized", tag = "MainViewController")
         }
@@ -92,7 +93,9 @@ fun MainViewController() = ComposeUIViewController {
     // Create timetable ViewModel (cached with remember)
     val timetableViewModel = remember {
         TimetableViewModel(
-            lectureService = lectureService
+            lectureService = lectureService,
+            lecturerDao = database.lecturerDao(),
+            lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
         ).also {
             Napier.d("TimetableViewModel initialized", tag = "MainViewController")
             Napier.i("All services initialized successfully!", tag = "MainViewController")
