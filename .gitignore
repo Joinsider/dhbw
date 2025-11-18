@@ -25,3 +25,4 @@ node_modules/
 /pkg/
 dhbw-next-*.tar.gz
 /dhbw-next/
+*.pkg.tar.xz
