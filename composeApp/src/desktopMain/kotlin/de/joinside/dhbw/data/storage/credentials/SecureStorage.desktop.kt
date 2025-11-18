@@ -3,15 +3,17 @@ package de.joinside.dhbw.data.storage.credentials
 import com.github.javakeyring.BackendNotSupportedException
 import com.github.javakeyring.Keyring
 import com.github.javakeyring.PasswordAccessException
+import io.github.aakira.napier.Napier
 import java.util.prefs.Preferences
 
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class SecureStorage {
     private val keyring: Keyring? = try {
-        Keyring.create()
+        val kr = Keyring.create()
+        Napier.d("Using native keyring backend: ${kr::class.java.name}", tag = "SecureStorage")
+        kr
     } catch (e: BackendNotSupportedException) {
-        System.err.println("Warning: No keyring backend available. Falling back to Preferences storage.")
-        System.err.println("Credentials will be stored less securely in user preferences.")
+        Napier.w("No keyring backend available — falling back to Preferences.", tag = "SecureStorage")
         null
     }
     
