@@ -157,7 +157,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "DHBW Horb Studenten App"
+            packageName = "dhbw-next"
             packageVersion = "1.0.4"
 
             windows {
