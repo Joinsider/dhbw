@@ -1,5 +1,8 @@
 # Add project specific ProGuard rules here.
 
+# Don't obfuscate - keep class names readable
+-dontobfuscate
+
 # Keep rules for Google Error Prone annotations (used by Tink/Security Crypto)
 -dontwarn com.google.errorprone.annotations.CanIgnoreReturnValue
 -dontwarn com.google.errorprone.annotations.CheckReturnValue
