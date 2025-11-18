@@ -14,3 +14,30 @@
     *;
 }
 
+# Keep Room Database Implementations (Generated code)
+-keep class androidx.room.RoomDatabase
+-keep class * extends androidx.room.RoomDatabase
+-keep class **_Impl { *; }
+-keepclassmembers class **_Impl { *; }
+
+# Keep all Room generated classes
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Database class * { *; }
+-keep @androidx.room.Entity class * { *; }
+-keep @androidx.room.Dao class * { *; }
+
+# Keep your specific application data classes
+-keep class de.joinside.dhbw.data.** { *; }
+-keepclassmembers class de.joinside.dhbw.data.** { *; }
+
+# Keep Room runtime
+-keep class androidx.room.** { *; }
+-keepclassmembers class androidx.room.** { *; }
+
+# General Room/SQLite keeps
+-keep class org.sqlite.** { *; }
+-keep interface org.sqlite.** { *; }
+
+# Prevent obfuscation of Room classes
+-keepnames class * extends androidx.room.RoomDatabase
+-keepnames class androidx.room.RoomDatabase

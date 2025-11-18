@@ -1,4 +1,4 @@
-package de.joinside.dhbw.ui.schedule.dialogs
+package de.joinside.dhbw.ui.schedule.modules.dialogs
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -27,7 +27,6 @@ import de.joinside.dhbw.resources.end_time
 import de.joinside.dhbw.resources.lecture_details
 import de.joinside.dhbw.resources.lecturer
 import de.joinside.dhbw.resources.lecturers
-import de.joinside.dhbw.resources.location
 import de.joinside.dhbw.resources.room
 import de.joinside.dhbw.resources.rooms
 import de.joinside.dhbw.resources.start_time
@@ -35,6 +34,7 @@ import de.joinside.dhbw.resources.subject
 import de.joinside.dhbw.resources.test_exam
 import de.joinside.dhbw.ui.schedule.models.LectureModel
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.format
 import kotlinx.datetime.format.FormatStringsInDatetimeFormats
 import kotlinx.datetime.format.byUnicodePattern
@@ -46,7 +46,7 @@ val DateFormatter = LocalDate.Format {
 }
 
 @OptIn(FormatStringsInDatetimeFormats::class)
-val TimeFormatter = kotlinx.datetime.LocalTime.Format {
+val TimeFormatter = LocalTime.Format {
     byUnicodePattern("HH:mm")
 }
 
