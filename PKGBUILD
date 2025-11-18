@@ -31,13 +31,11 @@ build() {
 package() {
     cd "${srcdir}/${pkgname}-${pkgver}"
 
-    local app_dir="composeApp/build/compose/binaries/main-release/DHBW Horb Studenten App"
-    local launcher_script="${app_dir}/${pkgname}"
-    local jar_directory="${app_dir}/libs"
-    local main_jar=$(find "${jar_directory}" -maxdepth 1 -name "*.jar" | head -n 1)
+    local app_dir="composeApp/build/compose/binaries/main-release/app/DHBW Horb Studenten App"
+    local launcher_script="${app_dir}/bin/DHBW Horb Studenten App"
 
-    if [ ! -f "${launcher_script}" ] || [ -z "${main_jar}" ]; then
-        echo "Error: Could not find generated application files or JAR."
+    if [ ! -f "${launcher_script}" ]; then
+        echo "Error: Could not find generated application launcher."
         ls -R composeApp/build/compose/binaries/
         return 1
     fi
@@ -46,10 +44,12 @@ package() {
     install -d "${pkgdir}/usr/share/java/${pkgname}/"
     cp -r "${app_dir}/." "${pkgdir}/usr/share/java/${pkgname}/"
 
-    # The existing launcher script provided by Gradle needs adjustment for standard Linux paths
-    # We will create a symlink to the generated launcher script in /usr/bin
-
-    ln -s "/usr/share/java/${pkgname}/${pkgname}" "${pkgdir}/usr/bin/${pkgname}"
+    # Create a wrapper script in /usr/bin
+    install -d "${pkgdir}/usr/bin"
+    install -Dm755 /dev/stdin "${pkgdir}/usr/bin/${pkgname}" <<'EOF'
+#!/bin/bash
+exec /usr/share/java/dhbw-next/bin/"DHBW Horb Studenten App" "$@"
+EOF
 
     # Install desktop file (no changes needed here from original)
     install -Dm644 /dev/stdin "${pkgdir}/usr/share/applications/${pkgname}.desktop" <<EOF
