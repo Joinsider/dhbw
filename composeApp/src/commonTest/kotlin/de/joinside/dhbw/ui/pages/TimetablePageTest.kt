@@ -13,7 +13,11 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runComposeUiTest
 import de.joinside.dhbw.ui.schedule.models.LectureModel
+import de.joinside.dhbw.ui.schedule.viewModels.TimetableUiState
+import de.joinside.dhbw.ui.schedule.viewModels.TimetableViewModel
+import de.joinside.dhbw.ui.schedule.viewModels.WeekLabelData
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.Month
 import kotlin.test.Test
 
 @OptIn(ExperimentalTestApi::class)
@@ -129,8 +133,8 @@ class TimetablePageTest {
                     weekLabelData = WeekLabelData(
                         mondayDay = 15,
                         fridayDay = 19,
-                        mondayMonth = kotlinx.datetime.Month.JANUARY,
-                        fridayMonth = kotlinx.datetime.Month.JANUARY
+                        mondayMonth = Month.JANUARY,
+                        fridayMonth = Month.JANUARY
                     )
                 )
             )

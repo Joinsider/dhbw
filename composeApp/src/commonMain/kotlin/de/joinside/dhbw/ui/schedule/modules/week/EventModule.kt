@@ -1,4 +1,4 @@
-package de.joinside.dhbw.ui.schedule.modules
+package de.joinside.dhbw.ui.schedule.modules.week
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

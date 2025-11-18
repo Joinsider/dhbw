@@ -13,7 +13,7 @@ import de.joinside.dhbw.data.storage.credentials.SecureStorageWrapper
 import de.joinside.dhbw.data.storage.database.createRoomDatabase
 import de.joinside.dhbw.data.storage.database.getDatabaseBuilder
 import de.joinside.dhbw.services.LectureService
-import de.joinside.dhbw.ui.pages.TimetableViewModel
+import de.joinside.dhbw.ui.schedule.viewModels.TimetableViewModel
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
