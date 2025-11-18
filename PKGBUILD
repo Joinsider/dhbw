@@ -19,7 +19,7 @@ prepare() {
 build() {
     cd "${srcdir}/${pkgname}-${pkgver}"
 
-    export JAVA_HOME=/usr/lib/jvm/java-11-openjdk
+    export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
     export PATH="${JAVA_HOME}/bin:${PATH}"
 
     # Build using custom fat JAR task
