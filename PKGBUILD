@@ -31,7 +31,7 @@ build() {
 package() {
     cd "${srcdir}/${pkgname}-${pkgver}"
 
-    local app_dir="composeApp/build/compose/binaries/main/release/dhbw-next"
+    local app_dir="composeApp/build/compose/binaries/main-release/DHBW Horb Studenten App"
     local launcher_script="${app_dir}/${pkgname}"
     local jar_directory="${app_dir}/libs"
     local main_jar=$(find "${jar_directory}" -maxdepth 1 -name "*.jar" | head -n 1)
