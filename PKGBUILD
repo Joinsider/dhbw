@@ -29,8 +29,8 @@ build() {
 package() {
     cd "${srcdir}/${pkgname}"
 
-    local app_dir="composeApp/build/compose/binaries/main-release/app/DHBW Horb Studenten App"
-    local launcher_script="${app_dir}/bin/DHBW Horb Studenten App"
+    local app_dir="composeApp/build/compose/binaries/main-release/app/dhbw-next"
+    local launcher_script="${app_dir}/bin/dhbw-next"
 
     if [ ! -f "${launcher_script}" ]; then
         echo "Error: Could not find generated application launcher."
@@ -46,7 +46,7 @@ package() {
     install -d "${pkgdir}/usr/bin"
     install -Dm755 /dev/stdin "${pkgdir}/usr/bin/${pkgname}" <<'EOF'
 #!/bin/bash
-exec /usr/share/java/dhbw-next/bin/"DHBW Horb Studenten App" "$@"
+exec /usr/share/java/dhbw-next/bin/dhbw-next "$@"
 EOF
 
     # Install desktop file
