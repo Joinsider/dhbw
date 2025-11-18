@@ -7,6 +7,10 @@ arch=('x86_64' 'aarch64')
 url='https://github.com/Joinsider/dhbw-next'
 license=('unknown')
 depends=('java-runtime>=21' 'hicolor-icon-theme' 'libsecret')
+optdepends=(
+    'gnome-keyring: Secret Service backend for GNOME'
+    'kwallet: Secret Service backend for KDE Plasma'
+)
 makedepends=('java-environment=21' 'jdk21-openjdk' 'git')
 source=("${pkgname}::git+https://github.com/Joinsider/dhbw-next.git#branch=main")
 sha256sums=('SKIP')
