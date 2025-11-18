@@ -8,7 +8,7 @@ url='https://github.com/Joinsider/dhbw-next'
 license=('unknown')
 depends=('java-runtime>=21' 'hicolor-icon-theme' 'libsecret')
 makedepends=('java-environment=21' 'jdk21-openjdk' 'git')
-source=("git+https://github.com/Joinsider/dhbw-next.git#tag=v${pkgver}")
+source=("${pkgname}::git+https://github.com/Joinsider/dhbw-next.git#branch=main")
 sha256sums=('SKIP')
 
 prepare() {
