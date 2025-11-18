@@ -162,7 +162,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "dhbw-next"
-            packageVersion = "1.0.5"
+            packageVersion = "1.0.6"
 
             windows {
                 iconFile.set(project.file("icon.ico"))
@@ -198,7 +198,7 @@ room {
 // Custom fat JAR task - simple and reliable
 val packageFatJar by tasks.registering(Jar::class) {
     archiveBaseName.set("dhbw-next")
-    archiveVersion.set("1.0.5")
+    archiveVersion.set("1.0.6")
     archiveClassifier.set("all")
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE

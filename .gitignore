@@ -24,3 +24,4 @@ node_modules/
 /src/
 /pkg/
 dhbw-next-*.tar.gz
+/dhbw-next/
