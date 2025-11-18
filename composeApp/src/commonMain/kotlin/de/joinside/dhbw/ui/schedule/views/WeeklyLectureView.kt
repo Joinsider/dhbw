@@ -1,5 +1,7 @@
 package de.joinside.dhbw.ui.schedule.views
 
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,7 +14,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -20,12 +24,14 @@ import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.no_lectures_this_week
 import de.joinside.dhbw.ui.schedule.models.LectureModel
 import androidx.compose.ui.platform.testTag
+import de.joinside.dhbw.util.isMobilePlatform
+import kotlinx.coroutines.launch
 import kotlinx.datetime.DayOfWeek
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
-import de.joinside.dhbw.ui.schedule.modules.DayColumn
-import de.joinside.dhbw.ui.schedule.modules.TimelineView
-import de.joinside.dhbw.ui.schedule.modules.WeekNavigationBar
+import de.joinside.dhbw.ui.schedule.modules.week.DayColumn
+import de.joinside.dhbw.ui.schedule.modules.week.TimelineView
+import de.joinside.dhbw.ui.schedule.modules.week.WeekNavigationBar
 
 
 @Composable
@@ -37,6 +43,8 @@ fun WeeklyLecturesView(
     onNextWeek: () -> Unit = {},
     onWeekLabelClick: () -> Unit = {},
     onLectureClick: (LectureModel) -> Unit = {},
+    onRefresh: (() -> Unit)? = null,
+    isRefreshing: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -45,6 +53,8 @@ fun WeeklyLecturesView(
             onPreviousWeek = onPreviousWeek,
             onNextWeek = onNextWeek,
             onWeekLabelClick = onWeekLabelClick,
+            onRefresh = onRefresh,
+            isRefreshing = isRefreshing,
             modifier = Modifier.padding(8.dp)
         )
 
@@ -68,9 +78,28 @@ fun WeeklyLecturesView(
 
             val rowWidth = remember { mutableStateOf(0.dp) }
             val density = LocalDensity.current
+            val scrollState = rememberScrollState()
+            val coroutineScope = rememberCoroutineScope()
 
             Row(
-                modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                modifier = modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .then(
+                        if (!isMobilePlatform()) {
+                            // Add drag-to-scroll for desktop
+                            Modifier.pointerInput(Unit) {
+                                detectDragGestures { change, dragAmount ->
+                                    change.consume()
+                                    coroutineScope.launch {
+                                        scrollState.scrollBy(-dragAmount.y)
+                                    }
+                                }
+                            }
+                        } else {
+                            Modifier
+                        }
+                    )
             ) {
                 // Timeline on the left
                 TimelineView(

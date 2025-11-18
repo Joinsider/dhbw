@@ -22,7 +22,7 @@ import de.joinside.dhbw.ui.pages.GradesPage
 import de.joinside.dhbw.ui.pages.SettingsPage
 import de.joinside.dhbw.ui.pages.Startpage
 import de.joinside.dhbw.ui.pages.TimetablePage
-import de.joinside.dhbw.ui.pages.TimetableViewModel
+import de.joinside.dhbw.ui.schedule.viewModels.TimetableViewModel
 import de.joinside.dhbw.ui.theme.DHBWHorbTheme
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import io.github.aakira.napier.DebugAntilog

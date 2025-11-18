@@ -112,6 +112,7 @@
 
     <!-- Timetable Page -->
     <string name="this_week">Diese Woche</string>
+    <string name="refresh">Aktualisieren</string>
 
     <!-- Settings Page -->
     <string name="settings_title">Einstellungen</string>

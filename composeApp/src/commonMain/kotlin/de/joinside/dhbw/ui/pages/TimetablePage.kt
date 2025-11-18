@@ -38,8 +38,11 @@ import de.joinside.dhbw.resources.september_short
 import de.joinside.dhbw.resources.this_week
 import de.joinside.dhbw.ui.navigation.BottomNavItem
 import de.joinside.dhbw.ui.navigation.BottomNavigationBar
-import de.joinside.dhbw.ui.schedule.dialogs.LectureDetailsDialog
+import de.joinside.dhbw.ui.schedule.modules.dialogs.LectureDetailsDialog
 import de.joinside.dhbw.ui.schedule.models.LectureModel
+import de.joinside.dhbw.ui.schedule.viewModels.TimetableUiState
+import de.joinside.dhbw.ui.schedule.viewModels.TimetableViewModel
+import de.joinside.dhbw.ui.schedule.viewModels.WeekLabelData
 import de.joinside.dhbw.ui.schedule.views.WeeklyLecturesView
 import de.joinside.dhbw.util.isMobilePlatform
 import kotlinx.datetime.Month
@@ -141,13 +144,34 @@ fun TimetablePage(
                         formatWeekLabel(data)
                     } ?: stringResource(Res.string.this_week)
 
-                    PullToRefreshBox(
-                        isRefreshing = uiState.isRefreshing,
-                        onRefresh = {
-                            viewModel?.refreshLectures()
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    ) {
+                    if (isMobilePlatform()) {
+                        // Mobile: Use pull-to-refresh
+                        PullToRefreshBox(
+                            isRefreshing = uiState.isRefreshing,
+                            onRefresh = {
+                                viewModel?.refreshLectures()
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            WeeklyLecturesView(
+                                lectures = uiState.lectures,
+                                weekLabel = weekLabel,
+                                onPreviousWeek = { viewModel?.goToPreviousWeek() },
+                                onNextWeek = { viewModel?.goToNextWeek() },
+                                onWeekLabelClick = {
+                                    // Return to current week if not already there
+                                    if (uiState.currentWeekOffset != 0) {
+                                        viewModel?.loadLecturesForCurrentWeek()
+                                    }
+                                },
+                                onLectureClick = { lecture ->
+                                    selectedLecture = lecture
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    } else {
+                        // Desktop: Use regular layout with refresh button in navigation bar
                         WeeklyLecturesView(
                             lectures = uiState.lectures,
                             weekLabel = weekLabel,
@@ -162,6 +186,10 @@ fun TimetablePage(
                             onLectureClick = { lecture ->
                                 selectedLecture = lecture
                             },
+                            onRefresh = {
+                                viewModel?.refreshLectures()
+                            },
+                            isRefreshing = uiState.isRefreshing,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
