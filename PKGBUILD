@@ -1,35 +1,33 @@
 # Maintainer: Joinsider <public@joinside.de>
 pkgname=dhbw-next
-pkgver=1.0.4
+pkgver=1.0.5
 pkgrel=1
 pkgdesc='DHBW Horb Studenten App - Desktop application for DHBW Stuttgart students'
 arch=('x86_64' 'aarch64')
 url='https://github.com/Joinsider/dhbw-next'
 license=('unknown')
 depends=('java-runtime>=21' 'hicolor-icon-theme')
-makedepends=('java-environment=21' 'jdk21-openjdk')
-source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
+makedepends=('java-environment=21' 'jdk21-openjdk' 'git')
+source=("git+https://github.com/Joinsider/dhbw-next.git#tag=v${pkgver}")
 sha256sums=('SKIP')
 
 prepare() {
-    cd "${srcdir}/${pkgname}-${pkgver}"
+    cd "${srcdir}/${pkgname}"
     chmod +x gradlew
 }
 
 build() {
-    cd "${srcdir}/${pkgname}-${pkgver}"
+    cd "${srcdir}/${pkgname}"
 
-    # These exports are good to keep, even if Gradle picks up system defaults
     export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
     export PATH="${JAVA_HOME}/bin:${PATH}"
 
-    # Build using the new release distributable task
+    # Build using the release distributable task
     ./gradlew :composeApp:createReleaseDistributable --no-daemon --stacktrace
 }
 
-
 package() {
-    cd "${srcdir}/${pkgname}-${pkgver}"
+    cd "${srcdir}/${pkgname}"
 
     local app_dir="composeApp/build/compose/binaries/main-release/app/DHBW Horb Studenten App"
     local launcher_script="${app_dir}/bin/DHBW Horb Studenten App"
@@ -51,7 +49,7 @@ package() {
 exec /usr/share/java/dhbw-next/bin/"DHBW Horb Studenten App" "$@"
 EOF
 
-    # Install desktop file (no changes needed here from original)
+    # Install desktop file
     install -Dm644 /dev/stdin "${pkgdir}/usr/share/applications/${pkgname}.desktop" <<EOF
 [Desktop Entry]
 Type=Application
