@@ -1,6 +1,6 @@
 # Maintainer: Joinsider <public@joinside.de>
 pkgname=dhbw-next
-pkgver=1.1.0
+pkgver=1.0.4
 pkgrel=1
 pkgdesc='DHBW Horb Studenten App - Desktop application for DHBW Stuttgart students'
 arch=('x86_64' 'aarch64')
@@ -19,43 +19,31 @@ prepare() {
 build() {
     cd "${srcdir}/${pkgname}-${pkgver}"
 
-    # Set Java environment
     export JAVA_HOME=/usr/lib/jvm/java-11-openjdk
     export PATH="${JAVA_HOME}/bin:${PATH}"
 
-    # Build the desktop JAR (JVM target is architecture-independent)
-    ./gradlew :composeApp:desktopJar --no-daemon --stacktrace
+    # Build using custom fat JAR task
+    ./gradlew :composeApp:packageFatJar --no-daemon --stacktrace
 }
 
 package() {
     cd "${srcdir}/${pkgname}-${pkgver}"
 
-    # Find the generated JAR in desktop build output
-    local jarfile="composeApp/build/libs/composeApp-desktop.jar"
+    local jarfile="composeApp/build/libs/dhbw-next-1.1.0-all.jar"
 
     if [ ! -f "${jarfile}" ]; then
-        # Try alternative location
-        jarfile=$(find composeApp/build/libs -name "*desktop*.jar" -type f | head -n1)
-    fi
-
-    if [ -z "${jarfile}" ] || [ ! -f "${jarfile}" ]; then
         echo "Error: Could not find generated JAR file"
-        ls -la composeApp/build/libs/ || true
+        ls -la composeApp/build/libs/
         return 1
     fi
 
     # Install JAR
     install -Dm644 "${jarfile}" "${pkgdir}/usr/share/java/${pkgname}/${pkgname}.jar"
 
-    # Copy all dependencies
-    if [ -d "composeApp/build/libs" ]; then
-        cp -r composeApp/build/libs/* "${pkgdir}/usr/share/java/${pkgname}/" || true
-    fi
-
-    # Create launcher script with classpath
+    # Create launcher script
     install -Dm755 /dev/stdin "${pkgdir}/usr/bin/${pkgname}" <<EOF
 #!/bin/sh
-exec java -cp "/usr/share/java/${pkgname}/*" de.joinside.dhbw.MainKt "\$@"
+exec java -jar /usr/share/java/${pkgname}/${pkgname}.jar "\$@"
 EOF
 
     # Install desktop file

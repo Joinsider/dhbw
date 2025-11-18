@@ -190,3 +190,31 @@ compose.resources {
 room {
     schemaDirectory("$projectDir/schemas")
 }
+
+// Custom fat JAR task - simple and reliable
+val packageFatJar by tasks.registering(Jar::class) {
+    archiveBaseName.set("dhbw-next")
+    archiveVersion.set("1.0.4")
+    archiveClassifier.set("all")
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    manifest {
+        attributes["Main-Class"] = "de.joinside.dhbw.MainKt"
+    }
+
+    // Get desktop compilation
+    val desktopCompilation = kotlin.targets["desktop"].compilations["main"]
+
+    // Include compiled classes and resources
+    from(desktopCompilation.output.classesDirs)
+    from(desktopCompilation.output.resourcesDir)
+
+    // Include all runtime dependencies
+    dependsOn(desktopCompilation.compileAllTaskName)
+    from({
+        desktopCompilation.runtimeDependencyFiles?.files?.map {
+            if (it.isDirectory) it else zipTree(it)
+        }
+    })
+}
