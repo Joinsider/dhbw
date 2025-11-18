@@ -3,7 +3,6 @@ package de.joinside.dhbw.data.storage.credentials
 import com.github.javakeyring.BackendNotSupportedException
 import com.github.javakeyring.Keyring
 import com.github.javakeyring.PasswordAccessException
-import java.io.File
 import java.util.prefs.Preferences
 
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")

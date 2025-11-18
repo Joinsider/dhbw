@@ -163,6 +163,19 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "dhbw-next"
             packageVersion = "1.0.6"
+            modules(
+                "java.base",
+                "java.datatransfer",
+                "java.desktop",
+                "java.instrument",
+                "java.logging",
+                "java.management",
+                "java.prefs",
+                "java.xml",
+                "jdk.crypto.ec",
+                "jdk.security.auth",
+                "jdk.unsupported"
+            )
 
             windows {
                 iconFile.set(project.file("icon.ico"))
