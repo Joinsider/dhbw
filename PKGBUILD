@@ -7,7 +7,7 @@ arch=('x86_64' 'aarch64')
 url='https://github.com/Joinsider/dhbw-next'
 license=('unknown')
 depends=('java-runtime>=21' 'hicolor-icon-theme')
-makedepends=('java-environment=21' 'gradle')
+makedepends=('java-environment=21' 'jdk21-openjdk')
 source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
 sha256sums=('SKIP')
 
@@ -29,7 +29,7 @@ build() {
 package() {
     cd "${srcdir}/${pkgname}-${pkgver}"
 
-    local jarfile="composeApp/build/libs/dhbw-next-1.1.0-all.jar"
+    local jarfile="composeApp/build/libs/dhbw-next-*.jar"
 
     if [ ! -f "${jarfile}" ]; then
         echo "Error: Could not find generated JAR file"
