@@ -5,7 +5,7 @@ pkgrel=1
 pkgdesc='DHBW Horb Studenten App - Desktop application for DHBW Stuttgart students'
 arch=('x86_64' 'aarch64')
 url='https://github.com/Joinsider/dhbw-next'
-license=('unknown')
+license=('GPL-3.0-or-later')
 depends=('java-runtime>=21' 'hicolor-icon-theme' 'libsecret')
 optdepends=(
     'gnome-keyring: Secret Service backend for GNOME'
