@@ -24,7 +24,7 @@ jobs:
       - name: Build DEB package
         run: ./gradlew :composeApp:packageDeb
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dhbw-next-${{ matrix.arch }}.deb
           path: composeApp/build/compose/binaries/main/deb/*.deb
@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Deploy to APT server
         uses: appleboy/scp-action@master
