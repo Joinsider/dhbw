@@ -1,6 +1,6 @@
 pkgbase = dhbw-next-git
 	pkgdesc = DHBW Horb Studenten App - Desktop application for DHBW Stuttgart students
-	pkgver = 1.1.0.r0.g366767b
+	pkgver = 1.0.6
 	pkgrel = 1
 	url = https://github.com/Joinsider/dhbw-next
 	arch = x86_64
