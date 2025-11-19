@@ -21,6 +21,9 @@ jobs:
         uses: actions/setup-java@v3
         with:
           java-version: '21'
+          distribution: temurin
+          java-package: jdk
+          check-latest: false
       - name: Build DEB package
         run: ./gradlew :composeApp:packageDeb
       - name: Upload artifact
