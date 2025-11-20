@@ -101,8 +101,8 @@ android {
         applicationId = "de.joinside.dhbw"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 9
-        versionName = "v1.0.6"
+        versionCode = 10
+        versionName = "v1.0.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -162,7 +162,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "dhbw-next"
-            packageVersion = "1.0.6"
+            packageVersion = "1.0.7"
             modules(
                 "java.base",
                 "java.datatransfer",
@@ -211,7 +211,7 @@ room {
 // Custom fat JAR task - simple and reliable
 val packageFatJar by tasks.registering(Jar::class) {
     archiveBaseName.set("dhbw-next")
-    archiveVersion.set("1.0.6")
+    archiveVersion.set("1.0.7")
     archiveClassifier.set("all")
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
