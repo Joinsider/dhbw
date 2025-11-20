@@ -18,10 +18,12 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -33,8 +35,12 @@ import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.dark_mode
 import de.joinside.dhbw.resources.design
 import de.joinside.dhbw.resources.light_mode
+import de.joinside.dhbw.resources.material_you
+import de.joinside.dhbw.resources.material_you_description
 import de.joinside.dhbw.resources.system_default
 import de.joinside.dhbw.resources.theme
+import de.joinside.dhbw.util.PlatformType
+import de.joinside.dhbw.util.getPlatform
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -42,6 +48,8 @@ import org.jetbrains.compose.resources.stringResource
 fun DesignSelectionCard(
     currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
     onThemeModeChange: (ThemeMode) -> Unit = {},
+    materialYouEnabled: Boolean = true,
+    onMaterialYouChange: (Boolean) -> Unit = {},
 ){
     Card(
         modifier = Modifier
@@ -113,6 +121,42 @@ fun DesignSelectionCard(
                         Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
                         Text(label)
                     }
+                }
+            }
+
+            // Material You toggle - only shown on Android
+            if (getPlatform() == PlatformType.ANDROID) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.material_you),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = stringResource(Res.string.material_you_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = materialYouEnabled,
+                        onCheckedChange = {
+                            onMaterialYouChange(it)
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        },
+                        modifier = Modifier.testTag("materialYouSwitch")
+                    )
                 }
             }
         }
