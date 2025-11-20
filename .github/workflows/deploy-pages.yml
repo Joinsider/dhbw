@@ -110,25 +110,32 @@ jobs:
 
       - name: Import GPG key
         run: |
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --passphrase "$GPG_PASSPHRASE" --import
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" --import
 
       - name: Sign Release file
         run: |
           cd public/dists/stable
           
+          # Remove any existing signature files
+          rm -f Release.gpg InRelease
+          
           # Create Release.gpg
-          gpg --default-key $GPG_KEY_ID \
+          echo "$GPG_PASSPHRASE" | gpg --default-key $GPG_KEY_ID \
               --batch \
-              --passphrase "$GPG_PASSPHRASE" \
+              --yes \
+              --pinentry-mode loopback \
+              --passphrase-fd 0 \
               --armor \
               --detach-sign \
               --output Release.gpg \
               Release
           
           # Create InRelease
-          gpg --default-key $GPG_KEY_ID \
+          echo "$GPG_PASSPHRASE" | gpg --default-key $GPG_KEY_ID \
               --batch \
-              --passphrase "$GPG_PASSPHRASE" \
+              --yes \
+              --pinentry-mode loopback \
+              --passphrase-fd 0 \
               --clearsign \
               --output InRelease \
               Release
