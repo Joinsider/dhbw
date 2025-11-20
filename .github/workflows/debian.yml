@@ -1,19 +1,13 @@
 # .github/workflows/build.yml
-name: Build Multi-Arch Packages
+name: Build Debian Package and push to Repo server
 
-on: [push]
+on:
+  release:
+    types: [published]
 
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            arch: amd64
-          - os: ubuntu-24.04-arm64  # If available
-            arch: arm64
-
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v3
@@ -56,6 +50,4 @@ jobs:
           script: |
             cd /var/www/apt-repo
             dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
-            dpkg-scanpackages --arch arm64 pool/ > dists/stable/main/binary-arm64/Packages
             gzip -9 -k dists/stable/main/binary-amd64/Packages
-            gzip -9 -k dists/stable/main/binary-arm64/Packages
