@@ -37,6 +37,8 @@
     <string name="dark_mode">Dark Mode</string>
     <string name="light_mode">Light Mode</string>
     <string name="system_default">System Default</string>
+    <string name="theme">Theme</string>
+    <string name="design">Design</string>
 
     <!-- Error messages -->
     <string name="network_error">Network error. Please check your connection.</string>
@@ -51,7 +53,7 @@
     <string name="rooms">Rooms</string>
     <string name="location">Location</string>
     <string name="no_lectures_this_week">No lectures scheduled this week</string>
-    <string name="loading_lectures">Loading lectures... this can take a few seconds.</string>
+    <string name="loading_lectures">Loading lectures... this can take a few seconds. (Dualis is slow)</string>
     <string name="lecture_details">Lecture Details</string>
     <string name="subject">Subject</string>
     <string name="date">Date</string>

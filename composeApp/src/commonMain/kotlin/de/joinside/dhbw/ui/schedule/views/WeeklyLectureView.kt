@@ -24,6 +24,7 @@ import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.no_lectures_this_week
 import de.joinside.dhbw.ui.schedule.models.LectureModel
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
 import de.joinside.dhbw.util.isMobilePlatform
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DayOfWeek
@@ -61,7 +62,8 @@ fun WeeklyLecturesView(
         if (lectures.isEmpty()) {
             Text(
                 text = stringResource(Res.string.no_lectures_this_week),
-                modifier = modifier.padding(16.dp).testTag("noLecturesMessage")
+                modifier = modifier.padding(16.dp).testTag("noLecturesMessage"),
+                textAlign = TextAlign.Center
             )
         } else {
             // Group lectures by day of week

@@ -5,8 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -19,6 +20,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.april_short
@@ -50,7 +54,9 @@ import org.jetbrains.compose.resources.InternalResourceApi
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-@OptIn(ExperimentalMaterial3Api::class, InternalResourceApi::class)
+@OptIn(ExperimentalMaterial3Api::class, InternalResourceApi::class,
+    ExperimentalMaterial3ExpressiveApi::class
+)
 @Composable
 fun TimetablePage(
     viewModel: TimetableViewModel? = null,
@@ -64,7 +70,9 @@ fun TimetablePage(
     // State for selected lecture dialog
     var selectedLecture by remember { mutableStateOf<LectureModel?>(null) }
 
-    // Reload lectures when page is displayed
+    val hapticFeedback = LocalHapticFeedback.current
+
+    //  lectures when page is displayed
     LaunchedEffect(Unit) {
         viewModel?.loadLecturesForCurrentWeek()
     }
@@ -103,13 +111,15 @@ fun TimetablePage(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(16.dp)
                         ) {
-                            CircularProgressIndicator()
+                            LoadingIndicator()
                             Text(
                                 text = stringResource(Res.string.loading_lectures),
                                 style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(top = 16.dp)
+                                modifier = Modifier.padding(top = 16.dp),
+                                textAlign = TextAlign.Center
                             )
                         }
                     }
@@ -145,13 +155,26 @@ fun TimetablePage(
                     } ?: stringResource(Res.string.this_week)
 
                     if (isMobilePlatform()) {
-                        // Mobile: Use pull-to-refresh
+                        // Mobile: Use pull-to-refresh with Material 3 Expressive LoadingIndicator
                         PullToRefreshBox(
                             isRefreshing = uiState.isRefreshing,
                             onRefresh = {
                                 viewModel?.refreshLectures()
                             },
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
+                            indicator = {
+                                if (uiState.isRefreshing) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(top = 58.dp),
+                                        contentAlignment = Alignment.TopCenter
+                                    ) {
+                                        LoadingIndicator()
+                                    }
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                                }
+                            }
                         ) {
                             WeeklyLecturesView(
                                 lectures = uiState.lectures,
@@ -202,6 +225,7 @@ fun TimetablePage(
                     lecture = lecture,
                     onDismiss = { selectedLecture = null }
                 )
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
             }
         }
     }
