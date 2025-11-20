@@ -1,0 +1,155 @@
+name: Deploy APT Repository to GitHub Pages
+
+on:
+  workflow_run:
+    workflows: ["Build and Release Multi-Platform Packages"]
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy-apt-repo:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get latest release
+        id: latest_release
+        uses: pozetroninc/github-action-get-latest-release@master
+        with:
+          repository: ${{ github.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download AMD64 DEB from release
+        uses: dsaltares/fetch-gh-release-asset@master
+        with:
+          repo: ${{ github.repository }}
+          version: ${{ steps.latest_release.outputs.release }}
+          file: "*amd64.deb"
+          target: "downloads/"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup APT repository structure
+        run: |
+          # Copy existing apt-repo directory if it exists
+          if [ -d "apt-repo" ]; then
+            cp -r apt-repo public/
+          else
+            mkdir -p public
+          fi
+          
+          # Create directory structure (only amd64)
+          mkdir -p public/pool/main
+          mkdir -p public/dists/stable/main/binary-amd64
+          
+          # Copy new .deb files to pool
+          cp downloads/*.deb public/pool/main/
+
+      - name: Install APT repository tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev apt-utils
+
+      - name: Generate Packages files
+        run: |
+          cd public
+          
+          # Generate Packages for amd64
+          dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
+          gzip -9 -k dists/stable/main/binary-amd64/Packages
+
+      - name: Generate Release file
+        run: |
+          cd public/dists/stable
+          
+          cat > Release << 'EOF'
+          Origin: DHBW Next
+          Label: DHBW Next Repository
+          Suite: stable
+          Codename: stable
+          Architectures: amd64
+          Components: main
+          Description: DHBW Next Kotlin Multiplatform Application
+          EOF
+          
+          # Add file checksums
+          apt-ftparchive release . >> Release
+
+      - name: Import GPG key
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+
+      - name: Sign Release file
+        run: |
+          cd public/dists/stable
+          
+          # Create Release.gpg
+          gpg --default-key ${{ secrets.GPG_KEY_ID }} \
+              --armor \
+              --detach-sign \
+              --output Release.gpg \
+              Release
+          
+          # Create InRelease
+          gpg --default-key ${{ secrets.GPG_KEY_ID }} \
+              --clearsign \
+              --output InRelease \
+              Release
+
+      - name: Export public GPG key
+        run: |
+          gpg --armor --export ${{ secrets.GPG_KEY_ID }} > public/pubkey.gpg
+
+      - name: Create index.html
+        run: |
+          cat > public/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>DHBW Next APT Repository</title>
+              <style>
+                  body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+                  code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }
+                  pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+              </style>
+          </head>
+          <body>
+              <h1>DHBW Next APT Repository</h1>
+              <p>Add this repository to your Debian/Ubuntu system (AMD64 only):</p>
+          
+              <h2>Step 1: Add GPG Key</h2>
+              <pre>wget -O- https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pubkey.gpg | sudo gpg --dearmor -o /usr/share/keyrings/dhbw-next.gpg</pre>
+          
+              <h2>Step 2: Add Repository</h2>
+              <pre>echo "deb [arch=amd64 signed-by=/usr/share/keyrings/dhbw-next.gpg] https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }} stable main" | sudo tee /etc/apt/sources.list.d/dhbw-next.list</pre>
+          
+              <h2>Step 3: Install</h2>
+              <pre>sudo apt update
+          sudo apt install dhbw-next</pre>
+          
+              <hr>
+              <p><a href="pool/">Browse packages</a> | <a href="dists/">Browse distributions</a></p>
+          </body>
+          </html>
+          EOF
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'public'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

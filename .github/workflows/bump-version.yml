@@ -13,6 +13,7 @@ permissions:
 jobs:
   bump-version:
     runs-on: ubuntu-latest
+    environment: develop
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
