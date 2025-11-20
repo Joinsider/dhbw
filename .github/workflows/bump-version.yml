@@ -32,7 +32,7 @@ jobs:
         id: versions
         run: |
           set -euo pipefail
-          FILE_VERSION=$(grep -m1 'versionName' composeApp/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
+          FILE_VERSION=$(grep -m1 'versionName' composeApp/build.gradle.kts | sed -E 's/.*"([^\"]+)".*/\1/')
           echo "file_version=$FILE_VERSION" >> "$GITHUB_OUTPUT"
 
           LATEST_TAG=$(gh release view --json tagName --jq '.tagName' 2>/dev/null || true)
@@ -65,15 +65,15 @@ jobs:
           else:
               print('eq')
           PY
-                    )
-          
-                    if [ "$CMP" = "gt" ]; then
-                      echo "composeApp version ($FILE_VERSION) already ahead of latest release ($LATEST_TAG); skipping."
-                      echo "should_bump=false" >> "$GITHUB_OUTPUT"
-                      exit 0
-                    fi
-          
-                    NEXT_VERSION=$(LATEST_TAG="$LATEST_TAG" python <<'PY'
+          )
+
+          if [ "$CMP" = "gt" ]; then
+            echo "composeApp version ($FILE_VERSION) already ahead of latest release ($LATEST_TAG); skipping."
+            echo "should_bump=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          NEXT_VERSION=$(LATEST_TAG="$LATEST_TAG" python <<'PY'
           import os
           parts = [int(p) for p in os.environ['LATEST_TAG'].lstrip('v').split('.')]
           parts[-1] += 1
@@ -122,12 +122,20 @@ jobs:
       - name: Install GPG key
         run: |
           install -m 700 -d ~/.gnupg
+          install -m 700 -d ~/.local/bin
           cat <<< "$GPG_PRIVATE_KEY" | gpg --batch --import
           {
             echo "default-key $GPG_KEY_ID"
             echo "pinentry-mode loopback"
           } >> ~/.gnupg/gpg.conf
-          chmod 600 ~/.gnupg/gpg.conf
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+          chmod 600 ~/.gnupg/gpg.conf ~/.gnupg/gpg-agent.conf
+          cat > ~/.local/bin/gpg-loopback <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec gpg --batch --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" "$@"
+          EOF
+          chmod 700 ~/.local/bin/gpg-loopback
         env:
           GPG_TTY: ${{ github.workspace }}
 
@@ -137,11 +145,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config commit.gpgsign true
           git config user.signingkey "$GPG_KEY_ID"
-
-      - name: Unlock key
-        if: env.GPG_PASSPHRASE != ''
-        run: |
-          echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 -s </dev/null
+          git config gpg.program "$HOME/.local/bin/gpg-loopback"
 
       - name: Commit changes
         if: steps.versions.outputs.should_bump == 'true'
