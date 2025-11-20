@@ -24,13 +24,31 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download AMD64 DEB from latest release
-        uses: dsaltares/fetch-gh-release-asset@master
-        with:
-          repo: ${{ github.repository }}
-          version: "latest"
-          file: "*amd64.deb"
-          target: "downloads/"
-          token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p downloads
+          
+          # Get the latest release (including drafts)
+          LATEST_RELEASE=$(gh api repos/${{ github.repository }}/releases | jq -r 'sort_by(.created_at) | reverse | .[0]')
+          RELEASE_TAG=$(echo "$LATEST_RELEASE" | jq -r '.tag_name')
+          
+          echo "Latest release tag: $RELEASE_TAG"
+          
+          # Find and download the amd64.deb asset
+          ASSET_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | contains("amd64.deb")) | .url')
+          
+          if [ -z "$ASSET_URL" ]; then
+            echo "Error: No amd64.deb asset found in release $RELEASE_TAG"
+            exit 1
+          fi
+          
+          echo "Downloading asset from: $ASSET_URL"
+          
+          # Download the asset
+          curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/octet-stream" \
+               "$ASSET_URL" -o downloads/dhbw-next_amd64.deb
 
       - name: Setup APT repository structure
         run: |
