@@ -3,14 +3,24 @@ package de.joinside.dhbw.ui.auth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Password
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -22,6 +32,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -32,6 +45,7 @@ import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
 import de.joinside.dhbw.data.dualis.remote.services.LoginResult
 import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import de.joinside.dhbw.resources.Res
+import de.joinside.dhbw.resources.cancel
 import de.joinside.dhbw.resources.enter_password
 import de.joinside.dhbw.resources.enter_username
 import de.joinside.dhbw.resources.login
@@ -46,7 +60,7 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Preview
 @Composable
 fun LoginForm(
@@ -60,6 +74,8 @@ fun LoginForm(
 
     var isLoading by remember { mutableStateOf(false) }
     var loginError by remember { mutableStateOf<String?>(null) }
+    var isUsernameFocused by remember { mutableStateOf(false) }
+    var isPasswordFocused by remember { mutableStateOf(false) }
 
     val usernameCannotBeEmpty = stringResource(Res.string.username_cannot_be_empty)
     val usernameInvalidFormat = stringResource(Res.string.username_must_be_valid_email)
@@ -67,13 +83,20 @@ fun LoginForm(
     val loginSuccessfulText = stringResource(Res.string.login_successful)
     val usernameText = stringResource(Res.string.username)
 
+    val hapticFeedback = LocalHapticFeedback.current
+
     Column(
-        modifier = Modifier.testTag("loginForm").padding(16.dp),
+        modifier = Modifier.testTag("loginForm").padding(16.dp).fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceEvenly
     ) {
         TextField(
-            modifier = Modifier.testTag("usernameField"),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("usernameField")
+                .onFocusChanged { focusState ->
+                    isUsernameFocused = focusState.isFocused
+                },
             value = uiState.username,
             onValueChange = { viewModel.onUsernameChange(it) },
             label = { Text(stringResource(Res.string.username)) },
@@ -81,20 +104,40 @@ fun LoginForm(
             placeholder = { Text(stringResource(Res.string.enter_username)) },
             isError = uiState.usernameError != null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Email,
+                    contentDescription = stringResource(Res.string.username)
+                )
+            },
+            trailingIcon = {
+                if (isUsernameFocused && uiState.username.isNotEmpty()) {
+                    IconButton(
+                        onClick = { viewModel.onUsernameChange("") }) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(Res.string.cancel)
+                        )
+                    }
+                }
+            },
             supportingText = {
                 uiState.usernameError?.let {
                     Text(
-                        text = it,
-                        color = MaterialTheme.colorScheme.error
+                        text = it, color = MaterialTheme.colorScheme.error
                     )
                 }
-            }
-        )
+            })
 
         Spacer(modifier = Modifier.height(8.dp))
 
         TextField(
-            modifier = Modifier.testTag("passwordField"),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("passwordField")
+                .onFocusChanged { focusState ->
+                    isPasswordFocused = focusState.isFocused
+                },
             value = uiState.password,
             onValueChange = { viewModel.onPasswordChange(it) },
             label = { Text(stringResource(Res.string.password)) },
@@ -103,15 +146,30 @@ fun LoginForm(
             singleLine = true,
             visualTransformation = if (uiState.isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Password,
+                    contentDescription = stringResource(Res.string.password)
+                )
+            },
+            trailingIcon = {
+                if (isPasswordFocused && uiState.password.isNotEmpty()) {
+                    IconButton(
+                        onClick = { viewModel.onTogglePasswordVisibility() }) {
+                        Icon(
+                            imageVector = if (uiState.isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = if (uiState.isPasswordVisible) "Hide password" else "Show password"
+                        )
+                    }
+                }
+            },
             supportingText = {
                 uiState.passwordError?.let { errorText ->
                     Text(
-                        text = errorText,
-                        color = MaterialTheme.colorScheme.error
+                        text = errorText, color = MaterialTheme.colorScheme.error
                     )
                 }
-            }
-        )
+            })
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -128,11 +186,13 @@ fun LoginForm(
 
         Button(
             onClick = {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
                 if (viewModel.validateFields(
                         usernameCannotBeEmpty = usernameCannotBeEmpty,
                         usernameInvalidFormat = usernameInvalidFormat,
                         passwordCannotBeEmpty = passwordCannotBeEmpty
-                    )) {
+                    )
+                ) {
 
                     // Use AuthenticationService if available, otherwise fall back to old behavior
                     if (authenticationService != null) {
@@ -141,8 +201,7 @@ fun LoginForm(
 
                         coroutineScope.launch {
                             val result = authenticationService.login(
-                                username = uiState.username,
-                                password = uiState.password
+                                username = uiState.username, password = uiState.password
                             )
 
                             isLoading = false
@@ -152,6 +211,7 @@ fun LoginForm(
                                     println("$loginSuccessfulText! $usernameText: ${uiState.username}")
                                     onLoginSuccess()
                                 }
+
                                 is LoginResult.Failure -> {
                                     loginError = result.message
                                 }
@@ -160,15 +220,17 @@ fun LoginForm(
                     } else {
                         // Fallback: Store credentials only (for backward compatibility)
                         credentialsProvider?.storeCredentials(
-                            username = uiState.username,
-                            password = uiState.password
+                            username = uiState.username, password = uiState.password
                         )
                         println("$loginSuccessfulText! $usernameText: ${uiState.username}")
                         onLoginSuccess()
                     }
                 }
             },
-            modifier = Modifier.testTag("loginButton").padding(16.dp).width(300.dp),
+            modifier = Modifier.testTag("loginButton")
+                .padding(8.dp)
+                .height(48.dp)
+                .width(150.dp),
             enabled = !isLoading,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -176,7 +238,7 @@ fun LoginForm(
             )
         ) {
             if (isLoading) {
-                CircularProgressIndicator(
+                LoadingIndicator(
                     modifier = Modifier.width(24.dp).height(24.dp),
                     color = MaterialTheme.colorScheme.onPrimary
                 )
