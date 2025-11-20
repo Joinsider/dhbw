@@ -146,8 +146,8 @@ jobs:
       - name: Configure Git
         if: steps.versions.outputs.should_bump == 'true'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Github Actions - Joinsider"
+          git config user.email "actions@joinside.de"
           git config commit.gpgsign true
           git config user.signingkey "$GPG_KEY_ID"
           git config gpg.program "$HOME/.local/bin/gpg-loopback"
