@@ -175,8 +175,10 @@ jobs:
             echo "PR #$PR_NUMBER already open; no new PR created."
             exit 0
           fi
-          gh pr create \
+          if ! gh pr create \
             --base main \
             --head develop \
             --title "Sync composeApp version to ${TARGET_VERSION}" \
-            --body "Automated version sync after release tag ${TARGET_VERSION}."
+            --body "Automated version sync after release tag ${TARGET_VERSION}."; then
+            echo "Unable to create PR automatically (likely due to repository rules). Please open one manually."
+          fi
