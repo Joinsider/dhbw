@@ -8,6 +8,7 @@ on:
 jobs:
   create-release:
     runs-on: ubuntu-latest
+    environment: production
     outputs:
       version: ${{ steps.increment.outputs.version }}
       tag: ${{ steps.increment.outputs.v-version }}
