@@ -7,6 +7,7 @@ on:
       - completed
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,18 +23,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get latest release
-        id: latest_release
-        uses: pozetroninc/github-action-get-latest-release@master
-        with:
-          repository: ${{ github.repository }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download AMD64 DEB from release
+      - name: Download AMD64 DEB from latest release
         uses: dsaltares/fetch-gh-release-asset@master
         with:
           repo: ${{ github.repository }}
-          version: ${{ steps.latest_release.outputs.release }}
+          version: "latest"
           file: "*amd64.deb"
           target: "downloads/"
           token: ${{ secrets.GITHUB_TOKEN }}
