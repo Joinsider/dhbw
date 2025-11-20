@@ -183,3 +183,24 @@ jobs:
             --body "Automated version sync after release tag ${TARGET_VERSION}."; then
             echo "Unable to create PR automatically (likely due to repository rules). Please open one manually."
           fi
+  push-to-prod:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Close develop→main PR
+        run: |
+          set -euo pipefail
+          PR_NUMBER=$(gh pr list --base main --head develop --state open --json number --jq '.[0].number' || true)
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open develop→main PR found; nothing to close."
+            exit 0
+          fi
+          gh pr close "$PR_NUMBER"
