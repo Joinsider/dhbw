@@ -121,10 +121,13 @@ jobs:
 
       - name: Install GPG key
         run: |
-          cat <<EOF >> ~/.gnupg/gpg.conf
-          default-key $GPG_KEY_ID
-          pinentry-mode loopback
-          EOF
+          install -m 700 -d ~/.gnupg
+          cat <<< "$GPG_PRIVATE_KEY" | gpg --batch --import
+          {
+            echo "default-key $GPG_KEY_ID"
+            echo "pinentry-mode loopback"
+          } >> ~/.gnupg/gpg.conf
+          chmod 600 ~/.gnupg/gpg.conf
         env:
           GPG_TTY: ${{ github.workspace }}
 
