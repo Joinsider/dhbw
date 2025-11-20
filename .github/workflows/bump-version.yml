@@ -134,7 +134,7 @@ jobs:
           } >> ~/.gnupg/gpg.conf
           echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
           chmod 600 ~/.gnupg/gpg.conf ~/.gnupg/gpg-agent.conf
-          cat > ~/.local/bin/gpg-loopback <<'EOF'
+          cat <<'EOF' > ~/.local/bin/gpg-loopback
           #!/usr/bin/env bash
           set -euo pipefail
           exec gpg --batch --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" "$@"
