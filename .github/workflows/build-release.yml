@@ -201,22 +201,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update Release Name
+      - name: Publish Release
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const tag = '${{ needs.create-release.outputs.tag }}';
             const version = '${{ needs.create-release.outputs.version }}';
+            
+            // Get the release by tag
             const { data: release } = await github.rest.repos.getReleaseByTag({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag
             });
+            
+            // Publish the release (remove draft status)
             await github.rest.repos.updateRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               release_id: release.id,
+              draft: false,
               name: `v${version}`
             });
-            console.log(`Ensured release name is v${version}`);
+            
+            console.log(`Published release v${version} and removed draft status`);
