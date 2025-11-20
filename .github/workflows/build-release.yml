@@ -10,26 +10,27 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     outputs:
-      version: ${{ steps.increment.outputs.version }}
-      tag: ${{ steps.increment.outputs.v-version }}
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Increment version
-        id: increment
-        uses: reecetech/version-increment@2024.4.4
-        with:
-          scheme: semver
-          increment: patch
+      - name: Read composeApp version
+        id: version
+        run: |
+          VERSION_NAME=$(grep -m1 'versionName' composeApp/build.gradle.kts | sed -E 's/.*"([^\"]+)".*/\1/')
+          VERSION_NAME=${VERSION_NAME#v}
+          echo "version=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.increment.outputs.v-version }}
-          name: Release ${{ steps.increment.outputs.v-version }}
-          draft: false
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: v${{ steps.version.outputs.version }}
+          draft: true
           prerelease: false
           generate_release_notes: true
         env:
@@ -49,6 +50,8 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
 
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y fakeroot
@@ -62,6 +65,12 @@ jobs:
           DEB_FILE=$(find composeApp/build/compose/binaries/main/deb -name "*.deb" -type f)
           echo "deb_file=$DEB_FILE" >> $GITHUB_OUTPUT
           echo "deb_name=$(basename $DEB_FILE)" >> $GITHUB_OUTPUT
+
+      - name: Extract release context
+        id: release-context
+        run: |
+          echo "release_tag=${{ needs.create-release.outputs.tag }}" >> "$GITHUB_OUTPUT"
+          echo "release_version=${{ needs.create-release.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
@@ -85,6 +94,8 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
 
       - name: Build MSI package
         run: ./gradlew.bat :composeApp:packageMsi
@@ -93,11 +104,21 @@ jobs:
         id: find-msi
         shell: pwsh
         run: |
-          $MSI_FILE = Get-ChildItem -Path "composeApp/build/compose/binaries/main/msi" -Filter "*.msi" -Recurse | Select-Object -First 1 -ExpandProperty FullName
-          # Convert Windows path to forward slashes for GitHub Action compatibility
-          $MSI_FILE_UNIX = $MSI_FILE -replace '\\', '/'
-          echo "msi_file=$MSI_FILE_UNIX" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          echo "msi_name=$(Split-Path $MSI_FILE -Leaf)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          $msi = Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE 'composeApp/build/compose/binaries/main/msi') -Filter '*.msi' -Recurse -File | Select-Object -First 1
+          if (-not $msi) {
+            throw 'No MSI artifact found under composeApp/build/compose/binaries/main/msi'
+          }
+          $workspace = (Resolve-Path $env:GITHUB_WORKSPACE).Path
+          $relative = $msi.FullName.Substring($workspace.Length).TrimStart('\')
+          $posixPath = $relative -replace '\\','/'
+          "msi_file=$posixPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "msi_name=$($msi.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Extract release context
+        id: release-context
+        run: |
+          echo "release_tag=${{ needs.create-release.outputs.tag }}" >> "$GITHUB_OUTPUT"
+          echo "release_version=${{ needs.create-release.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
@@ -121,6 +142,8 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
 
       - name: Decode Keystore
         run: |
@@ -137,20 +160,30 @@ jobs:
       - name: Find APK file
         id: find-apk
         run: |
-          # Find any APK file in the release directory
-          APK_FILE=$(find composeApp/build/outputs/apk/release -name "*.apk" -type f | head -n 1)
+          APK_FILE=$(find composeApp/build/outputs/apk/release -name "*.apk" -type f ! -name "*unsigned*" | head -n 1)
           if [ -z "$APK_FILE" ]; then
-            echo "Error: No APK file found"
+            echo "Error: No signed APK file found"
             exit 1
           fi
           echo "apk_file=$APK_FILE" >> $GITHUB_OUTPUT
           echo "apk_name=$(basename $APK_FILE)" >> $GITHUB_OUTPUT
 
+      - name: Rename APK
+        id: rename-apk
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          ORIGINAL_APK="${{ steps.find-apk.outputs.apk_file }}"
+          APK_DIR=$(dirname "$ORIGINAL_APK")
+          RENAMED_APK="$APK_DIR/dhbw-next-$VERSION.apk"
+          cp "$ORIGINAL_APK" "$RENAMED_APK"
+          echo "renamed_apk=$RENAMED_APK" >> $GITHUB_OUTPUT
+          echo "renamed_apk_name=dhbw-next-$VERSION.apk" >> $GITHUB_OUTPUT
+
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ needs.create-release.outputs.tag }}
-          files: ${{ steps.find-apk.outputs.apk_file }}
+          files: ${{ steps.rename-apk.outputs.renamed_apk }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -175,20 +208,15 @@ jobs:
           script: |
             const tag = '${{ needs.create-release.outputs.tag }}';
             const version = '${{ needs.create-release.outputs.version }}';
-            
-            // Get the release by tag
             const { data: release } = await github.rest.repos.getReleaseByTag({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag: tag
+              tag
             });
-            
-            // Update the release name to use the version
             await github.rest.repos.updateRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               release_id: release.id,
               name: `v${version}`
             });
-            
-            console.log(`Updated release name to v${version}`);
+            console.log(`Ensured release name is v${version}`);
