@@ -94,7 +94,9 @@ jobs:
         shell: pwsh
         run: |
           $MSI_FILE = Get-ChildItem -Path "composeApp/build/compose/binaries/main/msi" -Filter "*.msi" -Recurse | Select-Object -First 1 -ExpandProperty FullName
-          echo "msi_file=$MSI_FILE" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          # Convert Windows path to forward slashes for GitHub Action compatibility
+          $MSI_FILE_UNIX = $MSI_FILE -replace '\\', '/'
+          echo "msi_file=$MSI_FILE_UNIX" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           echo "msi_name=$(Split-Path $MSI_FILE -Leaf)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Upload to Release
@@ -135,7 +137,12 @@ jobs:
       - name: Find APK file
         id: find-apk
         run: |
-          APK_FILE=$(find composeApp/build/outputs/apk/release -name "*.apk" -type f | grep -v "unsigned")
+          # Find any APK file in the release directory
+          APK_FILE=$(find composeApp/build/outputs/apk/release -name "*.apk" -type f | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            echo "Error: No APK file found"
+            exit 1
+          fi
           echo "apk_file=$APK_FILE" >> $GITHUB_OUTPUT
           echo "apk_name=$(basename $APK_FILE)" >> $GITHUB_OUTPUT
 
@@ -150,3 +157,38 @@ jobs:
       - name: Cleanup Keystore
         if: always()
         run: rm -f keystore.jks
+
+  clean-release:
+    needs:
+      - create-release
+      - build-android-apk
+      - build-deb-amd64
+      - build-msi-windows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update Release Name
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const tag = '${{ needs.create-release.outputs.tag }}';
+            const version = '${{ needs.create-release.outputs.version }}';
+            
+            // Get the release by tag
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag: tag
+            });
+            
+            // Update the release name to use the version
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              name: `v${version}`
+            });
+            
+            console.log(`Updated release name to v${version}`);
