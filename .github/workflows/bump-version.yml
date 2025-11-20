@@ -1,0 +1,171 @@
+name: Sync Develop Version
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --tags --force
+
+      - name: Determine version delta
+        id: versions
+        run: |
+          set -euo pipefail
+          FILE_VERSION=$(grep -m1 'versionName' composeApp/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "file_version=$FILE_VERSION" >> "$GITHUB_OUTPUT"
+
+          LATEST_TAG=$(gh release view --json tagName --jq '.tagName' 2>/dev/null || true)
+          if [ -z "$LATEST_TAG" ]; then
+            echo "latest_version=" >> "$GITHUB_OUTPUT"
+            echo "should_bump=false" >> "$GITHUB_OUTPUT"
+            echo "No releases found; nothing to sync."
+            exit 0
+          fi
+          echo "latest_version=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+
+          export FILE_VERSION LATEST_TAG
+          CMP=$(python <<'PY'
+          import os
+          from itertools import zip_longest
+          
+          def to_ints(version: str):
+              return [int(part) for part in version.split('.')]
+          
+          file_version = os.environ['FILE_VERSION'].lstrip('v')
+          release_version = os.environ['LATEST_TAG'].lstrip('v')
+          
+          for f, r in zip_longest(to_ints(file_version), to_ints(release_version), fillvalue=0):
+              if f < r:
+                  print('lt')
+                  break
+              if f > r:
+                  print('gt')
+                  break
+          else:
+              print('eq')
+          PY
+                    )
+          
+                    if [ "$CMP" = "gt" ]; then
+                      echo "composeApp version ($FILE_VERSION) already ahead of latest release ($LATEST_TAG); skipping."
+                      echo "should_bump=false" >> "$GITHUB_OUTPUT"
+                      exit 0
+                    fi
+          
+                    NEXT_VERSION=$(LATEST_TAG="$LATEST_TAG" python <<'PY'
+          import os
+          parts = [int(p) for p in os.environ['LATEST_TAG'].lstrip('v').split('.')]
+          parts[-1] += 1
+          print('v' + '.'.join(str(p) for p in parts))
+          PY
+          )
+          echo "target_version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "should_bump=true" >> "$GITHUB_OUTPUT"
+
+      - name: Update composeApp version
+        if: steps.versions.outputs.should_bump == 'true'
+        env:
+          TARGET_VERSION: ${{ steps.versions.outputs.target_version }}
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          import os
+          import re
+          from pathlib import Path
+          
+          target = os.environ["TARGET_VERSION"]
+          semver = target.lstrip('v')
+          path = Path("composeApp/build.gradle.kts")
+          text = path.read_text()
+          
+          patterns = {
+              r'versionName\s*=\s*"[^"]+"': f'versionName = "{target}"',
+              r'packageVersion\s*=\s*"[^"]+"': f'packageVersion = "{semver}"',
+              r'archiveVersion\.set\("[^"]+"\)': f'archiveVersion.set("{semver}")',
+          }
+          
+          for pattern, replacement in patterns.items():
+              text, count = re.subn(pattern, replacement, text, count=1)
+              if count == 0:
+                  raise SystemExit(f"Failed to update pattern: {pattern}")
+          
+          match = re.search(r'versionCode\s*=\s*(\d+)', text)
+          if not match:
+              raise SystemExit("Failed to locate versionCode")
+          next_code = int(match.group(1)) + 1
+          text = re.sub(r'versionCode\s*=\s*\d+', f'versionCode = {next_code}', text, count=1)
+          
+          path.write_text(text)
+          PY
+
+      - name: Install GPG key
+        run: |
+          cat <<< "$GPG_PRIVATE_KEY" | gpg --batch --import
+          {
+            echo "default-key $GPG_KEY_ID"
+            echo "pinentry-mode loopback"
+          } >> ~/.gnupg/gpg.conf
+        env:
+          GPG_TTY: ${{ github.workspace }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config commit.gpgsign true
+          git config user.signingkey "$GPG_KEY_ID"
+
+      - name: Unlock key
+        if: env.GPG_PASSPHRASE != ''
+        run: |
+          echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 -s </dev/null
+
+      - name: Commit changes
+        if: steps.versions.outputs.should_bump == 'true'
+        env:
+          TARGET_VERSION: ${{ steps.versions.outputs.target_version }}
+        run: |
+          git add composeApp/build.gradle.kts
+          git commit -m "chore: sync composeApp version to ${TARGET_VERSION}"
+
+      - name: Force-push develop
+        if: steps.versions.outputs.should_bump == 'true'
+        run: git push origin HEAD:develop --force
+
+      - name: Ensure PR from develop to main
+        if: steps.versions.outputs.should_bump == 'true'
+        env:
+          TARGET_VERSION: ${{ steps.versions.outputs.target_version }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER=$(gh pr list --base main --head develop --state open --json number --jq '.[0].number' || true)
+          if [ -n "$PR_NUMBER" ]; then
+            echo "PR #$PR_NUMBER already open; no new PR created."
+            exit 0
+          fi
+          gh pr create \
+            --base main \
+            --head develop \
+            --title "Sync composeApp version to ${TARGET_VERSION}" \
+            --body "Automated version sync after release tag ${TARGET_VERSION}."
