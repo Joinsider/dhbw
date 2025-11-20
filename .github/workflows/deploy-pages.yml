@@ -59,6 +59,9 @@ jobs:
             cp -r apt-repo public/
             # Remove any old .deb files from the copied directory (they might be LFS pointers)
             find public/pool/main -name "*.deb" -type f -delete 2>/dev/null || true
+            # Remove old Packages files to ensure fresh generation
+            find public/dists -name "Packages" -type f -delete 2>/dev/null || true
+            find public/dists -name "Packages.gz" -type f -delete 2>/dev/null || true
           else
             mkdir -p public
           fi
@@ -81,7 +84,7 @@ jobs:
           
           # Generate Packages for amd64
           dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
-          gzip -9 -k dists/stable/main/binary-amd64/Packages
+          gzip -9 -k -f dists/stable/main/binary-amd64/Packages
 
       - name: Generate Release file
         run: |
