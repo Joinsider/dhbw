@@ -186,6 +186,7 @@ jobs:
   push-to-prod:
     runs-on: ubuntu-latest
     environment: production
+    needs: bump-version
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
