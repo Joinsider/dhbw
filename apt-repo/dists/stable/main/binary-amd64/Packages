@@ -1,0 +1,16 @@
+Package: dhbw-next
+Version: 1.0.7
+Architecture: amd64
+Maintainer: Unbekannt <Unknown>
+Installed-Size: 193135
+Depends: libasound2t64, libbrotli1, libbsd0, libbz2-1.0, libc6, libexpat1, libfontconfig1, libfreetype6, libgcc-s1, libgif7, libgl1, libglib2.0-0t64, libglvnd0, libglx0, libgraphite2-3, libharfbuzz0b, libjpeg-turbo8, liblcms2-2, libmd0, libpcre2-8-0, libpng16-16t64, libstdc++6, libx11-6, libxau6, libxcb1, libxdmcp6, libxext6, libxi6, libxrender1, libxtst6, xdg-utils, zlib1g
+Provides: dhbw-next
+Filename: pool/main/dhbw-next_1.0.7_amd64.deb
+Size: 101507468
+MD5sum: 93fac22133ce854870447b3369b2a714
+SHA1: e83cb55ef51dd484786f0834428eb6a5834fc574
+SHA256: 730a02251a3f5e6ffe1bb9138009494c5b879c595847f84da64b41ae687da369
+Section: misc
+Priority: optional
+Description: dhbw-next
+
