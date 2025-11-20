@@ -1,0 +1,7 @@
+Origin: DHBW Next
+Label: DHBW Next Repository
+Suite: stable
+Codename: stable
+Architectures: amd64
+Components: main
+Description: DHBW Next Kotlin Multiplatform Application
