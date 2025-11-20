@@ -14,7 +14,7 @@ import androidx.compose.runtime.Composable
  * Material You is not available on iOS.
  */
 @Composable
-actual fun getColorScheme(darkTheme: Boolean): ColorScheme {
+actual fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean): ColorScheme {
     return if (darkTheme) DarkColorScheme else LightColorScheme
 }
 
@@ -23,7 +23,7 @@ actual fun getColorScheme(darkTheme: Boolean): ColorScheme {
  * iOS handles status bar appearance automatically.
  */
 @Composable
-actual fun SystemAppearance(darkTheme: Boolean) {
+actual fun SystemAppearance(darkTheme: Boolean, useMaterialYou: Boolean) {
     // No-op on iOS - the system handles this automatically
 }
 

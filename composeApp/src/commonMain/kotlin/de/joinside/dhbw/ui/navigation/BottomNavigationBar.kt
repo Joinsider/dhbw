@@ -11,6 +11,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.nav_grades
 import de.joinside.dhbw.resources.nav_settings
@@ -40,13 +42,18 @@ fun BottomNavigationBar(
     onItemSelected: (BottomNavItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val hapticFeedback = LocalHapticFeedback.current
+
     NavigationBar(
         modifier = modifier
     ) {
         BottomNavItem.entries.forEach { item ->
             NavigationBarItem(
                 selected = currentItem == item,
-                onClick = { onItemSelected(item) },
+                onClick = {
+                    onItemSelected(item)
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                },
                 icon = {
                     Icon(
                         imageVector = item.icon,

@@ -14,7 +14,7 @@ import androidx.compose.runtime.Composable
  * Material You is not available on desktop platforms.
  */
 @Composable
-actual fun getColorScheme(darkTheme: Boolean): ColorScheme {
+actual fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean): ColorScheme {
     return if (darkTheme) DarkColorScheme else LightColorScheme
 }
 
@@ -22,7 +22,7 @@ actual fun getColorScheme(darkTheme: Boolean): ColorScheme {
  * JVM/Desktop implementation: No system UI configuration needed.
  */
 @Composable
-actual fun SystemAppearance(darkTheme: Boolean) {
+actual fun SystemAppearance(darkTheme: Boolean, useMaterialYou: Boolean) {
     // No-op on desktop platforms
 }
 

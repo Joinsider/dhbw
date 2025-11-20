@@ -50,6 +50,8 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
 
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y fakeroot
@@ -124,6 +126,49 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  build-dmg-macos:
+    needs: create-release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build DMG package
+        run: ./gradlew :composeApp:packageDmg
+
+      - name: Find DMG file
+        id: find-dmg
+        run: |
+          DMG_FILE=$(find composeApp/build/compose/binaries/main/dmg -name "*.dmg" -type f | head -n 1)
+          if [ -z "$DMG_FILE" ]; then
+            echo "Error: No DMG file found"
+            exit 1
+          fi
+          echo "dmg_file=$DMG_FILE" >> $GITHUB_OUTPUT
+          echo "dmg_name=$(basename $DMG_FILE)" >> $GITHUB_OUTPUT
+
+      - name: Extract release context
+        id: release-context
+        run: |
+          echo "release_tag=${{ needs.create-release.outputs.tag }}" >> "$GITHUB_OUTPUT"
+          echo "release_version=${{ needs.create-release.outputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag }}
+          files: ${{ steps.find-dmg.outputs.dmg_file }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build-android-apk:
     needs: create-release
     runs-on: ubuntu-latest
@@ -191,6 +236,7 @@ jobs:
       - build-android-apk
       - build-deb-amd64
       - build-msi-windows
+      - build-dmg-macos
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
