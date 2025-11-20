@@ -33,6 +33,8 @@ fun SettingsPage(
     isLoggedIn: Boolean = true,
     currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
     onThemeModeChange: (ThemeMode) -> Unit = {},
+    materialYouEnabled: Boolean = true,
+    onMaterialYouChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback = LocalHapticFeedback.current
@@ -82,7 +84,9 @@ fun SettingsPage(
                 // Design Selection Card
                 DesignSelectionCard(
                     currentThemeMode = currentThemeMode,
-                    onThemeModeChange = onThemeModeChange
+                    onThemeModeChange = onThemeModeChange,
+                    materialYouEnabled = materialYouEnabled,
+                    onMaterialYouChange = onMaterialYouChange
                 )
 
 

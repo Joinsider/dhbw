@@ -39,6 +39,8 @@
     <string name="system_default">System Default</string>
     <string name="theme">Theme</string>
     <string name="design">Design</string>
+    <string name="material_you">Material You</string>
+    <string name="material_you_description">Use dynamic colors from your wallpaper (Android 12+)</string>
 
     <!-- Error messages -->
     <string name="network_error">Network error. Please check your connection.</string>

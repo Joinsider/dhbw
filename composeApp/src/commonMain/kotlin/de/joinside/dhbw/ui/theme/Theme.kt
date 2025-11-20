@@ -76,7 +76,7 @@ val LightColorScheme = lightColorScheme(
  * On other platforms: Uses static color schemes
  */
 @Composable
-expect fun getColorScheme(darkTheme: Boolean): ColorScheme
+expect fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean = true): ColorScheme
 
 /**
  * Platform-specific system UI configuration.
@@ -84,17 +84,18 @@ expect fun getColorScheme(darkTheme: Boolean): ColorScheme
  * On other platforms: No-op
  */
 @Composable
-expect fun SystemAppearance(darkTheme: Boolean)
+expect fun SystemAppearance(darkTheme: Boolean, useMaterialYou: Boolean = true)
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DHBWHorbTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    useMaterialYou: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = getColorScheme(darkTheme)
+    val colorScheme = getColorScheme(darkTheme, useMaterialYou)
 
-    SystemAppearance(darkTheme)
+    SystemAppearance(darkTheme, useMaterialYou)
 
     // 2. Define the MotionScheme
     // Options: MotionScheme.expressive() OR MotionScheme.standard()

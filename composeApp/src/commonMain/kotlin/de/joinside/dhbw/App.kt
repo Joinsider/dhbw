@@ -74,6 +74,7 @@ fun App(
     // Initialize theme preferences
     val themePreferences = remember { ThemePreferences(secureStorage) }
     var themeMode by remember { mutableStateOf(themePreferences.getThemeMode()) }
+    var materialYouEnabled by remember { mutableStateOf(themePreferences.getMaterialYouEnabled()) }
 
     // Create shared HttpClient for all Dualis services (IMPORTANT for cookie sharing!)
     val sharedHttpClient = remember {
@@ -141,7 +142,8 @@ fun App(
             ThemeMode.LIGHT -> false
             ThemeMode.DARK -> true
             ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        }
+        },
+        useMaterialYou = materialYouEnabled
     ) {
         Column(
             modifier = Modifier
@@ -232,6 +234,11 @@ fun App(
                         onThemeModeChange = { newMode ->
                             themeMode = newMode
                             themePreferences.setThemeMode(newMode)
+                        },
+                        materialYouEnabled = materialYouEnabled,
+                        onMaterialYouChange = { enabled ->
+                            materialYouEnabled = enabled
+                            themePreferences.setMaterialYouEnabled(enabled)
                         },
                         modifier = Modifier
                             .fillMaxSize()

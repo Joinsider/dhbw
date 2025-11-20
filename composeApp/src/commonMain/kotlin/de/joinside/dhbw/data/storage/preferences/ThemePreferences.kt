@@ -34,6 +34,7 @@ class ThemePreferences(private val storage: SecureStorage) {
 
     companion object {
         private const val THEME_MODE_KEY = "theme_mode_preference"
+        private const val MATERIAL_YOU_KEY = "material_you_preference"
     }
 
     /**
@@ -51,6 +52,23 @@ class ThemePreferences(private val storage: SecureStorage) {
      */
     fun setThemeMode(mode: ThemeMode) {
         storage.setString(THEME_MODE_KEY, mode.name)
+    }
+
+    /**
+     * Get the Material You preference (Android only)
+     * @return True if Material You is enabled, defaults to true
+     */
+    fun getMaterialYouEnabled(): Boolean {
+        val storedValue = storage.getString(MATERIAL_YOU_KEY, "true")
+        return storedValue == "true"
+    }
+
+    /**
+     * Set the Material You preference (Android only)
+     * @param enabled True to enable Material You, false to use static colors
+     */
+    fun setMaterialYouEnabled(enabled: Boolean) {
+        storage.setString(MATERIAL_YOU_KEY, enabled.toString())
     }
 }
 
