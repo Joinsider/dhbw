@@ -1,6 +1,7 @@
 package de.joinside.dhbw
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +19,8 @@ import de.joinside.dhbw.data.storage.credentials.CredentialsStorageProvider
 import de.joinside.dhbw.data.storage.credentials.SecureStorage
 import de.joinside.dhbw.data.storage.credentials.SecureStorageWrapper
 import de.joinside.dhbw.data.storage.database.AppDatabase
+import de.joinside.dhbw.data.storage.preferences.ThemeMode
+import de.joinside.dhbw.data.storage.preferences.ThemePreferences
 import de.joinside.dhbw.ui.pages.GradesPage
 import de.joinside.dhbw.ui.pages.SettingsPage
 import de.joinside.dhbw.ui.pages.Startpage
@@ -67,6 +70,11 @@ fun App(
     val secureStorage = remember { SecureStorage() }
     val secureStorageWrapper = remember { SecureStorageWrapper(secureStorage) }
     val sessionManager = remember { SessionManager(secureStorageWrapper) }
+
+    // Initialize theme preferences
+    val themePreferences = remember { ThemePreferences(secureStorage) }
+    var themeMode by remember { mutableStateOf(themePreferences.getThemeMode()) }
+    var materialYouEnabled by remember { mutableStateOf(themePreferences.getMaterialYouEnabled()) }
 
     // Create shared HttpClient for all Dualis services (IMPORTANT for cookie sharing!)
     val sharedHttpClient = remember {
@@ -129,7 +137,14 @@ fun App(
         Napier.d("Logout completed", tag = "App")
     }
 
-    DHBWHorbTheme {
+    DHBWHorbTheme(
+        darkTheme = when (themeMode) {
+            ThemeMode.LIGHT -> false
+            ThemeMode.DARK -> true
+            ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        },
+        useMaterialYou = materialYouEnabled
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -215,6 +230,16 @@ fun App(
                         },
                         onLogout = handleLogout,
                         isLoggedIn = isLoggedIn,
+                        currentThemeMode = themeMode,
+                        onThemeModeChange = { newMode ->
+                            themeMode = newMode
+                            themePreferences.setThemeMode(newMode)
+                        },
+                        materialYouEnabled = materialYouEnabled,
+                        onMaterialYouChange = { enabled ->
+                            materialYouEnabled = enabled
+                            themePreferences.setMaterialYouEnabled(enabled)
+                        },
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(top = 16.dp)

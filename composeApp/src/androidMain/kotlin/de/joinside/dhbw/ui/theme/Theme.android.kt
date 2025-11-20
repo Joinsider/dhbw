@@ -8,6 +8,7 @@ package de.joinside.dhbw.ui.theme
 
 import android.app.Activity
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -17,25 +18,38 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import io.github.aakira.napier.Napier
 
 /**
- * Android implementation: Returns Material You dynamic colors on Android 12+ (API 31+),
- * falls back to static color schemes on older versions.
+ * Android implementation: Returns Material You dynamic colors on Android 12+ (API 31+)
+ * when enabled, falls back to static color schemes when disabled or on older versions.
  */
+@RequiresApi(Build.VERSION_CODES.S)
 @Composable
-actual fun getColorScheme(darkTheme: Boolean): ColorScheme {
+actual fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean): ColorScheme {
     val context = LocalContext.current
+    val apiLevel = Build.VERSION.SDK_INT
+    val isS = apiLevel >= Build.VERSION_CODES.S
+
+    Napier.d("getColorScheme - darkTheme: $darkTheme, useMaterialYou: $useMaterialYou, API: $apiLevel, isS: $isS", tag = "Theme")
 
     return when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        isS && useMaterialYou -> {
+            Napier.d("Using Material You dynamic colors", tag = "Theme")
             if (darkTheme) {
                 dynamicDarkColorScheme(context)
             } else {
                 dynamicLightColorScheme(context)
             }
         }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        darkTheme -> {
+            Napier.d("Using static DarkColorScheme", tag = "Theme")
+            DarkColorScheme
+        }
+        else -> {
+            Napier.d("Using static LightColorScheme", tag = "Theme")
+            LightColorScheme
+        }
     }
 }
 
@@ -43,10 +57,11 @@ actual fun getColorScheme(darkTheme: Boolean): ColorScheme {
  * Android implementation: Configures status bar and navigation bar appearance
  * to match the theme (light/dark).
  */
+@RequiresApi(Build.VERSION_CODES.S)
 @Composable
-actual fun SystemAppearance(darkTheme: Boolean) {
+actual fun SystemAppearance(darkTheme: Boolean, useMaterialYou: Boolean) {
     val view = LocalView.current
-    val colorScheme = getColorScheme(darkTheme)
+    val colorScheme = getColorScheme(darkTheme, useMaterialYou)
 
     if (!view.isInEditMode) {
         SideEffect {
@@ -64,9 +79,7 @@ actual fun SystemAppearance(darkTheme: Boolean) {
             insetsController.isAppearanceLightStatusBars = !darkTheme
 
             // Set navigation bar appearance (Android 8.0+)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                insetsController.isAppearanceLightNavigationBars = !darkTheme
-            }
+            insetsController.isAppearanceLightNavigationBars = !darkTheme
         }
     }
 }

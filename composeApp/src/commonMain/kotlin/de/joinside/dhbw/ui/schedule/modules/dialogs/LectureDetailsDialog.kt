@@ -18,6 +18,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.resources.Res
@@ -59,6 +61,8 @@ fun LectureDetailsDialog(
     lecture: LectureModel,
     onDismiss: () -> Unit
 ) {
+    val hapticFeedback = LocalHapticFeedback.current
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -154,7 +158,12 @@ fun LectureDetailsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = {
+                    onDismiss()
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                }
+            ) {
                 Text(stringResource(Res.string.close))
             }
         }
