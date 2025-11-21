@@ -436,75 +436,45 @@ jobs:
           }
           
           Write-Host "Successfully created $outputMsix"
-
-      - name: Decode signing certificate
+          
+      - name: Skip self-signing for Store submission
         shell: pwsh
         run: |
-          $base64Cert = "${{ secrets.MSIX_CERTIFICATE_BASE64 }}"
-          if ([string]::IsNullOrEmpty($base64Cert)) {
-            throw "MSIX_CERTIFICATE_BASE64 secret is not set"
-          }
-          [IO.File]::WriteAllBytes("$PWD\cert.pfx", [Convert]::FromBase64String($base64Cert))
-
-      - name: Remove all signatures aggressively
-        shell: pwsh
-        run: |
-          Write-Host "Aggressively removing ALL signatures from package files..."
-
-          $packageDir = "msix-package-final"
-
-          # Find all PE files (exe, dll)
-          $peFiles = @()
-          $peFiles += Get-ChildItem -Path $packageDir -Filter "*.exe" -Recurse -File
-          $peFiles += Get-ChildItem -Path $packageDir -Filter "*.dll" -Recurse -File
-
-          Write-Host "Found $($peFiles.Count) PE files total"
-
-          $signTool = "${{ steps.find-sdk.outputs.signtool_path }}"
-          $removedCount = 0
-
-          foreach ($file in $peFiles) {
-            # Try to remove signature from every file, regardless of detection
-            $result = & $signTool remove /s $file.FullName 2>&1
-
-            if ($LASTEXITCODE -eq 0) {
-              $removedCount++
-            }
-          }
-
-          Write-Host "Attempted signature removal on all $($peFiles.Count) files"
-          Write-Host "Successfully removed signatures from $removedCount files"
-
-      - name: Sign MSIX package
-        shell: pwsh
-        run: |
-          $signTool = "${{ steps.find-sdk.outputs.signtool_path }}"
-          $certPath = "$PWD\cert.pfx"
-          $certPassword = "${{ secrets.MSIX_CERTIFICATE_PASSWORD }}"
           $version = "${{ needs.create-release.outputs.version }}"
           $msixFile = "dhbw-next-$version.msix"
-
-          Write-Host "Signing MSIX package: $msixFile"
-
-          # Try signing with timestamp server
-          & $signTool sign /fd SHA256 /f $certPath /p $certPassword /tr http://timestamp.digicert.com /td SHA256 $msixFile
-
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "ERROR: Signing failed with exit code $LASTEXITCODE"
-
-            # Check if MSIX package itself is corrupt
-            Write-Host "`nVerifying MSIX package integrity..."
-            $makeAppx = "${{ steps.find-sdk.outputs.makeappx_path }}"
-            & $makeAppx verify /p $msixFile /v
-
-            throw "SignTool failed with exit code $LASTEXITCODE"
+          
+          Write-Host "================================================"
+          Write-Host "Skipping self-signing for Microsoft Store submission"
+          Write-Host "================================================"
+          Write-Host ""
+          Write-Host "The Microsoft Store will automatically sign this package with a trusted certificate."
+          Write-Host "This unsigned MSIX is valid for Store submission but cannot be installed locally."
+          Write-Host ""
+          
+          # Verify the MSIX package structure is valid (correct syntax)
+          $makeAppx = "${{ steps.find-sdk.outputs.makeappx_path }}"
+          Write-Host "Verifying package structure..."
+          
+          # Unpack to verify, then repack (this validates the package)
+          $testDir = "msix-verify-test"
+          & $makeAppx unpack /p $msixFile /d $testDir /nv
+          
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✓ Package structure is valid"
+            Remove-Item -Path $testDir -Recurse -Force
+          } else {
+            throw "MSIX package structure validation failed"
           }
-
-          Write-Host "`n✓ Successfully signed $msixFile"
-
-          # Verify the signature
-          Write-Host "`nVerifying signature..."
-          & $signTool verify /pa $msixFile
+          
+          # Show package info
+          Write-Host ""
+          Write-Host "Package details:"
+          $fileInfo = Get-Item $msixFile
+          Write-Host "  File: $($fileInfo.Name)"
+          Write-Host "  Size: $([math]::Round($fileInfo.Length / 1MB, 2)) MB"
+          Write-Host "  Created: $($fileInfo.CreationTime)"
+          Write-Host ""
+          Write-Host "✓ Package is ready for Microsoft Store submission"      
 
       - name: Upload MSIX to Release
         uses: softprops/action-gh-release@v1
@@ -513,11 +483,6 @@ jobs:
           files: dhbw-next-${{ needs.create-release.outputs.version }}.msix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Cleanup certificate
-        if: always()
-        shell: pwsh
-        run: Remove-Item -Path "cert.pfx" -Force -ErrorAction SilentlyContinue
 
   clean-release:
     needs:
