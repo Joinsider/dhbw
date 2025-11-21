@@ -66,12 +66,6 @@ jobs:
           echo "deb_file=$DEB_FILE" >> $GITHUB_OUTPUT
           echo "deb_name=$(basename $DEB_FILE)" >> $GITHUB_OUTPUT
 
-      - name: Extract release context
-        id: release-context
-        run: |
-          echo "release_tag=${{ needs.create-release.outputs.tag }}" >> "$GITHUB_OUTPUT"
-          echo "release_version=${{ needs.create-release.outputs.version }}" >> "$GITHUB_OUTPUT"
-
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
@@ -111,14 +105,16 @@ jobs:
           $posixPath = $relative -replace '\\','/'
           "msi_file=$posixPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "msi_name=$($msi.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "msi_full_path=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-      - name: Extract release context
-        id: release-context
-        run: |
-          echo "release_tag=${{ needs.create-release.outputs.tag }}" >> "$GITHUB_OUTPUT"
-          echo "release_version=${{ needs.create-release.outputs.version }}" >> "$GITHUB_OUTPUT"
+      - name: Upload MSI artifact for MSIX job
+        uses: actions/upload-artifact@v4
+        with:
+          name: msi-package
+          path: ${{ steps.find-msi.outputs.msi_file }}
+          retention-days: 1
 
-      - name: Upload to Release
+      - name: Upload MSI to Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ needs.create-release.outputs.tag }}
@@ -154,12 +150,6 @@ jobs:
           fi
           echo "dmg_file=$DMG_FILE" >> $GITHUB_OUTPUT
           echo "dmg_name=$(basename $DMG_FILE)" >> $GITHUB_OUTPUT
-
-      - name: Extract release context
-        id: release-context
-        run: |
-          echo "release_tag=${{ needs.create-release.outputs.tag }}" >> "$GITHUB_OUTPUT"
-          echo "release_version=${{ needs.create-release.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
@@ -230,6 +220,232 @@ jobs:
         if: always()
         run: rm -f keystore.jks
 
+  build-msix-app:
+    needs:
+      - create-release
+      - build-msi-windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download MSI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: msi-package
+          path: ./msi-download
+
+      - name: Find downloaded MSI
+        id: find-downloaded-msi
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem -Path "./msi-download" -Filter "dhbw-next-*.msi" -File | Select-Object -First 1
+          if (-not $msi) {
+            throw "No MSI found in downloaded artifacts"
+          }
+          "msi_path=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Found MSI: $($msi.Name)"
+
+      - name: Find Windows SDK tools
+        id: find-sdk
+        shell: pwsh
+        run: |
+          # Find the latest SDK version
+          $sdkPath = "C:\Program Files (x86)\Windows Kits\10\bin"
+          $latestSdk = Get-ChildItem -Path $sdkPath -Directory | 
+            Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } | 
+            Sort-Object Name -Descending | 
+            Select-Object -First 1
+          
+          if (-not $latestSdk) {
+            throw "Windows SDK not found"
+          }
+          
+          $makeAppxPath = Join-Path $latestSdk.FullName "x64\makeappx.exe"
+          $signToolPath = Join-Path $latestSdk.FullName "x64\signtool.exe"
+          
+          if (-not (Test-Path $makeAppxPath)) {
+            throw "MakeAppx.exe not found at $makeAppxPath"
+          }
+          if (-not (Test-Path $signToolPath)) {
+            throw "SignTool.exe not found at $signToolPath"
+          }
+          
+          "makeappx_path=$makeAppxPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "signtool_path=$signToolPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Found SDK tools in $($latestSdk.Name)"
+
+      - name: Extract MSI contents
+        shell: pwsh
+        run: |
+          $msiPath = "${{ steps.find-downloaded-msi.outputs.msi_path }}"
+          $extractDir = Join-Path $PWD "msix-package"
+          New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
+          
+          Write-Host "Extracting MSI from $msiPath to $extractDir"
+          $process = Start-Process msiexec.exe -ArgumentList "/a `"$msiPath`" /qn TARGETDIR=`"$extractDir`"" -Wait -PassThru -NoNewWindow
+          
+          if ($process.ExitCode -ne 0) {
+            throw "MSI extraction failed with exit code $($process.ExitCode)"
+          }
+
+      - name: Prepare MSIX package structure
+        shell: pwsh
+        run: |
+          $packageDir = "msix-package-final"
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+          New-Item -ItemType Directory -Force -Path "$packageDir\Assets" | Out-Null
+
+          # Copy extracted MSI files
+          Copy-Item -Path "msix-package\*" -Destination "$packageDir" -Recurse -Force
+
+          # Copy AppxManifest.xml from repository
+          $manifestSource = "packaging\windows\AppxManifest.xml"
+          if (-not (Test-Path $manifestSource)) {
+            throw "AppxManifest.xml not found at $manifestSource"
+          }
+          Copy-Item -Path $manifestSource -Destination "$packageDir\AppxManifest.xml" -Force
+          
+          Write-Host "Package structure prepared"
+
+      - name: Generate MSIX assets from icon
+        shell: pwsh
+        run: |
+          # Check if icon.ico exists in packaging folder
+          $iconSource = "packaging\windows\Assets\icon.ico"
+          if (-not (Test-Path $iconSource)) {
+            Write-Host "Warning: icon.ico not found at $iconSource"
+          
+            # Try to find icons in extracted MSI content as fallback
+            $extractedIcons = Get-ChildItem -Path "msix-package-final" -Filter "*.ico" -Recurse -File
+            if ($extractedIcons.Count -gt 0) {
+              $iconSource = $extractedIcons[0].FullName
+              Write-Host "Found icon in MSI: $iconSource"
+            } else {
+              throw "No icon.ico found in packaging/windows/Assets/ or extracted MSI content"
+            }
+          } else {
+            Write-Host "Using icon from: $iconSource"
+          }
+
+          # Use .NET to extract images from ICO and resize
+          Add-Type -AssemblyName System.Drawing
+          
+          $ico = [System.Drawing.Icon]::new($iconSource)
+          
+          # Function to save icon as PNG at specific size
+          function Save-IconAsPng {
+            param($icon, $size, $outputPath)
+          
+            $bitmap = [System.Drawing.Bitmap]::new($size, $size)
+            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+            $graphics.DrawImage($icon.ToBitmap(), 0, 0, $size, $size)
+            $bitmap.Save($outputPath, [System.Drawing.Imaging.ImageFormat]::Png)
+            $graphics.Dispose()
+            $bitmap.Dispose()
+          }
+          
+          # Generate required asset sizes
+          $assetsDir = "msix-package-final\Assets"
+          
+          Save-IconAsPng -icon $ico -size 44 -outputPath "$assetsDir\DHBWNEXT-Square44x44Logo.png"
+          Save-IconAsPng -icon $ico -size 71 -outputPath "$assetsDir\DHBWNEXT-Square71x71Logo.png"
+          Save-IconAsPng -icon $ico -size 150 -outputPath "$assetsDir\DHBWNEXT-Square150x150Logo.png"
+          Save-IconAsPng -icon $ico -size 310 -outputPath "$assetsDir\DHBWNEXT-Square310x310Logo.png"
+          
+          # Wide logo (310x150)
+          $wideBitmap = [System.Drawing.Bitmap]::new(310, 150)
+          $graphics = [System.Drawing.Graphics]::FromImage($wideBitmap)
+          $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+          $graphics.DrawImage($ico.ToBitmap(), 80, 0, 150, 150)
+          $wideBitmap.Save("$assetsDir\DHBWNEXT-Wide310x150Logo.png", [System.Drawing.Imaging.ImageFormat]::Png)
+          $graphics.Dispose()
+          $wideBitmap.Dispose()
+          
+          # StoreLogo (50x50)
+          Save-IconAsPng -icon $ico -size 50 -outputPath "$assetsDir\StoreLogo.png"
+          
+          $ico.Dispose()
+          
+          Write-Host "Generated all required MSIX assets from icon.ico"
+
+      - name: Update manifest version
+        shell: pwsh
+        run: |
+          $version = "${{ needs.create-release.outputs.version }}"
+          $manifestPath = "msix-package-final\AppxManifest.xml"
+
+          # Ensure version format is x.x.x.0
+          $versionParts = $version.Split('.')
+          while ($versionParts.Count -lt 4) {
+            $versionParts += "0"
+          }
+          $msixVersion = $versionParts[0..3] -join '.'
+
+          # Update version in manifest
+          $manifest = [xml](Get-Content $manifestPath)
+          $manifest.Package.Identity.Version = $msixVersion
+          $manifest.Save($manifestPath)
+          
+          Write-Host "Updated manifest version to $msixVersion"
+
+      - name: Create MSIX package
+        shell: pwsh
+        run: |
+          $makeAppx = "${{ steps.find-sdk.outputs.makeappx_path }}"
+          $packageDir = "msix-package-final"
+          $version = "${{ needs.create-release.outputs.version }}"
+          $outputMsix = "dhbw-next-$version.msix"
+
+          Write-Host "Creating MSIX package: $outputMsix"
+          & $makeAppx pack /d $packageDir /p $outputMsix /v
+          
+          if ($LASTEXITCODE -ne 0) {
+            throw "MakeAppx failed with exit code $LASTEXITCODE"
+          }
+          
+          Write-Host "Successfully created $outputMsix"
+
+      - name: Decode signing certificate
+        shell: pwsh
+        run: |
+          $base64Cert = "${{ secrets.MSIX_CERTIFICATE_BASE64 }}"
+          if ([string]::IsNullOrEmpty($base64Cert)) {
+            throw "MSIX_CERTIFICATE_BASE64 secret is not set"
+          }
+          [IO.File]::WriteAllBytes("$PWD\cert.pfx", [Convert]::FromBase64String($base64Cert))
+
+      - name: Sign MSIX package
+        shell: pwsh
+        run: |
+          $signTool = "${{ steps.find-sdk.outputs.signtool_path }}"
+          $certPath = "$PWD\cert.pfx"
+          $certPassword = "${{ secrets.MSIX_CERTIFICATE_PASSWORD }}"
+          $version = "${{ needs.create-release.outputs.version }}"
+          $msixFile = "dhbw-next-$version.msix"
+
+          Write-Host "Signing MSIX package: $msixFile"
+          & $signTool sign /fd SHA256 /a /f $certPath /p $certPassword $msixFile
+          
+          if ($LASTEXITCODE -ne 0) {
+            throw "SignTool failed with exit code $LASTEXITCODE"
+          }
+          
+          Write-Host "Successfully signed $msixFile"
+
+      - name: Upload MSIX to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag }}
+          files: dhbw-next-${{ needs.create-release.outputs.version }}.msix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup certificate
+        if: always()
+        shell: pwsh
+        run: Remove-Item -Path "cert.pfx" -Force -ErrorAction SilentlyContinue
+
   clean-release:
     needs:
       - create-release
@@ -237,6 +453,7 @@ jobs:
       - build-deb-amd64
       - build-msi-windows
       - build-dmg-macos
+      - build-msix-app
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
