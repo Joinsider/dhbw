@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Commit
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material3.Button
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.resources.Res
@@ -30,11 +32,14 @@ import org.jetbrains.compose.resources.stringResource
 import de.joinside.dhbw.resources.help_settings
 import de.joinside.dhbw.resources.privacy_button
 import de.joinside.dhbw.resources.github_issues
+import de.joinside.dhbw.resources.logout
 import de.joinside.dhbw.resources.report_issue
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun HelpSelectionCard() {
+fun HelpSelectionCard(
+    onLogout: () -> Unit
+) {
     Card (
         modifier = Modifier
             .fillMaxWidth()
@@ -127,6 +132,30 @@ fun HelpSelectionCard() {
                                 )
                             }
                         )
+
+                        // Logout Button
+                        Button(
+                            onClick = {
+                                onLogout()
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                            },
+                            modifier = Modifier
+                                .testTag("logoutButton")
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Logout,
+                                contentDescription = stringResource(Res.string.logout),
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text(stringResource(Res.string.logout))
+                        }
                     }
                 } else {
                     Column(
@@ -190,6 +219,30 @@ fun HelpSelectionCard() {
                                 )
                             }
                         )
+
+                        // Logout Button
+                        Button(
+                            onClick = {
+                                onLogout()
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                            },
+                            modifier = Modifier
+                                .testTag("logoutButton")
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Logout,
+                                contentDescription = stringResource(Res.string.logout),
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text(stringResource(Res.string.logout))
+                        }
                     }
                 }
             }
