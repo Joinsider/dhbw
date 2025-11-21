@@ -176,6 +176,14 @@ jobs:
           </html>
           EOF
 
+      - name: Generate directory listings
+        uses: gacts/directory-listing@v1
+        with:
+          target: public
+          ignore: |
+            **/index.html
+            **/.git*
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
