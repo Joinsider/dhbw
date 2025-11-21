@@ -447,11 +447,11 @@ jobs:
         run: |
           Write-Host "Scanning for pre-signed executables in MSIX package..."
 
-          # Find all executables in the package directory
+          # Find all executables and DLLs in the package directory
           $packageDir = "msix-package-final"
-          $exeFiles = Get-ChildItem -Path $packageDir -Filter "*.exe" -Recurse -File
-          $dllFiles = Get-ChildItem -Path $packageDir -Filter "*.dll" -Recurse -File
-          $allBinaries = $exeFiles + $dllFiles
+          $allBinaries = @()
+          $allBinaries += Get-ChildItem -Path $packageDir -Filter "*.exe" -Recurse -File
+          $allBinaries += Get-ChildItem -Path $packageDir -Filter "*.dll" -Recurse -File
 
           Write-Host "Found $($allBinaries.Count) binary files to check"
 
@@ -462,32 +462,28 @@ jobs:
             try {
               $sig = Get-AuthenticodeSignature -FilePath $binary.FullName -ErrorAction SilentlyContinue
 
-              if ($sig.Status -ne 'NotSigned') {
-                Write-Host "  Removing signature from: $relativePath"
+              if ($sig -and $sig.Status -ne 'NotSigned') {
+                Write-Host "  Found signed file: $relativePath (Status: $($sig.Status))"
 
-                # Remove the signature using .NET
-                $bytes = [System.IO.File]::ReadAllBytes($binary.FullName)
-
-                # Create a temporary copy
-                $tempFile = "$($binary.FullName).tmp"
-                [System.IO.File]::WriteAllBytes($tempFile, $bytes)
-
-                # Use signtool to remove certificate (if present)
+                # Remove the signature using signtool
                 $signTool = "${{ steps.find-sdk.outputs.signtool_path }}"
-                & $signTool remove /s $tempFile 2>&1 | Out-Null
 
-                if (Test-Path $tempFile) {
-                  # Replace original with unsigned version
-                  Move-Item -Path $tempFile -Destination $binary.FullName -Force
+                Write-Host "    Removing signature..."
+                & $signTool remove /s $binary.FullName 2>&1 | Out-Null
+
+                if ($LASTEXITCODE -eq 0) {
                   Write-Host "    ✓ Signature removed successfully"
+                } else {
+                  Write-Host "    ⚠ Could not remove signature (may not be critical)"
                 }
               }
             } catch {
-              Write-Host "  Skipping $relativePath (not a signed PE file)"
+              # Not a valid PE file, skip silently
             }
           }
 
           Write-Host "`nSignature removal complete"
+      
 
       - name: Sign MSIX package
         shell: pwsh
