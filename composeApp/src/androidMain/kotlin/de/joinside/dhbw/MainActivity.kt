@@ -1,5 +1,8 @@
 package de.joinside.dhbw
 
+import android.annotation.SuppressLint
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,9 +32,18 @@ class MainActivity : ComponentActivity() {
     private lateinit var authenticationService: AuthenticationService
     private lateinit var database: de.joinside.dhbw.data.storage.database.AppDatabase
 
+    @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
+        // Lock orientation to portrait for phones only (not tablets)
+        if (isPhone()) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            Napier.d("Device detected as phone - locking to portrait orientation", tag = "MainActivity")
+        } else {
+            Napier.d("Device detected as tablet - allowing all orientations", tag = "MainActivity")
+        }
 
         // Test logging to verify Napier is working
         Napier.d("MainActivity onCreate() called", tag = "MainActivity")
@@ -114,6 +126,24 @@ class MainActivity : ComponentActivity() {
         Napier.d("TimetableViewModel initialized", tag = "MainActivity")
 
         Napier.i("All services initialized successfully!", tag = "MainActivity")
+    }
+
+    /**
+     * Determines if the device is a phone (not a tablet) based on screen size.
+     * Tablets typically have screen size XLARGE or are at least 600dp wide.
+     */
+    private fun isPhone(): Boolean {
+        val configuration = resources.configuration
+        val screenLayout = configuration.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK
+
+        // Check if it's a large or xlarge screen (tablet)
+        val isTabletByScreenSize = screenLayout >= Configuration.SCREENLAYOUT_SIZE_LARGE
+
+        // Additionally check smallest screen width (sw600dp is typical tablet threshold)
+        val smallestScreenWidthDp = configuration.smallestScreenWidthDp
+        val isTabletByWidth = smallestScreenWidthDp >= 600
+
+        return !isTabletByScreenSize && !isTabletByWidth
     }
 
     override fun onResume() {
