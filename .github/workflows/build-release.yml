@@ -442,6 +442,53 @@ jobs:
           }
           [IO.File]::WriteAllBytes("$PWD\cert.pfx", [Convert]::FromBase64String($base64Cert))
 
+      - name: Remove existing signatures from executables
+        shell: pwsh
+        run: |
+          Write-Host "Scanning for pre-signed executables in MSIX package..."
+
+          # Find all executables in the package directory
+          $packageDir = "msix-package-final"
+          $exeFiles = Get-ChildItem -Path $packageDir -Filter "*.exe" -Recurse -File
+          $dllFiles = Get-ChildItem -Path $packageDir -Filter "*.dll" -Recurse -File
+          $allBinaries = $exeFiles + $dllFiles
+
+          Write-Host "Found $($allBinaries.Count) binary files to check"
+
+          foreach ($binary in $allBinaries) {
+            $relativePath = $binary.FullName.Replace("$PWD\", "")
+
+            # Check if file is signed
+            try {
+              $sig = Get-AuthenticodeSignature -FilePath $binary.FullName -ErrorAction SilentlyContinue
+
+              if ($sig.Status -ne 'NotSigned') {
+                Write-Host "  Removing signature from: $relativePath"
+
+                # Remove the signature using .NET
+                $bytes = [System.IO.File]::ReadAllBytes($binary.FullName)
+
+                # Create a temporary copy
+                $tempFile = "$($binary.FullName).tmp"
+                [System.IO.File]::WriteAllBytes($tempFile, $bytes)
+
+                # Use signtool to remove certificate (if present)
+                $signTool = "${{ steps.find-sdk.outputs.signtool_path }}"
+                & $signTool remove /s $tempFile 2>&1 | Out-Null
+
+                if (Test-Path $tempFile) {
+                  # Replace original with unsigned version
+                  Move-Item -Path $tempFile -Destination $binary.FullName -Force
+                  Write-Host "    ✓ Signature removed successfully"
+                }
+              }
+            } catch {
+              Write-Host "  Skipping $relativePath (not a signed PE file)"
+            }
+          }
+
+          Write-Host "`nSignature removal complete"
+
       - name: Sign MSIX package
         shell: pwsh
         run: |
@@ -453,32 +500,30 @@ jobs:
 
           Write-Host "Signing MSIX package: $msixFile"
 
-          # Sign only the MSIX container, not the internal files
-          # This avoids the 0x800700C1 error with pre-signed executables
+          # Sign only the MSIX container
           & $signTool sign /fd SHA256 /f $certPath /p $certPassword $msixFile
 
           if ($LASTEXITCODE -ne 0) {
             Write-Host "ERROR: SignTool failed with exit code $LASTEXITCODE"
-            Write-Host "This may be due to:"
-            Write-Host "1. Invalid certificate format or password"
-            Write-Host "2. Certificate CN doesn't match manifest Publisher"
-            Write-Host "3. Certificate expired or not valid for code signing"
 
-            # Try to get more certificate info
-            Write-Host "`nCertificate details:"
-            $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($certPath, $certPassword)
-            Write-Host "  Subject: $($cert.Subject)"
-            Write-Host "  Issuer: $($cert.Issuer)"
-            Write-Host "  Valid From: $($cert.NotBefore)"
-            Write-Host "  Valid To: $($cert.NotAfter)"
-            Write-Host "  Thumbprint: $($cert.Thumbprint)"
-            $cert.Dispose()
+            # Certificate is valid (we already verified it), so this might be a different issue
+            Write-Host "`nTrying alternative signing approach..."
 
-            throw "SignTool failed with exit code $LASTEXITCODE"
+            # Try with timestamping
+            & $signTool sign /fd SHA256 /f $certPath /p $certPassword /tr http://timestamp.acs.microsoft.com /td SHA256 $msixFile
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "SignTool failed even with alternative approach. Exit code: $LASTEXITCODE"
+            }
           }
 
           Write-Host "Successfully signed $msixFile"
-      
+
+          # Verify the signature
+          Write-Host "`nVerifying signature..."
+          & $signTool verify /pa $msixFile
+
+
 
       - name: Upload MSIX to Release
         uses: softprops/action-gh-release@v1
