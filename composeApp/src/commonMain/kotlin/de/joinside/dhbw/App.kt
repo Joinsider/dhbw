@@ -162,7 +162,8 @@ fun App(
                     ) {
                         Startpage(
                             onLoginSuccess = {
-                                currentScreen = AppScreen.LOGIN
+                                isLoggedIn = true
+                                currentScreen = AppScreen.TIMETABLE
                             },
                             authenticationService = authenticationService,
                             credentialsProvider = credentialsProvider,

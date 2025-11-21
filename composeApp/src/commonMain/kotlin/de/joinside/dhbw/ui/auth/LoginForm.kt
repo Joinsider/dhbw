@@ -43,6 +43,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
@@ -81,6 +82,7 @@ fun LoginForm(
 ) {
     val uiState = viewModel.uiState
     val coroutineScope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
     val usernameFocusRequester = remember { FocusRequester() }
     val passwordFocusRequester = remember { FocusRequester() }
 
@@ -99,6 +101,9 @@ fun LoginForm(
 
     // Extract login logic into a function that can be reused
     val performLogin: () -> Unit = {
+        // Clear focus to ensure UI updates properly
+        focusManager.clearFocus()
+
         hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
         if (viewModel.validateFields(
                 usernameCannotBeEmpty = usernameCannotBeEmpty,
