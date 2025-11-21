@@ -446,48 +446,34 @@ jobs:
           }
           [IO.File]::WriteAllBytes("$PWD\cert.pfx", [Convert]::FromBase64String($base64Cert))
 
-      - name: Remove existing signatures from executables
+      - name: Remove all signatures aggressively
         shell: pwsh
         run: |
-          Write-Host "Scanning for pre-signed executables in MSIX package..."
+          Write-Host "Aggressively removing ALL signatures from package files..."
 
-          # Find all executables and DLLs in the package directory
           $packageDir = "msix-package-final"
-          $allBinaries = @()
-          $allBinaries += Get-ChildItem -Path $packageDir -Filter "*.exe" -Recurse -File
-          $allBinaries += Get-ChildItem -Path $packageDir -Filter "*.dll" -Recurse -File
 
-          Write-Host "Found $($allBinaries.Count) binary files to check"
+          # Find all PE files (exe, dll)
+          $peFiles = @()
+          $peFiles += Get-ChildItem -Path $packageDir -Filter "*.exe" -Recurse -File
+          $peFiles += Get-ChildItem -Path $packageDir -Filter "*.dll" -Recurse -File
 
-          foreach ($binary in $allBinaries) {
-            $relativePath = $binary.FullName.Replace("$PWD\", "")
+          Write-Host "Found $($peFiles.Count) PE files total"
 
-            # Check if file is signed
-            try {
-              $sig = Get-AuthenticodeSignature -FilePath $binary.FullName -ErrorAction SilentlyContinue
+          $signTool = "${{ steps.find-sdk.outputs.signtool_path }}"
+          $removedCount = 0
 
-              if ($sig -and $sig.Status -ne 'NotSigned') {
-                Write-Host "  Found signed file: $relativePath (Status: $($sig.Status))"
+          foreach ($file in $peFiles) {
+            # Try to remove signature from every file, regardless of detection
+            $result = & $signTool remove /s $file.FullName 2>&1
 
-                # Remove the signature using signtool
-                $signTool = "${{ steps.find-sdk.outputs.signtool_path }}"
-
-                Write-Host "    Removing signature..."
-                & $signTool remove /s $binary.FullName 2>&1 | Out-Null
-
-                if ($LASTEXITCODE -eq 0) {
-                  Write-Host "    ✓ Signature removed successfully"
-                } else {
-                  Write-Host "    ⚠ Could not remove signature (may not be critical)"
-                }
-              }
-            } catch {
-              # Not a valid PE file, skip silently
+            if ($LASTEXITCODE -eq 0) {
+              $removedCount++
             }
           }
 
-          Write-Host "`nSignature removal complete"
-      
+          Write-Host "Attempted signature removal on all $($peFiles.Count) files"
+          Write-Host "Successfully removed signatures from $removedCount files"
 
       - name: Sign MSIX package
         shell: pwsh
@@ -500,30 +486,25 @@ jobs:
 
           Write-Host "Signing MSIX package: $msixFile"
 
-          # Sign only the MSIX container
-          & $signTool sign /fd SHA256 /f $certPath /p $certPassword $msixFile
+          # Try signing with timestamp server
+          & $signTool sign /fd SHA256 /f $certPath /p $certPassword /tr http://timestamp.digicert.com /td SHA256 $msixFile
 
           if ($LASTEXITCODE -ne 0) {
-            Write-Host "ERROR: SignTool failed with exit code $LASTEXITCODE"
+            Write-Host "ERROR: Signing failed with exit code $LASTEXITCODE"
 
-            # Certificate is valid (we already verified it), so this might be a different issue
-            Write-Host "`nTrying alternative signing approach..."
+            # Check if MSIX package itself is corrupt
+            Write-Host "`nVerifying MSIX package integrity..."
+            $makeAppx = "${{ steps.find-sdk.outputs.makeappx_path }}"
+            & $makeAppx verify /p $msixFile /v
 
-            # Try with timestamping
-            & $signTool sign /fd SHA256 /f $certPath /p $certPassword /tr http://timestamp.acs.microsoft.com /td SHA256 $msixFile
-
-            if ($LASTEXITCODE -ne 0) {
-              throw "SignTool failed even with alternative approach. Exit code: $LASTEXITCODE"
-            }
+            throw "SignTool failed with exit code $LASTEXITCODE"
           }
 
-          Write-Host "Successfully signed $msixFile"
+          Write-Host "`n✓ Successfully signed $msixFile"
 
           # Verify the signature
           Write-Host "`nVerifying signature..."
           & $signTool verify /pa $msixFile
-
-
 
       - name: Upload MSIX to Release
         uses: softprops/action-gh-release@v1
