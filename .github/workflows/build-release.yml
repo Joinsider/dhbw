@@ -332,7 +332,7 @@ jobs:
           Copy-Item -Path $manifestSource -Destination "$packageDir\AppxManifest.xml" -Force
 
           Write-Host "Package structure prepared successfully"
-      
+
 
       - name: Generate MSIX assets from icon
         shell: pwsh
@@ -452,13 +452,33 @@ jobs:
           $msixFile = "dhbw-next-$version.msix"
 
           Write-Host "Signing MSIX package: $msixFile"
-          & $signTool sign /fd SHA256 /a /f $certPath /p $certPassword $msixFile
-          
+
+          # Sign only the MSIX container, not the internal files
+          # This avoids the 0x800700C1 error with pre-signed executables
+          & $signTool sign /fd SHA256 /f $certPath /p $certPassword $msixFile
+
           if ($LASTEXITCODE -ne 0) {
+            Write-Host "ERROR: SignTool failed with exit code $LASTEXITCODE"
+            Write-Host "This may be due to:"
+            Write-Host "1. Invalid certificate format or password"
+            Write-Host "2. Certificate CN doesn't match manifest Publisher"
+            Write-Host "3. Certificate expired or not valid for code signing"
+
+            # Try to get more certificate info
+            Write-Host "`nCertificate details:"
+            $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($certPath, $certPassword)
+            Write-Host "  Subject: $($cert.Subject)"
+            Write-Host "  Issuer: $($cert.Issuer)"
+            Write-Host "  Valid From: $($cert.NotBefore)"
+            Write-Host "  Valid To: $($cert.NotAfter)"
+            Write-Host "  Thumbprint: $($cert.Thumbprint)"
+            $cert.Dispose()
+
             throw "SignTool failed with exit code $LASTEXITCODE"
           }
-          
+
           Write-Host "Successfully signed $msixFile"
+      
 
       - name: Upload MSIX to Release
         uses: softprops/action-gh-release@v1
