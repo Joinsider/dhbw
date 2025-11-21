@@ -3,20 +3,15 @@ package de.joinside.dhbw.ui.pages
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.data.storage.preferences.ThemeMode
 import de.joinside.dhbw.resources.Res
-import de.joinside.dhbw.resources.logout
 import de.joinside.dhbw.resources.settings_title
 import de.joinside.dhbw.ui.navigation.BottomNavItem
 import de.joinside.dhbw.ui.navigation.BottomNavigationBar
@@ -40,7 +35,6 @@ fun SettingsPage(
     onMaterialYouChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val hapticFeedback = LocalHapticFeedback.current
 
     Scaffold(
         modifier = if (isMobilePlatform()) {
@@ -94,30 +88,7 @@ fun SettingsPage(
                     onMaterialYouChange = onMaterialYouChange
                 )
 
-                HelpSelectionCard()
-
-                Spacer(Modifier.height(32.dp))
-
-                Button(
-                    onClick = {
-                        onLogout()
-                        hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                    },
-                    modifier = Modifier
-                        .testTag("logoutButton")
-                        .height(48.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Logout,
-                        contentDescription = stringResource(Res.string.logout),
-                        modifier = Modifier.padding(end = 8.dp)
-                    )
-                    Text(stringResource(Res.string.logout))
-                }
+                HelpSelectionCard(onLogout)
             }
         }
     }
