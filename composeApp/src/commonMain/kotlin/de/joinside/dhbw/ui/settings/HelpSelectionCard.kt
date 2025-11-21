@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.resources.Res
@@ -45,6 +46,7 @@ fun HelpSelectionCard() {
     ){
 
         val hapticFeedback = LocalHapticFeedback.current
+        val uriHandler = LocalUriHandler.current
 
         Column(
             modifier = Modifier
@@ -72,6 +74,7 @@ fun HelpSelectionCard() {
                         Button(
                             onClick = {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                                uriHandler.openUri("https://www.datenschutz.dhbw.joinside.de")
                             },
                             modifier = Modifier
                                 .weight(1f)
@@ -100,6 +103,7 @@ fun HelpSelectionCard() {
                         Button(
                             onClick = {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                                uriHandler.openUri("https://github.com/Joinsider/dhbw-next/issues/")
                             },
                             modifier = Modifier
                                 .weight(1f)
@@ -133,6 +137,7 @@ fun HelpSelectionCard() {
                         Button(
                             onClick = {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                                uriHandler.openUri("https://www.datenschutz.dhbw.joinside.de")
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -161,6 +166,7 @@ fun HelpSelectionCard() {
                         Button(
                             onClick = {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                                uriHandler.openUri("https://github.com/Joinsider/dhbw-next/issues/")
                             },
                             modifier = Modifier
                                 .fillMaxWidth()

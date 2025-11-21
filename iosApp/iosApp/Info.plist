@@ -31,5 +31,20 @@
 	<!-- Network Usage Description (required for iOS 14+) -->
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>This app needs network access to connect to the DHBW Dualis system.</string>
+
+	<!-- Supported interface orientations for iPhone (portrait only) -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+
+	<!-- Supported interface orientations for iPad (all orientations) -->
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 </dict>
 </plist>
