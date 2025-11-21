@@ -280,13 +280,17 @@ jobs:
           $msiPath = "${{ steps.find-downloaded-msi.outputs.msi_path }}"
           $extractDir = Join-Path $PWD "msix-package"
           New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
-          
+
           Write-Host "Extracting MSI from $msiPath to $extractDir"
           $process = Start-Process msiexec.exe -ArgumentList "/a `"$msiPath`" /qn TARGETDIR=`"$extractDir`"" -Wait -PassThru -NoNewWindow
-          
+
           if ($process.ExitCode -ne 0) {
             throw "MSI extraction failed with exit code $($process.ExitCode)"
           }
+
+          # List extracted structure for debugging
+          Write-Host "`nExtracted MSI structure:"
+          Get-ChildItem -Path $extractDir -Recurse -File | Select-Object -First 20 | ForEach-Object { Write-Host "  $($_.FullName.Replace($extractDir, ''))" }
 
       - name: Prepare MSIX package structure
         shell: pwsh
@@ -294,9 +298,31 @@ jobs:
           $packageDir = "msix-package-final"
           New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
           New-Item -ItemType Directory -Force -Path "$packageDir\Assets" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$packageDir\VFS\ProgramFilesX64\dhbw-next" | Out-Null
 
-          # Copy extracted MSI files
-          Copy-Item -Path "msix-package\*" -Destination "$packageDir" -Recurse -Force
+          # Find where the executable actually is in the extracted MSI
+          $exeFile = Get-ChildItem -Path "msix-package" -Filter "dhbw-next.exe" -Recurse -File | Select-Object -First 1
+
+          if (-not $exeFile) {
+            Write-Host "ERROR: dhbw-next.exe not found in extracted MSI!"
+            Write-Host "Searching for any .exe files:"
+            Get-ChildItem -Path "msix-package" -Filter "*.exe" -Recurse -File | ForEach-Object { Write-Host "  Found: $($_.FullName)" }
+            throw "dhbw-next.exe not found in MSI extraction"
+          }
+
+          Write-Host "Found executable at: $($exeFile.FullName)"
+
+          # Copy all files from the executable's directory to the VFS structure
+          $exeDir = $exeFile.Directory
+          Write-Host "Copying files from $($exeDir.FullName) to VFS\ProgramFilesX64\dhbw-next"
+          Copy-Item -Path "$($exeDir.FullName)\*" -Destination "$packageDir\VFS\ProgramFilesX64\dhbw-next" -Recurse -Force
+
+          # Verify the executable is in the correct location
+          $targetExe = "$packageDir\VFS\ProgramFilesX64\dhbw-next\dhbw-next.exe"
+          if (-not (Test-Path $targetExe)) {
+            throw "Failed to copy dhbw-next.exe to $targetExe"
+          }
+          Write-Host "Verified executable at: $targetExe"
 
           # Copy AppxManifest.xml from repository
           $manifestSource = "packaging\windows\AppxManifest.xml"
@@ -304,8 +330,9 @@ jobs:
             throw "AppxManifest.xml not found at $manifestSource"
           }
           Copy-Item -Path $manifestSource -Destination "$packageDir\AppxManifest.xml" -Force
-          
-          Write-Host "Package structure prepared"
+
+          Write-Host "Package structure prepared successfully"
+      
 
       - name: Generate MSIX assets from icon
         shell: pwsh
