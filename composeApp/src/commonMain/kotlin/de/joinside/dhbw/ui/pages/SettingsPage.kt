@@ -1,6 +1,8 @@
 package de.joinside.dhbw.ui.pages
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.*
@@ -19,6 +21,7 @@ import de.joinside.dhbw.resources.settings_title
 import de.joinside.dhbw.ui.navigation.BottomNavItem
 import de.joinside.dhbw.ui.navigation.BottomNavigationBar
 import de.joinside.dhbw.ui.settings.DesignSelectionCard
+import de.joinside.dhbw.ui.settings.HelpSelectionCard
 import de.joinside.dhbw.util.isMobilePlatform
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -41,7 +44,8 @@ fun SettingsPage(
 
     Scaffold(
         modifier = if (isMobilePlatform()) {
-            modifier.statusBarsPadding()
+            modifier
+                .statusBarsPadding()
         } else {
             modifier
         },
@@ -68,7 +72,8 @@ fun SettingsPage(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -89,6 +94,7 @@ fun SettingsPage(
                     onMaterialYouChange = onMaterialYouChange
                 )
 
+                HelpSelectionCard()
 
                 Spacer(Modifier.height(32.dp))
 

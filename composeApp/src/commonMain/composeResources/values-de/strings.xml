@@ -41,7 +41,10 @@
     <string name="design">Design</string>
     <string name="material_you">Material You</string>
     <string name="material_you_description">Dynamische Farben aus dem Hintergrundbild verwenden (Android 12+)</string>
-
+    <string name="help_settings">Hilfe</string>
+    <string name="privacy_button">Datenschutzerklärung</string>
+    <string name="report_issues">Fehler melden</string>
+    <string name="github_issues">Github Issues</string>
     <!-- Error messages -->
     <string name="network_error">Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.</string>
     <string name="unknown_error">Ein unbekannter Fehler ist aufgetreten.</string>

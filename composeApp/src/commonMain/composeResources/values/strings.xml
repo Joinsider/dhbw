@@ -41,7 +41,10 @@
     <string name="design">Design</string>
     <string name="material_you">Material You</string>
     <string name="material_you_description">Use dynamic colors from your wallpaper (Android 12+)</string>
-
+    <string name="help_settings">Help</string>
+    <string name="privacy_button">Privacy Policy</string>
+    <string name="report_issue">Report Issue</string>
+    <string name="github_issues">Github Issues</string>
     <!-- Error messages -->
     <string name="network_error">Network error. Please check your connection.</string>
     <string name="unknown_error">An unknown error occurred.</string>
