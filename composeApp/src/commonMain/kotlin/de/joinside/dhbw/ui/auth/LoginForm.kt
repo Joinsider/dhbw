@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -32,10 +33,19 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -71,6 +81,8 @@ fun LoginForm(
 ) {
     val uiState = viewModel.uiState
     val coroutineScope = rememberCoroutineScope()
+    val usernameFocusRequester = remember { FocusRequester() }
+    val passwordFocusRequester = remember { FocusRequester() }
 
     var isLoading by remember { mutableStateOf(false) }
     var loginError by remember { mutableStateOf<String?>(null) }
@@ -85,6 +97,49 @@ fun LoginForm(
 
     val hapticFeedback = LocalHapticFeedback.current
 
+    // Extract login logic into a function that can be reused
+    val performLogin: () -> Unit = {
+        hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+        if (viewModel.validateFields(
+                usernameCannotBeEmpty = usernameCannotBeEmpty,
+                usernameInvalidFormat = usernameInvalidFormat,
+                passwordCannotBeEmpty = passwordCannotBeEmpty
+            )
+        ) {
+            // Use AuthenticationService if available, otherwise fall back to old behavior
+            if (authenticationService != null) {
+                isLoading = true
+                loginError = null
+
+                coroutineScope.launch {
+                    val result = authenticationService.login(
+                        username = uiState.username, password = uiState.password
+                    )
+
+                    isLoading = false
+
+                    when (result) {
+                        is LoginResult.Success -> {
+                            println("$loginSuccessfulText! $usernameText: ${uiState.username}")
+                            onLoginSuccess()
+                        }
+
+                        is LoginResult.Failure -> {
+                            loginError = result.message
+                        }
+                    }
+                }
+            } else {
+                // Fallback: Store credentials only (for backward compatibility)
+                credentialsProvider?.storeCredentials(
+                    username = uiState.username, password = uiState.password
+                )
+                println("$loginSuccessfulText! $usernameText: ${uiState.username}")
+                onLoginSuccess()
+            }
+        }
+    }
+
     Column(
         modifier = Modifier.testTag("loginForm").padding(16.dp).fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -94,6 +149,15 @@ fun LoginForm(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("usernameField")
+                .focusRequester(usernameFocusRequester)
+                .onKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Tab) {
+                        passwordFocusRequester.requestFocus()
+                        true
+                    } else {
+                        false
+                    }
+                }
                 .onFocusChanged { focusState ->
                     isUsernameFocused = focusState.isFocused
                 },
@@ -103,7 +167,13 @@ fun LoginForm(
             singleLine = true,
             placeholder = { Text(stringResource(Res.string.enter_username)) },
             isError = uiState.usernameError != null,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Email,
+                imeAction = ImeAction.Next
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { passwordFocusRequester.requestFocus() }
+            ),
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Email,
@@ -135,6 +205,24 @@ fun LoginForm(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("passwordField")
+                .focusRequester(passwordFocusRequester)
+                .onKeyEvent { keyEvent ->
+                    when (keyEvent.type) {
+                        KeyEventType.KeyDown if keyEvent.key == Key.Tab -> {
+                            // Shift+Tab to go back to username field
+                            if (keyEvent.isShiftPressed) {
+                                usernameFocusRequester.requestFocus()
+                            }
+                            true
+                        }
+                        KeyEventType.KeyDown if keyEvent.key == Key.Enter -> {
+                            // Enter to trigger login
+                            performLogin()
+                            true
+                        }
+                        else -> false
+                    }
+                }
                 .onFocusChanged { focusState ->
                     isPasswordFocused = focusState.isFocused
                 },
@@ -145,7 +233,13 @@ fun LoginForm(
             isError = uiState.passwordError != null,
             singleLine = true,
             visualTransformation = if (uiState.isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = { performLogin() }
+            ),
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Password,
@@ -185,48 +279,7 @@ fun LoginForm(
         }
 
         Button(
-            onClick = {
-                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                if (viewModel.validateFields(
-                        usernameCannotBeEmpty = usernameCannotBeEmpty,
-                        usernameInvalidFormat = usernameInvalidFormat,
-                        passwordCannotBeEmpty = passwordCannotBeEmpty
-                    )
-                ) {
-
-                    // Use AuthenticationService if available, otherwise fall back to old behavior
-                    if (authenticationService != null) {
-                        isLoading = true
-                        loginError = null
-
-                        coroutineScope.launch {
-                            val result = authenticationService.login(
-                                username = uiState.username, password = uiState.password
-                            )
-
-                            isLoading = false
-
-                            when (result) {
-                                is LoginResult.Success -> {
-                                    println("$loginSuccessfulText! $usernameText: ${uiState.username}")
-                                    onLoginSuccess()
-                                }
-
-                                is LoginResult.Failure -> {
-                                    loginError = result.message
-                                }
-                            }
-                        }
-                    } else {
-                        // Fallback: Store credentials only (for backward compatibility)
-                        credentialsProvider?.storeCredentials(
-                            username = uiState.username, password = uiState.password
-                        )
-                        println("$loginSuccessfulText! $usernameText: ${uiState.username}")
-                        onLoginSuccess()
-                    }
-                }
-            },
+            onClick = performLogin,
             modifier = Modifier.testTag("loginButton")
                 .padding(8.dp)
                 .height(48.dp)
