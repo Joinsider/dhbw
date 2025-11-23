@@ -1,50 +1,37 @@
 This is a Kotlin Multiplatform project targeting Android, iOS, Desktop (JVM).
 
-* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-    - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
-    - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-      For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-      the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
-      Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
-      folder is the appropriate location.
+At the moment only Android and Desktop application is provided as iOS will cost me 99€ per year to get a Apple Developer license. Maybe I will add this in the future.
+Also the mac version is currently not signed by me as this also requires an Apple Developer account. 
 
-* [/iosApp](./iosApp/iosApp) contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+# Releases:
+You can find the current version under [Releases](https://github.com/Joinsider/dhbw-next/releases)
 
-### Build and Run Android Application
+# Installation:
 
-To build and run the development version of the Android app, use the run configuration from the run widget
-in your IDE’s toolbar or build it directly from the terminal:
+## Android:
+Either download the APK from the releases tab or send me an [email](mailto:public@joinside.de), so that I can add you to the test of the android version on the google play store. (Official release will happen sometimes in December 2025)
 
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:assembleDebug
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:assembleDebug
-  ```
+## Windows
+You can always download the current .msi file from the releases tab or you can download it through the [Microsoft Store](https://apps.microsoft.com/detail/9pl3rffqhmqb?ocid=webpdpshare). 
 
-### Build and Run Desktop (JVM) Application
+**!!! I must add a warning: Every desktop version stores your password in the current OS' keyring. On Windows only .msix packages (MS Store version of dhbw-next) are truly secure as other apps don't have access to the applications' secrets!!!**
 
-To build and run the development version of the desktop app, use the run configuration from the run widget
-in your IDE’s toolbar or run it directly from the terminal:
+## Linux
 
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:run
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:run
-  ```
+### Arch (AUR)
+You can download the app using your favorite AUR package manager e.g. `paru` or `yay`
 
-### Build and Run iOS Application
+```shell
+yay -Syu
 
-To build and run the development version of the iOS app, use the run configuration from the run widget
-in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+yay -S dhbw-next
+```
 
----
+To update the application run this command:
+```shell
+yay --devel
+```
+The `--devel` option is required as the application gets compiled directly from the git repositories current commit.
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+### Debian
+Follow the guide on [this page](https://dhbw-next.joinside.de) to install the apt repository to your debian system. This way you will always get the current version. 
