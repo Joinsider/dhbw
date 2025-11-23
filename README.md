@@ -38,4 +38,4 @@ Follow the guide on [this page](https://dhbw-next.joinside.de) to install the ap
 
 ## MacOS
 
-Until I get the app signed you have to manually download the current .dmg file from the releases tab. In the future I want to publish the app in a homebrew package which you can automatically install. 
+Follow the guide for macOS [here](documentation/macOS/README.md)
