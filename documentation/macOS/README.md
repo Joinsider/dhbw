@@ -13,7 +13,7 @@ Afterwards you could just run the application however this results in multiple n
 To combat this run these commands in your terminal to generate a new self-signed certificate to sign the application locally. These two commands need to be run on every new install of my application until I get a apple developer account.
 
 ### Sign application
-1. Download the script sign-dhbw-next.sh from the repo under documentation/macOS/sign-dhbw-next.sh [here](sign-dhbw-next.sh) [Download](https://raw.githubusercontent.com/Joinsider/dhbw-next/develop/documentation/macOS/sign-dhbw-next.sh)
+1. Download the script sign-dhbw-next.sh from the repo under documentation/macOS/sign-dhbw-next.sh [here](sign-dhbw-next.sh)
 2. Open the terminal on your mac
 3. Enter the following commands:
 ```shell
