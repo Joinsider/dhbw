@@ -35,3 +35,7 @@ The `--devel` option is required as the application gets compiled directly from 
 
 ### Debian
 Follow the guide on [this page](https://dhbw-next.joinside.de) to install the apt repository to your debian system. This way you will always get the current version. 
+
+## MacOS
+
+Until I get the app signed you have to manually download the current .dmg file from the releases tab. In the future I want to publish the app in a homebrew package which you can automatically install. 
