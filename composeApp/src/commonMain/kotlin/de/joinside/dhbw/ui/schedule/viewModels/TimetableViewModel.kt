@@ -74,27 +74,33 @@ class TimetableViewModel(
      * This forces a fresh fetch and only updates if new data is received.
      */
     fun refreshLectures() {
+        val refreshWeekOffset = currentWeekOffset
         uiState = uiState.copy(isRefreshing = true)
 
         coroutineScope.launch {
             try {
-                Napier.d("Refreshing lectures for current week offset: $currentWeekOffset", tag = TAG)
+                Napier.d("Refreshing lectures for week offset: $refreshWeekOffset", tag = TAG)
 
                 // Force fetch from API
-                val lectureEntities = lectureService.getLecturesForWeek(currentWeekOffset, forceRefresh = true)
+                val lectureEntities = lectureService.getLecturesForWeek(refreshWeekOffset, forceRefresh = true)
                 val lectureModels = lectureEntities.map { entity ->
                     entity.toLectureModel()
                 }
 
-                val weekLabelData = generateWeekLabelData(currentWeekOffset)
+                val weekLabelData = generateWeekLabelData(refreshWeekOffset)
 
-                uiState = uiState.copy(
-                    lectures = lectureModels,
-                    weekLabelData = weekLabelData,
-                    currentWeekOffset = currentWeekOffset,
-                    isRefreshing = false,
-                    error = null
-                )
+                if (currentWeekOffset == refreshWeekOffset) {
+                    uiState = uiState.copy(
+                        lectures = lectureModels,
+                        weekLabelData = weekLabelData,
+                        currentWeekOffset = refreshWeekOffset,
+                        isRefreshing = false,
+                        error = null
+                    )
+                } else {
+                    Napier.d("Ignored refresh result because week offset changed from $refreshWeekOffset to $currentWeekOffset", tag = TAG)
+                    uiState = uiState.copy(isRefreshing = false)
+                }
 
                 Napier.d("Successfully refreshed ${lectureModels.size} lectures", tag = TAG)
             } catch (e: Exception) {
@@ -223,4 +229,3 @@ data class TimetableUiState(
     val isRefreshing: Boolean = false,
     val error: String? = null
 )
-
