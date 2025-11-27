@@ -21,6 +21,9 @@ import de.joinside.dhbw.data.storage.credentials.SecureStorageWrapper
 import de.joinside.dhbw.data.storage.database.AppDatabase
 import de.joinside.dhbw.data.storage.preferences.ThemeMode
 import de.joinside.dhbw.data.storage.preferences.ThemePreferences
+import de.joinside.dhbw.data.storage.preferences.NotificationPreferences
+import de.joinside.dhbw.data.storage.preferences.NotificationPreferencesInteractor
+import de.joinside.dhbw.services.notifications.NotificationDispatcher
 import de.joinside.dhbw.ui.pages.GradesPage
 import de.joinside.dhbw.ui.pages.SettingsPage
 import de.joinside.dhbw.ui.pages.Startpage
@@ -51,7 +54,8 @@ fun App(
     testAuthenticationService: AuthenticationService? = null,
     testCredentialsProvider: CredentialsStorageProvider? = null,
     timetableViewModel: TimetableViewModel? = null,
-    database: AppDatabase? = null
+    database: AppDatabase? = null,
+    notificationPreferencesInteractor: NotificationPreferencesInteractor? = null
 ) {
     // Ensure Napier is initialized (fallback in case platform didn't initialize it)
     LaunchedEffect(Unit) {
@@ -76,6 +80,19 @@ fun App(
     var themeMode by remember { mutableStateOf(themePreferences.getThemeMode()) }
     var materialYouEnabled by remember { mutableStateOf(themePreferences.getMaterialYouEnabled()) }
 
+    // Initialize notification preferences
+    // Use passed parameter if provided (from MainActivity), otherwise create new one (for preview)
+    val notificationPreferences = remember { NotificationPreferences(secureStorageWrapper) }
+    val actualNotificationPreferencesInteractor = notificationPreferencesInteractor
+        ?: remember { NotificationPreferencesInteractor(notificationPreferences) }
+
+    // Observe notification preferences
+    val notificationsEnabled by actualNotificationPreferencesInteractor.notificationsEnabled.collectAsState()
+    val lectureAlertsEnabled by actualNotificationPreferencesInteractor.lectureAlertsEnabled.collectAsState()
+
+    // Notification dispatcher (used later by schedulers/monitors)
+    val notificationDispatcher = remember { NotificationDispatcher() }
+
     // Create shared HttpClient for all Dualis services (IMPORTANT for cookie sharing!)
     val sharedHttpClient = remember {
         HttpClient {
@@ -93,7 +110,8 @@ fun App(
     }
 
     // Keep CredentialsProvider for backward compatibility with existing UI
-    val credentialsProvider = testCredentialsProvider ?: remember { CredentialsStorageProvider(secureStorageWrapper) }
+    val credentialsProvider =
+        testCredentialsProvider ?: remember { CredentialsStorageProvider(secureStorageWrapper) }
 
     // Navigation state
     var currentScreen by remember { mutableStateOf(AppScreen.WELCOME) }
@@ -241,6 +259,16 @@ fun App(
                             materialYouEnabled = enabled
                             themePreferences.setMaterialYouEnabled(enabled)
                         },
+                        notificationsEnabled = notificationsEnabled,
+                        onNotificationsEnabledChange = { enabled ->
+                            // This immediately updates StateFlow, triggering collectors in MainActivity/main.kt
+                            actualNotificationPreferencesInteractor.setNotificationsEnabled(enabled)
+                        },
+                        lectureAlertsEnabled = lectureAlertsEnabled,
+                        onLectureAlertsEnabledChange = { enabled ->
+                            // This immediately updates StateFlow, triggering collectors in MainActivity/main.kt
+                            actualNotificationPreferencesInteractor.setLectureAlertsEnabled(enabled)
+                        },
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(top = 16.dp)
@@ -250,4 +278,3 @@ fun App(
         }
     }
 }
-

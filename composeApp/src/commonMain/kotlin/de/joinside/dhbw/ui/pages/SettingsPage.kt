@@ -17,6 +17,7 @@ import de.joinside.dhbw.ui.navigation.BottomNavItem
 import de.joinside.dhbw.ui.navigation.BottomNavigationBar
 import de.joinside.dhbw.ui.settings.DesignSelectionCard
 import de.joinside.dhbw.ui.settings.HelpSelectionCard
+import de.joinside.dhbw.ui.settings.NotificationSettingsCard
 import de.joinside.dhbw.util.isMobilePlatform
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -33,6 +34,10 @@ fun SettingsPage(
     onThemeModeChange: (ThemeMode) -> Unit = {},
     materialYouEnabled: Boolean = true,
     onMaterialYouChange: (Boolean) -> Unit = {},
+    notificationsEnabled: Boolean = false,
+    onNotificationsEnabledChange: (Boolean) -> Unit = {},
+    lectureAlertsEnabled: Boolean = false,
+    onLectureAlertsEnabledChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
 
@@ -86,6 +91,14 @@ fun SettingsPage(
                     onThemeModeChange = onThemeModeChange,
                     materialYouEnabled = materialYouEnabled,
                     onMaterialYouChange = onMaterialYouChange
+                )
+
+                // Notification Settings Card
+                NotificationSettingsCard(
+                    notificationsEnabled = notificationsEnabled,
+                    onNotificationsEnabledChange = onNotificationsEnabledChange,
+                    lectureAlertsEnabled = lectureAlertsEnabled,
+                    onLectureAlertsEnabledChange = onLectureAlertsEnabledChange
                 )
 
                 HelpSelectionCard(onLogout)
