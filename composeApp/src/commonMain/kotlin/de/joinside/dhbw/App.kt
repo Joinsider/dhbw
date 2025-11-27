@@ -11,6 +11,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
@@ -79,6 +81,9 @@ fun App(
     val themePreferences = remember { ThemePreferences(secureStorage) }
     var themeMode by remember { mutableStateOf(themePreferences.getThemeMode()) }
     var materialYouEnabled by remember { mutableStateOf(themePreferences.getMaterialYouEnabled()) }
+    // Default to Purple40 (0xFF6650a4) which is 4284932260L
+    var seedColorLong by remember { mutableStateOf(themePreferences.getCustomColor()) }
+    val seedColor = remember(seedColorLong) { Color(seedColorLong.toInt()) }
 
     // Initialize notification preferences
     // Use passed parameter if provided (from MainActivity), otherwise create new one (for preview)
@@ -161,7 +166,8 @@ fun App(
             ThemeMode.DARK -> true
             ThemeMode.SYSTEM -> isSystemInDarkTheme()
         },
-        useMaterialYou = materialYouEnabled
+        useMaterialYou = materialYouEnabled,
+        seedColor = seedColor
     ) {
         Column(
             modifier = Modifier
@@ -258,6 +264,13 @@ fun App(
                         onMaterialYouChange = { enabled ->
                             materialYouEnabled = enabled
                             themePreferences.setMaterialYouEnabled(enabled)
+                        },
+                        currentSeedColor = seedColor,
+                        onSeedColorChange = { newColor ->
+                            // Store as ARGB Long (UInt)
+                            val colorLong = newColor.toArgb().toLong()
+                            seedColorLong = colorLong
+                            themePreferences.setCustomColor(colorLong)
                         },
                         notificationsEnabled = notificationsEnabled,
                         onNotificationsEnabledChange = { enabled ->
