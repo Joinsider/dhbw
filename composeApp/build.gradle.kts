@@ -42,6 +42,7 @@ kotlin {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.security.crypto)
+            implementation(libs.androidx.work.runtime.ktx)
             implementation(libs.ktor.client.okhttp)
         }
         commonMain.dependencies {
@@ -60,6 +61,9 @@ kotlin {
             implementation(libs.napier)
             implementation(libs.ktor.client.core)
             implementation(libs.kotlinx.datetime.v040)
+            implementation("com.materialkolor:material-kolor:4.0.5") {
+                exclude(group = "org.jetbrains.compose.material3", module = "material3")
+            }
         }
 
         commonTest.dependencies {

@@ -232,18 +232,6 @@ fun TimetablePage(
 }
 
 /**
- * Preview version with mock data for design testing
- */
-@Composable
-@Preview
-fun TimetablePagePreview() {
-    TimetablePage(
-        viewModel = null,
-        isLoggedIn = true
-    )
-}
-
-/**
  * Format WeekLabelData into a localized string.
  * Examples: "04 - 08 Nov" or "28 Nov - 02 Dec"
  */

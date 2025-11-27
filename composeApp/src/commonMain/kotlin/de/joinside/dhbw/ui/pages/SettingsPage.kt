@@ -17,9 +17,12 @@ import de.joinside.dhbw.ui.navigation.BottomNavItem
 import de.joinside.dhbw.ui.navigation.BottomNavigationBar
 import de.joinside.dhbw.ui.settings.DesignSelectionCard
 import de.joinside.dhbw.ui.settings.HelpSelectionCard
+import de.joinside.dhbw.ui.settings.NotificationSettingsCard
 import de.joinside.dhbw.util.isMobilePlatform
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
+
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -33,6 +36,12 @@ fun SettingsPage(
     onThemeModeChange: (ThemeMode) -> Unit = {},
     materialYouEnabled: Boolean = true,
     onMaterialYouChange: (Boolean) -> Unit = {},
+    currentSeedColor: Color = Color(0xFF6650a4),
+    onSeedColorChange: (Color) -> Unit = {},
+    notificationsEnabled: Boolean = false,
+    onNotificationsEnabledChange: (Boolean) -> Unit = {},
+    lectureAlertsEnabled: Boolean = false,
+    onLectureAlertsEnabledChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
 
@@ -85,7 +94,17 @@ fun SettingsPage(
                     currentThemeMode = currentThemeMode,
                     onThemeModeChange = onThemeModeChange,
                     materialYouEnabled = materialYouEnabled,
-                    onMaterialYouChange = onMaterialYouChange
+                    onMaterialYouChange = onMaterialYouChange,
+                    currentSeedColor = currentSeedColor,
+                    onSeedColorChange = onSeedColorChange
+                )
+
+                // Notification Settings Card
+                NotificationSettingsCard(
+                    notificationsEnabled = notificationsEnabled,
+                    onNotificationsEnabledChange = onNotificationsEnabledChange,
+                    lectureAlertsEnabled = lectureAlertsEnabled,
+                    onLectureAlertsEnabledChange = onLectureAlertsEnabledChange
                 )
 
                 HelpSelectionCard(onLogout)

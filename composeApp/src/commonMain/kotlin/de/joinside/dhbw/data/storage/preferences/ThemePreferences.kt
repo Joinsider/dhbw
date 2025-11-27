@@ -35,6 +35,7 @@ class ThemePreferences(private val storage: SecureStorage) {
     companion object {
         private const val THEME_MODE_KEY = "theme_mode_preference"
         private const val MATERIAL_YOU_KEY = "material_you_preference"
+        private const val CUSTOM_COLOR_KEY = "custom_color_preference"
     }
 
     /**
@@ -69,6 +70,23 @@ class ThemePreferences(private val storage: SecureStorage) {
      */
     fun setMaterialYouEnabled(enabled: Boolean) {
         storage.setString(MATERIAL_YOU_KEY, enabled.toString())
+    }
+
+    /**
+     * Get the custom color preference
+     * @return The selected color as Long (ARGB), defaults to Purple40 (0xFF6650a4)
+     */
+    fun getCustomColor(): Long {
+        val storedValue = storage.getString(CUSTOM_COLOR_KEY, "4284932260") // 0xFF6650a4 in decimal
+        return storedValue.toLongOrNull() ?: 4284932260
+    }
+
+    /**
+     * Set the custom color preference
+     * @param color The color as Long (ARGB)
+     */
+    fun setCustomColor(color: Long) {
+        storage.setString(CUSTOM_COLOR_KEY, color.toString())
     }
 }
 

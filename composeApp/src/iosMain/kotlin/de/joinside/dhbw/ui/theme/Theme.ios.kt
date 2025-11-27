@@ -8,14 +8,15 @@ package de.joinside.dhbw.ui.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import com.materialkolor.dynamicColorScheme
 
 /**
- * iOS implementation: Uses static light/dark color schemes.
- * Material You is not available on iOS.
+ * iOS implementation: Uses MaterialKolor to generate dynamic schemes.
  */
 @Composable
-actual fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean): ColorScheme {
-    return if (darkTheme) DarkColorScheme else LightColorScheme
+actual fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean, seedColor: Color): ColorScheme {
+    return dynamicColorScheme(seedColor, darkTheme)
 }
 
 /**
@@ -23,7 +24,6 @@ actual fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean): ColorSch
  * iOS handles status bar appearance automatically.
  */
 @Composable
-actual fun SystemAppearance(darkTheme: Boolean, useMaterialYou: Boolean) {
+actual fun SystemAppearance(darkTheme: Boolean, useMaterialYou: Boolean, seedColor: Color) {
     // No-op on iOS - the system handles this automatically
 }
-

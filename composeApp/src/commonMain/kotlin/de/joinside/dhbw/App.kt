@@ -11,6 +11,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
@@ -21,6 +23,9 @@ import de.joinside.dhbw.data.storage.credentials.SecureStorageWrapper
 import de.joinside.dhbw.data.storage.database.AppDatabase
 import de.joinside.dhbw.data.storage.preferences.ThemeMode
 import de.joinside.dhbw.data.storage.preferences.ThemePreferences
+import de.joinside.dhbw.data.storage.preferences.NotificationPreferences
+import de.joinside.dhbw.data.storage.preferences.NotificationPreferencesInteractor
+import de.joinside.dhbw.services.notifications.NotificationDispatcher
 import de.joinside.dhbw.ui.pages.GradesPage
 import de.joinside.dhbw.ui.pages.SettingsPage
 import de.joinside.dhbw.ui.pages.Startpage
@@ -51,7 +56,8 @@ fun App(
     testAuthenticationService: AuthenticationService? = null,
     testCredentialsProvider: CredentialsStorageProvider? = null,
     timetableViewModel: TimetableViewModel? = null,
-    database: AppDatabase? = null
+    database: AppDatabase? = null,
+    notificationPreferencesInteractor: NotificationPreferencesInteractor? = null
 ) {
     // Ensure Napier is initialized (fallback in case platform didn't initialize it)
     LaunchedEffect(Unit) {
@@ -75,6 +81,22 @@ fun App(
     val themePreferences = remember { ThemePreferences(secureStorage) }
     var themeMode by remember { mutableStateOf(themePreferences.getThemeMode()) }
     var materialYouEnabled by remember { mutableStateOf(themePreferences.getMaterialYouEnabled()) }
+    // Default to Purple40 (0xFF6650a4) which is 4284932260L
+    var seedColorLong by remember { mutableStateOf(themePreferences.getCustomColor()) }
+    val seedColor = remember(seedColorLong) { Color(seedColorLong.toInt()) }
+
+    // Initialize notification preferences
+    // Use passed parameter if provided (from MainActivity), otherwise create new one (for preview)
+    val notificationPreferences = remember { NotificationPreferences(secureStorageWrapper) }
+    val actualNotificationPreferencesInteractor = notificationPreferencesInteractor
+        ?: remember { NotificationPreferencesInteractor(notificationPreferences) }
+
+    // Observe notification preferences
+    val notificationsEnabled by actualNotificationPreferencesInteractor.notificationsEnabled.collectAsState()
+    val lectureAlertsEnabled by actualNotificationPreferencesInteractor.lectureAlertsEnabled.collectAsState()
+
+    // Notification dispatcher (used later by schedulers/monitors)
+    val notificationDispatcher = remember { NotificationDispatcher() }
 
     // Create shared HttpClient for all Dualis services (IMPORTANT for cookie sharing!)
     val sharedHttpClient = remember {
@@ -93,7 +115,8 @@ fun App(
     }
 
     // Keep CredentialsProvider for backward compatibility with existing UI
-    val credentialsProvider = testCredentialsProvider ?: remember { CredentialsStorageProvider(secureStorageWrapper) }
+    val credentialsProvider =
+        testCredentialsProvider ?: remember { CredentialsStorageProvider(secureStorageWrapper) }
 
     // Navigation state
     var currentScreen by remember { mutableStateOf(AppScreen.WELCOME) }
@@ -143,7 +166,8 @@ fun App(
             ThemeMode.DARK -> true
             ThemeMode.SYSTEM -> isSystemInDarkTheme()
         },
-        useMaterialYou = materialYouEnabled
+        useMaterialYou = materialYouEnabled,
+        seedColor = seedColor
     ) {
         Column(
             modifier = Modifier
@@ -241,6 +265,23 @@ fun App(
                             materialYouEnabled = enabled
                             themePreferences.setMaterialYouEnabled(enabled)
                         },
+                        currentSeedColor = seedColor,
+                        onSeedColorChange = { newColor ->
+                            // Store as ARGB Long (UInt)
+                            val colorLong = newColor.toArgb().toLong()
+                            seedColorLong = colorLong
+                            themePreferences.setCustomColor(colorLong)
+                        },
+                        notificationsEnabled = notificationsEnabled,
+                        onNotificationsEnabledChange = { enabled ->
+                            // This immediately updates StateFlow, triggering collectors in MainActivity/main.kt
+                            actualNotificationPreferencesInteractor.setNotificationsEnabled(enabled)
+                        },
+                        lectureAlertsEnabled = lectureAlertsEnabled,
+                        onLectureAlertsEnabledChange = { enabled ->
+                            // This immediately updates StateFlow, triggering collectors in MainActivity/main.kt
+                            actualNotificationPreferencesInteractor.setLectureAlertsEnabled(enabled)
+                        },
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(top = 16.dp)
@@ -250,4 +291,3 @@ fun App(
         }
     }
 }
-

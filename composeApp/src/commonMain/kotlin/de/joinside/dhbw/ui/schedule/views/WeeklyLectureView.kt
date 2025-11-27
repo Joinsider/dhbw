@@ -4,10 +4,12 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -41,7 +43,6 @@ import de.joinside.dhbw.ui.schedule.modules.week.TimelineView
 import de.joinside.dhbw.ui.schedule.modules.week.WeekNavigationBar
 import kotlin.math.roundToInt
 
-
 @Composable
 @Preview
 fun WeeklyLecturesView(
@@ -72,31 +73,35 @@ fun WeeklyLecturesView(
             modifier = Modifier.padding(8.dp)
         )
 
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onHorizontalDrag = { change, dragAmount ->
-                            change.consume()
-                            offsetX += dragAmount
-                        },
-                        onDragEnd = {
-                            val widthInPx = with(density) { boxWidth.toPx() }
-                            if (offsetX > widthInPx / 3) {
-                                onPreviousWeek()
-                            } else if (offsetX < -widthInPx / 3) {
-                                onNextWeek()
+                    if (!isRefreshing) {
+                        detectHorizontalDragGestures(
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                offsetX += dragAmount
+                            },
+                            onDragEnd = {
+                                val widthInPx = with(density) { boxWidth.toPx() }
+                                if (offsetX > widthInPx / 3) {
+                                    onPreviousWeek()
+                                } else if (offsetX < -widthInPx / 3) {
+                                    onNextWeek()
+                                }
+                                offsetX = 0f
                             }
-                            offsetX = 0f
-                        }
-                    )
+                        )
+                    }
                 }
                 .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
                 .onGloballyPositioned { coordinates ->
                     boxWidth = with(density) { coordinates.size.width.toDp() }
                 }
         ) {
+            val availableHeightDp = maxHeight
+
             if (lectures.isEmpty()) {
                 Text(
                     text = stringResource(Res.string.no_lectures_this_week),
@@ -104,28 +109,52 @@ fun WeeklyLecturesView(
                     textAlign = TextAlign.Center
                 )
             } else {
-                // Group lectures by day of week
                 val lecturesByDay =
                     lectures.groupBy { it.start.dayOfWeek }.mapValues { (_, dayLectures) ->
-                        // Sort lectures by start time within each day
                         dayLectures.sortedBy { it.start }
                     }
 
-                // Find the earliest and latest hours to set timeline bounds
                 val startHour = lectures.minOfOrNull { it.start.hour }?.coerceAtMost(8) ?: 8
-                val endHour = lectures.maxOfOrNull { it.end.hour }?.coerceAtLeast(18) ?: 18
-                val hourHeight = 80f
+                val endHour = lectures.maxOfOrNull { it.end.hour }?.coerceAtLeast(19) ?: 19
+
+                val totalHours = endHour - startHour
+                // THE FIX: We calculate space for one extra hour to ensure the last label is visible
+                val hoursForCalculation = totalHours + 2
+
+                val minHourHeightDp = 40.dp
+                val minContentHeightDp = minHourHeightDp * hoursForCalculation
+
+                val (hourHeight, scrollEnabled) = if (availableHeightDp >= minContentHeightDp) {
+                    // Enough space: distribute available height by (totalHours + 1)
+                    // This ensures the actual content (totalHours) leaves exactly 1 hour of empty space at bottom
+                    val calculatedHeight = availableHeightDp / hoursForCalculation
+                    Pair(calculatedHeight.value, false)
+                } else {
+                    // Not enough space: Use minimum height
+                    Pair(minHourHeightDp.value, true)
+                }
 
                 val scrollState = rememberScrollState()
                 val coroutineScope = rememberCoroutineScope()
 
+                // Calculate the height needed for the container
+                // If scrolling, we need the full calculated height
+                // If not scrolling, we just take the full available height
+                val containerHeight = if(scrollEnabled) minContentHeightDp else availableHeightDp
+
                 Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(scrollState)
+                        .fillMaxWidth()
+                        .height(containerHeight)
                         .then(
-                            if (!isMobilePlatform()) {
-                                // Add drag-to-scroll for desktop
+                            if (scrollEnabled) {
+                                Modifier.verticalScroll(scrollState)
+                            } else {
+                                Modifier
+                            }
+                        )
+                        .then(
+                            if (!isMobilePlatform() && scrollEnabled) {
                                 Modifier.pointerInput(Unit) {
                                     detectDragGestures { change, dragAmount ->
                                         change.consume()
@@ -139,13 +168,10 @@ fun WeeklyLecturesView(
                             }
                         )
                 ) {
-                    // Timeline on the left
                     TimelineView(
                         startHour = startHour, endHour = endHour, hourHeight = hourHeight
                     )
 
-
-                    // Days of the week (Monday to Friday)
                     Row(
                         modifier = Modifier.weight(1f)
                             .onGloballyPositioned { coordinates ->
@@ -155,11 +181,8 @@ fun WeeklyLecturesView(
                         if (rowWidth > 0.dp) {
                             val dayColumnWidth = rowWidth / 5
                             listOf(
-                                DayOfWeek.MONDAY,
-                                DayOfWeek.TUESDAY,
-                                DayOfWeek.WEDNESDAY,
-                                DayOfWeek.THURSDAY,
-                                DayOfWeek.FRIDAY
+                                DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
+                                DayOfWeek.THURSDAY, DayOfWeek.FRIDAY
                             ).forEach { day ->
                                 DayColumn(
                                     dayOfWeek = day,

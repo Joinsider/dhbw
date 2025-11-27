@@ -56,7 +56,7 @@ fun EventModule(
         if(!smallFont) {
             Text(
                 text = "${formatEventTime(lecture.start)} - ${formatEventTime(lecture.end)}",
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onPrimary,
                 overflow = TextOverflow.Clip
             )
@@ -64,7 +64,7 @@ fun EventModule(
 
         Text(
             text = if(smallFont) lecture.shortName else lecture.name,
-            style = if(smallFont) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
+            style = if(smallFont) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimary,
             overflow = TextOverflow.MiddleEllipsis
@@ -73,7 +73,7 @@ fun EventModule(
         if(lecture.lecturers.isNotEmpty() && !smallFont) {
             Text(
                 text = stringResource(Res.string.lecturers) + ": ${lecture.lecturers.joinToString(", ")}",
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onPrimary,
                 overflow = TextOverflow.Ellipsis
             )
@@ -82,7 +82,7 @@ fun EventModule(
         if(lecture.location.isNotEmpty()) {
             Text(
                 text = if (smallFont) lecture.location else stringResource(Res.string.room) + ": ${lecture.location}",
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onPrimary,
                 overflow = TextOverflow.Ellipsis
             )
