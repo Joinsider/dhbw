@@ -112,11 +112,15 @@ class LectureService(
     /**
      * Fetch lectures from Dualis API for a specific date range and store them in database.
      *
+     * THIS METHOD IS ONLY FOR UI/USER-INITIATED FETCHES.
+     * Background workers should use LectureChangeMonitor which handles change detection properly.
+     *
      * Flow:
-     * 1. Fetch from Dualis (gets temp models, DualisLectureService converts and saves to DB)
-     * 2. If successful, delete old entries from the database
-     * 3. Update sync metadata
-     * 4. Return new lectures for UI update
+     * 1. Fetch from Dualis (in memory - DualisLectureService.enrichLecturesInMemory())
+     * 2. Delete ALL old entries in the range
+     * 3. Save all new entries
+     * 4. Update sync metadata
+     * 5. Return new lectures for UI update
      *
      * @param startDate LocalDateTime - Start of the date range
      * @param endDate LocalDateTime - End of the date range
@@ -129,7 +133,7 @@ class LectureService(
         Napier.d("Fetching lectures from Dualis for range: $startDate to $endDate")
 
         try {
-            // Step 1: Fetch from Dualis (this also saves to database with associations)
+            // Step 1: Fetch from Dualis (returns enriched entities in memory, NOT saved to DB)
             val result = dualisLectureService.getWeeklyLecturesForWeek(startDate, endDate)
 
             return when {
@@ -137,21 +141,22 @@ class LectureService(
                     val newLectures = result.getOrNull() ?: emptyList()
 
                     if (newLectures.isNotEmpty()) {
-                        // Step 2: Delete old entries now that we have new ones
-                        // Get the IDs of newly inserted lectures to avoid deleting them
-                        val newLectureIds = newLectures.map { it.lectureId }.toSet()
-                        deleteOldLecturesInRange(startDate, endDate, excludeIds = newLectureIds)
+                        // Step 2: Now save to database (this will delete old lectures and save new ones)
+                        val savedLectures = dualisLectureService.saveLecturesToDatabase(
+                            newLectures,
+                            startDate,
+                            endDate
+                        )
 
                         // Step 3: Update sync metadata
                         updateSyncMetadata()
 
-                        Napier.d("Successfully fetched and stored ${newLectures.size} lectures from Dualis")
+                        Napier.d("Successfully fetched and stored ${savedLectures.size} lectures from Dualis")
+                        savedLectures
                     } else {
                         Napier.w("Dualis returned no lectures for the requested range")
+                        emptyList()
                     }
-
-                    // Step 4: Return new lectures for UI update
-                    newLectures
                 }
                 result.isFailure -> {
                     val error = result.exceptionOrNull()
@@ -166,33 +171,6 @@ class LectureService(
         }
     }
 
-    /**
-     * Delete old lectures in the specified date range, excluding the newly inserted ones.
-     * This is called AFTER fetching new lectures to clean up old data.
-     *
-     * @param startDate Start of the date range
-     * @param endDate End of the date range
-     * @param excludeIds Set of lecture IDs to exclude from deletion (the newly inserted ones)
-     */
-    private suspend fun deleteOldLecturesInRange(
-        startDate: LocalDateTime,
-        endDate: LocalDateTime,
-        excludeIds: Set<Long>
-    ) {
-        Napier.d("Deleting old lectures in range: $startDate to $endDate (excluding ${excludeIds.size} new lectures)")
-
-        val existingLectures = database.lectureDao().getAll().filter { lecture ->
-            lecture.startTime >= startDate &&
-            lecture.endTime <= endDate &&
-            lecture.lectureId !in excludeIds
-        }
-
-        existingLectures.forEach { lecture ->
-            database.lectureDao().delete(lecture)
-        }
-
-        Napier.d("Deleted ${existingLectures.size} old lectures")
-    }
 
     /**
      * Update sync metadata after lectures have been fetched.

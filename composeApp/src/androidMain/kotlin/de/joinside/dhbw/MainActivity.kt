@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.lifecycleScope
 import de.joinside.dhbw.data.dualis.remote.DualisApiClient
 import de.joinside.dhbw.data.dualis.remote.parser.HtmlParser
 import de.joinside.dhbw.data.dualis.remote.parser.TimetableParser
@@ -20,10 +21,20 @@ import de.joinside.dhbw.data.storage.credentials.SecureStorageWrapper
 import de.joinside.dhbw.data.storage.database.createRoomDatabase
 import de.joinside.dhbw.data.storage.database.getDatabaseBuilder
 import de.joinside.dhbw.services.LectureService
+import de.joinside.dhbw.services.notifications.NotificationDispatcher
+import de.joinside.dhbw.services.notifications.LectureChangeMonitor
+import de.joinside.dhbw.services.notifications.NotificationManager
+import de.joinside.dhbw.services.notifications.NotificationServiceLocator
+import de.joinside.dhbw.services.notifications.LectureMonitorScheduler
+import de.joinside.dhbw.data.storage.preferences.NotificationPreferences
+import de.joinside.dhbw.data.storage.preferences.NotificationPreferencesInteractor
 import de.joinside.dhbw.ui.schedule.viewModels.TimetableViewModel
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.cookies.HttpCookies
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.combine
 
 class MainActivity : ComponentActivity() {
 
@@ -31,6 +42,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var timetableViewModel: TimetableViewModel
     private lateinit var authenticationService: AuthenticationService
     private lateinit var database: de.joinside.dhbw.data.storage.database.AppDatabase
+    private lateinit var notificationManager: NotificationManager
+    private lateinit var lectureMonitorScheduler: LectureMonitorScheduler
+    private lateinit var notificationPreferencesInteractor: NotificationPreferencesInteractor
 
     @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,6 +63,10 @@ class MainActivity : ComponentActivity() {
         Napier.d("MainActivity onCreate() called", tag = "MainActivity")
         Napier.i("App is starting...", tag = "MainActivity")
 
+        // Initialize NotificationDispatcher with Android context
+        NotificationDispatcher.initialize(this)
+        Napier.d("NotificationDispatcher initialized", tag = "MainActivity")
+
         // Initialize services
         initializeServices()
 
@@ -57,7 +75,8 @@ class MainActivity : ComponentActivity() {
             App(
                 testAuthenticationService = authenticationService,
                 timetableViewModel = timetableViewModel,
-                database = database
+                database = database,
+                notificationPreferencesInteractor = notificationPreferencesInteractor
             )
         }
     }
@@ -125,6 +144,63 @@ class MainActivity : ComponentActivity() {
         )
         Napier.d("TimetableViewModel initialized", tag = "MainActivity")
 
+        // Initialize notification preferences
+        val notificationPreferences = NotificationPreferences(secureStorageWrapper)
+        notificationPreferencesInteractor = NotificationPreferencesInteractor(notificationPreferences)
+        Napier.d("NotificationPreferencesInteractor initialized", tag = "MainActivity")
+
+        // Create LectureChangeMonitor
+        val lectureChangeMonitor = LectureChangeMonitor(
+            dualisLectureService = dualisLectureService,
+            lectureEventDao = database.lectureDao(),
+            lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
+        )
+        Napier.d("LectureChangeMonitor initialized", tag = "MainActivity")
+
+        // Create NotificationManager
+        val notificationDispatcher = NotificationDispatcher()
+        notificationManager = NotificationManager(
+            monitor = lectureChangeMonitor,
+            dispatcher = notificationDispatcher,
+            preferences = notificationPreferencesInteractor
+        )
+
+        // Register NotificationManager in ServiceLocator for Worker access
+        NotificationServiceLocator.initialize(notificationManager)
+        Napier.d("NotificationManager initialized and registered", tag = "MainActivity")
+
+        // Initialize scheduler
+        lectureMonitorScheduler = LectureMonitorScheduler(applicationContext)
+        Napier.d("LectureMonitorScheduler initialized", tag = "MainActivity")
+
+        // Observe BOTH preferences to start/stop scheduler
+        // Combine both flows so scheduler reacts to changes in either toggle
+        lifecycleScope.launch {
+            combine(
+                notificationPreferencesInteractor.notificationsEnabled,
+                notificationPreferencesInteractor.lectureAlertsEnabled
+            ) { notificationsEnabled, lectureAlertsEnabled ->
+                Pair(notificationsEnabled, lectureAlertsEnabled)
+            }.collect { (notificationsEnabled, lectureAlertsEnabled) ->
+                val shouldSchedule = notificationsEnabled && lectureAlertsEnabled
+
+                Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", tag = "MainActivity")
+                Napier.d("📱 PREFERENCE CHANGE DETECTED (Android)", tag = "MainActivity")
+                Napier.d("   Master notifications toggle: $notificationsEnabled", tag = "MainActivity")
+                Napier.d("   Lecture alerts toggle: $lectureAlertsEnabled", tag = "MainActivity")
+                Napier.d("   → Should schedule: $shouldSchedule", tag = "MainActivity")
+                Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", tag = "MainActivity")
+
+                if (shouldSchedule) {
+                    Napier.d("✅ Both toggles enabled → Starting lecture monitoring scheduler...", tag = "MainActivity")
+                    lectureMonitorScheduler.schedule()
+                } else {
+                    Napier.d("🛑 One or both toggles disabled → Stopping lecture monitoring scheduler...", tag = "MainActivity")
+                    lectureMonitorScheduler.cancel()
+                }
+            }
+        }
+
         Napier.i("All services initialized successfully!", tag = "MainActivity")
     }
 
@@ -154,6 +230,12 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         Napier.d("MainActivity onPause() called", tag = "MainActivity")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        lifecycleScope.cancel()
+        Napier.d("MainActivity onDestroy() called, lifecycle scope cancelled", tag = "MainActivity")
     }
 }
 

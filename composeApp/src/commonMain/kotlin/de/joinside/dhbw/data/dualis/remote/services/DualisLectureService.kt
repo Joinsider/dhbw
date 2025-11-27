@@ -197,10 +197,10 @@ class DualisLectureService(
                     val tempLectures = timetableParser.parseWeeklyView(htmlContent)
                     Napier.d("Parsed ${tempLectures.size} lectures from weekly view", tag = TAG)
 
-                    // Step 4: Enrich with individual page data and save
-                    val lectureEntities = enrichAndSaveLectures(tempLectures)
+                    // Step 4: Enrich with individual page data (but DON'T save to DB yet)
+                    val lectureEntities = enrichLecturesInMemory(tempLectures)
 
-                    Napier.d("Successfully processed ${lectureEntities.size} lecture entities", tag = TAG)
+                    Napier.d("Successfully enriched ${lectureEntities.size} lecture entities in memory (not saved to DB yet)", tag = TAG)
                     return Result.success(lectureEntities)
                 }
                 is DualisApiClient.ApiResult.Failure -> {
@@ -215,13 +215,144 @@ class DualisLectureService(
     }
 
     /**
+     * Enrich temp lectures with data from individual pages (in memory only, not saved to DB).
+     * Returns fully enriched lecture entities with lecturers attached.
+     */
+    @OptIn(ExperimentalTime::class)
+    private suspend fun enrichLecturesInMemory(
+        tempLectures: List<TempLectureModel>
+    ): List<LectureEventEntity> {
+        Napier.d("Enriching ${tempLectures.size} lectures with detailed information (in memory)", tag = TAG)
+
+        val lectureEntities = mutableListOf<LectureEventEntity>()
+        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+
+        for (tempLecture in tempLectures) {
+            try {
+                var fullSubjectName: String? = tempLecture.fullSubjectName
+                var lecturers: List<String> = tempLecture.lecturers ?: emptyList()
+                var rooms: List<String> = listOf(tempLecture.location)
+
+                Napier.d("Processing lecture: ${tempLecture.shortSubjectName}, initial lecturers: $lecturers, has link: ${tempLecture.linkToIndividualPage != null}", tag = TAG)
+
+                // If we have a link to the individual page, fetch additional details
+                if (tempLecture.linkToIndividualPage != null) {
+                    val detailsResult = fetchLectureDetails(tempLecture.linkToIndividualPage)
+                    if (detailsResult != null) {
+                        fullSubjectName = detailsResult.first
+                        lecturers = detailsResult.second
+                        rooms = detailsResult.third
+                        Napier.d("Fetched details - fullName: $fullSubjectName, lecturers: $lecturers", tag = TAG)
+                    } else {
+                        Napier.w("Failed to fetch details for lecture: ${tempLecture.shortSubjectName}", tag = TAG)
+                    }
+                }
+
+                // Create lecture event entity (with temporary ID 0)
+                val lectureEntity = LectureEventEntity(
+                    lectureId = 0, // Temporary - will be assigned when saved
+                    shortSubjectName = tempLecture.shortSubjectName ?: "Unknown",
+                    fullSubjectName = fullSubjectName,
+                    startTime = tempLecture.startTime,
+                    endTime = tempLecture.endTime,
+                    location = rooms.joinToString(", "),
+                    isTest = tempLecture.isTest,
+                    fetchedAt = now
+                )
+
+                // Set lecturers (transient field)
+                lectureEntity.lecturers = lecturers
+
+                lectureEntities.add(lectureEntity)
+                Napier.d("Enriched lecture: ${lectureEntity.shortSubjectName} with ${lecturers.size} lecturer(s)", tag = TAG)
+            } catch (e: Exception) {
+                Napier.e("Error enriching lecture ${tempLecture.shortSubjectName}: ${e.message}", e, tag = TAG)
+            }
+        }
+
+        return lectureEntities
+    }
+
+    /**
+     * Save enriched lectures to database.
+     * This is called AFTER change detection determines that updates are needed.
+     */
+    suspend fun saveLecturesToDatabase(
+        lectures: List<LectureEventEntity>,
+        weekStart: LocalDateTime,
+        weekEnd: LocalDateTime
+    ): List<LectureEventEntity> {
+        Napier.d("💾 Saving ${lectures.size} lectures to database", tag = TAG)
+
+        // Delete old lectures for this week
+        try {
+            Napier.d("🗑️  Deleting existing lectures in range: $weekStart to $weekEnd", tag = TAG)
+            lectureEventDao.deleteInRange(weekStart.toString(), weekEnd.toString())
+            Napier.d("✅ Deleted old lectures for the week", tag = TAG)
+        } catch (e: Exception) {
+            Napier.e("❌ Failed to delete old lectures: ${e.message}", tag = TAG, throwable = e)
+        }
+
+        val savedLectures = mutableListOf<LectureEventEntity>()
+
+        for (lecture in lectures) {
+            try {
+                // Save lecture to database
+                val insertedId = lectureEventDao.insert(lecture)
+                val savedEntity = lecture.copy(lectureId = insertedId)
+                savedLectures.add(savedEntity)
+
+                // Create and save lecturer associations
+                val lecturers = lecture.lecturers ?: emptyList()
+                if (lecturers.isNotEmpty()) {
+                    for (lecturerName in lecturers) {
+                        if (lecturerName.isNotBlank()) {
+                            val lecturerId = findOrCreateLecturer(lecturerName)
+                            val crossRef = LectureLecturerCrossRef(
+                                lectureId = insertedId,
+                                lecturerId = lecturerId
+                            )
+                            lectureLecturerCrossRefDao.insert(crossRef)
+                            Napier.d("Created association: lecture $insertedId -> lecturer $lecturerId ($lecturerName)", tag = TAG)
+                        }
+                    }
+                    Napier.d("Saved lecture: ${savedEntity.shortSubjectName} with ${lecturers.size} lecturer(s)", tag = TAG)
+                } else {
+                    Napier.w("No lecturers found for lecture: ${savedEntity.shortSubjectName}", tag = TAG)
+                }
+            } catch (e: Exception) {
+                Napier.e("Error saving lecture ${lecture.shortSubjectName}: ${e.message}", e, tag = TAG)
+            }
+        }
+
+        Napier.d("✅ Successfully saved ${savedLectures.size} lectures to database", tag = TAG)
+        return savedLectures
+    }
+
+    /**
+     * OLD METHOD - Kept for backward compatibility but deprecated.
      * Enrich temp lectures with data from individual pages and save to database.
      */
+    @Deprecated("Use enrichLecturesInMemory + saveLecturesToDatabase instead")
     @OptIn(ExperimentalTime::class)
     private suspend fun enrichAndSaveLectures(
         tempLectures: List<TempLectureModel>
     ): List<LectureEventEntity> {
         Napier.d("Enriching ${tempLectures.size} lectures with detailed information", tag = TAG)
+
+        // Before inserting new lectures, delete all existing lectures for this week
+        // to avoid duplicates
+        if (tempLectures.isNotEmpty()) {
+            val weekStart = tempLectures.minOf { it.startTime }
+            val weekEnd = tempLectures.maxOf { it.endTime }
+            Napier.d("Deleting existing lectures in range: $weekStart to $weekEnd", tag = TAG)
+            try {
+                lectureEventDao.deleteInRange(weekStart.toString(), weekEnd.toString())
+                Napier.d("Deleted old lectures for the week", tag = TAG)
+            } catch (e: Exception) {
+                Napier.w("Failed to delete old lectures: ${e.message}", tag = TAG)
+            }
+        }
 
         val lectureEntities = mutableListOf<LectureEventEntity>()
         val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())

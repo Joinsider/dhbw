@@ -1,6 +1,7 @@
 package de.joinside.dhbw.data.storage.database.entities.timetable
 
 import androidx.room.Entity
+import androidx.room.Ignore
 import androidx.room.PrimaryKey
 import kotlinx.datetime.LocalDateTime
 
@@ -16,4 +17,8 @@ data class LectureEventEntity(
     val location: String,
     val isTest: Boolean = false,
     val fetchedAt: LocalDateTime? = null
-)
+) {
+    // Transient field: only used for in-memory comparison, not stored in database
+    @Ignore
+    var lecturers: List<String>? = null
+}
