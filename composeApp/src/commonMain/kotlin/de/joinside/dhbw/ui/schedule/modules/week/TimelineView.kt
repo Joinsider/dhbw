@@ -27,7 +27,7 @@ fun TimelineView(
     ) {
         // Add spacing to match DayColumn header (titleMedium text + vertical padding + divider padding)
         // Text with vertical padding (8dp top + 8dp bottom) + divider bottom padding (4dp)
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(37.dp))
 
         for (hour in startHour..endHour) {
             Box(
