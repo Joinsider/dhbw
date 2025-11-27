@@ -154,7 +154,12 @@ class DualisLectureService(
 
             // Step 1: Fetch HTML via API client
             Napier.d("Fetching weekly timetable HTML", tag = TAG)
-            when (val apiResult = apiClient.get(BASE_URL, urlParameters)) {
+            
+            // Clean cookie
+            val rawCookie = authData.cookie
+            val cookie = rawCookie?.substringBefore(";")
+            
+            when (val apiResult = apiClient.get(BASE_URL, urlParameters, cookie)) {
                 is DualisApiClient.ApiResult.Success -> {
                     val htmlContent = apiResult.htmlContent
 
@@ -434,8 +439,13 @@ class DualisLectureService(
 
             Napier.d("Parsed URL - base: $baseUrl, params: $urlParameters", tag = TAG)
 
+            // Get cookie for request
+            val authData = sessionManager.getAuthData()
+            val rawCookie = authData?.cookie
+            val cookie = rawCookie?.substringBefore(";")
+
             // Fetch via API client
-            when (val apiResult = apiClient.get(baseUrl, urlParameters)) {
+            when (val apiResult = apiClient.get(baseUrl, urlParameters, cookie)) {
                 is DualisApiClient.ApiResult.Success -> {
                     val htmlContent = apiResult.htmlContent
                     Napier.d("Received HTML content (${htmlContent.length} chars)", tag = TAG)

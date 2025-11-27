@@ -16,9 +16,12 @@ class HtmlParser {
      * Check if the HTML content is a redirect page.
      */
     fun isRedirectPage(htmlContent: String): Boolean {
-        val isRedirect = htmlContent.contains("<meta", ignoreCase = true) &&
-                htmlContent.contains("http-equiv", ignoreCase = true) &&
-                htmlContent.contains("refresh", ignoreCase = true)
+        // Look specifically for <meta http-equiv="refresh" ... content="...URL=..."> patterns
+        val refreshMetaPattern =
+            """<meta[^>]*http-equiv\s*=\s*['"]?refresh['"]?[^>]*content\s*=\s*['"]?\s*\d+\s*;\s*url\s*=\s*[^'">]+['"]?""".toRegex(
+                RegexOption.IGNORE_CASE
+            )
+        val isRedirect = refreshMetaPattern.containsMatchIn(htmlContent)
 
         Napier.d("Is redirect page: $isRedirect", tag = TAG)
         return isRedirect
@@ -196,6 +199,34 @@ class HtmlParser {
             }
         } else {
             Napier.d("Valid timetable page detected", tag = TAG)
+        }
+
+        return isValid
+    }
+
+    /**
+     * Check if a grade page is valid by looking for expected content.
+     * @returns true if the page appears to be a valid grade page
+     */
+    fun isValidGradePage(htmlContent: String): Boolean {
+        // A valid grade page should have the semester dropdown
+        val hasSemesterDropdown = htmlContent.contains("id=\"semester\"", ignoreCase = true)
+
+        // Should also have the grades table
+        val hasGradesTable = htmlContent.contains("class=\"nb list\"", ignoreCase = true)
+        
+        // Or it might say no data available
+        val hasNoDataMessage = htmlContent.contains("Keine Prüfungsdaten vorhanden", ignoreCase = true)
+
+        // Should NOT be a redirect page
+        val isNotRedirect = !isRedirectPage(htmlContent)
+
+        val isValid = (hasSemesterDropdown || hasGradesTable || hasNoDataMessage) && isNotRedirect
+
+        if (!isValid) {
+            Napier.w("Invalid grade page: hasSemesterDropdown=$hasSemesterDropdown, hasGradesTable=$hasGradesTable, hasNoDataMessage=$hasNoDataMessage, isNotRedirect=$isNotRedirect", tag = TAG)
+        } else {
+            Napier.d("Valid grade page detected", tag = TAG)
         }
 
         return isValid

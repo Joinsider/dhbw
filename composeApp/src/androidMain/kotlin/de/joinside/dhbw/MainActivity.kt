@@ -36,6 +36,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.combine
 
+import io.ktor.client.plugins.HttpTimeout
+
 class MainActivity : ComponentActivity() {
 
     // Services initialized once
@@ -94,6 +96,11 @@ class MainActivity : ComponentActivity() {
         val sharedHttpClient = HttpClient {
             expectSuccess = false
             install(HttpCookies)
+            install(HttpTimeout) {
+                socketTimeoutMillis = 30000
+                connectTimeoutMillis = 30000
+                requestTimeoutMillis = 30000
+            }
         }
         Napier.d("Shared HttpClient created", tag = "MainActivity")
 
