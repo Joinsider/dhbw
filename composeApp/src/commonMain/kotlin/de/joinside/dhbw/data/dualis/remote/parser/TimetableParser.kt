@@ -189,11 +189,13 @@ class TimetableParser {
 
             // Extract location (appears after time, before <br />)
             val locationLines = cellContent.substringAfter(timeMatch.value).substringBefore("<br")
-            // Remove any HTML tags including </span>
-            val location = locationLines
-                .replace("""<[^>]*>""".toRegex(), "")  // Remove all HTML tags
-                .trim()
+            val locationPattern = """HOR-[A-Z0-9]+(?=HOR-|\s|$)""".toRegex()
+            val location = locationPattern.findAll(locationLines)
+                .map { it.value }
+                .joinToString(", ")  // "HOR-231, HOR-232"
                 .takeIf { it.isNotEmpty() } ?: "Unknown"
+
+            Napier.d("Found location: $location", tag = TAG)
 
             // Extract short subject name and link from <a> tag
             val linkPattern = """<a\s+href="([^"]*)"[^>]*title="([^"]*)"[^>]*>\s*([^<]+)\s*</a>""".toRegex()
@@ -286,7 +288,15 @@ class TimetableParser {
             // Extract room details <span name="appoinmentRooms">HOR-ONLINE</span>
             val roomPattern = """<span\sname="appoinmentRooms">\s*([^<]+?)\s*</span>""".toRegex()
             val roomMatch = roomPattern.findAll(htmlContent)
-            val rooms = roomMatch.map { it.groupValues[1].trim() }.toList()
+            val roomLinksPattern = """<a\sname="appoinmentRooms"[\w\W]*>\s*(HOR-\w+)\s*</a>""".toRegex()
+            val roomLinksMatch = roomLinksPattern.findAll(htmlContent)
+
+            Napier.d("Found rooms: ${roomMatch.map { it.groupValues[1].trim() }.toList()}")
+            Napier.d("Found room links: ${roomLinksMatch.map { it.groupValues[1].trim() }.toList()}")
+
+            // Create list of rooms
+            val rooms = (roomMatch.map { it.groupValues[1].trim() } +
+                    roomLinksMatch.map { it.groupValues[1].trim() }).toList()
             Napier.d("Found rooms: $rooms", tag = TAG)
 
 

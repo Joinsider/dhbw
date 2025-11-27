@@ -55,7 +55,6 @@ fun WeekNavigationBar(
                 onPreviousWeek()
                 hapticFeedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
             },
-            enabled = !isRefreshing,
             modifier = Modifier
                 .padding(start = 8.dp)
                 .testTag("previousWeekButton"),
@@ -65,6 +64,7 @@ fun WeekNavigationBar(
                     contentDescription = "Previous Week"
                 )
             },
+            enabled = !isRefreshing,
             shape = MaterialTheme.shapes.medium,
             colors = IconButtonDefaults.iconButtonColors(
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
