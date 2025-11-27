@@ -6,6 +6,7 @@ import de.joinside.dhbw.data.dualis.remote.parser.HtmlParser
 import de.joinside.dhbw.data.dualis.remote.session.SessionManager
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.plugins.cookies.cookies
 import io.ktor.client.request.forms.submitForm
@@ -42,6 +43,11 @@ open class AuthenticationService(
             return HttpClient {
                 expectSuccess = false
                 install(HttpCookies)
+                install(HttpTimeout) {
+                    socketTimeoutMillis = 30000
+                    connectTimeoutMillis = 30000
+                    requestTimeoutMillis = 30000
+                }
             }
         }
     }
@@ -97,6 +103,14 @@ open class AuthenticationService(
             if (!response.status.isSuccess()) {
                 Napier.e("Login request failed with status: ${response.status}", tag = TAG)
                 return LoginResult.Failure("Login request failed")
+            }
+
+            // Manually extract cookie header because HttpCookies plugin might be strict/buggy with Dualis format
+            val cookieHeader = response.headers["set-cookie"]
+            if (cookieHeader != null) {
+                Napier.d("Manually extracted set-cookie header: $cookieHeader", tag = TAG)
+            } else {
+                Napier.w("No set-cookie header found in login response", tag = TAG)
             }
 
             // Check for login errors
@@ -178,10 +192,11 @@ open class AuthenticationService(
             val authData = AuthData(
                 sessionId = sessionId,
                 authToken = authToken ?: "",
-                userFullName = userFullName
+                userFullName = userFullName,
+                cookie = cookieHeader
             )
 
-            Napier.d("Created AuthData - sessionId: ${authData.sessionId.take(10)}..., authToken: ${authData.authToken.take(10)}...", tag = TAG)
+            Napier.d("Created AuthData - sessionId: ${authData.sessionId.take(10)}..., authToken: ${authData.authToken.take(10)}..., Cookie: ${authData.cookie}", tag = TAG)
 
             sessionManager.storeAuthData(authData)
             Napier.d("Stored AuthData in SessionManager", tag = TAG)

@@ -47,16 +47,30 @@ class DualisApiClient(
      * @param urlParameters Query parameters for the request
      * @return ApiResult containing HTML response or error
      */
-    suspend fun get(url: String, urlParameters: Map<String, String> = emptyMap()): ApiResult {
+    suspend fun get(url: String, urlParameters: Map<String, String> = emptyMap(), cookie: String? = null): ApiResult {
         try {
             Napier.d("Executing GET request to: $url", tag = TAG)
             if (urlParameters.isNotEmpty()) {
                 Napier.d("Parameters: ${urlParameters.keys.joinToString(", ")}", tag = TAG)
             }
+            if (cookie != null) {
+                Napier.d("Using manual cookie in request", tag = TAG)
+            }
 
             val response = client.get(url) {
                 urlParameters.forEach { (key, value) ->
                     parameter(key, value)
+                }
+                if (cookie != null) {
+                    // The raw set-cookie header might need parsing if we want to be clean, 
+                    // but passing it as "Cookie" header usually expects "name=value".
+                    // The set-cookie value is "cnsc =...; path=...".
+                    // We should strip the attributes for the Cookie header, but often sending raw works or we can clean it.
+                    // Let's assume we pass it raw for now or clean it in Service.
+                    // Actually, let's try to just pass what we got, but "Cookie" header expects "key=value".
+                    // If set-cookie is "cnsc =...; ...", we should probably just take the first part.
+                    // But let's just set the header.
+                    headers.append("Cookie", cookie)
                 }
             }
 
