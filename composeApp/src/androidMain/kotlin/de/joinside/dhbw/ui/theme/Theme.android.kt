@@ -14,10 +14,12 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.materialkolor.dynamicColorScheme
 import io.github.aakira.napier.Napier
 
 /**
@@ -26,7 +28,7 @@ import io.github.aakira.napier.Napier
  */
 @RequiresApi(Build.VERSION_CODES.S)
 @Composable
-actual fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean): ColorScheme {
+actual fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean, seedColor: Color): ColorScheme {
     val context = LocalContext.current
     val apiLevel = Build.VERSION.SDK_INT
     val isS = apiLevel >= Build.VERSION_CODES.S
@@ -42,13 +44,9 @@ actual fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean): ColorSch
                 dynamicLightColorScheme(context)
             }
         }
-        darkTheme -> {
-            Napier.d("Using static DarkColorScheme", tag = "Theme")
-            DarkColorScheme
-        }
         else -> {
-            Napier.d("Using static LightColorScheme", tag = "Theme")
-            LightColorScheme
+            Napier.d("Using MaterialKolor generated scheme from seed: ${seedColor.toArgb()}", tag = "Theme")
+            dynamicColorScheme(seedColor, darkTheme)
         }
     }
 }
@@ -59,9 +57,9 @@ actual fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean): ColorSch
  */
 @RequiresApi(Build.VERSION_CODES.S)
 @Composable
-actual fun SystemAppearance(darkTheme: Boolean, useMaterialYou: Boolean) {
+actual fun SystemAppearance(darkTheme: Boolean, useMaterialYou: Boolean, seedColor: Color) {
     val view = LocalView.current
-    val colorScheme = getColorScheme(darkTheme, useMaterialYou)
+    val colorScheme = getColorScheme(darkTheme, useMaterialYou, seedColor)
 
     if (!view.isInEditMode) {
         SideEffect {

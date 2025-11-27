@@ -41,6 +41,8 @@
     <string name="design">Design</string>
     <string name="material_you">Material You</string>
     <string name="material_you_description">Use dynamic colors from your wallpaper (Android 12+)</string>
+    <string name="choose_color">Choose Theme Color</string>
+    <string name="choose_color_description">Select a base color for the app theme</string>
     <string name="help_settings">Help</string>
     <string name="privacy_button">Privacy Policy</string>
     <string name="report_issue">Report Issue</string>

@@ -22,6 +22,8 @@ import de.joinside.dhbw.util.isMobilePlatform
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
+import androidx.compose.ui.graphics.Color
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 @Preview
@@ -34,6 +36,8 @@ fun SettingsPage(
     onThemeModeChange: (ThemeMode) -> Unit = {},
     materialYouEnabled: Boolean = true,
     onMaterialYouChange: (Boolean) -> Unit = {},
+    currentSeedColor: Color = Color(0xFF6650a4),
+    onSeedColorChange: (Color) -> Unit = {},
     notificationsEnabled: Boolean = false,
     onNotificationsEnabledChange: (Boolean) -> Unit = {},
     lectureAlertsEnabled: Boolean = false,
@@ -90,7 +94,9 @@ fun SettingsPage(
                     currentThemeMode = currentThemeMode,
                     onThemeModeChange = onThemeModeChange,
                     materialYouEnabled = materialYouEnabled,
-                    onMaterialYouChange = onMaterialYouChange
+                    onMaterialYouChange = onMaterialYouChange,
+                    currentSeedColor = currentSeedColor,
+                    onSeedColorChange = onSeedColorChange
                 )
 
                 // Notification Settings Card

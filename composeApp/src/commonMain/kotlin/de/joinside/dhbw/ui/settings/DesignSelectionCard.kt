@@ -43,6 +43,9 @@ import de.joinside.dhbw.util.PlatformType
 import de.joinside.dhbw.util.getPlatform
 import org.jetbrains.compose.resources.stringResource
 
+import androidx.compose.ui.graphics.Color
+import de.joinside.dhbw.ui.components.ColorPicker
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DesignSelectionCard(
@@ -50,6 +53,8 @@ fun DesignSelectionCard(
     onThemeModeChange: (ThemeMode) -> Unit = {},
     materialYouEnabled: Boolean = true,
     onMaterialYouChange: (Boolean) -> Unit = {},
+    currentSeedColor: Color = Color(0xFF6650a4),
+    onSeedColorChange: (Color) -> Unit = {}
 ){
     Card(
         modifier = Modifier
@@ -158,6 +163,18 @@ fun DesignSelectionCard(
                         modifier = Modifier.testTag("materialYouSwitch")
                     )
                 }
+            }
+            
+            // Color Picker - Show if NOT Android OR (Android AND Material You Disabled)
+            if (getPlatform() != PlatformType.ANDROID || !materialYouEnabled) {
+                Spacer(modifier = Modifier.height(16.dp))
+                ColorPicker(
+                    selectedColor = currentSeedColor,
+                    onColorSelected = {
+                        onSeedColorChange(it)
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    }
+                )
             }
         }
     }
