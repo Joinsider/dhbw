@@ -76,21 +76,23 @@ fun WeeklyLecturesView(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onHorizontalDrag = { change, dragAmount ->
-                            change.consume()
-                            offsetX += dragAmount
-                        },
-                        onDragEnd = {
-                            val widthInPx = with(density) { boxWidth.toPx() }
-                            if (offsetX > widthInPx / 3) {
-                                onPreviousWeek()
-                            } else if (offsetX < -widthInPx / 3) {
-                                onNextWeek()
+                    if (!isRefreshing) {
+                        detectHorizontalDragGestures(
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                offsetX += dragAmount
+                            },
+                            onDragEnd = {
+                                val widthInPx = with(density) { boxWidth.toPx() }
+                                if (offsetX > widthInPx / 3) {
+                                    onPreviousWeek()
+                                } else if (offsetX < -widthInPx / 3) {
+                                    onNextWeek()
+                                }
+                                offsetX = 0f
                             }
-                            offsetX = 0f
-                        }
-                    )
+                        )
+                    }
                 }
                 .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
                 .onGloballyPositioned { coordinates ->
