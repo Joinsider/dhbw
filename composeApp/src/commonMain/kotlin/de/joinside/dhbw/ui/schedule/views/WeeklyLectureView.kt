@@ -1,9 +1,10 @@
 package de.joinside.dhbw.ui.schedule.views
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,21 +21,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.no_lectures_this_week
 import de.joinside.dhbw.ui.schedule.models.LectureModel
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
-import de.joinside.dhbw.util.isMobilePlatform
-import kotlinx.coroutines.launch
 import kotlinx.datetime.DayOfWeek
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -76,25 +78,6 @@ fun WeeklyLecturesView(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
-                    if (!isRefreshing) {
-                        detectHorizontalDragGestures(
-                            onHorizontalDrag = { change, dragAmount ->
-                                change.consume()
-                                offsetX += dragAmount
-                            },
-                            onDragEnd = {
-                                val widthInPx = with(density) { boxWidth.toPx() }
-                                if (offsetX > widthInPx / 3) {
-                                    onPreviousWeek()
-                                } else if (offsetX < -widthInPx / 3) {
-                                    onNextWeek()
-                                }
-                                offsetX = 0f
-                            }
-                        )
-                    }
-                }
                 .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
                 .onGloballyPositioned { coordinates ->
                     boxWidth = with(density) { coordinates.size.width.toDp() }
@@ -135,66 +118,94 @@ fun WeeklyLecturesView(
                 }
 
                 val scrollState = rememberScrollState()
-                val coroutineScope = rememberCoroutineScope()
+
+                // Create nested scroll connection to coordinate with parent PullToRefreshBox
+                val nestedScrollConnection = remember {
+                    object : NestedScrollConnection {
+                        override fun onPreScroll(
+                            available: Offset,
+                            source: NestedScrollSource
+                        ): Offset {
+                            // Don't consume scroll if we're at the top and scrolling down
+                            // This allows pull-to-refresh to work
+                            if (scrollState.value == 0 && available.y > 0) {
+                                return Offset.Zero
+                            }
+                            return Offset.Zero
+                        }
+
+                        override suspend fun onPreFling(available: Velocity): Velocity {
+                            // Allow parent to handle fling when at scroll top
+                            if (scrollState.value == 0 && available.y > 0) {
+                                return Velocity.Zero
+                            }
+                            return Velocity.Zero
+                        }
+                    }
+                }
 
                 // Calculate the height needed for the container
                 // If scrolling, we need the full calculated height
                 // If not scrolling, we just take the full available height
-                val containerHeight = if(scrollEnabled) minContentHeightDp else availableHeightDp
+                val containerHeight = if (scrollEnabled) minContentHeightDp else availableHeightDp
 
-                Row(
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(containerHeight)
-                        .then(
-                            if (scrollEnabled) {
-                                Modifier.verticalScroll(scrollState)
-                            } else {
-                                Modifier
-                            }
-                        )
-                        .then(
-                            if (!isMobilePlatform() && scrollEnabled) {
-                                Modifier.pointerInput(Unit) {
-                                    detectDragGestures { change, dragAmount ->
-                                        change.consume()
-                                        coroutineScope.launch {
-                                            scrollState.scrollBy(-dragAmount.y)
-                                        }
-                                    }
+                        .fillMaxSize()
+                        .draggable(
+                            state = rememberDraggableState { delta ->
+                                offsetX += delta
+                            },
+                            orientation = Orientation.Horizontal,
+                            enabled = !isRefreshing,
+                            onDragStopped = {
+                                val widthInPx = with(density) { boxWidth.toPx() }
+                                when {
+                                    offsetX > widthInPx / 3 -> onPreviousWeek()
+                                    offsetX < -widthInPx / 3 -> onNextWeek()
                                 }
-                            } else {
-                                Modifier
+                                offsetX = 0f
                             }
                         )
                 ) {
-                    TimelineView(
-                        startHour = startHour, endHour = endHour, hourHeight = hourHeight
-                    )
-
                     Row(
-                        modifier = Modifier.weight(1f)
-                            .onGloballyPositioned { coordinates ->
-                                rowWidth = with(density) { coordinates.size.width.toDp() }
-                            }
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(containerHeight)
+                            .then(
+                                Modifier
+                                    .nestedScroll(nestedScrollConnection)
+                                    .verticalScroll(scrollState)
+                            )
                     ) {
-                        if (rowWidth > 0.dp) {
-                            val dayColumnWidth = rowWidth / 5
-                            listOf(
-                                DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
-                                DayOfWeek.THURSDAY, DayOfWeek.FRIDAY
-                            ).forEach { day ->
-                                DayColumn(
-                                    dayOfWeek = day,
-                                    lectures = lecturesByDay[day] ?: emptyList(),
-                                    startHour = startHour,
-                                    endHour = endHour,
-                                    hourHeight = hourHeight,
-                                    modifier = Modifier.padding(bottom = 16.dp)
-                                        .width(dayColumnWidth),
-                                    width = dayColumnWidth,
-                                    onLectureClick = onLectureClick
-                                )
+                        TimelineView(
+                            startHour = startHour, endHour = endHour, hourHeight = hourHeight
+                        )
+
+                        Row(
+                            modifier = Modifier.weight(1f)
+                                .onGloballyPositioned { coordinates ->
+                                    rowWidth = with(density) { coordinates.size.width.toDp() }
+                                }
+                        ) {
+                            if (rowWidth > 0.dp) {
+                                val dayColumnWidth = rowWidth / 5
+                                listOf(
+                                    DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
+                                    DayOfWeek.THURSDAY, DayOfWeek.FRIDAY
+                                ).forEach { day ->
+                                    DayColumn(
+                                        dayOfWeek = day,
+                                        lectures = lecturesByDay[day] ?: emptyList(),
+                                        startHour = startHour,
+                                        endHour = endHour,
+                                        hourHeight = hourHeight,
+                                        modifier = Modifier.padding(bottom = 16.dp)
+                                            .width(dayColumnWidth),
+                                        width = dayColumnWidth,
+                                        onLectureClick = onLectureClick
+                                    )
+                                }
                             }
                         }
                     }
