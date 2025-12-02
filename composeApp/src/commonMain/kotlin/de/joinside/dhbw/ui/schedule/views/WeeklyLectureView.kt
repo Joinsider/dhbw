@@ -1,6 +1,9 @@
 package de.joinside.dhbw.ui.schedule.views
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.Orientation
@@ -24,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +52,7 @@ import de.joinside.dhbw.ui.schedule.modules.week.WeekNavigationBar
 import kotlinx.datetime.DayOfWeek
 import androidx.compose.ui.platform.testTag
 import de.joinside.dhbw.resources.loading_week_from_dualis
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Composable
@@ -64,8 +69,8 @@ fun WeeklyLecturesView(
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
-    var offsetX by remember { mutableStateOf(0f) }
-    val animatedOffsetX by animateFloatAsState(targetValue = offsetX)
+    val coroutineScope = rememberCoroutineScope()
+    val offsetX = remember { Animatable(0f) }
     var rowWidth by remember { mutableStateOf(0.dp) }
     var boxWidth by remember { mutableStateOf(0.dp) }
 
@@ -83,7 +88,7 @@ fun WeeklyLecturesView(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
                 .onGloballyPositioned { coordinates ->
                     boxWidth = with(density) { coordinates.size.width.toDp() }
                 }
@@ -136,17 +141,49 @@ fun WeeklyLecturesView(
                     .fillMaxSize()
                     .draggable(
                         state = rememberDraggableState { delta ->
-                            offsetX += delta
+                            coroutineScope.launch {
+                                offsetX.snapTo(offsetX.value + delta)
+                            }
                         },
                         orientation = Orientation.Horizontal,
                         enabled = !isRefreshing,
-                        onDragStopped = {
-                            val widthInPx = with(density) { boxWidth.toPx() }
-                            when {
-                                offsetX > widthInPx / 3 -> onPreviousWeek()
-                                offsetX < -widthInPx / 3 -> onNextWeek()
+                        onDragStopped = { velocity ->
+                            coroutineScope.launch {
+                                val widthInPx = with(density) { boxWidth.toPx() }
+                                val threshold = widthInPx / 3
+
+                                when {
+                                    offsetX.value > threshold -> {
+                                        // Swipe right to previous week - animate to completion
+                                        offsetX.animateTo(
+                                            targetValue = widthInPx,
+                                            animationSpec = tween(durationMillis = 200)
+                                        )
+                                        onPreviousWeek()
+                                        offsetX.snapTo(0f)
+                                    }
+                                    offsetX.value < -threshold -> {
+                                        // Swipe left to next week - animate to completion
+                                        offsetX.animateTo(
+                                            targetValue = -widthInPx,
+                                            animationSpec = tween(durationMillis = 200)
+                                        )
+                                        onNextWeek()
+                                        offsetX.snapTo(0f)
+                                    }
+                                    else -> {
+                                        // Didn't meet threshold - spring back to center
+                                        offsetX.animateTo(
+                                            targetValue = 0f,
+                                            animationSpec = spring(
+                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                stiffness = Spring.StiffnessMedium
+                                            ),
+                                            initialVelocity = velocity
+                                        )
+                                    }
+                                }
                             }
-                            offsetX = 0f
                         }
                     )
             ) {

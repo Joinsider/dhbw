@@ -117,8 +117,16 @@ class TimetableViewModel(
      * Load lectures for a specific week offset from current week.
      */
     private fun loadLecturesForWeek(weekOffset: Int) {
-        // Stage 1: set reloading to true, but keep weekly view visible
-        uiState = uiState.copy(isLoading = true, error = null)
+        // Immediately clear lectures and update week label when switching weeks
+        // This shows the empty grid while loading instead of the old week's data
+        val weekLabelData = generateWeekLabelData(weekOffset)
+        uiState = uiState.copy(
+            lectures = emptyList(),
+            weekLabelData = weekLabelData,
+            currentWeekOffset = weekOffset,
+            isLoading = true,
+            error = null
+        )
 
         coroutineScope.launch {
             try {
@@ -126,16 +134,15 @@ class TimetableViewModel(
 
                 val (lectures, isReloading) = lectureService.getLecturesForWeekStaged(weekOffset)
                 val lectureModels = lectures.map { entity -> entity.toLectureModel() }
-                val weekLabelData = generateWeekLabelData(weekOffset)
 
-                // Show whatever we have (cache or skeleton), disable navigation via isLoading flag
-                uiState = uiState.copy(
-                    lectures = lectureModels,
-                    weekLabelData = weekLabelData,
-                    currentWeekOffset = weekOffset,
-                    isLoading = isReloading,
-                    error = null
-                )
+                // Only update if we're still on the same week (user didn't navigate away)
+                if (currentWeekOffset == weekOffset) {
+                    uiState = uiState.copy(
+                        lectures = lectureModels,
+                        isLoading = isReloading,
+                        error = null
+                    )
+                }
 
                 // If still reloading in background, poll/update once background fetch likely finished
                 if (isReloading) {

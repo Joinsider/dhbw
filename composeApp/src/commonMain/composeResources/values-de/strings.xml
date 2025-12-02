@@ -37,7 +37,7 @@
     <string name="dark_mode">Dunkel</string>
     <string name="light_mode">Hell</string>
     <string name="system_default">System</string>
-    <string name="theme">Theme</string>
+    <string name="theme">Aussehen</string>
     <string name="design">Design</string>
     <string name="material_you">Material You</string>
     <string name="material_you_description">Dynamische Farben aus dem Hintergrundbild verwenden (Android 12+)</string>
@@ -49,6 +49,8 @@
     <string name="allow_notifications_description">Erlaube der App verschiedene Benachrichtigungen zu senden</string>
     <string name="lecture_change_notification">Benachrichtigung für Vorlesungsänderungen</string>
     <string name="lecture_change_notification_description">Werde benachrichtigt, wenn sich die Uhrzeit oder der Ort einer Vorlesung ändert oder eine abgesagt wurde</string>
+    <string name="notifications">Benachrichtigungen</string>
+
     <!-- Error messages -->
     <string name="network_error">Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.</string>
     <string name="unknown_error">Ein unbekannter Fehler ist aufgetreten.</string>

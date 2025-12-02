@@ -27,6 +27,7 @@ import de.joinside.dhbw.resources.allow_notifications
 import de.joinside.dhbw.resources.allow_notifications_description
 import de.joinside.dhbw.resources.lecture_change_notification
 import de.joinside.dhbw.resources.lecture_change_notification_description
+import de.joinside.dhbw.resources.notifications
 import de.joinside.dhbw.services.notifications.NotificationDispatcher
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -76,7 +77,7 @@ fun NotificationSettingsCard(
         ) {
             // Card Title
             Text(
-                text = "Notifications",
+                text = stringResource(Res.string.notifications),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -264,38 +265,38 @@ fun NotificationSettingsCard(
                         }
                     }
 
-                    // Test Notification Button
-                    Button(
-                        onClick = {
-                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                            coroutineScope.launch {
-                                try {
-                                    val dispatcher = NotificationDispatcher()
-                                    dispatcher.showNotification(
-                                        title = "Test Notification",
-                                        message = "This is a test notification from DHBW Next. If you see this, notifications are working correctly! 🎉",
-                                        lectureId = 0L
-                                    )
-                                } catch (e: Exception) {
-                                    // Handle error - could show a snackbar in a real implementation
-                                    println("Failed to send test notification: ${e.message}")
-                                }
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp)
-                            .testTag("testNotificationButton"),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    ) {
-                        Text(
-                            text = "Send Test Notification",
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    }
+//                    // Test Notification Button
+//                    Button(
+//                        onClick = {
+//                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+//                            coroutineScope.launch {
+//                                try {
+//                                    val dispatcher = NotificationDispatcher()
+//                                    dispatcher.showNotification(
+//                                        title = "Test Notification",
+//                                        message = "This is a test notification from DHBW Next. If you see this, notifications are working correctly! 🎉",
+//                                        lectureId = 0L
+//                                    )
+//                                } catch (e: Exception) {
+//                                    // Handle error - could show a snackbar in a real implementation
+//                                    println("Failed to send test notification: ${e.message}")
+//                                }
+//                            }
+//                        },
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .padding(top = 12.dp)
+//                            .testTag("testNotificationButton"),
+//                        colors = ButtonDefaults.buttonColors(
+//                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+//                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+//                        )
+//                    ) {
+//                        Text(
+//                            text = "Send Test Notification",
+//                            style = MaterialTheme.typography.labelLarge
+//                        )
+//                    }
                 }
             }
         }
