@@ -14,6 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.data.storage.database.entities.grades.GradeEntity
+import de.joinside.dhbw.resources.Res
+import de.joinside.dhbw.resources.status_unknown
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun GradeCard(
@@ -41,19 +44,17 @@ fun GradeCard(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (grade.status != null && grade.status != "bestanden") {
-                     Text(
-                        text = grade.status,
-                        style = MaterialTheme.typography.bodySmall,
-                         color = MaterialTheme.colorScheme.secondary
-                    )
-                }
+                 Text(
+                    text = grade.status ?: stringResource(Res.string.status_unknown),
+                    style = MaterialTheme.typography.bodySmall,
+                     color = MaterialTheme.colorScheme.secondary
+                )
             }
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = grade.grade ?: "-",
-                    style = MaterialTheme.typography.displaySmall,
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = if (grade.grade == "5,0") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                 )
