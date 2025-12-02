@@ -138,4 +138,9 @@
     <string name="semester_gpa">Semester GPA</string>
     <string name="status_unknown">status unknown</string>
     <string name="combined_page">Combined</string>
+    <string name="all_semesters">All</string>
+    <string name="overall_statistics">Overall Statistics</string>
+    <string name="overall_gpa">Overall GPA</string>
+    <string name="credits_earned">Credits Earned</string>
+    <string name="modules_completed">Modules Completed</string>
 </resources>
