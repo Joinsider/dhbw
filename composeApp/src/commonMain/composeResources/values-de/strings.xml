@@ -134,5 +134,6 @@
     <string name="grades">Noten</string>
     <string name="semester_gpa">Semester Schnitt</string>
     <string name="status_unknown">Status unbekannt</string>
+    <string name="combined_page">Alle</string>
 </resources>
 

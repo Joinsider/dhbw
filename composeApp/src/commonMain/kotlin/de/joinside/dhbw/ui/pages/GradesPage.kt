@@ -3,7 +3,6 @@ package de.joinside.dhbw.ui.pages
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -72,7 +71,8 @@ fun GradesPage(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = paddingValues.calculateBottomPadding())
+                .padding(paddingValues)
+                .padding(top = 20.dp)
         ) {
             if (uiState.isLoading && uiState.grades.isEmpty()) {
                 Box(
@@ -112,8 +112,10 @@ fun GradesPage(
                     }
                 ) {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        contentPadding = PaddingValues(bottom = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -121,7 +123,7 @@ fun GradesPage(
                             Text(
                                 text = stringResource(Res.string.grades),
                                 style = MaterialTheme.typography.headlineLargeEmphasized,
-                                modifier = Modifier.padding(16.dp)
+                                modifier = Modifier.padding(bottom = 24.dp)
                             )
                         }
 

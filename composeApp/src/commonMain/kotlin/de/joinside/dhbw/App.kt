@@ -138,7 +138,8 @@ fun App(
                 authenticationService = authenticationService,
                 gradeParser = gradeParser,
                 htmlParser = htmlParser,
-                gradeDao = database.gradeDao()
+                gradeDao = database.gradeDao(),
+                gradeCacheMetadataDao = database.gradeCacheMetadataDao()
             )
             GradesViewModel(gradeService, database.gradeDao())
         } else {

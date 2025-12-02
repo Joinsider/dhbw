@@ -24,28 +24,31 @@ fun myTypography(): Typography {
     )
 
     // Stretched/expanded font for expressive titles
-    val googleSansFlexExpanded = FontFamily(
+    val customFontExpanded = FontFamily(
         Font(
             Res.font.roboto_flex,
             variationSettings = FontVariation.Settings(
-                FontVariation.weight(1000),
+                FontVariation.weight(700),
                 FontVariation.grade(-100),
-                FontVariation.Setting("xtra", 603f),
-                FontVariation.Setting("YTLC", 416f),
-                FontVariation.Setting("YTUC", 528f),
-                FontVariation.Setting("YTAS", 649f),
-                FontVariation.width(151f) // 100 = normal, 125 = expanded
+                //FontVariation.Setting("xtra", 603f),
+                //FontVariation.Setting("YTLC", 416f),
+                //FontVariation.Setting("YTUC", 528f),
+                //FontVariation.Setting("YTAS", 649f),
+                FontVariation.width(75f) // 100 = normal, 125 = expanded
             )
         )
     )
 
     // Condensed/squished font for compact text
-    val googleSansFlexCondensed = FontFamily(
+    val customFontConsensed = FontFamily(
         Font(
             Res.font.roboto_flex,
             variationSettings = FontVariation.Settings(
-                FontVariation.weight(400),
-                FontVariation.width(75f) // 75 = condensed
+                FontVariation.width(25f),
+                FontVariation.Setting("opsz", 20f),
+                FontVariation.Setting("YTLC", 440f),
+                FontVariation.Setting("YTUC", 580f),
+                FontVariation.Setting("YTAS", 700f),
             )
         )
     )
@@ -155,15 +158,15 @@ fun myTypography(): Typography {
             letterSpacing = 0.5.sp
         ),
         labelSmall = TextStyle(
-            fontFamily = customFont,
+            fontFamily = customFontConsensed,
             fontWeight = FontWeight.Medium,
-            fontSize = 11.sp,
+            fontSize = 12.sp,
             lineHeight = 16.sp,
             letterSpacing = 0.5.sp
         ),
         // Expressive styles
         headlineLargeEmphasized = TextStyle(
-            fontFamily = googleSansFlexExpanded,
+            fontFamily = customFontExpanded,
             fontWeight = FontWeight.Bold,
             fontSize = 32.sp,
             lineHeight = 72.sp,

@@ -137,4 +137,5 @@
     <string name="grades">Grades</string>
     <string name="semester_gpa">Semester GPA</string>
     <string name="status_unknown">status unknown</string>
+    <string name="combined_page">Combined</string>
 </resources>
