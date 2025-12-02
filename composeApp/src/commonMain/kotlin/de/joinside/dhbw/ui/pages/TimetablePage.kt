@@ -190,6 +190,10 @@ fun TimetablePage(
                                 onLectureClick = { lecture ->
                                     selectedLecture = lecture
                                 },
+                                onRefresh = {
+                                    viewModel?.refreshLectures()
+                                },
+                                isRefreshing = uiState.isRefreshing,
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
