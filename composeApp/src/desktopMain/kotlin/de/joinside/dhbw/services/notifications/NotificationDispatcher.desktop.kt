@@ -14,6 +14,7 @@ import java.awt.Toolkit
 /**
  * Desktop (JVM) implementation of NotificationDispatcher using AWT SystemTray.
  */
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class NotificationDispatcher {
 
     companion object {

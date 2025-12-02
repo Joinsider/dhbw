@@ -16,6 +16,7 @@ import de.joinside.dhbw.data.dualis.remote.parser.TimetableParser
 import de.joinside.dhbw.data.dualis.remote.services.AuthenticationService
 import de.joinside.dhbw.data.dualis.remote.services.DualisLectureService
 import de.joinside.dhbw.data.dualis.remote.session.SessionManager
+import de.joinside.dhbw.data.network.CustomDnsResolver
 import de.joinside.dhbw.data.storage.credentials.SecureStorage
 import de.joinside.dhbw.data.storage.credentials.SecureStorageWrapper
 import de.joinside.dhbw.data.storage.database.createRoomDatabase
@@ -106,7 +107,7 @@ class MainActivity : ComponentActivity() {
             // Configure OkHttp engine with custom DNS resolver
             engine {
                 config {
-                    dns(de.joinside.dhbw.data.network.CustomDnsResolver())
+                    dns(CustomDnsResolver())
                 }
             }
         }
