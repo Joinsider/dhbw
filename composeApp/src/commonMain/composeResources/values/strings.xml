@@ -51,6 +51,7 @@
     <string name="allow_notifications_description">Allow the app to send notifications</string>
     <string name="lecture_change_notification">Lecture Change Notification</string>
     <string name="lecture_change_notification_description">Get notified about lecture time, location and cancellation changes</string>
+    <string name="notifications">Notifications</string>
     <!-- Error messages -->
     <string name="network_error">Network error. Please check your connection.</string>
     <string name="unknown_error">An unknown error occurred.</string>
