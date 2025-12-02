@@ -5,8 +5,11 @@ import de.joinside.dhbw.data.dualis.remote.parser.GradeParser
 import de.joinside.dhbw.data.dualis.remote.parser.HtmlParser
 import de.joinside.dhbw.data.dualis.remote.session.SessionManager
 import de.joinside.dhbw.data.storage.database.dao.grades.GradeDao
+import de.joinside.dhbw.data.storage.database.dao.grades.GradeCacheMetadataDao
+import de.joinside.dhbw.data.storage.database.entities.grades.GradeCacheMetadata
 import de.joinside.dhbw.data.storage.database.entities.grades.GradeEntity
 import io.github.aakira.napier.Napier
+import kotlin.time.ExperimentalTime
 
 class DualisGradeService(
     private val apiClient: DualisApiClient,
@@ -14,16 +17,61 @@ class DualisGradeService(
     private val authenticationService: AuthenticationService,
     private val gradeParser: GradeParser,
     private val htmlParser: HtmlParser,
-    private val gradeDao: GradeDao
+    private val gradeDao: GradeDao,
+    private val gradeCacheMetadataDao: GradeCacheMetadataDao
 ) {
     companion object {
         private const val TAG = "DualisGradeService"
         private const val BASE_URL = "https://dualis.dhbw.de/scripts/mgrqispi.dll"
         private const val MAX_RETRY_ATTEMPTS = 2
+        private const val CACHE_VALIDITY_DURATION_MS = 60 * 60 * 1000L // 1 hour in milliseconds
     }
 
     suspend fun getSemesters(): Result<Map<String, String>> {
         return fetchSemestersWithRetry(0)
+    }
+
+    /**
+     * Check if cached grades for a semester are still valid (less than 1 hour old).
+     */
+    @OptIn(ExperimentalTime::class)
+    suspend fun isCacheValid(studentId: String, semesterId: String): Boolean {
+        val metadata = gradeCacheMetadataDao.getMetadata(studentId, semesterId) ?: return false
+        val currentTime = kotlin.time.Clock.System.now().toEpochMilliseconds()
+        val cacheAge = currentTime - metadata.lastUpdatedTimestamp
+        return cacheAge < CACHE_VALIDITY_DURATION_MS
+    }
+
+    /**
+     * Get cached grades for a semester from the database.
+     */
+    suspend fun getCachedGrades(studentId: String, semesterId: String): List<GradeEntity> {
+        return gradeDao.getGradesForSemester(studentId, semesterId)
+    }
+
+    /**
+     * Get grades for a semester. Uses cache if valid, otherwise fetches from network.
+     * @param forceRefresh If true, always fetch from network regardless of cache validity
+     */
+    suspend fun getGradesForSemester(
+        semesterId: String,
+        semesterName: String,
+        forceRefresh: Boolean = false
+    ): Result<List<GradeEntity>> {
+        val studentId = sessionManager.getStoredCredentials()?.first ?: "unknown"
+
+        // Check cache validity and return cached data if valid and not forcing refresh
+        if (!forceRefresh && isCacheValid(studentId, semesterId)) {
+            val cachedGrades = getCachedGrades(studentId, semesterId)
+            if (cachedGrades.isNotEmpty()) {
+                Napier.d("Returning cached grades for semester $semesterId (${cachedGrades.size} grades)", tag = TAG)
+                return Result.success(cachedGrades)
+            }
+        }
+
+        // Fetch from network
+        Napier.d("Fetching grades from network for semester $semesterId", tag = TAG)
+        return fetchGradesWithRetry(semesterId, semesterName, 0)
     }
 
     private suspend fun fetchSemestersWithRetry(attemptCount: Int): Result<Map<String, String>> {
@@ -82,9 +130,6 @@ class DualisGradeService(
         }
     }
 
-    suspend fun getGradesForSemester(semesterId: String, semesterName: String): Result<List<GradeEntity>> {
-        return fetchGradesWithRetry(semesterId, semesterName, 0)
-    }
 
     private suspend fun fetchGradesWithRetry(
         semesterId: String,
@@ -152,6 +197,7 @@ class DualisGradeService(
         }
     }
 
+    @OptIn(ExperimentalTime::class)
     private suspend fun saveGradesWithChangeDetection(
         newGrades: List<GradeEntity>,
         studentId: String,
@@ -180,6 +226,16 @@ class DualisGradeService(
             gradeDao.deleteGradesForSemester(studentId, semesterId)
             gradeDao.insertAll(newGrades)
             Napier.d("Saved ${newGrades.size} grades to DB", tag = TAG)
+
+            // Save cache metadata
+            val metadata = GradeCacheMetadata(
+                key = "grades_${studentId}_$semesterId",
+                lastUpdatedTimestamp = kotlin.time.Clock.System.now().toEpochMilliseconds(),
+                studentId = studentId,
+                semesterId = semesterId
+            )
+            gradeCacheMetadataDao.insert(metadata)
+            Napier.d("Updated cache metadata for semester $semesterId", tag = TAG)
 
         } catch (e: Exception) {
             Napier.e("Error saving grades: ${e.message}", e, tag = TAG)
