@@ -27,6 +27,13 @@ class DualisGradeService(
         private const val CACHE_VALIDITY_DURATION_MS = 60 * 60 * 1000L // 1 hour in milliseconds
     }
 
+    /**
+     * Returns true if we can attempt loading: authenticated, demo mode, or credentials available for re-auth.
+     */
+    fun hasCredentialsOrSession(): Boolean {
+        return sessionManager.isAuthenticated() || sessionManager.isDemoMode() || sessionManager.getStoredCredentials() != null
+    }
+
     suspend fun getSemesters(): Result<Map<String, String>> {
         return fetchSemestersWithRetry(0)
     }

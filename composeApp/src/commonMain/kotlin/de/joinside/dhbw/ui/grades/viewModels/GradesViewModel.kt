@@ -23,7 +23,8 @@ data class GradesUiState(
     val overallGpa: Double? = null, // GPA across all semesters
     val totalCreditsEarned: Double = 0.0,
     val error: String? = null,
-    val isDataFromCache: Boolean = false
+    val isDataFromCache: Boolean = false,
+    val requiresLogin: Boolean = false
 )
 
 // Special semester ID to indicate "All Semesters" view
@@ -46,7 +47,20 @@ class GradesViewModel(
     }
 
     fun loadSemesters() {
-        uiState = uiState.copy(isLoadingSemesters = true, error = null)
+        // If we cannot load due to missing credentials/session, set requiresLogin and stop
+        if (!gradeService.hasCredentialsOrSession()) {
+            Napier.d("Skipping loadSemesters: not authenticated and no stored credentials", tag = TAG)
+            uiState = uiState.copy(
+                isLoadingSemesters = false,
+                isLoading = false,
+                isRefreshing = false,
+                error = null,
+                requiresLogin = true
+            )
+            return
+        }
+
+        uiState = uiState.copy(isLoadingSemesters = true, error = null, requiresLogin = false)
         coroutineScope.launch {
             try {
                 Napier.d("Loading semesters...", tag = TAG)
@@ -97,6 +111,11 @@ class GradesViewModel(
     }
 
     private fun loadAllGrades(forceRefresh: Boolean = false) {
+        if (!gradeService.hasCredentialsOrSession()) {
+            Napier.d("Skipping loadAllGrades: login required", tag = TAG)
+            uiState = uiState.copy(isLoading = false, isRefreshing = false, requiresLogin = true)
+            return
+        }
         uiState = uiState.copy(isLoading = !forceRefresh, isRefreshing = forceRefresh)
         coroutineScope.launch {
             try {
@@ -145,6 +164,11 @@ class GradesViewModel(
     }
 
     fun refreshGrades() {
+        if (!gradeService.hasCredentialsOrSession()) {
+            Napier.d("Skipping refreshGrades: login required", tag = TAG)
+            uiState = uiState.copy(isRefreshing = false, requiresLogin = true)
+            return
+        }
         val semesterId = uiState.selectedSemesterId ?: return
 
         Napier.d("Force refreshing grades (pull-to-refresh)", tag = TAG)
@@ -158,6 +182,11 @@ class GradesViewModel(
     }
 
     private fun loadGradesForSemester(semesterId: String, semesterName: String, isRefresh: Boolean = false) {
+        if (!gradeService.hasCredentialsOrSession()) {
+            Napier.d("Skipping loadGradesForSemester: login required", tag = TAG)
+            uiState = uiState.copy(isLoading = false, isRefreshing = false, requiresLogin = true)
+            return
+        }
         // Set loading state appropriately
         uiState = if (isRefresh) {
             uiState.copy(isRefreshing = true)
