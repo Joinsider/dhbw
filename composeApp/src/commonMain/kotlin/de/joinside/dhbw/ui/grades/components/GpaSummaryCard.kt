@@ -1,7 +1,6 @@
 package de.joinside.dhbw.ui.grades.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import de.joinside.dhbw.resources.Res
+import de.joinside.dhbw.resources.semester_gpa
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
 @Composable
@@ -47,7 +49,7 @@ fun GpaSummaryCard(
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Semester Schnitt",
+                    text = stringResource(Res.string.semester_gpa),
                     style = MaterialTheme.typography.titleMedium
                 )
             }
