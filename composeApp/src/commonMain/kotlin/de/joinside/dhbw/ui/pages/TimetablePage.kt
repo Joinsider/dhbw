@@ -1,7 +1,6 @@
 package de.joinside.dhbw.ui.pages
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -22,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.april_short
@@ -33,7 +31,6 @@ import de.joinside.dhbw.resources.february_short
 import de.joinside.dhbw.resources.january_short
 import de.joinside.dhbw.resources.july_short
 import de.joinside.dhbw.resources.june_short
-import de.joinside.dhbw.resources.loading_lectures
 import de.joinside.dhbw.resources.march_short
 import de.joinside.dhbw.resources.may_short
 import de.joinside.dhbw.resources.november_short
@@ -52,7 +49,6 @@ import de.joinside.dhbw.util.isMobilePlatform
 import kotlinx.datetime.Month
 import org.jetbrains.compose.resources.InternalResourceApi
 import org.jetbrains.compose.resources.stringResource
-import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @OptIn(ExperimentalMaterial3Api::class, InternalResourceApi::class,
     ExperimentalMaterial3ExpressiveApi::class
@@ -103,123 +99,74 @@ fun TimetablePage(
                 .fillMaxSize()
                 .padding(bottom = paddingValues.calculateBottomPadding())
         ) {
-            when {
-                uiState.isLoading -> {
-                    // Show loading indicator
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            LoadingIndicator()
-                            Text(
-                                text = stringResource(Res.string.loading_lectures),
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(top = 16.dp),
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-                uiState.error != null -> {
-                    // Show error message
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = stringResource(Res.string.error_loading_lectures),
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                            Text(
-                                text = uiState.error,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(top = 8.dp, start = 16.dp, end = 16.dp),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
-                else -> {
-                    // Show lectures with pull-to-refresh
-                    // Format week label from WeekLabelData
-                    val weekLabel = uiState.weekLabelData?.let { data ->
-                        formatWeekLabel(data)
-                    } ?: stringResource(Res.string.this_week)
+            // Always show weekly grid; use isRefreshing/isReloading to disable interactions and show message
+            val weekLabel = uiState.weekLabelData?.let { data ->
+                formatWeekLabel(data)
+            } ?: stringResource(Res.string.this_week)
 
-                    if (isMobilePlatform()) {
-                        // Mobile: Use pull-to-refresh with Material 3 Expressive LoadingIndicator
-                        PullToRefreshBox(
-                            isRefreshing = uiState.isRefreshing,
-                            onRefresh = {
-                                viewModel?.refreshLectures()
-                            },
-                            modifier = Modifier.fillMaxSize(),
-                            indicator = {
-                                if (uiState.isRefreshing) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(top = 58.dp),
-                                        contentAlignment = Alignment.TopCenter
-                                    ) {
-                                        LoadingIndicator()
-                                    }
-                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-                                }
+            val isBusy = uiState.isRefreshing || uiState.isLoading
+
+            if (isMobilePlatform()) {
+                PullToRefreshBox(
+                    isRefreshing = uiState.isRefreshing,
+                    onRefresh = { viewModel?.refreshLectures() },
+                    modifier = Modifier.fillMaxSize(),
+                    indicator = {
+                        if (uiState.isRefreshing) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 58.dp),
+                                contentAlignment = Alignment.TopCenter
+                            ) {
+                                LoadingIndicator()
                             }
-                        ) {
-                            WeeklyLecturesView(
-                                lectures = uiState.lectures,
-                                weekLabel = weekLabel,
-                                onPreviousWeek = { viewModel?.goToPreviousWeek() },
-                                onNextWeek = { viewModel?.goToNextWeek() },
-                                onWeekLabelClick = {
-                                    // Return to current week if not already there
-                                    if (uiState.currentWeekOffset != 0) {
-                                        viewModel?.loadLecturesForCurrentWeek()
-                                    }
-                                },
-                                onLectureClick = { lecture ->
-                                    selectedLecture = lecture
-                                },
-                                onRefresh = {
-                                    viewModel?.refreshLectures()
-                                },
-                                isRefreshing = uiState.isRefreshing,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
                         }
-                    } else {
-                        // Desktop: Use regular layout with refresh button in navigation bar
-                        WeeklyLecturesView(
-                            lectures = uiState.lectures,
-                            weekLabel = weekLabel,
-                            onPreviousWeek = { viewModel?.goToPreviousWeek() },
-                            onNextWeek = { viewModel?.goToNextWeek() },
-                            onWeekLabelClick = {
-                                // Return to current week if not already there
-                                if (uiState.currentWeekOffset != 0) {
-                                    viewModel?.loadLecturesForCurrentWeek()
-                                }
-                            },
-                            onLectureClick = { lecture ->
-                                selectedLecture = lecture
-                            },
-                            onRefresh = {
-                                viewModel?.refreshLectures()
-                            },
-                            isRefreshing = uiState.isRefreshing,
-                            modifier = Modifier.fillMaxSize()
-                        )
                     }
+                ) {
+                    WeeklyLecturesView(
+                        lectures = uiState.lectures,
+                        weekLabel = weekLabel,
+                        onPreviousWeek = { viewModel?.goToPreviousWeek() },
+                        onNextWeek = { viewModel?.goToNextWeek() },
+                        onWeekLabelClick = {
+                            if (uiState.currentWeekOffset != 0) viewModel?.loadLecturesForCurrentWeek()
+                        },
+                        onLectureClick = { lecture -> selectedLecture = lecture },
+                        onRefresh = { viewModel?.refreshLectures() },
+                        isRefreshing = isBusy,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            } else {
+                WeeklyLecturesView(
+                    lectures = uiState.lectures,
+                    weekLabel = weekLabel,
+                    onPreviousWeek = { viewModel?.goToPreviousWeek() },
+                    onNextWeek = { viewModel?.goToNextWeek() },
+                    onWeekLabelClick = {
+                        if (uiState.currentWeekOffset != 0) viewModel?.loadLecturesForCurrentWeek()
+                    },
+                    onLectureClick = { lecture -> selectedLecture = lecture },
+                    onRefresh = { viewModel?.refreshLectures() },
+                    isRefreshing = isBusy,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            // Error banner (non-blocking)
+            if (uiState.error != null) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Text(
+                        text = stringResource(Res.string.error_loading_lectures),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
             }
 
@@ -270,4 +217,3 @@ private fun getMonthResource(month: Month) = when (month) {
     Month.NOVEMBER -> Res.string.november_short
     Month.DECEMBER -> Res.string.december_short
 }
-

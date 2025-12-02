@@ -62,6 +62,32 @@ class LectureService(
     }
 
     /**
+     * Staged fetch for week: return cached if present; otherwise return weekly skeleton immediately,
+     * then enrich and persist full details in background. Only full lectures are persisted.
+     */
+    suspend fun getLecturesForWeekStaged(week: Int): Pair<List<LectureEventEntity>, Boolean /*isReloading*/> {
+        Napier.d("Staged get lectures for week $week")
+        val (start, end) = TimeHelper.getWeekDatesRelativeToCurrentWeek(week)
+
+        // Try DB first
+        val cached = getLecturesForWeekFromDatabase(start, end)
+        if (cached.isNotEmpty()) {
+            // Also check staleness in background
+            checkAndRefreshIfStale(start, end)
+            return Pair(cached, false)
+        }
+
+        // No cache: fetch skeleton for immediate display
+        val skeletonResult = dualisLectureService.getWeeklySkeletonForWeek(start, end)
+        val skeleton = if (skeletonResult.isSuccess) skeletonResult.getOrNull().orEmpty() else emptyList()
+
+        // Kick off background full fetch + save
+        refreshLecturesInBackground(start, end)
+
+        return Pair(skeleton, true)
+    }
+
+    /**
      * Get lectures from database within a given date range. e.G. for a given week.
      * First checks the database. If empty, fetches from Dualis.
      * If database has data but it's older than 3 days, returns cached data but triggers background refresh.
@@ -258,4 +284,3 @@ class LectureService(
         }
     }
 }
-
