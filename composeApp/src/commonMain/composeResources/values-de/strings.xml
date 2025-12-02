@@ -129,5 +129,9 @@
     <string name="settings_title">Einstellungen</string>
     <string name="coming_soon">Demnächst verfügbar...</string>
     <string name="logout">Abmelden</string>
+
+    <!-- Grades Page -->
+    <string name="grades">Noten</string>
+    <string name="semester_gpa">Semester Schnitt</string>
 </resources>
 
