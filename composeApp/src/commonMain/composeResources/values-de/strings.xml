@@ -63,6 +63,7 @@
     <string name="location">Standort</string>
     <string name="no_lectures_this_week">In dieser Woche sind keine Vorlesungen geplant.</string>
     <string name="loading_lectures">Stundenplan wird geladen... Das kann ein paar Sekunden dauern. (Dualis ist Schuld!)</string>
+    <string name="loading_week_from_dualis">Woche wird aus Dualis geladen…</string>
     <string name="lecture_details">Vorlesungsdetails</string>
     <string name="subject">Fach</string>
     <string name="date">Datum</string>
@@ -141,4 +142,3 @@
     <string name="credits_earned">Credits erworben</string>
     <string name="modules_completed">Module abgeschlossen</string>
 </resources>
-

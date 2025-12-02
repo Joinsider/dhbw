@@ -117,30 +117,46 @@ class TimetableViewModel(
      * Load lectures for a specific week offset from current week.
      */
     private fun loadLecturesForWeek(weekOffset: Int) {
+        // Stage 1: set reloading to true, but keep weekly view visible
         uiState = uiState.copy(isLoading = true, error = null)
 
         coroutineScope.launch {
             try {
-                Napier.d("Loading lectures for week offset: $weekOffset", tag = TAG)
+                Napier.d("Loading lectures (staged) for week offset: $weekOffset", tag = TAG)
 
-                val lectureEntities = lectureService.getLecturesForWeek(weekOffset)
-                val lectureModels = lectureEntities.map { entity ->
-                    entity.toLectureModel()
-                }
-
+                val (lectures, isReloading) = lectureService.getLecturesForWeekStaged(weekOffset)
+                val lectureModels = lectures.map { entity -> entity.toLectureModel() }
                 val weekLabelData = generateWeekLabelData(weekOffset)
 
+                // Show whatever we have (cache or skeleton), disable navigation via isLoading flag
                 uiState = uiState.copy(
                     lectures = lectureModels,
                     weekLabelData = weekLabelData,
                     currentWeekOffset = weekOffset,
-                    isLoading = false,
+                    isLoading = isReloading,
                     error = null
                 )
 
-                Napier.d("Successfully loaded ${lectureModels.size} lectures for week $weekOffset", tag = TAG)
+                // If still reloading in background, poll/update once background fetch likely finished
+                if (isReloading) {
+                    // Simple follow-up: try fetching from DB after background refresh completes implicitly
+                    // Reuse existing service which returns DB data when available
+                    val fullLectures = lectureService.getLecturesForWeek(weekOffset, forceRefresh = false)
+                    val fullModels = fullLectures.map { it.toLectureModel() }
+
+                    // Only update if we're still on the same week
+                    if (currentWeekOffset == weekOffset) {
+                        uiState = uiState.copy(
+                            lectures = fullModels,
+                            isLoading = false,
+                            error = null
+                        )
+                    }
+                }
+
+                Napier.d("Staged load complete for week $weekOffset (lectures: ${uiState.lectures.size})", tag = TAG)
             } catch (e: Exception) {
-                Napier.e("Error loading lectures: ${e.message}", e, tag = TAG)
+                Napier.e("Error loading lectures (staged): ${e.message}", e, tag = TAG)
                 uiState = uiState.copy(
                     isLoading = false,
                     error = "Failed to load lectures: ${e.message}"
