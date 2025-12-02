@@ -141,4 +141,5 @@
     <string name="overall_gpa">Gesamt-Notenschnitt</string>
     <string name="credits_earned">Credits erworben</string>
     <string name="modules_completed">Module abgeschlossen</string>
+    <string name="login_required_for_grades">Bitte melde dich an, um deine Noten zu sehen.</string>
 </resources>

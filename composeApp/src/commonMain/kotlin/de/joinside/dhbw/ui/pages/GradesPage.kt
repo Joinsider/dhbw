@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import de.joinside.dhbw.data.storage.database.entities.grades.GradeEntity
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.grades
+import de.joinside.dhbw.resources.login_required_for_grades
 import de.joinside.dhbw.ui.grades.components.GpaSummaryCard
 import de.joinside.dhbw.ui.grades.components.GradeCard
 import de.joinside.dhbw.ui.grades.components.OverallStatsCard
@@ -48,6 +50,13 @@ fun GradesPage(
 ) {
     val uiState = viewModel?.uiState ?: GradesUiState()
     val hapticFeedback = LocalHapticFeedback.current
+
+    // If we were previously blocked due to missing login and the app is now logged in, try again once
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn && uiState.requiresLogin) {
+            viewModel?.loadSemesters()
+        }
+    }
 
     Scaffold(
         modifier = if (isMobilePlatform()) {
@@ -78,7 +87,18 @@ fun GradesPage(
                 .padding(paddingValues)
                 .padding(top = 20.dp)
         ) {
-            if (uiState.isLoading && uiState.grades.isEmpty()) {
+            if (uiState.requiresLogin && !isLoggedIn) {
+                // Friendly message instead of an error when not logged in
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(Res.string.login_required_for_grades),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            } else if (uiState.isLoading && uiState.grades.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
