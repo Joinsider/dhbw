@@ -23,6 +23,7 @@ kotlinxDatetime = "0.7.1"
 kotlinxDatetimeVersion = "0.7.1"
 materialIconsExtended = "1.7.3"
 napier = "2.7.1"
+okhttpDnsoverhttps = "5.3.2"
 robolectric = "4.16"
 room = "2.8.4"
 securityCrypto = "1.1.0"
@@ -55,6 +56,8 @@ kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.
 kotlinx-datetime-v040 = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetimeVersion" }
 material-icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
 napier = { module = "io.github.aakira:napier", version.ref = "napier" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttpDnsoverhttps" }
+okhttp-dnsoverhttps = { module = "com.squareup.okhttp3:okhttp-dnsoverhttps", version.ref = "okhttpDnsoverhttps" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
