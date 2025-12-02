@@ -21,11 +21,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import de.joinside.dhbw.data.storage.database.entities.grades.GradeEntity
 import de.joinside.dhbw.resources.Res
 import de.joinside.dhbw.resources.grades
 import de.joinside.dhbw.ui.grades.components.GpaSummaryCard
 import de.joinside.dhbw.ui.grades.components.GradeCard
+import de.joinside.dhbw.ui.grades.components.OverallStatsCard
+import de.joinside.dhbw.ui.grades.components.SemesterGroupCard
 import de.joinside.dhbw.ui.grades.components.SemesterSelector
+import de.joinside.dhbw.ui.grades.viewModels.ALL_SEMESTERS_ID
 import de.joinside.dhbw.ui.grades.viewModels.GradesUiState
 import de.joinside.dhbw.ui.grades.viewModels.GradesViewModel
 import de.joinside.dhbw.ui.navigation.BottomNavItem
@@ -136,14 +140,42 @@ fun GradesPage(
                             )
                         }
 
-                        if (uiState.semesterGpa != null) {
-                            item {
-                                GpaSummaryCard(gpa = uiState.semesterGpa)
+                        // Show different content based on selection
+                        if (uiState.selectedSemesterId == ALL_SEMESTERS_ID) {
+                            // Overview mode - show overall statistics
+                            if (uiState.overallGpa != null || uiState.totalCreditsEarned > 0) {
+                                item {
+                                    OverallStatsCard(
+                                        overallGpa = uiState.overallGpa,
+                                        totalCredits = uiState.totalCreditsEarned,
+                                        modulesCompleted = uiState.grades.count { it.grade != null }
+                                    )
+                                }
                             }
-                        }
 
-                        items(uiState.grades) { grade ->
-                            GradeCard(grade = grade)
+                            // Group grades by semester and show collapsible cards
+                            val gradesBySemester = uiState.grades.groupBy { it.semesterName }
+                            gradesBySemester.forEach { (semesterName, semesterGrades) ->
+                                item {
+                                    val semesterGpa = calculateSemesterGpa(semesterGrades)
+                                    SemesterGroupCard(
+                                        semesterName = semesterName,
+                                        grades = semesterGrades.sortedBy { it.moduleName },
+                                        semesterGpa = semesterGpa
+                                    )
+                                }
+                            }
+                        } else {
+                            // Single semester mode - show as before
+                            if (uiState.semesterGpa != null) {
+                                item {
+                                    GpaSummaryCard(gpa = uiState.semesterGpa)
+                                }
+                            }
+
+                            items(uiState.grades) { grade ->
+                                GradeCard(grade = grade)
+                            }
                         }
 
                         // Spacer for bottom padding to avoid overlapping with FAB or similar if added
@@ -154,5 +186,27 @@ fun GradesPage(
                 }
             }
         }
+    }
+}
+
+// Helper function to calculate GPA for a list of grades
+private fun calculateSemesterGpa(grades: List<GradeEntity>): Double? {
+    var totalWeightedPoints = 0.0
+    var totalCredits = 0.0
+
+    for (grade in grades) {
+        val gradeValueStr = grade.grade?.replace(",", ".")
+        val gradeValue = gradeValueStr?.toDoubleOrNull()
+
+        if (gradeValue != null && grade.credits > 0) {
+            totalWeightedPoints += gradeValue * grade.credits
+            totalCredits += grade.credits
+        }
+    }
+
+    return if (totalCredits > 0) {
+        totalWeightedPoints / totalCredits
+    } else {
+        null
     }
 }

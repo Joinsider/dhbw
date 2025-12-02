@@ -15,12 +15,19 @@ import kotlinx.coroutines.launch
 data class GradesUiState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
+    val isLoadingSemesters: Boolean = false,
     val semesters: Map<String, String> = emptyMap(), // Name -> ID
     val selectedSemesterId: String? = null,
     val grades: List<GradeEntity> = emptyList(),
     val semesterGpa: Double? = null,
-    val error: String? = null
+    val overallGpa: Double? = null, // GPA across all semesters
+    val totalCreditsEarned: Double = 0.0,
+    val error: String? = null,
+    val isDataFromCache: Boolean = false
 )
+
+// Special semester ID to indicate "All Semesters" view
+const val ALL_SEMESTERS_ID = "ALL_SEMESTERS_VIEW"
 
 class GradesViewModel(
     private val gradeService: DualisGradeService,
@@ -39,7 +46,7 @@ class GradesViewModel(
     }
 
     fun loadSemesters() {
-        uiState = uiState.copy(isLoading = true, error = null)
+        uiState = uiState.copy(isLoadingSemesters = true, error = null)
         coroutineScope.launch {
             try {
                 Napier.d("Loading semesters...", tag = TAG)
@@ -53,7 +60,7 @@ class GradesViewModel(
                     uiState = uiState.copy(
                         semesters = semesters,
                         selectedSemesterId = defaultSemesterId,
-                        isLoading = false
+                        isLoadingSemesters = false
                     )
 
                     if (defaultSemesterId != null) {
@@ -62,6 +69,7 @@ class GradesViewModel(
                 }.onFailure { e ->
                     Napier.e("Failed to load semesters: ${e.message}", e, tag = TAG)
                     uiState = uiState.copy(
+                        isLoadingSemesters = false,
                         isLoading = false,
                         error = "Failed to load semesters: ${e.message}"
                     )
@@ -69,6 +77,7 @@ class GradesViewModel(
             } catch (e: Exception) {
                 Napier.e("Error loading semesters: ${e.message}", e, tag = TAG)
                 uiState = uiState.copy(
+                    isLoadingSemesters = false,
                     isLoading = false,
                     error = "Error: ${e.message}"
                 )
@@ -77,46 +86,97 @@ class GradesViewModel(
     }
 
     fun selectSemester(semesterId: String) {
-        val semesterName = uiState.semesters.entries.find { it.value == semesterId }?.key ?: return
         uiState = uiState.copy(selectedSemesterId = semesterId)
-        loadGradesForSemester(semesterId, semesterName)
+
+        if (semesterId == ALL_SEMESTERS_ID) {
+            loadAllGrades()
+        } else {
+            val semesterName = uiState.semesters.entries.find { it.value == semesterId }?.key ?: return
+            loadGradesForSemester(semesterId, semesterName)
+        }
+    }
+
+    private fun loadAllGrades(forceRefresh: Boolean = false) {
+        uiState = uiState.copy(isLoading = !forceRefresh, isRefreshing = forceRefresh)
+        coroutineScope.launch {
+            try {
+                Napier.d("Loading grades for all semesters (forceRefresh: $forceRefresh)", tag = TAG)
+                val allGrades = mutableListOf<GradeEntity>()
+
+                // Load grades for each semester
+                for ((semesterName, semesterId) in uiState.semesters) {
+                    val result = gradeService.getGradesForSemester(
+                        semesterId = semesterId,
+                        semesterName = semesterName,
+                        forceRefresh = forceRefresh
+                    )
+                    result.onSuccess { grades ->
+                        allGrades.addAll(grades)
+                    }.onFailure { e ->
+                        Napier.w("Failed to load grades for $semesterName: ${e.message}", tag = TAG)
+                    }
+                }
+
+                // Calculate overall statistics
+                val overallGpa = calculateGpa(allGrades)
+                val totalCredits = allGrades.filter { it.grade != null }.sumOf { it.credits }
+
+                uiState = uiState.copy(
+                    grades = allGrades.sortedWith(
+                        compareByDescending<GradeEntity> { it.semesterName }
+                            .thenBy { it.moduleName }
+                    ),
+                    overallGpa = overallGpa,
+                    semesterGpa = null, // Clear single semester GPA
+                    totalCreditsEarned = totalCredits,
+                    isLoading = false,
+                    isRefreshing = false,
+                    error = null
+                )
+            } catch (e: Exception) {
+                Napier.e("Error loading all grades: ${e.message}", e, tag = TAG)
+                uiState = uiState.copy(
+                    isLoading = false,
+                    isRefreshing = false,
+                    error = "Error: ${e.message}"
+                )
+            }
+        }
     }
 
     fun refreshGrades() {
         val semesterId = uiState.selectedSemesterId ?: return
-        val semesterName = uiState.semesters.entries.find { it.value == semesterId }?.key ?: return
-        
-        uiState = uiState.copy(isRefreshing = true)
-        loadGradesForSemester(semesterId, semesterName, isRefresh = true)
+
+        Napier.d("Force refreshing grades (pull-to-refresh)", tag = TAG)
+
+        if (semesterId == ALL_SEMESTERS_ID) {
+            loadAllGrades(forceRefresh = true)
+        } else {
+            val semesterName = uiState.semesters.entries.find { it.value == semesterId }?.key ?: return
+            loadGradesForSemester(semesterId, semesterName, isRefresh = true)
+        }
     }
 
     private fun loadGradesForSemester(semesterId: String, semesterName: String, isRefresh: Boolean = false) {
+        // Set loading state appropriately
+        uiState = if (isRefresh) {
+            uiState.copy(isRefreshing = true)
+        } else {
+            uiState.copy(isLoading = true)
+        }
+
         coroutineScope.launch {
             try {
                 Napier.d("Loading grades for semester: $semesterName ($semesterId), isRefresh: $isRefresh", tag = TAG)
                 
-                // 1. Load from DB first if not forcing refresh
-                if (!isRefresh) {
-                    // Note: We assume studentId is handled implicitly or we need to get it.
-                    // For now, GradeDao needs studentId. 
-                    // Since we don't have easy access to studentId in VM without SessionManager,
-                    // we might iterate all or rely on the service to handle the caching logic better.
-                    // However, DualisGradeService.getGradesForSemester fetches from network.
-                    // We should probably add a 'getGradesFromDb' method to service or use DAO directly 
-                    // but we need the studentID.
-                    
-                    // Let's assume for this iteration we fetch from network mostly, 
-                    // OR we try to fetch from DB if we knew the student ID.
-                    // But wait, DualisGradeService uses the stored credentials to get studentID.
-                    // Let's trust the service to do the work for now, but we want to be fast.
-                    // ideally we would show cached data first.
-                }
+                // Call the service with forceRefresh flag
+                // When isRefresh is true (pull-to-refresh), we force reload from network
+                val result = gradeService.getGradesForSemester(
+                    semesterId = semesterId,
+                    semesterName = semesterName,
+                    forceRefresh = isRefresh
+                )
 
-                // For now, we'll just call the service which does the network request.
-                // Optimization: The service *could* return flow or we could add a DB fetch here if we had studentId.
-                
-                val result = gradeService.getGradesForSemester(semesterId, semesterName)
-                
                 result.onSuccess { grades ->
                     val gpa = calculateGpa(grades)
                     uiState = uiState.copy(

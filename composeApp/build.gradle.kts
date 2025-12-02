@@ -44,6 +44,7 @@ kotlin {
             implementation(libs.androidx.security.crypto)
             implementation(libs.androidx.work.runtime.ktx)
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.dnsjava)
         }
         commonMain.dependencies {
             implementation(compose.runtime)

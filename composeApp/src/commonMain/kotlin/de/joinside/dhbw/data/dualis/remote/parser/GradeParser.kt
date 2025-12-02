@@ -55,7 +55,7 @@ class GradeParser {
             for (rowMatch in rowPattern.findAll(htmlContent)) {
                 val rowHtml = rowMatch.groupValues[1]
 
-                if (rowHtml.contains("<th", ignoreCase = true)) {
+                if (rowHtml.contains("<th", ignoreCase = true) || rowHtml.contains("<td class=\"tbsubhead\"", ignoreCase = true)) {
                     // Skip header/footer rows like "Semester-GPA"
                     continue
                 }

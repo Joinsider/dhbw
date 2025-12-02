@@ -135,5 +135,10 @@
     <string name="semester_gpa">Semester Schnitt</string>
     <string name="status_unknown">Status unbekannt</string>
     <string name="combined_page">Alle</string>
+    <string name="all_semesters">Alle</string>
+    <string name="overall_statistics">Gesamtstatistik</string>
+    <string name="overall_gpa">Gesamt-Notenschnitt</string>
+    <string name="credits_earned">Credits erworben</string>
+    <string name="modules_completed">Module abgeschlossen</string>
 </resources>
 
