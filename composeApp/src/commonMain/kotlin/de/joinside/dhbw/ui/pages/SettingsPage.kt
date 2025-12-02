@@ -77,16 +77,16 @@ fun SettingsPage(
                     .fillMaxSize()
                     .padding(16.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.Top,
+                verticalArrangement = Arrangement.SpaceEvenly,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = stringResource(Res.string.settings_title),
-                    style = MaterialTheme.typography.headlineLarge,
+                    style = MaterialTheme.typography.headlineLargeEmphasized,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier
                         .testTag("settingsPageTitle")
-                        .padding(top = 16.dp, bottom = 24.dp)
+                        .padding(/*top = 16.dp,*/ bottom = 24.dp)
                 )
 
                 // Design Selection Card
