@@ -103,11 +103,11 @@ kotlin {
 }
 
 android {
-    namespace = "de.joinside.dhbw"
+    namespace = "de.fampopprol.dhbwhorb"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "de.joinside.dhbw"
+        applicationId = "de.fampopprol.dhbwhorb"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 16
@@ -171,7 +171,7 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "de.joinside.dhbw.MainKt"
+        mainClass = "de.fampopprol.dhbw.MainKt"
 
         buildTypes.release.proguard {
             isEnabled.set(false)
@@ -179,7 +179,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "dhbw-next"
+            packageName = "dhbw-horb-student-app"
             packageVersion = "1.0.13"
             modules(
                 "java.base",
@@ -200,7 +200,7 @@ compose.desktop {
             }
             macOS {
                 iconFile.set(project.file("icon.icns"))
-                bundleID = "de.joinside.dhbw"
+                bundleID = "de.fampopprol.dhbw"
                 // For Mac App Store, you'll need to configure signing:
                 // signing {
                 //     sign.set(true)
@@ -217,7 +217,7 @@ compose.desktop {
 
 
 compose.resources {
-    packageOfResClass = "de.joinside.dhbw.resources"
+    packageOfResClass = "de.fampopprol.dhbw.resources"
     publicResClass = true
     generateResClass = always
 }
@@ -258,8 +258,8 @@ kover {
                 packages(
                     "*.generated.*",
                     "*.BuildConfig",
-                    "de.joinside.dhbw.resources",           // Compose-generated resources
-                    "de.joinside.dhbw.*_Impl",              // Room _Impl classes
+                    "de.fampopprol.dhbw.resources",           // Compose-generated resources
+                    "de.fampopprol.dhbw.*_Impl",              // Room _Impl classes
                 )
                 annotatedBy(
                     "androidx.room.Database",
@@ -280,14 +280,14 @@ kover {
 
 // Custom fat JAR task - simple and reliable
 val packageFatJar by tasks.registering(Jar::class) {
-    archiveBaseName.set("dhbw-next")
+    archiveBaseName.set("dhbw-horb-student-app")
     archiveVersion.set("1.0.13")
     archiveClassifier.set("all")
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     manifest {
-        attributes["Main-Class"] = "de.joinside.dhbw.MainKt"
+        attributes["Main-Class"] = "de.fampopprol.dhbw.MainKt"
     }
 
     // Get desktop compilation

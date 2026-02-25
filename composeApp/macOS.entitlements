@@ -17,7 +17,7 @@
     <!-- Keychain Access -->
     <key>keychain-access-groups</key>
     <array>
-        <string>$(AppIdentifierPrefix)de.joinside.dhbw</string>
+        <string>$(AppIdentifierPrefix)de.fampopprol.dhbw</string>
     </array>
 </dict>
 </plist>

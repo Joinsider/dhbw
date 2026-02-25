@@ -1,0 +1,219 @@
+package de.fampopprol.dhbwhorb.ui.pages
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.dp
+import de.fampopprol.dhbwhorb.resources.Res
+import de.fampopprol.dhbwhorb.resources.april_short
+import de.fampopprol.dhbwhorb.resources.august_short
+import de.fampopprol.dhbwhorb.resources.december_short
+import de.fampopprol.dhbwhorb.resources.error_loading_lectures
+import de.fampopprol.dhbwhorb.resources.february_short
+import de.fampopprol.dhbwhorb.resources.january_short
+import de.fampopprol.dhbwhorb.resources.july_short
+import de.fampopprol.dhbwhorb.resources.june_short
+import de.fampopprol.dhbwhorb.resources.march_short
+import de.fampopprol.dhbwhorb.resources.may_short
+import de.fampopprol.dhbwhorb.resources.november_short
+import de.fampopprol.dhbwhorb.resources.october_short
+import de.fampopprol.dhbwhorb.resources.september_short
+import de.fampopprol.dhbwhorb.resources.this_week
+import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
+import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
+import de.fampopprol.dhbwhorb.ui.schedule.modules.dialogs.LectureDetailsDialog
+import de.fampopprol.dhbwhorb.ui.schedule.models.LectureModel
+import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableUiState
+import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
+import de.fampopprol.dhbwhorb.ui.schedule.viewModels.WeekLabelData
+import de.fampopprol.dhbwhorb.ui.schedule.views.WeeklyLecturesView
+import de.fampopprol.dhbwhorb.util.isMobilePlatform
+import kotlinx.datetime.Month
+import org.jetbrains.compose.resources.InternalResourceApi
+import org.jetbrains.compose.resources.stringResource
+
+@OptIn(ExperimentalMaterial3Api::class, InternalResourceApi::class,
+    ExperimentalMaterial3ExpressiveApi::class
+)
+@Composable
+fun TimetablePage(
+    viewModel: TimetableViewModel? = null,
+    onNavigateToGrades: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
+    isLoggedIn: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    val uiState = viewModel?.uiState ?: TimetableUiState()
+
+    // State for selected lecture dialog
+    var selectedLecture by remember { mutableStateOf<LectureModel?>(null) }
+
+    val hapticFeedback = LocalHapticFeedback.current
+
+    //  lectures when page is displayed
+    LaunchedEffect(Unit) {
+        viewModel?.loadLecturesForCurrentWeek()
+    }
+
+    Scaffold(
+        modifier = if (isMobilePlatform()) {
+            modifier.statusBarsPadding()
+        } else {
+            modifier
+        },
+        bottomBar = {
+            if (isLoggedIn) {
+                BottomNavigationBar(
+                    currentItem = BottomNavItem.TIMETABLE,
+                    onItemSelected = { item ->
+                        when (item) {
+                            BottomNavItem.TIMETABLE -> { /* Already here */ }
+                            BottomNavItem.GRADES -> onNavigateToGrades()
+                            BottomNavItem.SETTINGS -> onNavigateToSettings()
+                        }
+                    }
+                )
+            }
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = paddingValues.calculateBottomPadding())
+        ) {
+            // Always show weekly grid; use isRefreshing/isReloading to disable interactions and show message
+            val weekLabel = uiState.weekLabelData?.let { data ->
+                formatWeekLabel(data)
+            } ?: stringResource(Res.string.this_week)
+
+            val isBusy = uiState.isRefreshing || uiState.isLoading
+
+            if (isMobilePlatform()) {
+                PullToRefreshBox(
+                    isRefreshing = uiState.isRefreshing,
+                    onRefresh = { viewModel?.refreshLectures() },
+                    modifier = Modifier.fillMaxSize(),
+                    indicator = {
+                        if (uiState.isRefreshing) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 58.dp),
+                                contentAlignment = Alignment.TopCenter
+                            ) {
+                                LoadingIndicator()
+                            }
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                        }
+                    }
+                ) {
+                    WeeklyLecturesView(
+                        lectures = uiState.lectures,
+                        weekLabel = weekLabel,
+                        onPreviousWeek = { viewModel?.goToPreviousWeek() },
+                        onNextWeek = { viewModel?.goToNextWeek() },
+                        onWeekLabelClick = {
+                            if (uiState.currentWeekOffset != 0) viewModel?.loadLecturesForCurrentWeek()
+                        },
+                        onLectureClick = { lecture -> selectedLecture = lecture },
+                        onRefresh = { viewModel?.refreshLectures() },
+                        isRefreshing = isBusy,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            } else {
+                WeeklyLecturesView(
+                    lectures = uiState.lectures,
+                    weekLabel = weekLabel,
+                    onPreviousWeek = { viewModel?.goToPreviousWeek() },
+                    onNextWeek = { viewModel?.goToNextWeek() },
+                    onWeekLabelClick = {
+                        if (uiState.currentWeekOffset != 0) viewModel?.loadLecturesForCurrentWeek()
+                    },
+                    onLectureClick = { lecture -> selectedLecture = lecture },
+                    onRefresh = { viewModel?.refreshLectures() },
+                    isRefreshing = isBusy,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            // Error banner (non-blocking)
+            if (uiState.error != null) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Text(
+                        text = stringResource(Res.string.error_loading_lectures),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+
+            // Show lecture details dialog when a lecture is selected
+            selectedLecture?.let { lecture ->
+                LectureDetailsDialog(
+                    lecture = lecture,
+                    onDismiss = { selectedLecture = null }
+                )
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+        }
+    }
+}
+
+/**
+ * Format WeekLabelData into a localized string.
+ * Examples: "04 - 08 Nov" or "28 Nov - 02 Dec"
+ */
+@Composable
+private fun formatWeekLabel(data: WeekLabelData): String {
+    val mondayMonthStr = stringResource(getMonthResource(data.mondayMonth))
+    val fridayMonthStr = stringResource(getMonthResource(data.fridayMonth))
+
+    return if (data.mondayMonth == data.fridayMonth) {
+        // Same month: "04 - 08 Nov"
+        "${data.mondayDay.toString().padStart(2, '0')} - ${data.fridayDay.toString().padStart(2, '0')} $mondayMonthStr"
+    } else {
+        // Different months: "28 Nov - 02 Dec"
+        "${data.mondayDay.toString().padStart(2, '0')} $mondayMonthStr - ${data.fridayDay.toString().padStart(2, '0')} $fridayMonthStr"
+    }
+}
+
+/**
+ * Map Month enum to string resource.
+ */
+private fun getMonthResource(month: Month) = when (month) {
+    Month.JANUARY -> Res.string.january_short
+    Month.FEBRUARY -> Res.string.february_short
+    Month.MARCH -> Res.string.march_short
+    Month.APRIL -> Res.string.april_short
+    Month.MAY -> Res.string.may_short
+    Month.JUNE -> Res.string.june_short
+    Month.JULY -> Res.string.july_short
+    Month.AUGUST -> Res.string.august_short
+    Month.SEPTEMBER -> Res.string.september_short
+    Month.OCTOBER -> Res.string.october_short
+    Month.NOVEMBER -> Res.string.november_short
+    Month.DECEMBER -> Res.string.december_short
+}

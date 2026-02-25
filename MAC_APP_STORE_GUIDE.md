@@ -54,7 +54,7 @@ The macOS app configuration is in `composeApp/build.gradle.kts`:
 ```kotlin
 compose.desktop {
     application {
-        mainClass = "de.joinside.dhbw.MainKt"
+        mainClass = "de.fampopprol.dhbw.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Pkg)
@@ -63,7 +63,7 @@ compose.desktop {
 
             macOS {
                 iconFile.set(project.file("icon.icns"))
-                bundleID = "de.joinside.dhbw"
+                bundleID = "de.fampopprol.dhbw"
                 
                 // Configure for App Store submission:
                 signing {

@@ -267,7 +267,7 @@ Use Xcode Instruments or JProfiler with:
 5. Or use Run Configurations:
    - Run → Edit Configurations
    - Add new "Kotlin" configuration
-   - Main class: `de.joinside.dhbw.MainKt`
+   - Main class: `de.fampopprol.dhbw.MainKt`
    - Module: `composeApp.desktopMain`
 
 ### VS Code with Kotlin plugin

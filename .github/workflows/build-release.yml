@@ -305,10 +305,10 @@ jobs:
           VERSION="${{ needs.create-release.outputs.version }}"
           ORIGINAL_APK="${{ steps.find-apk.outputs.apk_file }}"
           APK_DIR=$(dirname "$ORIGINAL_APK")
-          RENAMED_APK="$APK_DIR/dhbw-next-$VERSION.apk"
+          RENAMED_APK="$APK_DIR/dhbw-student-app-release-v$VERSION.apk"
           cp "$ORIGINAL_APK" "$RENAMED_APK"
           echo "renamed_apk=$RENAMED_APK" >> $GITHUB_OUTPUT
-          echo "renamed_apk_name=dhbw-next-$VERSION.apk" >> $GITHUB_OUTPUT
+          echo "renamed_apk_name=dhbw-student-app-release-v$VERSION.apk" >> $GITHUB_OUTPUT
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -371,7 +371,7 @@ jobs:
           VERSION="${{ needs.create-release.outputs.version }}"
           ORIGINAL_AAB="${{ steps.find-aab.outputs.aab_file }}"
           AAB_DIR=$(dirname "$ORIGINAL_AAB")
-          RENAMED_AAB="$AAB_DIR/dhbw-next-$VERSION.aab"
+          RENAMED_AAB="$AAB_DIR/dhbw-student-app-release-v$VERSION.aab"
           cp "$ORIGINAL_AAB" "$RENAMED_AAB"
           echo "renamed_aab=$RENAMED_AAB" >> $GITHUB_OUTPUT
 
@@ -404,7 +404,7 @@ jobs:
         id: find-downloaded-msi
         shell: pwsh
         run: |
-          $msi = Get-ChildItem -Path "./msi-download" -Filter "dhbw-next-*.msi" -File | Select-Object -First 1
+          $msi = Get-ChildItem -Path "./msi-download" -Filter "*.msi" -File | Select-Object -First 1
           if (-not $msi) {
             throw "No MSI found in downloaded artifacts"
           }
@@ -588,7 +588,7 @@ jobs:
           $makeAppx = "${{ steps.find-sdk.outputs.makeappx_path }}"
           $packageDir = "msix-package-final"
           $version = "${{ needs.create-release.outputs.version }}"
-          $outputMsix = "dhbw-next-$version.msix"
+          $outputMsix = "dhbw-student-app-release-v$version.msix"
 
           Write-Host "Creating MSIX package: $outputMsix"
           & $makeAppx pack /d $packageDir /p $outputMsix /v
@@ -603,7 +603,7 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ needs.create-release.outputs.version }}"
-          $msixFile = "dhbw-next-$version.msix"
+          $msixFile = "dhbw-student-app-release-v$version.msix"
           
           Write-Host "================================================"
           Write-Host "Skipping self-signing for Microsoft Store submission"
@@ -642,7 +642,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: msix-windows
-          path: dhbw-next-${{ needs.create-release.outputs.version }}.msix
+          path: dhbw-student-app-release-v${{ needs.create-release.outputs.version }}.msix
           retention-days: 1
 
   clean-release:

@@ -10,10 +10,10 @@
 -dontwarn com.google.errorprone.annotations.RestrictedApi
 
 # Keep DualisApplication and all its members (accessed via reflection in SecureStorage)
--keep class de.joinside.dhbw.DualisApplication {
+-keep class de.fampopprol.dhbwhorb.DualisApplication {
     *;
 }
--keep class de.joinside.dhbw.DualisApplication$Companion {
+-keep class de.fampopprol.dhbwhorb.DualisApplication$Companion {
     *;
 }
 
@@ -24,19 +24,19 @@
 -keepclassmembers class **_Impl { *; }
 
 # Keep all Room generated classes - more specific patterns
--keep class de.joinside.dhbw.data.storage.database.AppDatabase_Impl { *; }
+-keep class de.fampopprol.dhbwhorb.data.storage.database.AppDatabase_Impl { *; }
 -keep class * extends androidx.room.RoomDatabase { *; }
 -keep @androidx.room.Database class * { *; }
 -keep @androidx.room.Entity class * { *; }
 -keep @androidx.room.Dao class * { *; }
 
 # Keep Room-generated DAOs
--keep interface de.joinside.dhbw.data.storage.database.** { *; }
--keep class de.joinside.dhbw.data.storage.database.**_Impl { *; }
+-keep interface de.fampopprol.dhbwhorb.data.storage.database.** { *; }
+-keep class de.fampopprol.dhbwhorb.data.storage.database.**_Impl { *; }
 
 # Keep your specific application data classes
--keep class de.joinside.dhbw.data.** { *; }
--keepclassmembers class de.joinside.dhbw.data.** { *; }
+-keep class de.fampopprol.dhbwhorb.data.** { *; }
+-keepclassmembers class de.fampopprol.dhbwhorb.data.** { *; }
 
 # Keep Room runtime
 -keep class androidx.room.** { *; }
