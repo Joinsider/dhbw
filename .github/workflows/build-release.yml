@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - test-build
   # -- Manual trigger -----------------------------------------------------------
   # Optionally supply a new semantic version (e.g. "1.2.3") to bump versionName
   # before building.  Leave empty to release whatever version is already in main.
