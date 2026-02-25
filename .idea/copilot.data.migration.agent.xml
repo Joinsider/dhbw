@@ -9,10 +9,13 @@
       <option value="0c2c1084-e1f2-411d-a50b-18c6ea67e4de" />
       <option value="11042665-ca16-4bd6-bd64-6c3e916b9a46" />
       <option value="16a652e8-db45-4cb9-8dcf-3417bc42f056" />
+      <option value="1ddd9f86-9e3c-470e-877d-a84b9e13002f" />
       <option value="24add5c8-e03b-4776-bcdc-703b940e20df" />
       <option value="28a5b30d-4194-4a07-a765-39a858a18675" />
+      <option value="2a459f84-1f07-4841-a014-c9b02352588d" />
       <option value="38f3d2a1-695b-4f54-be64-e10c13e8aa0d" />
       <option value="38fecf4e-5b95-47e7-ba85-277e512975df" />
+      <option value="3d257d59-1ef2-4de6-8a53-45cdebb6abc3" />
       <option value="3ea483f5-6de5-4fba-8367-2678a210703e" />
       <option value="3f30af0f-0ee1-4495-a45b-e7e9192edc19" />
       <option value="4198dc32-082a-4fca-8336-38c1fc81eacb" />
@@ -22,20 +25,28 @@
       <option value="4c460514-4dd3-4993-bb04-59f2c60acb63" />
       <option value="4d5f9f92-7089-4156-a33f-d07e0ebbb561" />
       <option value="51eec56f-0f76-44ab-acad-ce74a70dba2a" />
+      <option value="54aa28a3-62b2-467a-806d-3e0810c150fc" />
       <option value="5662dbe8-55e2-4792-91e5-93d1a281cded" />
       <option value="5b40ad54-6146-49aa-bb9f-6bf070f346d7" />
       <option value="5d1a3d70-06f2-46cc-b42b-d4355190f8f4" />
+      <option value="5da9428f-4fe6-410c-9978-57f31e39e4c7" />
       <option value="5f1aa24f-73d9-4226-9bc4-10b7fc84a783" />
       <option value="65147d4a-a5a4-4dce-b0e2-160a3b8cff08" />
       <option value="66d1fc39-7c27-4402-a868-29d0a6018074" />
+      <option value="72257794-b68b-44ea-b4f1-6ec6eea41105" />
       <option value="727fd428-7256-4f03-9385-280c075af8e4" />
+      <option value="7f3b4cf1-a25c-4d89-af78-4d2fddb47fb6" />
       <option value="8433d108-f513-4271-9253-fb44dbe2e3b4" />
+      <option value="8a1f3eeb-92fd-4b73-868a-11028670a74d" />
       <option value="8db0e674-4694-4fed-b1a6-60bfb0ce56ce" />
       <option value="8e817712-2877-4cf4-9024-de4baf1cfdd7" />
       <option value="93edcfa0-75c2-4895-b1e8-3ed20166ba33" />
       <option value="95bf4f6e-4661-4530-98b0-e79395cf8320" />
       <option value="971d683a-fa60-44aa-94cb-a01ddbcf1ffe" />
+      <option value="a1fe6074-feb1-4ddf-8736-7a10c624cc34" />
+      <option value="a6b355b1-8cd5-4baf-8319-29b103aee89e" />
       <option value="a9a9ffaf-8524-4629-b451-42be7c0be60b" />
+      <option value="aa42c11d-ffb6-4d3a-8965-45c8ee733d31" />
       <option value="ab829af7-8cd4-4bb1-b4e2-32bc9c485b2c" />
       <option value="af5d5ab8-5c52-401c-a560-1fe9821e3477" />
       <option value="b31c9ccb-8b9c-4042-abfd-933e51b18e3a" />
@@ -45,6 +56,7 @@
       <option value="b9465c38-fcc7-4ac7-ba5a-3d500b8eca99" />
       <option value="bb936c94-dc91-47ca-8fc7-6e8c81566d61" />
       <option value="bbcc5032-a92f-4012-8ed2-049ac8c3db0e" />
+      <option value="bdc52601-f864-4305-8673-d522b24481fe" />
       <option value="c2d2e097-ff68-4416-8ec2-c796695a4169" />
       <option value="c57900b3-7baf-4452-8898-03cc566e3de1" />
       <option value="c5ae9345-1160-41b0-ae9d-7de60e54b06d" />
@@ -56,14 +68,20 @@
       <option value="db0eedb2-b534-4a9f-8f35-2398ea295ad7" />
       <option value="e01fd4f6-d408-4567-a347-bb5d732ea1f1" />
       <option value="e0faaef4-9033-4ca8-91d9-2b52bc65e0a3" />
+      <option value="e42aaecf-fc52-4863-9c87-0bc01b367a65" />
       <option value="e4cc6da8-918a-408f-9eca-a802c0803c41" />
       <option value="e63185ad-616d-4fb5-b535-927d5f092d45" />
       <option value="e6b562fd-d7f0-4fc3-b893-9eaf4df33a77" />
       <option value="e7e5f4f0-f710-4eb7-820f-b1e076c1ad0d" />
       <option value="e9bb2157-5bb1-47f4-8377-e6b7d8cea374" />
+      <option value="ec8d0cbd-4b76-460f-b396-2ba95b1c5f7f" />
       <option value="f2d399f7-0704-45c3-91c7-8e8b48bf6308" />
       <option value="f3274413-1640-4662-8192-5582c8005d2c" />
+      <option value="f4d2f766-09d5-4dcc-bf99-ae944defe1fa" />
       <option value="f9700b50-4585-4555-ace4-0daa05578b38" />
+      <option value="fb35afd2-b39d-4471-b6da-3ca57a47b729" />
+      <option value="fb77cb09-1ea3-4483-a860-c573b4bf8f37" />
+      <option value="fdd379f5-425d-430b-8b18-fe1f75aeab82" />
       <option value="fdf553fa-72f7-465f-bbc5-db68165cecf8" />
       <option value="fe1b395d-8325-4f70-afa0-4ede715b3597" />
     </option>
@@ -734,12 +752,7 @@
       </map>
     </option>
     <pendingWorkingSetItems>
-      <entry key="4a69ac80-833a-47b9-a906-66547471ce4c">
-        <set>
-          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/MainActivity.kt" />
-          <option value="file://$PROJECT_DIR$/app/src/main/java/de/fampopprol/dhbwhorb/ui/screen/MainScreen.kt" />
-        </set>
-      </entry>
+      <entry key="4a69ac80-833a-47b9-a906-66547471ce4c" />
       <entry key="971d683a-fa60-44aa-94cb-a01ddbcf1ffe" />
       <entry key="ab829af7-8cd4-4bb1-b4e2-32bc9c485b2c" />
     </pendingWorkingSetItems>

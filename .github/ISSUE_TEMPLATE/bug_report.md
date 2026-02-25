@@ -1,3 +1,7 @@
+#  SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 ---
 name: Bug report
 about: Create a report to help us improve

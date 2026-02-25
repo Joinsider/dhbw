@@ -78,7 +78,7 @@ class DualisScheduleService(
             return
         }
 
-        getWeeklyScheduleWithRetry(targetDate, callback, retryCount = 0, rateLimitRetry = 0)
+        getWeeklyScheduleWithRetry(targetDate, callback,  0,  0)
     }
 
     private fun getWeeklyScheduleWithRetry(
