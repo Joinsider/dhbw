@@ -1,0 +1,24 @@
+Origin: DHBW Next
+Label: DHBW Next Repository
+Suite: stable
+Codename: stable
+Architectures: amd64
+Components: main
+Description: DHBW Next Kotlin Multiplatform Application
+Date: Thu, 20 Nov 2025 12:18:21 +0000
+MD5Sum:
+ 94d06c13afd4ef8fc0b0fcec298b7e93              209 Release
+ 4419ed55a00cc153ae9839ae8c8d02ef              786 main/binary-amd64/Packages
+ 3b3d0e7d84d35117bde86bd554f8327c              509 main/binary-amd64/Packages.gz
+SHA1:
+ 3c455829d1177cb1d38b8caaedf2a2ad693f9366              209 Release
+ 050e001372bfc511abdb4036069111fec1145067              786 main/binary-amd64/Packages
+ a8fe98f610b1f34a689a870e9bf6bf2690fc212f              509 main/binary-amd64/Packages.gz
+SHA256:
+ bb2783082d2e425138ae6d20bf4d29c79e42bcd7ccd9ce3a018acf6cb989d556              209 Release
+ 9a5bd662191bddc4cd9bd5f3ac76c1ccf6d9ecff0713d062832d36070beebaac              786 main/binary-amd64/Packages
+ 7f4f19cb476a301ddb20696c78660eed7bda2f05ca4ef0297f75f26cc6557918              509 main/binary-amd64/Packages.gz
+SHA512:
+ ec0c01e92d0671591c7bd2658e661236474831216680dca33c0149847f6ee10cfbf97a0a204ce29d95e685c204bff52b5afac09d706271ecaad998574722103f              209 Release
+ 1b3836e6460c840ad332cb48e3a3d2b8e44efc7d5f57ad894a6649afe0e076d8830fc8c84593be87bc1ca92a7c397a3ff1a9f1b29e9dc17bd962e427b4450b30              786 main/binary-amd64/Packages
+ f7dcea9d19bcd710f2c35baa04415bf1d03fcfaf0f36c8f72833360dbb78003f9de6550927f36f76b081809a4f43ec0bce23eb11ad017ad26f063fbcbed59d58              509 main/binary-amd64/Packages.gz
