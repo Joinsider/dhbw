@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - test-build
   # -- Manual trigger -----------------------------------------------------------
   # Choose how the version should be incremented before building.
   # On a push/merge the default (patch) is used automatically.
