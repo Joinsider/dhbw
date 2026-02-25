@@ -10,6 +10,7 @@ plugins {
     alias(libs.plugins.composeHotReload)
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
+    alias(libs.plugins.kover)
 }
 
 kotlin {
@@ -223,6 +224,58 @@ compose.resources {
 
 room {
     schemaDirectory("$projectDir/schemas")
+}
+
+// ─── Kover — KMP-unified coverage ────────────────────────────────────────────
+kover {
+    currentProject {
+        // Instrument both Android (debug) and Desktop (JVM) compilations.
+        // iOS / macOS native targets are skipped because they require an Apple
+        // runner and cannot produce JVM bytecode for instrumentation.
+        createVariant("kmpCoverage") {
+            addWithDependencies("debug")        // Android debug unit tests
+            addWithDependencies("desktop")      // Desktop / JVM tests
+        }
+    }
+
+    reports {
+        variant("kmpCoverage") {
+            // XML consumed by SonarCloud
+            xml {
+                onCheck = false
+                xmlFile = layout.buildDirectory.file("reports/kover/report.xml")
+            }
+            // Human-readable HTML report uploaded as a CI artefact
+            html {
+                onCheck = false
+                htmlDir = layout.buildDirectory.dir("reports/kover/html")
+            }
+        }
+
+        filters {
+            excludes {
+                // Room-generated DAOs / databases
+                packages(
+                    "*.generated.*",
+                    "*.BuildConfig",
+                    "de.joinside.dhbw.resources",           // Compose-generated resources
+                    "de.joinside.dhbw.*_Impl",              // Room _Impl classes
+                )
+                annotatedBy(
+                    "androidx.room.Database",
+                    "androidx.room.Dao",
+                )
+                // Build-config and generated source trees
+                classes(
+                    "*_Factory",
+                    "*_MembersInjector",
+                    "*.BuildConfig",
+                    "Manifest*",
+                    "*.ComposableSingletons*",
+                )
+            }
+        }
+    }
 }
 
 // Custom fat JAR task - simple and reliable
