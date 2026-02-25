@@ -111,7 +111,7 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 16
-        versionName = "v1.0.15"
+        versionName = "v2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -171,7 +171,7 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "de.fampopprol.dhbw.MainKt"
+        mainClass = "de.fampopprol.dhbwhorb.MainKt"
 
         buildTypes.release.proguard {
             isEnabled.set(false)
@@ -217,7 +217,7 @@ compose.desktop {
 
 
 compose.resources {
-    packageOfResClass = "de.fampopprol.dhbw.resources"
+    packageOfResClass = "de.fampopprol.dhbwhorb.resources"
     publicResClass = true
     generateResClass = always
 }
@@ -258,8 +258,8 @@ kover {
                 packages(
                     "*.generated.*",
                     "*.BuildConfig",
-                    "de.fampopprol.dhbw.resources",           // Compose-generated resources
-                    "de.fampopprol.dhbw.*_Impl",              // Room _Impl classes
+                    "de.fampopprol.dhbwhorb.resources",           // Compose-generated resources
+                    "de.fampopprol.dhbwhorb.*_Impl",              // Room _Impl classes
                 )
                 annotatedBy(
                     "androidx.room.Database",
@@ -281,13 +281,13 @@ kover {
 // Custom fat JAR task - simple and reliable
 val packageFatJar by tasks.registering(Jar::class) {
     archiveBaseName.set("dhbw-horb-student-app")
-    archiveVersion.set("1.0.13")
+    archiveVersion.set("2.0.0")
     archiveClassifier.set("all")
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     manifest {
-        attributes["Main-Class"] = "de.fampopprol.dhbw.MainKt"
+        attributes["Main-Class"] = "de.fampopprol.dhbwhorb.MainKt"
     }
 
     // Get desktop compilation

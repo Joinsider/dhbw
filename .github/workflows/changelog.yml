@@ -1,0 +1,75 @@
+name: Add Fastlane Changelog
+
+# Run manually after a new release has been published.
+# The user supplies the changelog text in English and German via the
+# "Run workflow" dialog in the GitHub Actions UI.
+on:
+  workflow_dispatch:
+    inputs:
+      changelog_en:
+        description: 'Changelog text (English)'
+        required: true
+        type: string
+      changelog_de:
+        description: 'Changelog-Text (Deutsch)'
+        required: true
+        type: string
+
+jobs:
+  add-changelog:
+    name: Write fastlane changelogs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read versionCode from build.gradle.kts
+        id: version
+        run: |
+          VERSION_CODE=$(grep -m1 'versionCode' composeApp/build.gradle.kts \
+            | sed -E 's/.*versionCode\s*=\s*([0-9]+).*/\1/')
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "Detected versionCode: $VERSION_CODE"
+
+      - name: Write English changelog
+        env:
+          CHANGELOG: ${{ github.event.inputs.changelog_en }}
+        run: |
+          FILE="fastlane/metadata/android/en-US/changelogs/${{ steps.version.outputs.version_code }}.txt"
+          mkdir -p "$(dirname "$FILE")"
+          printf '%s\n' "$CHANGELOG" > "$FILE"
+          echo "Written $FILE:"
+          cat "$FILE"
+
+      - name: Write German changelog
+        env:
+          CHANGELOG: ${{ github.event.inputs.changelog_de }}
+        run: |
+          FILE="fastlane/metadata/android/de-DE/changelogs/${{ steps.version.outputs.version_code }}.txt"
+          mkdir -p "$(dirname "$FILE")"
+          printf '%s\n' "$CHANGELOG" > "$FILE"
+          echo "Written $FILE:"
+          cat "$FILE"
+
+      - name: Commit & push changelogs
+        run: |
+          VERSION_CODE="${{ steps.version.outputs.version_code }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add \
+            "fastlane/metadata/android/en-US/changelogs/$VERSION_CODE.txt" \
+            "fastlane/metadata/android/de-DE/changelogs/$VERSION_CODE.txt"
+          if git diff --cached --quiet; then
+            echo "Changelog files are already up to date — nothing to commit."
+          else
+            git commit -m "chore: add fastlane changelogs for versionCode $VERSION_CODE"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+
+

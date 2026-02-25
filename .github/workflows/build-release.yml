@@ -278,14 +278,14 @@ jobs:
 
       - name: Decode Keystore
         run: |
-          echo "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+          echo "${{ secrets.UPLOAD_KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
 
       - name: Build Signed APK
         env:
           SIGNING_KEYSTORE_PATH: ${{ github.workspace }}/keystore.jks
-          SIGNING_KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ vars.SIGNING_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ vars.UPLOAD_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
         run: ./gradlew :composeApp:assembleRelease
 
       - name: Find APK file

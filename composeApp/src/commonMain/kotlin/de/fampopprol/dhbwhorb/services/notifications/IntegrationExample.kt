@@ -109,7 +109,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
         // Register background tasks
         BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: "de.fampopprol.dhbw.lecture-monitor",
+            forTaskWithIdentifier: "de.fampopprol.dhbwhorb.lecture-monitor",
             using: nil
         ) { task in
             self.handleBackgroundTask(task as! BGAppRefreshTask)
@@ -123,7 +123,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     func scheduleBackgroundTask() {
-        let request = BGAppRefreshTaskRequest(identifier: "de.fampopprol.dhbw.lecture-monitor")
+        let request = BGAppRefreshTaskRequest(identifier: "de.fampopprol.dhbwhorb.lecture-monitor")
         request.earliestBeginDate = Date(timeIntervalSinceNow: 2 * 60 * 60) // 2 hours
 
         do {

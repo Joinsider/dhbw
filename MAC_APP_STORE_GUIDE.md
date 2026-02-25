@@ -54,7 +54,7 @@ The macOS app configuration is in `composeApp/build.gradle.kts`:
 ```kotlin
 compose.desktop {
     application {
-        mainClass = "de.fampopprol.dhbw.MainKt"
+        mainClass = "de.fampopprol.dhbwhorb.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Pkg)

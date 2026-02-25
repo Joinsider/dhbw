@@ -18,14 +18,14 @@ import io.github.aakira.napier.Napier
  * Required Info.plist entries:
  * <key>BGTaskSchedulerPermittedIdentifiers</key>
  * <array>
- *     <string>de.fampopprol.dhbw.lecture-monitor</string>
+ *     <string>de.fampopprol.dhbwhorb.lecture-monitor</string>
  * </array>
  */
 class LectureMonitorScheduler {
 
     companion object {
         private const val TAG = "LectureMonitorScheduler"
-        const val TASK_IDENTIFIER = "de.fampopprol.dhbw.lecture-monitor"
+        const val TASK_IDENTIFIER = "de.fampopprol.dhbwhorb.lecture-monitor"
     }
 
     /**
@@ -36,14 +36,14 @@ class LectureMonitorScheduler {
      * import BackgroundTasks
      *
      * BGTaskScheduler.shared.register(
-     *     forTaskWithIdentifier: "de.fampopprol.dhbw.lecture-monitor",
+     *     forTaskWithIdentifier: "de.fampopprol.dhbwhorb.lecture-monitor",
      *     using: nil
      * ) { task in
      *     // Perform monitoring work
      *     task.setTaskCompleted(success: true)
      * }
      *
-     * let request = BGAppRefreshTaskRequest(identifier: "de.fampopprol.dhbw.lecture-monitor")
+     * let request = BGAppRefreshTaskRequest(identifier: "de.fampopprol.dhbwhorb.lecture-monitor")
      * request.earliestBeginDate = Date(timeIntervalSinceNow: 5 * 60) // 5 minutes (for testing)
      * try? BGTaskScheduler.shared.submit(request)
      * ```
