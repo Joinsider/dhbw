@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - test-build
   # -- Manual trigger -----------------------------------------------------------
   # Choose how the version should be incremented before building.
   # On a push/merge the default (patch) is used automatically.
@@ -294,7 +293,7 @@ jobs:
         env:
           SIGNING_KEYSTORE_PATH: ${{ github.workspace }}/keystore.jks
           SIGNING_KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_ALIAS: ${{ vars.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: ./gradlew :composeApp:assembleRelease
 
