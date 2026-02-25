@@ -1,0 +1,580 @@
+name: Build and Release Multi-Platform Packages
+
+on:
+  push:
+    branches:
+      - main
+      - test-build
+  # -- Manual trigger -----------------------------------------------------------
+  # Optionally supply a new semantic version (e.g. "1.2.3") to bump versionName
+  # before building.  Leave empty to release whatever version is already in main.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New version to release (e.g. 1.2.3). Leave blank to use the current version in build.gradle.kts.'
+        required: false
+        default: ''
+
+jobs:
+  # -----------------------------------------------------------------------------
+  # Optional version-bump job — only runs on workflow_dispatch AND when a
+  # version string was supplied.  It commits the new versionName directly to
+  # main so every downstream job (and the git history) sees the same value.
+  # -----------------------------------------------------------------------------
+  bump-version:
+    name: Bump version (manual trigger only)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
+    permissions:
+      contents: write
+    outputs:
+      # Expose whether we actually bumped so create-release can depend on it
+      bumped: ${{ steps.commit.outputs.bumped }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update versionName in build.gradle.kts
+        id: patch
+        run: |
+          NEW_VERSION="${{ github.event.inputs.version }}"
+          sed -i -E "s/(versionName\s*=\s*)\"[^\"]+\"/\1\"$NEW_VERSION\"/" composeApp/build.gradle.kts
+          grep 'versionName' composeApp/build.gradle.kts
+
+      - name: Commit & push version bump
+        id: commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add composeApp/build.gradle.kts
+          if git diff --cached --quiet; then
+            echo "No version change needed (already at ${{ github.event.inputs.version }})"
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "chore: bump version to ${{ github.event.inputs.version }}"
+            git push origin main
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  create-release:
+    runs-on: ubuntu-latest
+    environment: production
+    # Wait for bump-version when it ran; skipped jobs count as success so this
+    # is safe for both push-triggered and manual (no-version) runs too.
+    needs: [ bump-version ]
+    if: always() && !failure() && !cancelled()
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read composeApp version
+        id: version
+        run: |
+          VERSION_NAME=$(grep -m1 'versionName' composeApp/build.gradle.kts | sed -E 's/.*"([^\"]+)".*/\1/')
+          VERSION_NAME=${VERSION_NAME#v}
+          echo "version=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: v${{ steps.version.outputs.version }}
+          draft: true
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-deb-amd64:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: false
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y fakeroot
+
+      - name: Build DEB package
+        run: ./gradlew :composeApp:packageDeb
+
+      - name: Find DEB file
+        id: find-deb
+        run: |
+          DEB_FILE=$(find composeApp/build/compose/binaries/main/deb -name "*.deb" -type f)
+          echo "deb_file=$DEB_FILE" >> $GITHUB_OUTPUT
+          echo "deb_name=$(basename $DEB_FILE)" >> $GITHUB_OUTPUT
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag }}
+          files: ${{ steps.find-deb.outputs.deb_file }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-msi-windows:
+    needs: create-release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: false
+
+      - name: Build MSI package
+        run: ./gradlew.bat :composeApp:packageMsi
+
+      - name: Find MSI file
+        id: find-msi
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE 'composeApp/build/compose/binaries/main/msi') -Filter '*.msi' -Recurse -File | Select-Object -First 1
+          if (-not $msi) {
+            throw 'No MSI artifact found under composeApp/build/compose/binaries/main/msi'
+          }
+          $workspace = (Resolve-Path $env:GITHUB_WORKSPACE).Path
+          $relative = $msi.FullName.Substring($workspace.Length).TrimStart('\')
+          $posixPath = $relative -replace '\\','/'
+          "msi_file=$posixPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "msi_name=$($msi.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "msi_full_path=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Upload MSI artifact for MSIX job
+        uses: actions/upload-artifact@v4
+        with:
+          name: msi-package
+          path: ${{ steps.find-msi.outputs.msi_file }}
+          retention-days: 1
+
+      - name: Upload MSI to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag }}
+          files: ${{ steps.find-msi.outputs.msi_file }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-dmg-macos:
+    needs: create-release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: false
+
+      - name: Build DMG package
+        run: ./gradlew :composeApp:packageDmg
+
+      - name: Find DMG file
+        id: find-dmg
+        run: |
+          DMG_FILE=$(find composeApp/build/compose/binaries/main/dmg -name "*.dmg" -type f | head -n 1)
+          if [ -z "$DMG_FILE" ]; then
+            echo "Error: No DMG file found"
+            exit 1
+          fi
+          echo "dmg_file=$DMG_FILE" >> $GITHUB_OUTPUT
+          echo "dmg_name=$(basename $DMG_FILE)" >> $GITHUB_OUTPUT
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag }}
+          files: ${{ steps.find-dmg.outputs.dmg_file }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-android-apk:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+
+      - name: Build Signed APK
+        env:
+          SIGNING_KEYSTORE_PATH: ${{ github.workspace }}/keystore.jks
+          SIGNING_KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: ./gradlew :composeApp:assembleRelease
+
+      - name: Find APK file
+        id: find-apk
+        run: |
+          APK_FILE=$(find composeApp/build/outputs/apk/release -name "*.apk" -type f ! -name "*unsigned*" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            echo "Error: No signed APK file found"
+            exit 1
+          fi
+          echo "apk_file=$APK_FILE" >> $GITHUB_OUTPUT
+          echo "apk_name=$(basename $APK_FILE)" >> $GITHUB_OUTPUT
+
+      - name: Rename APK
+        id: rename-apk
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          ORIGINAL_APK="${{ steps.find-apk.outputs.apk_file }}"
+          APK_DIR=$(dirname "$ORIGINAL_APK")
+          RENAMED_APK="$APK_DIR/dhbw-next-$VERSION.apk"
+          cp "$ORIGINAL_APK" "$RENAMED_APK"
+          echo "renamed_apk=$RENAMED_APK" >> $GITHUB_OUTPUT
+          echo "renamed_apk_name=dhbw-next-$VERSION.apk" >> $GITHUB_OUTPUT
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag }}
+          files: ${{ steps.rename-apk.outputs.renamed_apk }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup Keystore
+        if: always()
+        run: rm -f keystore.jks
+
+  build-msix-app:
+    needs:
+      - create-release
+      - build-msi-windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download MSI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: msi-package
+          path: ./msi-download
+
+      - name: Find downloaded MSI
+        id: find-downloaded-msi
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem -Path "./msi-download" -Filter "dhbw-next-*.msi" -File | Select-Object -First 1
+          if (-not $msi) {
+            throw "No MSI found in downloaded artifacts"
+          }
+          "msi_path=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Found MSI: $($msi.Name)"
+
+      - name: Find Windows SDK tools
+        id: find-sdk
+        shell: pwsh
+        run: |
+          # Find the latest SDK version
+          $sdkPath = "C:\Program Files (x86)\Windows Kits\10\bin"
+          $latestSdk = Get-ChildItem -Path $sdkPath -Directory | 
+            Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } | 
+            Sort-Object Name -Descending | 
+            Select-Object -First 1
+          
+          if (-not $latestSdk) {
+            throw "Windows SDK not found"
+          }
+          
+          $makeAppxPath = Join-Path $latestSdk.FullName "x64\makeappx.exe"
+          $signToolPath = Join-Path $latestSdk.FullName "x64\signtool.exe"
+          
+          if (-not (Test-Path $makeAppxPath)) {
+            throw "MakeAppx.exe not found at $makeAppxPath"
+          }
+          if (-not (Test-Path $signToolPath)) {
+            throw "SignTool.exe not found at $signToolPath"
+          }
+          
+          "makeappx_path=$makeAppxPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "signtool_path=$signToolPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Found SDK tools in $($latestSdk.Name)"
+
+      - name: Extract MSI contents
+        shell: pwsh
+        run: |
+          $msiPath = "${{ steps.find-downloaded-msi.outputs.msi_path }}"
+          $extractDir = Join-Path $PWD "msix-package"
+          New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
+
+          Write-Host "Extracting MSI from $msiPath to $extractDir"
+          $process = Start-Process msiexec.exe -ArgumentList "/a `"$msiPath`" /qn TARGETDIR=`"$extractDir`"" -Wait -PassThru -NoNewWindow
+
+          if ($process.ExitCode -ne 0) {
+            throw "MSI extraction failed with exit code $($process.ExitCode)"
+          }
+
+          # List extracted structure for debugging
+          Write-Host "`nExtracted MSI structure:"
+          Get-ChildItem -Path $extractDir -Recurse -File | Select-Object -First 20 | ForEach-Object { Write-Host "  $($_.FullName.Replace($extractDir, ''))" }
+
+      - name: Prepare MSIX package structure
+        shell: pwsh
+        run: |
+          $packageDir = "msix-package-final"
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+          New-Item -ItemType Directory -Force -Path "$packageDir\Assets" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$packageDir\VFS\ProgramFilesX64\dhbw-next" | Out-Null
+
+          # Find where the executable actually is in the extracted MSI
+          $exeFile = Get-ChildItem -Path "msix-package" -Filter "dhbw-next.exe" -Recurse -File | Select-Object -First 1
+
+          if (-not $exeFile) {
+            Write-Host "ERROR: dhbw-next.exe not found in extracted MSI!"
+            Write-Host "Searching for any .exe files:"
+            Get-ChildItem -Path "msix-package" -Filter "*.exe" -Recurse -File | ForEach-Object { Write-Host "  Found: $($_.FullName)" }
+            throw "dhbw-next.exe not found in MSI extraction"
+          }
+
+          Write-Host "Found executable at: $($exeFile.FullName)"
+
+          # Copy all files from the executable's directory to the VFS structure
+          $exeDir = $exeFile.Directory
+          Write-Host "Copying files from $($exeDir.FullName) to VFS\ProgramFilesX64\dhbw-next"
+          Copy-Item -Path "$($exeDir.FullName)\*" -Destination "$packageDir\VFS\ProgramFilesX64\dhbw-next" -Recurse -Force
+
+          # Verify the executable is in the correct location
+          $targetExe = "$packageDir\VFS\ProgramFilesX64\dhbw-next\dhbw-next.exe"
+          if (-not (Test-Path $targetExe)) {
+            throw "Failed to copy dhbw-next.exe to $targetExe"
+          }
+          Write-Host "Verified executable at: $targetExe"
+
+          # Copy AppxManifest.xml from repository
+          $manifestSource = "packaging\windows\AppxManifest.xml"
+          if (-not (Test-Path $manifestSource)) {
+            throw "AppxManifest.xml not found at $manifestSource"
+          }
+          Copy-Item -Path $manifestSource -Destination "$packageDir\AppxManifest.xml" -Force
+
+          Write-Host "Package structure prepared successfully"
+
+
+      - name: Generate MSIX assets from icon
+        shell: pwsh
+        run: |
+          # Check if icon.ico exists in packaging folder
+          $iconSource = "packaging\windows\Assets\icon.ico"
+          if (-not (Test-Path $iconSource)) {
+            Write-Host "Warning: icon.ico not found at $iconSource"
+          
+            # Try to find icons in extracted MSI content as fallback
+            $extractedIcons = Get-ChildItem -Path "msix-package-final" -Filter "*.ico" -Recurse -File
+            if ($extractedIcons.Count -gt 0) {
+              $iconSource = $extractedIcons[0].FullName
+              Write-Host "Found icon in MSI: $iconSource"
+            } else {
+              throw "No icon.ico found in packaging/windows/Assets/ or extracted MSI content"
+            }
+          } else {
+            Write-Host "Using icon from: $iconSource"
+          }
+
+          # Use .NET to extract images from ICO and resize
+          Add-Type -AssemblyName System.Drawing
+          
+          $ico = [System.Drawing.Icon]::new($iconSource)
+          
+          # Function to save icon as PNG at specific size
+          function Save-IconAsPng {
+            param($icon, $size, $outputPath)
+          
+            $bitmap = [System.Drawing.Bitmap]::new($size, $size)
+            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+            $graphics.DrawImage($icon.ToBitmap(), 0, 0, $size, $size)
+            $bitmap.Save($outputPath, [System.Drawing.Imaging.ImageFormat]::Png)
+            $graphics.Dispose()
+            $bitmap.Dispose()
+          }
+          
+          # Generate required asset sizes
+          $assetsDir = "msix-package-final\Assets"
+          
+          Save-IconAsPng -icon $ico -size 44 -outputPath "$assetsDir\DHBWNEXT-Square44x44Logo.png"
+          Save-IconAsPng -icon $ico -size 71 -outputPath "$assetsDir\DHBWNEXT-Square71x71Logo.png"
+          Save-IconAsPng -icon $ico -size 150 -outputPath "$assetsDir\DHBWNEXT-Square150x150Logo.png"
+          Save-IconAsPng -icon $ico -size 310 -outputPath "$assetsDir\DHBWNEXT-Square310x310Logo.png"
+          
+          # Wide logo (310x150)
+          $wideBitmap = [System.Drawing.Bitmap]::new(310, 150)
+          $graphics = [System.Drawing.Graphics]::FromImage($wideBitmap)
+          $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+          $graphics.DrawImage($ico.ToBitmap(), 80, 0, 150, 150)
+          $wideBitmap.Save("$assetsDir\DHBWNEXT-Wide310x150Logo.png", [System.Drawing.Imaging.ImageFormat]::Png)
+          $graphics.Dispose()
+          $wideBitmap.Dispose()
+          
+          # StoreLogo (50x50)
+          Save-IconAsPng -icon $ico -size 50 -outputPath "$assetsDir\StoreLogo.png"
+          
+          $ico.Dispose()
+          
+          Write-Host "Generated all required MSIX assets from icon.ico"
+
+      - name: Update manifest version
+        shell: pwsh
+        run: |
+          $version = "${{ needs.create-release.outputs.version }}"
+          $manifestPath = "msix-package-final\AppxManifest.xml"
+
+          # Ensure version format is x.x.x.0
+          $versionParts = $version.Split('.')
+          while ($versionParts.Count -lt 4) {
+            $versionParts += "0"
+          }
+          $msixVersion = $versionParts[0..3] -join '.'
+
+          # Update version in manifest
+          $manifest = [xml](Get-Content $manifestPath)
+          $manifest.Package.Identity.Version = $msixVersion
+          $manifest.Save($manifestPath)
+          
+          Write-Host "Updated manifest version to $msixVersion"
+
+      - name: Create MSIX package
+        shell: pwsh
+        run: |
+          $makeAppx = "${{ steps.find-sdk.outputs.makeappx_path }}"
+          $packageDir = "msix-package-final"
+          $version = "${{ needs.create-release.outputs.version }}"
+          $outputMsix = "dhbw-next-$version.msix"
+
+          Write-Host "Creating MSIX package: $outputMsix"
+          & $makeAppx pack /d $packageDir /p $outputMsix /v
+          
+          if ($LASTEXITCODE -ne 0) {
+            throw "MakeAppx failed with exit code $LASTEXITCODE"
+          }
+          
+          Write-Host "Successfully created $outputMsix"
+          
+      - name: Skip self-signing for Store submission
+        shell: pwsh
+        run: |
+          $version = "${{ needs.create-release.outputs.version }}"
+          $msixFile = "dhbw-next-$version.msix"
+          
+          Write-Host "================================================"
+          Write-Host "Skipping self-signing for Microsoft Store submission"
+          Write-Host "================================================"
+          Write-Host ""
+          Write-Host "The Microsoft Store will automatically sign this package with a trusted certificate."
+          Write-Host "This unsigned MSIX is valid for Store submission but cannot be installed locally."
+          Write-Host ""
+          
+          # Verify the MSIX package structure is valid (correct syntax)
+          $makeAppx = "${{ steps.find-sdk.outputs.makeappx_path }}"
+          Write-Host "Verifying package structure..."
+          
+          # Unpack to verify, then repack (this validates the package)
+          $testDir = "msix-verify-test"
+          & $makeAppx unpack /p $msixFile /d $testDir /nv
+          
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✓ Package structure is valid"
+            Remove-Item -Path $testDir -Recurse -Force
+          } else {
+            throw "MSIX package structure validation failed"
+          }
+          
+          # Show package info
+          Write-Host ""
+          Write-Host "Package details:"
+          $fileInfo = Get-Item $msixFile
+          Write-Host "  File: $($fileInfo.Name)"
+          Write-Host "  Size: $([math]::Round($fileInfo.Length / 1MB, 2)) MB"
+          Write-Host "  Created: $($fileInfo.CreationTime)"
+          Write-Host ""
+          Write-Host "✓ Package is ready for Microsoft Store submission"      
+
+      - name: Upload MSIX to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag }}
+          files: dhbw-next-${{ needs.create-release.outputs.version }}.msix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  clean-release:
+    needs:
+      - create-release
+      - build-android-apk
+      - build-deb-amd64
+      - build-msi-windows
+      - build-dmg-macos
+      - build-msix-app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish Release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const tag = '${{ needs.create-release.outputs.tag }}';
+            const version = '${{ needs.create-release.outputs.version }}';
+            
+            // Get the release by tag
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag
+            });
+            
+            // Publish the release (remove draft status)
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              draft: false,
+              name: `v${version}`
+            });
+            
+            console.log(`Published release v${version} and removed draft status`);

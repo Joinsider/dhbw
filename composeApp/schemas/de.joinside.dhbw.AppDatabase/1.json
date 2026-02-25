@@ -1,0 +1,91 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "ceb4b4ff65669a71e73943e0ab9b1384",
+    "entities": [
+      {
+        "tableName": "semester",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`semesterName` TEXT NOT NULL, PRIMARY KEY(`semesterName`))",
+        "fields": [
+          {
+            "fieldPath": "semesterName",
+            "columnName": "semesterName",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "semesterName"
+          ]
+        }
+      },
+      {
+        "tableName": "grades",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`gradesId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `grade_value` REAL NOT NULL, `semesterName` TEXT NOT NULL, FOREIGN KEY(`semesterName`) REFERENCES `semester`(`semesterName`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "gradesId",
+            "columnName": "gradesId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gradeValue",
+            "columnName": "grade_value",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "semesterName",
+            "columnName": "semesterName",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "gradesId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_grades_semesterName",
+            "unique": false,
+            "columnNames": [
+              "semesterName"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_grades_semesterName` ON `${TABLE_NAME}` (`semesterName`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "semester",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "semesterName"
+            ],
+            "referencedColumns": [
+              "semesterName"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ceb4b4ff65669a71e73943e0ab9b1384')"
+    ]
+  }
+}
