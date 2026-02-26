@@ -8,7 +8,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "7A0317B51F4E04B2CC20B4A4"
-               BuildableName = "DHBW-Horb.app"
+               BuildableName = "iosApp"
                BlueprintName = "iosApp"
                ReferencedContainer = "container:iosApp.xcodeproj">
             </BuildableReference>
@@ -23,7 +23,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "7A0317B51F4E04B2CC20B4A4"
-            BuildableName = "DHBW-Horb.app"
+            BuildableName = "iosApp"
             BlueprintName = "iosApp"
             ReferencedContainer = "container:iosApp.xcodeproj">
          </BuildableReference>

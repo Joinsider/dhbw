@@ -195,62 +195,6 @@ jobs:
           path: ${{ steps.find-deb.outputs.deb_file }}
           retention-days: 1
 
-  build-msi-windows:
-    needs: create-release
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-        with:
-          cache-read-only: false
-
-      - name: Build MSI package
-        run: ./gradlew.bat :composeApp:packageMsi
-
-      - name: Find MSI file
-        id: find-msi
-        shell: pwsh
-        run: |
-          $msi = Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE 'composeApp/build/compose/binaries/main/msi') -Filter '*.msi' -Recurse -File | Select-Object -First 1
-          if (-not $msi) {
-            throw 'No MSI artifact found under composeApp/build/compose/binaries/main/msi'
-          }
-          $workspace = (Resolve-Path $env:GITHUB_WORKSPACE).Path
-          $relative = $msi.FullName.Substring($workspace.Length).TrimStart('\')
-          $posixPath = $relative -replace '\\','/'
-          "msi_file=$posixPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "msi_name=$($msi.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "msi_full_path=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-
-      - name: Rename MSI
-        id: rename-msi
-        shell: pwsh
-        run: |
-          $version = "${{ needs.create-release.outputs.version }}"
-          $original = "${{ steps.find-msi.outputs.msi_full_path }}"
-          $dir = Split-Path $original
-          $renamed = Join-Path $dir "dhbw-student-app-release-v$version.msi"
-          Copy-Item -Path $original -Destination $renamed -Force
-          $workspace = (Resolve-Path $env:GITHUB_WORKSPACE).Path
-          $relative = $renamed.Substring($workspace.Length).TrimStart('\') -replace '\\','/'
-          "renamed_msi=$relative" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Renamed MSI to: dhbw-student-app-release-v$version.msi"
-
-      - name: Upload MSI artifact for MSIX job and release
-        uses: actions/upload-artifact@v4
-        with:
-          name: msi-package
-          path: ${{ steps.rename-msi.outputs.renamed_msi }}
-          retention-days: 1
-
 
   build-dmg-macos:
     needs: create-release
@@ -422,27 +366,38 @@ jobs:
   build-msix-app:
     needs:
       - create-release
-      - build-msi-windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download MSI artifact
-        uses: actions/download-artifact@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          name: msi-package
-          path: ./msi-download
+          distribution: 'temurin'
+          java-version: '21'
 
-      - name: Find downloaded MSI
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: false
+
+      - name: Build MSI package
+        run: ./gradlew.bat :composeApp:packageMsi
+
+      - name: Find and rename MSI
         id: find-downloaded-msi
         shell: pwsh
         run: |
-          $msi = Get-ChildItem -Path "./msi-download" -Filter "*.msi" -File | Select-Object -First 1
+          $msi = Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE 'composeApp/build/compose/binaries/main/msi') -Filter '*.msi' -Recurse -File | Select-Object -First 1
           if (-not $msi) {
-            throw "No MSI found in downloaded artifacts"
+            throw 'No MSI artifact found'
           }
-          "msi_path=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Found MSI: $($msi.Name)"
+          $version = "${{ needs.create-release.outputs.version }}"
+          $dir = $msi.Directory.FullName
+          $renamed = Join-Path $dir "dhbw-student-app-release-v$version.msi"
+          Copy-Item -Path $msi.FullName -Destination $renamed -Force
+          "msi_path=$renamed" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "MSI ready at: $renamed"
 
       - name: Find Windows SDK tools
         id: find-sdk
@@ -671,6 +626,13 @@ jobs:
           Write-Host ""
           Write-Host "✓ Package is ready for Microsoft Store submission"      
 
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msi-package
+          path: ${{ steps.find-downloaded-msi.outputs.msi_path }}
+          retention-days: 1
+
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v4
         with:
@@ -685,7 +647,6 @@ jobs:
       - build-android-apk
       - build-android-aab
       - build-deb-amd64
-      - build-msi-windows
       - build-dmg-macos
       - build-msix-app
     runs-on: ubuntu-latest
