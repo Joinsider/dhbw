@@ -1,0 +1,5 @@
+Version 2.0.1
+
+Complete redesign and improved stability
+- New, modern design for an improved user experience (Material 3 Expressive)
+- Improved stability when fetching data from Dualis
