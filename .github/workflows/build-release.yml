@@ -230,11 +230,25 @@ jobs:
           "msi_name=$($msi.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "msi_full_path=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
+      - name: Rename MSI
+        id: rename-msi
+        shell: pwsh
+        run: |
+          $version = "${{ needs.create-release.outputs.version }}"
+          $original = "${{ steps.find-msi.outputs.msi_full_path }}"
+          $dir = Split-Path $original
+          $renamed = Join-Path $dir "dhbw-student-app-release-v$version.msi"
+          Copy-Item -Path $original -Destination $renamed -Force
+          $workspace = (Resolve-Path $env:GITHUB_WORKSPACE).Path
+          $relative = $renamed.Substring($workspace.Length).TrimStart('\') -replace '\\','/'
+          "renamed_msi=$relative" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Renamed MSI to: dhbw-student-app-release-v$version.msi"
+
       - name: Upload MSI artifact for MSIX job and release
         uses: actions/upload-artifact@v4
         with:
           name: msi-package
-          path: ${{ steps.find-msi.outputs.msi_file }}
+          path: ${{ steps.rename-msi.outputs.renamed_msi }}
           retention-days: 1
 
 
@@ -293,7 +307,7 @@ jobs:
 
       - name: Decode Keystore
         run: |
-          echo "${{ secrets.UPLOAD_KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+          echo "${{ secrets.UPLOAD_KEYSTORE_BASE64 }}" | base64 --decode --ignore-garbage > keystore.jks
 
       - name: Build Signed APK
         env:
@@ -360,7 +374,7 @@ jobs:
 
       - name: Decode upload keystore
         run: |
-          echo "${{ secrets.UPLOAD_KEYSTORE_BASE64 }}" | base64 -d > upload-keystore.jks
+          echo "${{ secrets.UPLOAD_KEYSTORE_BASE64 }}" | base64 --decode --ignore-garbage > upload-keystore.jks
 
       - name: Build signed AAB
         env:
