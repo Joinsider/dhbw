@@ -1,0 +1,125 @@
+name: CI – Tests & Coverage
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+concurrency:
+  # Cancel in-flight runs for the same branch/PR to save minutes
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JVM test job (Android unit tests + Desktop/JVM tests + Kover coverage)
+  # ─────────────────────────────────────────────────────────────────────────────
+  test-jvm:
+    name: JVM Tests (Android + Desktop)
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ─────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history is required for SonarCloud blame / new-code analysis
+          fetch-depth: 0
+
+      # ── Java / JDK ───────────────────────────────────────────────────────────
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # ── Gradle cache ─────────────────────────────────────────────────────────
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      # ── Gradle wrapper permission ─────────────────────────────────────────────
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # ── Android unit tests ────────────────────────────────────────────────────
+      - name: Run Android unit tests
+        run: ./gradlew :composeApp:testDebugUnitTest --no-daemon --stacktrace
+
+      # ── Desktop / JVM tests ───────────────────────────────────────────────────
+      - name: Run Desktop (JVM) tests
+        run: ./gradlew :composeApp:desktopTest --no-daemon --stacktrace
+
+      # ── Kover – generate unified XML + HTML coverage report ───────────────────
+      - name: Generate Kover coverage report (XML + HTML)
+        # Always run so SonarCloud gets a report even when some tests fail
+        if: always()
+        run: ./gradlew :composeApp:koverXmlReportKmpCoverage :composeApp:koverHtmlReportKmpCoverage --no-daemon
+
+      # ── Upload JUnit test results ─────────────────────────────────────────────
+      - name: Upload JUnit test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-test-results
+          path: |
+            composeApp/build/reports/tests/testDebugUnitTest/
+            composeApp/build/reports/tests/desktopTest/
+          retention-days: 14
+
+      # ── Upload Kover HTML report ──────────────────────────────────────────────
+      - name: Upload Kover HTML coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kover-coverage-report
+          path: composeApp/build/reports/kover/html/
+          retention-days: 14
+
+      # ── Publish test results as PR check annotations ──────────────────────────
+      - name: Publish test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: |
+            composeApp/build/test-results/testDebugUnitTest/**/*.xml
+            composeApp/build/test-results/desktopTest/**/*.xml
+
+      # ── SonarCloud analysis ───────────────────────────────────────────────────
+      - name: SonarCloud analysis
+        if: always()
+        uses: SonarSource/sonarcloud-github-action@v3
+        env:
+          # Set SONAR_TOKEN in:  Settings → Secrets → Actions → New repository secret
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # All project settings are read from sonar-project.properties at the root
+          args: >
+            -Dsonar.scm.revision=${{ github.sha }}
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # iOS / macOS native test job  (requires Apple runner & Xcode)
+  # Uncomment this job once the project is set up for iOS simulator testing.
+  # ─────────────────────────────────────────────────────────────────────────────
+  # test-ios:
+  #   name: iOS Simulator Tests
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-java@v4
+  #       with:
+  #         java-version: '17'
+  #         distribution: 'temurin'
+  #     - name: Grant execute permission
+  #       run: chmod +x gradlew
+  #     - name: Run iOS Simulator tests
+  #       run: ./gradlew :composeApp:iosSimulatorArm64Test --no-daemon
+

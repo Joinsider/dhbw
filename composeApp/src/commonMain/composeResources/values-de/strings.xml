@@ -1,0 +1,147 @@
+<resources>
+    <!-- App general -->
+    <string name="app_name">DHBW Horb</string>
+
+    <!-- Login screen -->
+    <string name="login_with_dualis_account">Mit Ihrem Dualis-Konto anmelden</string>
+    <string name="login">Anmelden</string>
+    <string name="username">Email</string>
+    <string name="password">Passwort</string>
+    <string name="enter_username">Email eingeben</string>
+    <string name="enter_password">Passwort eingeben</string>
+    <string name="username_cannot_be_empty">Email darf nicht leer sein</string>
+    <string name="username_must_be_valid_email">Eingabe muss eine gültige E-Mail-Adresse sein und auf @hb.dhbw-stuttgart.de enden.</string>
+    <string name="password_cannot_be_empty">Passwort darf nicht leer sein</string>
+    <string name="login_successful">Anmeldung erfolgreich</string>
+    <string name="login_failed">Anmeldung fehlgeschlagen</string>
+
+    <!-- Common -->
+    <string name="ok">OK</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="yes">Ja</string>
+    <string name="no">Nein</string>
+    <string name="save">Speichern</string>
+    <string name="delete">Löschen</string>
+    <string name="edit">Bearbeiten</string>
+    <string name="back">Zurück</string>
+    <string name="next">Weiter</string>
+    <string name="finish">Fertig</string>
+    <string name="loading">Lädt...</string>
+    <string name="error">Fehler</string>
+    <string name="success">Erfolg</string>
+    <string name="retry">Wiederholen</string>
+
+    <!-- Settings -->
+    <string name="settings">Einstellungen</string>
+    <string name="language">Sprache</string>
+    <string name="dark_mode">Dunkel</string>
+    <string name="light_mode">Hell</string>
+    <string name="system_default">System</string>
+    <string name="theme">Aussehen</string>
+    <string name="design">Design</string>
+    <string name="material_you">Material You</string>
+    <string name="material_you_description">Dynamische Farben aus dem Hintergrundbild verwenden (Android 12+)</string>
+    <string name="help_settings">Hilfe</string>
+    <string name="privacy_button">Datenschutzerklärung</string>
+    <string name="report_issues">Fehler melden</string>
+    <string name="github_issues">Github Issues</string>
+    <string name="allow_notifications">Benachrichtigungen aktivieren</string>
+    <string name="allow_notifications_description">Erlaube der App verschiedene Benachrichtigungen zu senden</string>
+    <string name="lecture_change_notification">Benachrichtigung für Vorlesungsänderungen</string>
+    <string name="lecture_change_notification_description">Werde benachrichtigt, wenn sich die Uhrzeit oder der Ort einer Vorlesung ändert oder eine abgesagt wurde</string>
+    <string name="notifications">Benachrichtigungen</string>
+
+    <!-- Error messages -->
+    <string name="network_error">Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.</string>
+    <string name="unknown_error">Ein unbekannter Fehler ist aufgetreten.</string>
+    <string name="invalid_credentials">Ungültiger Benutzername oder Passwort.</string>
+    <string name="error_loading_lectures">Fehler beim Laden des Stundenplans.</string>
+
+    <!-- Timetable -->
+    <string name="lecturers">Dozenten</string>
+    <string name="lecturer">Dozent</string>
+    <string name="room">Raum</string>
+    <string name="rooms">Räume</string>
+    <string name="location">Standort</string>
+    <string name="no_lectures_this_week">In dieser Woche sind keine Vorlesungen geplant.</string>
+    <string name="loading_lectures">Stundenplan wird geladen... Das kann ein paar Sekunden dauern. (Dualis ist Schuld!)</string>
+    <string name="loading_week_from_dualis">Woche wird aus Dualis geladen…</string>
+    <string name="lecture_details">Vorlesungsdetails</string>
+    <string name="subject">Fach</string>
+    <string name="date">Datum</string>
+    <string name="start_time">Startzeit</string>
+    <string name="end_time">Endzeit</string>
+    <string name="test_exam">Prüfung</string>
+    <string name="close">Schließen</string>
+
+    <!-- Weekdays -->
+    <string name="monday">Montag</string>
+    <string name="tuesday">Dienstag</string>
+    <string name="wednesday">Mittwoch</string>
+    <string name="thursday">Donnerstag</string>
+    <string name="friday">Freitag</string>
+    <string name="saturday">Samstag</string>
+    <string name="sunday">Sonntag</string>
+
+    <string name="monday_short">Mo</string>
+    <string name="tuesday_short">Di</string>
+    <string name="wednesday_short">Mi</string>
+    <string name="thursday_short">Do</string>
+    <string name="friday_short">Fr</string>
+    <string name="saturday_short">Sa</string>
+    <string name="sunday_short">So</string>
+
+    <!-- Months -->
+    <string name="january">Januar</string>
+    <string name="february">Februar</string>
+    <string name="march">März</string>
+    <string name="april">April</string>
+    <string name="may">Mai</string>
+    <string name="june">Juni</string>
+    <string name="july">Juli</string>
+    <string name="august">August</string>
+    <string name="september">September</string>
+    <string name="october">Oktober</string>
+    <string name="november">November</string>
+    <string name="december">Dezember</string>
+
+    <string name="january_short">Jan</string>
+    <string name="february_short">Feb</string>
+    <string name="march_short">Mär</string>
+    <string name="april_short">Apr</string>
+    <string name="may_short">Mai</string>
+    <string name="june_short">Jun</string>
+    <string name="july_short">Jul</string>
+    <string name="august_short">Aug</string>
+    <string name="september_short">Sep</string>
+    <string name="october_short">Okt</string>
+    <string name="november_short">Nov</string>
+    <string name="december_short">Dez</string>
+
+    <!-- Navigation -->
+    <string name="nav_timetable">Stundenplan</string>
+    <string name="nav_exams">Prüfungen</string>
+    <string name="nav_grades">Noten</string>
+    <string name="nav_settings">Einstellungen</string>
+
+    <!-- Timetable Page -->
+    <string name="this_week">Diese Woche</string>
+    <string name="refresh">Aktualisieren</string>
+
+    <!-- Settings Page -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="coming_soon">Demnächst verfügbar...</string>
+    <string name="logout">Abmelden</string>
+
+    <!-- Grades Page -->
+    <string name="grades">Noten</string>
+    <string name="semester_gpa">Semester Schnitt</string>
+    <string name="status_unknown">Status unbekannt</string>
+    <string name="combined_page">Alle</string>
+    <string name="all_semesters">Alle</string>
+    <string name="overall_statistics">Gesamtstatistik</string>
+    <string name="overall_gpa">Gesamt-Notenschnitt</string>
+    <string name="credits_earned">Credits erworben</string>
+    <string name="modules_completed">Module abgeschlossen</string>
+    <string name="login_required_for_grades">Bitte melde dich an, um deine Noten zu sehen.</string>
+</resources>
