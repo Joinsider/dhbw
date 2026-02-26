@@ -1,12 +1,14 @@
 name: Build and Release Multi-Platform Packages
 
 on:
-  push:
+  pull_request:
+    types:
+      - closed
     branches:
       - main
   # -- Manual trigger -----------------------------------------------------------
   # Choose how the version should be incremented before building.
-  # On a push/merge the default (patch) is used automatically.
+  # On a PR merge the default (patch) is used automatically.
   workflow_dispatch:
     inputs:
       bump:
@@ -24,8 +26,8 @@ on:
 
 jobs:
   # -----------------------------------------------------------------------------
-  # Version-bump job — always runs.
-  # On push/merge the bump type defaults to "patch".
+  # Version-bump job — runs when a PR is merged into main, or manually.
+  # On PR merge the bump type defaults to "patch".
   # On workflow_dispatch the selected bump type is used.
   # Reads the current versionName from composeApp/build.gradle.kts, computes
   # the next semver in pure bash, writes it back, and commits it to the branch.
@@ -33,6 +35,7 @@ jobs:
   bump-version:
     name: Bump version
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     permissions:
       contents: write
     outputs:
