@@ -110,8 +110,8 @@ android {
         applicationId = "de.fampopprol.dhbwhorb"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 21
-        versionName = "v2.0.5"
+        versionCode = 22
+        versionName = "v2.0.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
