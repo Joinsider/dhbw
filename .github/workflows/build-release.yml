@@ -452,29 +452,32 @@ jobs:
           $packageDir = "msix-package-final"
           New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
           New-Item -ItemType Directory -Force -Path "$packageDir\Assets" | Out-Null
-          New-Item -ItemType Directory -Force -Path "$packageDir\VFS\ProgramFilesX64\dhbw-next" | Out-Null
 
-          # Find where the executable actually is in the extracted MSI
-          $exeFile = Get-ChildItem -Path "msix-package" -Filter "dhbw-next.exe" -Recurse -File | Select-Object -First 1
+          # Find where the executable actually is in the extracted MSI (dynamic — works for any app name)
+          $exeFile = Get-ChildItem -Path "msix-package" -Filter "*.exe" -Recurse -File |
+            Where-Object { $_.Name -notmatch '^(msiexec|wscript|cscript|regsvr32)' } |
+            Select-Object -First 1
 
           if (-not $exeFile) {
-            Write-Host "ERROR: dhbw-next.exe not found in extracted MSI!"
-            Write-Host "Searching for any .exe files:"
-            Get-ChildItem -Path "msix-package" -Filter "*.exe" -Recurse -File | ForEach-Object { Write-Host "  Found: $($_.FullName)" }
-            throw "dhbw-next.exe not found in MSI extraction"
+            Write-Host "ERROR: No .exe found in extracted MSI!"
+            throw "No executable found in MSI extraction"
           }
 
-          Write-Host "Found executable at: $($exeFile.FullName)"
+          $exeName = $exeFile.Name
+          $appFolderName = [System.IO.Path]::GetFileNameWithoutExtension($exeName)
+          Write-Host "Found executable: $exeName  →  VFS folder: $appFolderName"
+
+          New-Item -ItemType Directory -Force -Path "$packageDir\VFS\ProgramFilesX64\$appFolderName" | Out-Null
 
           # Copy all files from the executable's directory to the VFS structure
           $exeDir = $exeFile.Directory
-          Write-Host "Copying files from $($exeDir.FullName) to VFS\ProgramFilesX64\dhbw-next"
-          Copy-Item -Path "$($exeDir.FullName)\*" -Destination "$packageDir\VFS\ProgramFilesX64\dhbw-next" -Recurse -Force
+          Write-Host "Copying files from $($exeDir.FullName) to VFS\ProgramFilesX64\$appFolderName"
+          Copy-Item -Path "$($exeDir.FullName)\*" -Destination "$packageDir\VFS\ProgramFilesX64\$appFolderName" -Recurse -Force
 
           # Verify the executable is in the correct location
-          $targetExe = "$packageDir\VFS\ProgramFilesX64\dhbw-next\dhbw-next.exe"
+          $targetExe = "$packageDir\VFS\ProgramFilesX64\$appFolderName\$exeName"
           if (-not (Test-Path $targetExe)) {
-            throw "Failed to copy dhbw-next.exe to $targetExe"
+            throw "Failed to copy $exeName to $targetExe"
           }
           Write-Host "Verified executable at: $targetExe"
 
