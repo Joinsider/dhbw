@@ -1,7 +1,7 @@
 This is a Kotlin Multiplatform project targeting Android, iOS, Desktop (JVM).
 
 At the moment only Android and Desktop application is provided as iOS will cost me 99€ per year to get a Apple Developer license. Maybe I will add this in the future.
-Also the mac version is currently not signed by me as this also requires an Apple Developer account. 
+Also the mac version is currently not signed by me as this also requires an Apple Developer account.
 
 # Releases:
 You can find the current version under [Releases](https://github.com/Joinsider/dhbw-next/releases)
@@ -9,7 +9,19 @@ You can find the current version under [Releases](https://github.com/Joinsider/d
 # Installation:
 
 ## Android:
-Either download the APK from the releases tab or send me an [email](mailto:public@joinside.de), so that I can add you to the test of the android version on the google play store. (Official release will happen sometimes in December 2025)
+## Where can you install my app?
+- Google Play Store: [here](https://play.google.com/store/apps/details?id=de.fampopprol.dhbwhorb&pcampaignid=web_share)
+- F-Droid: Released in the IzzyOnDroid repository, you can find it [here](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
+
+[<img height="80px" alt="image" src="https://github.com/user-attachments/assets/0731327c-7867-4b7e-b981-e07f38071304" />](https://play.google.com/store/apps/details?id=de.fampopprol.dhbwhorb&pcampaignid=web_share)
+[<img src="./assets/izzyOnDroid.png" alt="IzzyOnDroid" height="80px">](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
+[<img height="80px" alt="image" src="https://github.com/user-attachments/assets/eb4410df-5e0a-4851-bf6b-6f951ffa2a9c" />](https://github.com/Joinsider/dhbw/releases)
+
+
+
+[<img src="https://shields.rbtlog.dev/simple/de.fampopprol.dhbwhorb" alt="RB shield">](https://shields.rbtlog.dev/de.fampopprol.dhbwhorb)
+
+
 
 ## Windows
 You can always download the current .msi file from the releases tab or you can download it through the [Microsoft Store](https://apps.microsoft.com/detail/9pl3rffqhmqb?ocid=webpdpshare). 
