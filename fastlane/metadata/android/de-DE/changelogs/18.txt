@@ -1,4 +1,4 @@
-Version 2.0.1
+Version 2.0.0
 
 Komplett überarbeitetes Design und verbesserte Stabilität
 - Neues, modernes Design für eine verbesserte Benutzererfahrung (Material 3 Expressive)
