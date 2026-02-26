@@ -23,6 +23,7 @@ on:
           - prepatch
           - preminor
           - premajor
+          - none
 
 jobs:
   # -----------------------------------------------------------------------------
@@ -63,6 +64,15 @@ jobs:
           fi
           echo "Bump type: $BUMP"
 
+          # ── If bump is 'none', keep current version ───────────────────────────
+          if [ "$BUMP" = "none" ]; then
+            echo "Skipping version bump, keeping current version: $CURRENT"
+            echo "new_version=$CURRENT" >> "$GITHUB_OUTPUT"
+            echo "new_tag=v$CURRENT"    >> "$GITHUB_OUTPUT"
+            echo "skipped=true"         >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           # ── Pure-bash semver arithmetic ───────────────────────────────────────
           # Strip any pre-release suffix (e.g. "1.2.3-alpha.0" → "1.2.3")
           BASE=$(echo "$CURRENT" | sed -E 's/-[^+]+//')
@@ -91,8 +101,10 @@ jobs:
           echo "New version: $NEW"
           echo "new_version=$NEW"  >> "$GITHUB_OUTPUT"
           echo "new_tag=v$NEW"     >> "$GITHUB_OUTPUT"
+          echo "skipped=false"     >> "$GITHUB_OUTPUT"
 
       - name: Write new versionName into build.gradle.kts
+        if: steps.semver.outputs.skipped != 'true'
         run: |
           NEW="${{ steps.semver.outputs.new_version }}"
           sed -i -E "s/(versionName\s*=\s*)\"v?[^\"]+\"/\1\"v$NEW\"/" composeApp/build.gradle.kts
@@ -100,6 +112,7 @@ jobs:
 
       - name: Bump Android versionCode
         id: versioncode
+        if: steps.semver.outputs.skipped != 'true'
         run: |
           # Read the current integer versionCode
           CURRENT_CODE=$(grep -m1 'versionCode' composeApp/build.gradle.kts \
@@ -111,6 +124,7 @@ jobs:
           echo "new_code=$NEW_CODE" >> "$GITHUB_OUTPUT"
 
       - name: Commit & push version bump
+        if: steps.semver.outputs.skipped != 'true'
         run: |
           NEW="${{ steps.semver.outputs.new_version }}"
           git config user.name  "github-actions[bot]"
@@ -131,6 +145,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
+      skipped: ${{ steps.check-tag.outputs.skipped }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -147,7 +162,22 @@ jobs:
           echo "version=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION_NAME"    >> "$GITHUB_OUTPUT"
 
+      - name: Check if release tag already exists
+        id: check-tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $TAG already exists — skipping creation."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Release $TAG does not exist yet — will create."
+            echo "skipped=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create Release
+        if: steps.check-tag.outputs.skipped != 'true'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.tag }}
@@ -160,6 +190,7 @@ jobs:
 
   build-deb-amd64:
     needs: create-release
+    if: needs.create-release.outputs.skipped != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -198,6 +229,7 @@ jobs:
 
   build-dmg-macos:
     needs: create-release
+    if: needs.create-release.outputs.skipped != 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -236,6 +268,7 @@ jobs:
 
   build-android-apk:
     needs: create-release
+    if: needs.create-release.outputs.skipped != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -305,6 +338,7 @@ jobs:
   build-android-aab:
     name: Build Android AAB (Play Store)
     needs: create-release
+    if: needs.create-release.outputs.skipped != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -366,6 +400,7 @@ jobs:
   build-msi-app:
     needs:
       - create-release
+    if: needs.create-release.outputs.skipped != 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -415,6 +450,7 @@ jobs:
       - build-deb-amd64
       - build-dmg-macos
       - build-msi-app
+    if: always() && needs.create-release.outputs.skipped != 'true' && !failure() && !cancelled()
     runs-on: ubuntu-latest
     steps:
       - name: Download all build artifacts
