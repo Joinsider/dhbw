@@ -105,6 +105,12 @@ kotlin {
 android {
     namespace = "de.fampopprol.dhbwhorb"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
+    buildToolsVersion = "35.0.0"
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
 
     defaultConfig {
         applicationId = "de.fampopprol.dhbwhorb"

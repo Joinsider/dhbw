@@ -1,0 +1,39 @@
+Categories:
+  - Education
+License: AGPL-3.0-or-later
+AuthorName: Johannes
+SourceCode: https://github.com/joinsider/dhbw
+IssueTracker: https://github.com/joinsider/dhbw/issues
+
+Name: DHBW Horb Student App
+Summary: Timetable and Dualis grades app for DHBW Horb students
+Description: |-
+  Specially developed for students at DHBW Stuttgart Campus Horb.
+
+  This app provides a complete overview of your daily study life:
+
+  * Clear display of your personal timetable
+  * All lectures, seminars and appointments at a glance
+  * Easy navigation through the weekdays
+  * Current information about room and lecturer
+  * Access to your Dualis grades
+
+RepoType: git
+Repo: https://github.com/joinsider/dhbw
+
+Builds:
+  - versionName: v2.0.0
+    versionCode: 18
+    commit: v2.0.0
+    subdir: composeApp
+    gradle:
+      - release
+    buildVersion:
+      gradle:
+        - release
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: v2.0.0
+CurrentVersionCode: 18
+
