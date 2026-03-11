@@ -6,6 +6,7 @@
 
 package de.fampopprol.dhbwhorb.ui.theme
 
+import junit.framework.TestCase.assertNotNull
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
