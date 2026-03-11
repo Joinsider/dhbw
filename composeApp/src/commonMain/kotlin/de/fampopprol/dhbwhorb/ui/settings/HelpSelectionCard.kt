@@ -108,7 +108,7 @@ fun HelpSelectionCard(
                         Button(
                             onClick = {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                                uriHandler.openUri("https://github.com/Joinsider/dhbw-next/issues/")
+                                uriHandler.openUri("https://github.com/Joinsider/dhbw/issues/")
                             },
                             modifier = Modifier
                                 .weight(1f)
