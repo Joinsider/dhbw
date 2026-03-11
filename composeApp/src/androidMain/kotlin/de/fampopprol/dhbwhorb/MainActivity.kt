@@ -30,6 +30,7 @@ import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferences
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
 import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
+import de.fampopprol.dhbwhorb.widget.sync.WidgetSyncWorker
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -218,6 +219,10 @@ class MainActivity : ComponentActivity() {
         }
 
         Napier.i("All services initialized successfully!", tag = "MainActivity")
+
+        // Schedule periodic widget background sync
+        WidgetSyncWorker.schedulePeriodicSync(applicationContext)
+        Napier.d("Widget periodic sync scheduled", tag = "MainActivity")
     }
 
     /**

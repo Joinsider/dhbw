@@ -44,6 +44,8 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.security.crypto)
             implementation(libs.androidx.work.runtime.ktx)
+            implementation(libs.glance.appwidget)
+            implementation(libs.glance.material3)
             implementation(libs.ktor.client.okhttp)
             // Ensure OkHttp core is present for DoH
             implementation(libs.okhttp)
@@ -162,6 +164,9 @@ android {
                 it.exclude("**/AppTest.class", "**/LoginFormTest.class", "**/ui/**/*Test.class")
             }
         }
+    }
+    buildFeatures {
+        viewBinding = true
     }
 }
 
