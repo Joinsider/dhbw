@@ -1,5 +1,6 @@
 package de.fampopprol.dhbwhorb
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.window.ComposeUIViewController
 import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
@@ -13,6 +14,9 @@ import de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorageWrapper
 import de.fampopprol.dhbwhorb.data.storage.database.createRoomDatabase
 import de.fampopprol.dhbwhorb.data.storage.database.getDatabaseBuilder
 import de.fampopprol.dhbwhorb.services.LectureService
+import de.fampopprol.dhbwhorb.services.widget.DatabaseWidgetRepository
+import de.fampopprol.dhbwhorb.services.widget.WidgetDataWriter
+import de.fampopprol.dhbwhorb.services.widget.WidgetTimetableUseCase
 import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
@@ -99,6 +103,33 @@ fun MainViewController() = ComposeUIViewController {
         ).also {
             Napier.d("TimetableViewModel initialized", tag = "MainViewController")
             Napier.i("All services initialized successfully!", tag = "MainViewController")
+        }
+    }
+
+    // ── Widget-Support ────────────────────────────────────────────────────────
+    // Writes a fresh snapshot to the shared App Group NSUserDefaults so the
+    // TimetableWidget extension can display up-to-date data without a network call.
+
+    val widgetDataWriter = remember {
+        WidgetDataWriter(appGroupSuiteName = "group.de.fampopprol.dhbwhorb")
+    }
+
+    val widgetUseCase = remember {
+        WidgetTimetableUseCase(
+            repository = DatabaseWidgetRepository(database.lectureDao()),
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            val upNext = widgetUseCase.getUpNextState()
+            val multiDay = widgetUseCase.getMultiDaySummaryState()
+            widgetDataWriter.writeUpNextState(upNext)
+            widgetDataWriter.writeMultiDayState(multiDay)
+            widgetDataWriter.notifyWidgetDataUpdated()
+            Napier.d("Widget-Snapshots geschrieben", tag = "MainViewController")
+        } catch (e: Exception) {
+            Napier.e("Widget-Snapshot fehlgeschlagen: ${e.message}", tag = "MainViewController")
         }
     }
 

@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
     alias(libs.plugins.kover)
+    alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
@@ -68,6 +69,7 @@ kotlin {
             implementation(libs.napier)
             implementation(libs.ktor.client.core)
             implementation(libs.kotlinx.datetime.v040)
+            implementation(libs.kotlinx.serialization.json)
             implementation("com.materialkolor:material-kolor:4.0.5") {
                 exclude(group = "org.jetbrains.compose.material3", module = "material3")
             }
