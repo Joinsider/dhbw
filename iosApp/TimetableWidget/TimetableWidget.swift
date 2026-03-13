@@ -78,7 +78,7 @@ struct TimetableProvider: TimelineProvider {
 
     // Snapshot beim Hinzufügen des Widgets zur Ansicht
     func placeholder(in context: Context) -> TimetableEntry {
-        TimetableEntry(date: .now, upNext: .previewCurrentlyRunning, multiDay: .previewTwoDays)
+        TimetableEntry(date: .now, upNext: UpNextInfo.previewCurrentlyRunning, multiDay: [WidgetDayInfo].previewTwoDays)
     }
 
     // Snapshot für die Widget-Galerie

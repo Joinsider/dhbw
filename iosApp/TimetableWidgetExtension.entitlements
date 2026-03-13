@@ -6,9 +6,5 @@
 	<array>
 		<string>group.de.fampopprol.dhbwhorb</string>
 	</array>
-	<key>keychain-access-groups</key>
-	<array>
-		<string>$(AppIdentifierPrefix)de.fampopprol.dhbw</string>
-	</array>
 </dict>
 </plist>

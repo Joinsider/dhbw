@@ -22,6 +22,7 @@ import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.cookies.HttpCookies
+import kotlinx.coroutines.flow.collectLatest
 
 fun MainViewController() = ComposeUIViewController {
     // Initialize Napier for iOS logging (only once)
@@ -120,16 +121,19 @@ fun MainViewController() = ComposeUIViewController {
         )
     }
 
+    // Observe database changes and update widget
     LaunchedEffect(Unit) {
-        try {
-            val upNext = widgetUseCase.getUpNextState()
-            val multiDay = widgetUseCase.getMultiDaySummaryState()
-            widgetDataWriter.writeUpNextState(upNext)
-            widgetDataWriter.writeMultiDayState(multiDay)
-            widgetDataWriter.notifyWidgetDataUpdated()
-            Napier.d("Widget-Snapshots geschrieben", tag = "MainViewController")
-        } catch (e: Exception) {
-            Napier.e("Widget-Snapshot fehlgeschlagen: ${e.message}", tag = "MainViewController")
+        database.lectureDao().getAllFlow().collectLatest {
+            try {
+                val upNext = widgetUseCase.getUpNextState()
+                val multiDay = widgetUseCase.getMultiDaySummaryState()
+                widgetDataWriter.writeUpNextState(upNext)
+                widgetDataWriter.writeMultiDayState(multiDay)
+                widgetDataWriter.notifyWidgetDataUpdated()
+                Napier.d("Widget-Snapshots aktualisiert (nach DB-Änderung)", tag = "MainViewController")
+            } catch (e: Exception) {
+                Napier.e("Widget-Snapshot fehlgeschlagen: ${e.message}", tag = "MainViewController")
+            }
         }
     }
 

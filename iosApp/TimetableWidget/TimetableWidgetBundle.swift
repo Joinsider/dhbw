@@ -9,7 +9,5 @@ struct TimetableWidgetBundle: WidgetBundle {
     var body: some Widget {
         // Home-Screen-Widget (Small / Medium / Large)
         TimetableWidget()
-        // Control-Center-Widget (iOS 18 Controls – Platzhalter)
-        TimetableWidgetControl()
     }
 }
