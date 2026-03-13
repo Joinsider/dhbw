@@ -3,11 +3,16 @@
 
 package de.fampopprol.dhbwhorb.widget.layouts
 
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.LocalContext
+import androidx.glance.action.clickable
+import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -22,8 +27,8 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import de.fampopprol.dhbwhorb.MainActivity
 import de.fampopprol.dhbwhorb.services.widget.models.WidgetClassState
-import de.fampopprol.dhbwhorb.services.widget.models.WidgetDayState
 import de.fampopprol.dhbwhorb.widget.state.TimetableWidgetState
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
@@ -39,6 +44,7 @@ fun WeekSummaryTallLayout(state: TimetableWidgetState) {
         modifier = GlanceModifier
             .fillMaxSize()
             .background(GlanceTheme.colors.widgetBackground)
+            .clickable(actionStartActivity(Intent(LocalContext.current, MainActivity::class.java)))
             .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
         when (state) {
@@ -74,19 +80,23 @@ private fun DayHeader(date: LocalDate) {
 }
 
 @Composable
-internal fun ClassCard(cls: WidgetClassState) {
+private fun ClassCard(cls: WidgetClassState) {
     Box(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .background(GlanceTheme.colors.surface)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .cornerRadius(12.dp)
+            .background(
+                if (cls.isTest) GlanceTheme.colors.errorContainer
+                else GlanceTheme.colors.surface
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "${cls.formattedStartTime}–${cls.formattedEndTime}",
                     style = TextStyle(
-                        color = GlanceTheme.colors.secondary,
+                        color = if (cls.isTest) GlanceTheme.colors.onErrorContainer else GlanceTheme.colors.secondary,
                         fontSize = 10.sp,
                     ),
                 )
@@ -105,7 +115,7 @@ internal fun ClassCard(cls: WidgetClassState) {
             Text(
                 text = cls.shortName,
                 style = TextStyle(
-                    color = GlanceTheme.colors.onSurface,
+                    color = if (cls.isTest) GlanceTheme.colors.onErrorContainer else GlanceTheme.colors.onSurface,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                 ),
@@ -134,4 +144,3 @@ internal fun formatDate(date: LocalDate): String {
     val month = date.month.number.toString().padStart(2, '0')
     return "$day.$month"
 }
-

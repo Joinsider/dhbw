@@ -3,11 +3,16 @@
 
 package de.fampopprol.dhbwhorb.widget.layouts
 
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.LocalContext
+import androidx.glance.action.clickable
+import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -23,6 +28,8 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import de.fampopprol.dhbwhorb.MainActivity
+import de.fampopprol.dhbwhorb.services.widget.models.WidgetClassState
 import de.fampopprol.dhbwhorb.widget.state.TimetableWidgetState
 
 /**
@@ -36,6 +43,7 @@ fun WeeklyTimelineLargeLayout(state: TimetableWidgetState) {
         modifier = GlanceModifier
             .fillMaxSize()
             .background(GlanceTheme.colors.widgetBackground)
+            .clickable(actionStartActivity(Intent(LocalContext.current, MainActivity::class.java)))
             .padding(12.dp),
     ) {
         when (state) {
@@ -78,3 +86,48 @@ fun WeeklyTimelineLargeLayout(state: TimetableWidgetState) {
     }
 }
 
+@Composable
+private fun ClassCard(cls: WidgetClassState) {
+    Box(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .cornerRadius(12.dp)
+            .background(
+                if (cls.isTest) GlanceTheme.colors.errorContainer
+                else GlanceTheme.colors.surface
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "${cls.formattedStartTime}–${cls.formattedEndTime}",
+                    style = TextStyle(
+                        color = if (cls.isTest) GlanceTheme.colors.onErrorContainer else GlanceTheme.colors.secondary,
+                        fontSize = 10.sp,
+                    ),
+                )
+                if (cls.isTest) {
+                    Spacer(GlanceModifier.width(4.dp))
+                    Text(
+                        text = "TEST",
+                        style = TextStyle(
+                            color = GlanceTheme.colors.error,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                    )
+                }
+            }
+            Text(
+                text = cls.shortName,
+                style = TextStyle(
+                    color = if (cls.isTest) GlanceTheme.colors.onErrorContainer else GlanceTheme.colors.onSurface,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                ),
+                maxLines = 1,
+            )
+        }
+    }
+}

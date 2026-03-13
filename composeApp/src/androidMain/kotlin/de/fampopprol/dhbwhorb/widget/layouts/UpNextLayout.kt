@@ -3,11 +3,16 @@
 
 package de.fampopprol.dhbwhorb.widget.layouts
 
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.LocalContext
+import androidx.glance.action.clickable
+import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -23,6 +28,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import de.fampopprol.dhbwhorb.MainActivity
 import de.fampopprol.dhbwhorb.services.widget.models.WidgetUpNextState
 import de.fampopprol.dhbwhorb.widget.state.TimetableWidgetState
 
@@ -37,6 +43,7 @@ fun UpNextLayout(state: TimetableWidgetState) {
         modifier = GlanceModifier
             .fillMaxSize()
             .background(GlanceTheme.colors.widgetBackground)
+            .clickable(actionStartActivity(Intent(LocalContext.current, MainActivity::class.java)))
             .padding(12.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -79,12 +86,12 @@ private fun UpNextSuccessContent(upNext: WidgetUpNextState) {
         is WidgetUpNextState.CurrentlyRunning -> {
             val lecture = upNext.lecture
             Column(modifier = GlanceModifier.fillMaxSize()) {
-                StatusPill(label = "Läuft jetzt", isOngoing = true)
+                StatusPill(label = if (lecture.isTest) "KLAUSUR LÄUFT" else "Läuft jetzt", isOngoing = true, isTest = lecture.isTest)
                 Spacer(modifier = GlanceModifier.height(6.dp))
                 Text(
                     text = lecture.shortName,
                     style = TextStyle(
-                        color = GlanceTheme.colors.onBackground,
+                        color = if (lecture.isTest) GlanceTheme.colors.error else GlanceTheme.colors.onBackground,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                     ),
@@ -105,12 +112,12 @@ private fun UpNextSuccessContent(upNext: WidgetUpNextState) {
         is WidgetUpNextState.ComingUp -> {
             val lecture = upNext.lecture
             Column(modifier = GlanceModifier.fillMaxSize()) {
-                StatusPill(label = "Nächste", isOngoing = false)
+                StatusPill(label = if (lecture.isTest) "NÄCHSTE: KLAUSUR" else "Nächste", isOngoing = false, isTest = lecture.isTest)
                 Spacer(modifier = GlanceModifier.height(6.dp))
                 Text(
                     text = lecture.shortName,
                     style = TextStyle(
-                        color = GlanceTheme.colors.onBackground,
+                        color = if (lecture.isTest) GlanceTheme.colors.error else GlanceTheme.colors.onBackground,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                     ),
@@ -131,16 +138,28 @@ private fun UpNextSuccessContent(upNext: WidgetUpNextState) {
 }
 
 @Composable
-internal fun StatusPill(label: String, isOngoing: Boolean) {
+internal fun StatusPill(label: String, isOngoing: Boolean, isTest: Boolean) {
+    val bgColor = when {
+        isTest -> GlanceTheme.colors.error
+        isOngoing -> GlanceTheme.colors.primary
+        else -> GlanceTheme.colors.secondary
+    }
+    val contentColor = when {
+        isTest -> GlanceTheme.colors.onError
+        isOngoing -> GlanceTheme.colors.onPrimary
+        else -> GlanceTheme.colors.onSecondary
+    }
+
     Box(
         modifier = GlanceModifier
-            .background(if (isOngoing) GlanceTheme.colors.primary else GlanceTheme.colors.secondary)
+            .cornerRadius(12.dp)
+            .background(bgColor)
             .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         Text(
             text = label,
             style = TextStyle(
-                color = if (isOngoing) GlanceTheme.colors.onPrimary else GlanceTheme.colors.onSecondary,
+                color = contentColor,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Medium,
             ),
@@ -170,4 +189,3 @@ internal fun ErrorContent(message: String) {
         )
     }
 }
-

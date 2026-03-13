@@ -119,12 +119,23 @@ class WidgetTimetableUseCase(
     private suspend fun findNextDayWithClasses(startingFrom: LocalDate): WidgetDayState? {
         var candidate = startingFrom
         val horizon = startingFrom.plus(MAX_LOOKAHEAD_DAYS, DateTimeUnit.DAY)
+        val now = clock()
 
         while (candidate <= horizon) {
             val classes = fetchClassesForDate(candidate)
             if (classes.isNotEmpty()) {
+                // If the candidate day is today, check if all classes have ended.
+                // If so, skip today and look for the next day with lectures.
+                if (candidate == now.date) {
+                    val allClassesEnded = classes.all { it.endTime <= now }
+                    if (allClassesEnded) {
+                        Napier.d("All classes for today ($candidate) are over, skipping to next day", tag = TAG)
+                        candidate = candidate.plus(1, DateTimeUnit.DAY)
+                        continue
+                    }
+                }
+
                 Napier.d("Found ${classes.size} class(es) on $candidate", tag = TAG)
-                val now = clock()
                 return WidgetDayState(
                     date = candidate,
                     classes = classes
@@ -144,6 +155,7 @@ class WidgetTimetableUseCase(
         val start = LocalDateTime(date.year, date.month, date.day, 0, 0, 0)
         val end = LocalDateTime(date.year, date.month, date.day, 23, 59, 59)
         return repository.getLecturesForDateRange(start, end)
+            .distinctBy { Triple(it.startTime, it.endTime, it.shortSubjectName) }
     }
 
     /** Maps a [LectureEventEntity] to the platform-agnostic [WidgetClassState]. */
@@ -163,4 +175,3 @@ class WidgetTimetableUseCase(
     private fun LocalDateTime.formatHHmm(): String =
         "${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
 }
-

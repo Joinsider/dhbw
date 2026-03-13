@@ -59,8 +59,8 @@ object WidgetStateCodec {
             is TimetableWidgetState.Success -> {
                 prefs[WidgetStateKeys.STATUS] = "success"
                 encodeUpNext(prefs, state.upNext)
-                state.day0?.let { encodeDay(prefs, it, 0) }
-                state.day1?.let { encodeDay(prefs, it, 1) }
+                if (state.day0 != null) encodeDay(prefs, state.day0, 0) else clearDay(prefs, 0)
+                if (state.day1 != null) encodeDay(prefs, state.day1, 1) else clearDay(prefs, 1)
             }
         }
     }
@@ -114,6 +114,13 @@ object WidgetStateCodec {
         )
         return if (type == "running") WidgetUpNextState.CurrentlyRunning(cls)
         else WidgetUpNextState.ComingUp(cls)
+    }
+
+    private fun clearDay(prefs: MutablePreferences, idx: Int) {
+        val dateKey = if (idx == 0) WidgetStateKeys.DAY0_DATE else WidgetStateKeys.DAY1_DATE
+        val clsKey  = if (idx == 0) WidgetStateKeys.DAY0_CLASSES else WidgetStateKeys.DAY1_CLASSES
+        prefs.remove(dateKey)
+        prefs.remove(clsKey)
     }
 
     private fun encodeDay(prefs: MutablePreferences, day: WidgetDayState, idx: Int) {

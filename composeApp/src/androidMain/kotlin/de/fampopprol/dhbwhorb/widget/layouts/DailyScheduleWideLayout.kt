@@ -3,11 +3,15 @@
 
 package de.fampopprol.dhbwhorb.widget.layouts
 
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.LocalContext
+import androidx.glance.action.clickable
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -22,6 +26,7 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import de.fampopprol.dhbwhorb.MainActivity
 import de.fampopprol.dhbwhorb.services.widget.models.WidgetClassState
 import de.fampopprol.dhbwhorb.widget.state.TimetableWidgetState
 
@@ -32,6 +37,7 @@ fun DailyScheduleWideLayout(state: TimetableWidgetState) {
         modifier = GlanceModifier
             .fillMaxSize()
             .background(GlanceTheme.colors.widgetBackground)
+            .clickable(actionStartActivity(Intent(LocalContext.current, MainActivity::class.java)))
             .padding(12.dp),
     ) {
         when (state) {
@@ -68,12 +74,31 @@ private fun WideSuccessContent(state: TimetableWidgetState.Success) {
 @Composable
 private fun WideRow(cls: WidgetClassState) {
     Row(verticalAlignment = Alignment.Top) {
-        Text("•", style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 11.sp))
+        Text(
+            text = "•",
+            style = TextStyle(
+                color = if (cls.isTest) GlanceTheme.colors.error else GlanceTheme.colors.secondary,
+                fontSize = 11.sp,
+            ),
+        )
         Spacer(GlanceModifier.width(3.dp))
         Column {
-            Text(cls.shortName, style = TextStyle(color = GlanceTheme.colors.onBackground, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
-            Text("${cls.formattedStartTime} · ${cls.location}", style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 9.sp))
+            Text(
+                text = cls.shortName,
+                style = TextStyle(
+                    color = if (cls.isTest) GlanceTheme.colors.error else GlanceTheme.colors.onBackground,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                ),
+                maxLines = 1,
+            )
+            Text(
+                text = "${cls.formattedStartTime} · ${cls.location}",
+                style = TextStyle(
+                    color = if (cls.isTest) GlanceTheme.colors.error else GlanceTheme.colors.secondary,
+                    fontSize = 9.sp,
+                ),
+            )
         }
     }
 }
-
