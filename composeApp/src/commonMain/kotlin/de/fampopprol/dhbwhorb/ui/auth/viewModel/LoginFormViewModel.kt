@@ -51,7 +51,7 @@ class LoginFormViewModel : ViewModel() {
     ): Boolean {
         var isValid = true
 
-        val pattern = Regex("[a-zA-Z0-9]+@hb.dhbw-stuttgart.de")
+        val pattern = Regex("""^[a-zA-Z0-9.]+@(?:hb|lehre)\.dhbw-stuttgart\.de""")
 
         // Validate username
         when {

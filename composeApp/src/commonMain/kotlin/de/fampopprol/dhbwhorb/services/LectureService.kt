@@ -5,6 +5,7 @@ import de.fampopprol.dhbwhorb.data.helpers.TimeHelper
 import de.fampopprol.dhbwhorb.data.storage.database.AppDatabase
 import de.fampopprol.dhbwhorb.data.storage.database.entities.SyncMetadataEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureEventEntity
+import de.fampopprol.dhbwhorb.services.widget.WidgetLectureRepository
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,11 +26,17 @@ class LectureService(
     private val database: AppDatabase,
     private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO),
     private val dualisLectureService: DualisLectureService
-) {
+) : WidgetLectureRepository {
     companion object {
         private const val SYNC_KEY_TIMETABLE = "timetable"
         private const val SYNC_THRESHOLD_DAYS = 3
     }
+
+    // Satisfies WidgetLectureRepository – delegates to the regular cache-first method.
+    override suspend fun getLecturesForDateRange(
+        start: LocalDateTime,
+        end: LocalDateTime,
+    ): List<LectureEventEntity> = getLecturesForDateRange(startDate = start, endDate = end)
 
     /**
      * Get lectures for current week.

@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
     alias(libs.plugins.kover)
+    alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
@@ -44,6 +45,8 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.security.crypto)
             implementation(libs.androidx.work.runtime.ktx)
+            implementation(libs.glance.appwidget)
+            implementation(libs.glance.material3)
             implementation(libs.ktor.client.okhttp)
             // Ensure OkHttp core is present for DoH
             implementation(libs.okhttp)
@@ -66,6 +69,7 @@ kotlin {
             implementation(libs.napier)
             implementation(libs.ktor.client.core)
             implementation(libs.kotlinx.datetime.v040)
+            implementation(libs.kotlinx.serialization.json)
             implementation("com.materialkolor:material-kolor:4.0.5") {
                 exclude(group = "org.jetbrains.compose.material3", module = "material3")
             }
@@ -162,6 +166,9 @@ android {
                 it.exclude("**/AppTest.class", "**/LoginFormTest.class", "**/ui/**/*Test.class")
             }
         }
+    }
+    buildFeatures {
+        viewBinding = true
     }
 }
 
