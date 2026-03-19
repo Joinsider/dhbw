@@ -5,6 +5,7 @@ package de.fampopprol.dhbwhorb.widget.layouts
 
 import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
