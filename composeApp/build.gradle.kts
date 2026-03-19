@@ -120,8 +120,8 @@ android {
         applicationId = "de.fampopprol.dhbwhorb"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 18
-        versionName = "v2.0.0"
+        versionCode = 19
+        versionName = "v2.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -193,7 +193,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "dhbw-horb-student-app"
-            packageVersion = "1.0.13"
+            packageVersion = "2.0.1"
             modules(
                 "java.base",
                 "java.datatransfer",
@@ -294,7 +294,7 @@ kover {
 // Custom fat JAR task - simple and reliable
 val packageFatJar by tasks.registering(Jar::class) {
     archiveBaseName.set("dhbw-horb-student-app")
-    archiveVersion.set("2.0.0")
+    archiveVersion.set("2.0.1")
     archiveClassifier.set("all")
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
