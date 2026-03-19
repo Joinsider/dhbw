@@ -101,6 +101,7 @@ private fun UpNextSuccessContent(upNext: WidgetUpNextState) {
                     ),
                     maxLines = 2,
                 )
+
                 Spacer(modifier = GlanceModifier.height(4.dp))
                 Text(
                     text = "${lecture.formattedStartTime} – ${lecture.formattedEndTime}",

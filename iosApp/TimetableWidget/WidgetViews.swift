@@ -69,7 +69,7 @@ struct SmallWidgetView: View {
                 .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(14)
+        .padding(6)
     }
 }
 
@@ -112,7 +112,7 @@ struct MediumWidgetView: View {
                     }
                 }
             }
-            .padding(14)
+            .padding(6)
         }
     }
 }
@@ -134,7 +134,7 @@ struct LargeWidgetView: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(14)
+            .padding(6)
         }
     }
 }
@@ -261,4 +261,3 @@ extension WidgetDayInfo {
         return fmt.string(from: date)
     }
 }
-
