@@ -4,7 +4,10 @@ on:
   release:
     types: [published]
   workflow_dispatch:
-
+    inputs:
+      version:
+        description: "Version tag to dispatch (e.g. v2.1.0)"
+        required: true
 
 jobs:
   dispatch:
@@ -18,5 +21,5 @@ jobs:
           event-type: new-dhbw-release
           client-payload: |
             {
-              "version": "${{ github.event.release.tag_name }}"
+              "version": "${{ github.event.release.tag_name || github.event.inputs.version }}"
             }
