@@ -103,13 +103,6 @@ jobs:
           echo "new_tag=v$NEW"     >> "$GITHUB_OUTPUT"
           echo "skipped=false"     >> "$GITHUB_OUTPUT"
 
-      - name: Write new versionName into build.gradle.kts
-        if: steps.semver.outputs.skipped != 'true'
-        run: |
-          NEW="${{ steps.semver.outputs.new_version }}"
-          sed -i -E "s/(versionName\s*=\s*)\"v?[^\"]+\"/\1\"v$NEW\"/" composeApp/build.gradle.kts
-          grep 'versionName' composeApp/build.gradle.kts
-
       - name: Bump Android versionCode
         id: versioncode
         if: steps.semver.outputs.skipped != 'true'
@@ -123,15 +116,45 @@ jobs:
           grep 'versionCode' composeApp/build.gradle.kts
           echo "new_code=$NEW_CODE" >> "$GITHUB_OUTPUT"
 
+      - name: Write new versions into build files
+        if: steps.semver.outputs.skipped != 'true'
+        run: |
+          NEW="${{ steps.semver.outputs.new_version }}"
+          NEW_CODE="${{ steps.versioncode.outputs.new_code }}"
+          
+          echo "Updating versions to $NEW (code: $NEW_CODE)"
+          
+          # 1. Update Android & Desktop in build.gradle.kts
+          # Update Android versionName (with 'v' prefix)
+          sed -i -E "s/(versionName\s*=\s*)\"v?[^\"]+\"/\1\"v$NEW\"/" composeApp/build.gradle.kts
+          # Update Desktop packageVersion (pure semver)
+          sed -i -E "s/(packageVersion\s*=\s*)\"[^\"]+\"/\1\"$NEW\"/" composeApp/build.gradle.kts
+          # Update Fat Jar archiveVersion
+          sed -i -E "s/(archiveVersion\.set\()\"[^\"]+\"\)/\1\"$NEW\")/" composeApp/build.gradle.kts
+          
+          # 2. Update iOS in Config.xcconfig
+          if [ -f "iosApp/Configuration/Config.xcconfig" ]; then
+            sed -i -E "s/(MARKETING_VERSION\s*=\s*).*/\1$NEW/" iosApp/Configuration/Config.xcconfig
+            sed -i -E "s/(CURRENT_PROJECT_VERSION\s*=\s*).*/\1$NEW_CODE/" iosApp/Configuration/Config.xcconfig
+          fi
+
+          echo "--- Updated composeApp/build.gradle.kts ---"
+          grep -E "versionName|versionCode|packageVersion|archiveVersion" composeApp/build.gradle.kts
+          
+          if [ -f "iosApp/Configuration/Config.xcconfig" ]; then
+            echo "--- Updated iosApp/Configuration/Config.xcconfig ---"
+            cat iosApp/Configuration/Config.xcconfig
+          fi
+
       - name: Commit & push version bump
         if: steps.semver.outputs.skipped != 'true'
         run: |
           NEW="${{ steps.semver.outputs.new_version }}"
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add composeApp/build.gradle.kts
+          git add composeApp/build.gradle.kts iosApp/Configuration/Config.xcconfig
           if git diff --cached --quiet; then
-            echo "versionName already at v$NEW — nothing to commit."
+            echo "Versions already up to date — nothing to commit."
           else
             git commit -m "chore: bump version to v$NEW"
             git push origin HEAD:${{ github.ref_name }}
