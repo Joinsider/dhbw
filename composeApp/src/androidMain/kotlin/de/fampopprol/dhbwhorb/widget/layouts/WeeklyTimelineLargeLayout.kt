@@ -56,14 +56,24 @@ fun WeeklyTimelineLargeLayout(state: TimetableWidgetState) {
                         state.day0?.let { day ->
                             Text(
                                 text = formatDate(day.date),
-                                style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold),
+                                style = TextStyle(
+                                    color = GlanceTheme.colors.primary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
                             )
                             Spacer(GlanceModifier.height(6.dp))
                             day.classes.forEach { cls ->
                                 ClassCard(cls)
                                 Spacer(GlanceModifier.height(4.dp))
                             }
-                        } ?: Text("Keine Vorlesungen", style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 11.sp))
+                        } ?: Text(
+                            "Keine Vorlesungen",
+                            style = TextStyle(
+                                color = GlanceTheme.colors.secondary,
+                                fontSize = 11.sp
+                            )
+                        )
                     }
                     Spacer(GlanceModifier.width(10.dp))
                     // Day 1
@@ -71,7 +81,11 @@ fun WeeklyTimelineLargeLayout(state: TimetableWidgetState) {
                         state.day1?.let { day ->
                             Text(
                                 text = formatDate(day.date),
-                                style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold),
+                                style = TextStyle(
+                                    color = GlanceTheme.colors.primary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
                             )
                             Spacer(GlanceModifier.height(6.dp))
                             day.classes.forEach { cls ->
@@ -127,6 +141,13 @@ private fun ClassCard(cls: WidgetClassState) {
                     fontWeight = FontWeight.Medium,
                 ),
                 maxLines = 1,
+            )
+            Text(
+                text = cls.location,
+                style = TextStyle(
+                    color = if (cls.isTest) GlanceTheme.colors.onErrorContainer else GlanceTheme.colors.secondary,
+                    fontSize = 10.sp,
+                ),
             )
         }
     }

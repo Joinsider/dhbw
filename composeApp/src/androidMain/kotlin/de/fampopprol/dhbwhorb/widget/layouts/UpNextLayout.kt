@@ -86,7 +86,11 @@ private fun UpNextSuccessContent(upNext: WidgetUpNextState) {
         is WidgetUpNextState.CurrentlyRunning -> {
             val lecture = upNext.lecture
             Column(modifier = GlanceModifier.fillMaxSize()) {
-                StatusPill(label = if (lecture.isTest) "KLAUSUR LÄUFT" else "Läuft jetzt", isOngoing = true, isTest = lecture.isTest)
+                StatusPill(
+                    label = if (lecture.isTest) "KLAUSUR LÄUFT" else "Läuft jetzt",
+                    isOngoing = true,
+                    isTest = lecture.isTest
+                )
                 Spacer(modifier = GlanceModifier.height(6.dp))
                 Text(
                     text = lecture.shortName,
@@ -112,7 +116,11 @@ private fun UpNextSuccessContent(upNext: WidgetUpNextState) {
         is WidgetUpNextState.ComingUp -> {
             val lecture = upNext.lecture
             Column(modifier = GlanceModifier.fillMaxSize()) {
-                StatusPill(label = if (lecture.isTest) "NÄCHSTE: KLAUSUR" else "Nächste", isOngoing = false, isTest = lecture.isTest)
+                StatusPill(
+                    label = if (lecture.isTest) "NÄCHSTE: KLAUSUR" else "Nächste",
+                    isOngoing = false,
+                    isTest = lecture.isTest
+                )
                 Spacer(modifier = GlanceModifier.height(6.dp))
                 Text(
                     text = lecture.shortName,

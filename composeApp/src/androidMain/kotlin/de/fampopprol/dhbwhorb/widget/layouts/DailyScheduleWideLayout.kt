@@ -54,19 +54,44 @@ private fun WideSuccessContent(state: TimetableWidgetState.Success) {
     Row(modifier = GlanceModifier.fillMaxSize()) {
         Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
             state.day0?.let { day ->
-                Text(formatDate(day.date), style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold))
+                Text(
+                    formatDate(day.date),
+                    style = TextStyle(
+                        color = GlanceTheme.colors.primary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
                 Spacer(GlanceModifier.height(4.dp))
-                day.classes.take(4).forEach { cls -> WideRow(cls); Spacer(GlanceModifier.height(3.dp)) }
-                if (day.classes.size > 4) Text("+${day.classes.size - 4} weitere", style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 10.sp))
-            } ?: Text("Keine Vorlesungen", style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 11.sp))
+                day.classes.take(4)
+                    .forEach { cls -> WideRow(cls); Spacer(GlanceModifier.height(3.dp)) }
+                if (day.classes.size > 4) Text(
+                    "+${day.classes.size - 4} weitere",
+                    style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 10.sp)
+                )
+            } ?: Text(
+                "Keine Vorlesungen",
+                style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 11.sp)
+            )
         }
         Spacer(GlanceModifier.width(8.dp))
         Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
             state.day1?.let { day ->
-                Text(formatDate(day.date), style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold))
+                Text(
+                    formatDate(day.date),
+                    style = TextStyle(
+                        color = GlanceTheme.colors.primary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
                 Spacer(GlanceModifier.height(4.dp))
-                day.classes.take(4).forEach { cls -> WideRow(cls); Spacer(GlanceModifier.height(3.dp)) }
-                if (day.classes.size > 4) Text("+${day.classes.size - 4} weitere", style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 10.sp))
+                day.classes.take(4)
+                    .forEach { cls -> WideRow(cls); Spacer(GlanceModifier.height(3.dp)) }
+                if (day.classes.size > 4) Text(
+                    "+${day.classes.size - 4} weitere",
+                    style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 10.sp)
+                )
             }
         }
     }
@@ -94,7 +119,7 @@ private fun WideRow(cls: WidgetClassState) {
                 maxLines = 1,
             )
             Text(
-                text = "${cls.formattedStartTime} · ${cls.location}",
+                text = "${cls.formattedStartTime}-${cls.formattedEndTime} · ${cls.location}",
                 style = TextStyle(
                     color = if (cls.isTest) GlanceTheme.colors.error else GlanceTheme.colors.secondary,
                     fontSize = 9.sp,
