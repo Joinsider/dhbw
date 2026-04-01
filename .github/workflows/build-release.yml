@@ -150,6 +150,7 @@ jobs:
         if: steps.semver.outputs.skipped != 'true'
         run: |
           NEW="${{ steps.semver.outputs.new_version }}"
+          TARGET_BRANCH="${{ github.base_ref || github.ref_name }}"
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add composeApp/build.gradle.kts iosApp/Configuration/Config.xcconfig
@@ -157,7 +158,7 @@ jobs:
             echo "Versions already up to date — nothing to commit."
           else
             git commit -m "chore: bump version to v$NEW"
-            git push origin HEAD:${{ github.ref_name }}
+            git push origin "HEAD:$TARGET_BRANCH"
           fi
 
   create-release:
@@ -165,6 +166,8 @@ jobs:
     environment: production
     needs: [ bump-version ]
     if: always() && !failure() && !cancelled()
+    permissions:
+      contents: write
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
@@ -173,7 +176,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          ref: ${{ github.ref_name }}
+          fetch-tags: true
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
 
       - name: Read composeApp version
         id: version
@@ -200,6 +204,36 @@ jobs:
             echo "skipped=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Ensure Git tag exists in remote
+        if: steps.check-tag.outputs.skipped != 'true'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null 2>&1; then
+            echo "Tag $TAG already exists in origin."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "refs/tags/$TAG"
+
+      - name: Wait until tag is visible
+        if: steps.check-tag.outputs.skipped != 'true'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          for i in {1..10}; do
+            if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null 2>&1; then
+              echo "Tag $TAG is visible in origin."
+              exit 0
+            fi
+            echo "Tag $TAG not visible yet (attempt $i/10), waiting..."
+            sleep 3
+          done
+          echo "Tag $TAG was not visible in origin in time."
+          exit 1
+
       - name: Create Release
         if: steps.check-tag.outputs.skipped != 'true'
         uses: softprops/action-gh-release@v1
@@ -219,7 +253,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.create-release.outputs.tag }}
+          ref: refs/tags/${{ needs.create-release.outputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -260,7 +296,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.create-release.outputs.tag }}
+          ref: refs/tags/${{ needs.create-release.outputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -301,7 +339,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.create-release.outputs.tag }}
+          ref: refs/tags/${{ needs.create-release.outputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -373,7 +413,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.create-release.outputs.tag }}
+          ref: refs/tags/${{ needs.create-release.outputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -437,7 +479,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.create-release.outputs.tag }}
+          ref: refs/tags/${{ needs.create-release.outputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
