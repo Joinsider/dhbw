@@ -501,6 +501,10 @@ jobs:
           ref: refs/tags/${{ needs.create-release.outputs.tag }}
           fetch-depth: 0
           fetch-tags: true
+          sparse-checkout: |
+            /*
+            !/.planning/
+          sparse-checkout-cone-mode: false
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
