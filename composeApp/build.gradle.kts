@@ -121,8 +121,8 @@ android {
         applicationId = "de.fampopprol.dhbwhorb"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 22
-        versionName = "v2.0.2"
+        versionCode = 23
+        versionName = "v2.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -194,7 +194,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "dhbw-horb-student-app"
-            packageVersion = "2.0.2"
+            packageVersion = "2.0.3"
             // Avoid SSL trust chain issues in packaged apps caused by missing JDK modules.
             includeAllModules = true
             modules(
@@ -297,7 +297,7 @@ kover {
 // Custom fat JAR task - simple and reliable
 val packageFatJar by tasks.registering(Jar::class) {
     archiveBaseName.set("dhbw-horb-student-app")
-    archiveVersion.set("2.0.2")
+    archiveVersion.set("2.0.3")
     archiveClassifier.set("all")
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
