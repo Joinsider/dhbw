@@ -1,0 +1,6 @@
+Version 2.0.2
+
+- iOS FileViewer behoben: Vollständige Implementierung der Dateiöffnungs- und Speicherfunktionalität
+- macOS-Unterstützung hinzugefügt: Native Dateivorgänge mit AppKit (NSSavePanel, NSWorkspace)
+- Verbesserte Plattformkompatibilität über alle Ziele hinweg (iOS, macOS, Android, Desktop)
+- Fehlerbehebungen und Stabilitätsverbesserungen
