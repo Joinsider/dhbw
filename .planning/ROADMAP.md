@@ -98,17 +98,27 @@ Plans:
 
 **Status:** Ready for execution via `/gsd:execute-phase 06`
 
-## Phase 7: Loading Animation & Desktop Verification
+## Phase 7: Loading Animation & Desktop Verification (Complete)
 Goal: Add visual feedback for loading state and fix document saving on desktop platforms to ask the user where to save the file.
 
 **Requirements:**
-- [ ] **DOC-UI-05**: Implement a loading animation/indicator on the Documents page when fetching data.
-- [ ] **DOC-DSK-02**: Verify document download and viewing functionality on desktop (macOS/Windows/Linux).
+- [x] **DOC-UI-05**: Implement a loading animation/indicator on the Documents page when fetching data.
+- [x] **DOC-DSK-02**: Verify document download and viewing functionality on desktop (macOS/Windows/Linux).
 
 **Depends on:** Phase 6
 
 **Plans:** 4 plans
-- [ ] 07-01-PLAN.md — UI Loading State & Interface (Wave 1)
-- [ ] 07-02-PLAN.md — Desktop Implementation & ViewModel (Wave 2)
-- [ ] 07-03-PLAN.md — Mobile Platform Implementations (Wave 3)
-- [ ] 07-04-PLAN.md — Verification (Wave 4)
+- [x] 07-01-PLAN.md — UI Loading State & Interface (Wave 1)
+- [x] 07-02-PLAN.md — Desktop Implementation & ViewModel (Wave 2)
+- [x] 07-03-PLAN.md — Mobile Platform Implementations (Wave 3)
+- [x] 07-04-PLAN.md — Verification (Wave 4)
+
+### Phase 07.1: The fileviewer on iOS has errors (INSERTED)
+
+**Goal:** Fix IDE compilation errors by providing missing macOS expect/actual implementations for FileViewer functions
+**Requirements**: Fix missing expect/actual for macOS platform variants (macosX64Main, macosArm64Main)
+**Depends on:** Phase 7
+**Plans:** 1 plan
+
+Plans:
+- [ ] 07.1-PLAN.md — macOS FileViewer Implementation (Wave 1: 2 tasks)
