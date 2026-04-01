@@ -1,0 +1,13 @@
+{
+  "workflow": {
+    "auto": false,
+    "research": "comprehensive",
+    "validation": "strict"
+  },
+  "platforms": ["android", "ios", "desktop"],
+  "tech_stack": {
+    "network": "Ktor",
+    "ui": "Compose Multiplatform",
+    "parser": "Regex Scraping"
+  }
+}

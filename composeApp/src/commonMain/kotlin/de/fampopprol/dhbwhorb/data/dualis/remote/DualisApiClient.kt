@@ -1,5 +1,6 @@
 package de.fampopprol.dhbwhorb.data.dualis.remote
 
+import de.fampopprol.dhbwhorb.net.HttpClientFactory
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.cookies.HttpCookies
@@ -31,7 +32,7 @@ class DualisApiClient(
          * For production use, prefer passing the same HttpClient used by AuthenticationService.
          */
         fun createDefault(): DualisApiClient {
-            val client = HttpClient {
+            val client = HttpClient(HttpClientFactory.createEngine()) {
                 expectSuccess = false
                 install(HttpCookies)
             }

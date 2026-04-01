@@ -4,6 +4,7 @@ import de.fampopprol.dhbwhorb.data.dualis.remote.models.AuthData
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.AuthParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.HtmlParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
+import de.fampopprol.dhbwhorb.net.HttpClientFactory
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
@@ -40,7 +41,7 @@ open class AuthenticationService(
          * This ensures cookies are shared between AuthenticationService and DualisApiClient.
          */
         fun createSharedHttpClient(): HttpClient {
-            return HttpClient {
+            return HttpClient(HttpClientFactory.createEngine()) {
                 expectSuccess = false
                 install(HttpCookies)
                 install(HttpTimeout) {
