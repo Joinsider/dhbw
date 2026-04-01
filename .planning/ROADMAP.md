@@ -97,3 +97,15 @@ Plans:
 - D-08: Current error state tracking adequate
 
 **Status:** Ready for execution via `/gsd:execute-phase 06`
+
+## Phase 7: Loading Animation & Desktop Verification
+Goal: Add visual feedback for loading state and fix document saving on desktop platforms to ask the user where to save the file.
+
+**Requirements:**
+- [ ] **DOC-UI-05**: Implement a loading animation/indicator on the Documents page when fetching data.
+- [ ] **DOC-DSK-02**: Verify document download and viewing functionality on desktop (macOS/Windows/Linux).
+
+**Depends on:** Phase 6
+
+**Plans:** 0 plans
+- [ ] TBD (run `/gsd:plan-phase 07` to break down)

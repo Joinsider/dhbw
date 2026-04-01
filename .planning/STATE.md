@@ -5,7 +5,7 @@ milestone_name: milestone
 status: unknown
 last_updated: "2026-04-01T14:57:34.163Z"
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 3
   total_plans: 11
   completed_plans: 8
@@ -17,6 +17,7 @@ progress:
 - Phase 4: COMPLETE (inferred from context)
 - Phase 5: COMPLETE (inferred from context)
 - Phase 6: COMPLETE
+- Phase 7: PLANNED
 
 ## Accumulated Context
 
@@ -24,3 +25,4 @@ progress:
 
 - Phase 5 added: Recheck implementation of documents and add actual fetching from dualis. Use the example folder for a tutorial on how to use dualis. If unsure ask me questions
 - Phase 6 added: Currently the documents page is inaccessible, as nothing happens if I click on the documents page. Verify the implementation and fix the feature to support the download and fetching officially from dualis
+- Phase 7 added: Add loading animation to documents page if it is loading. And ask the user where to save a document on desktop if he wants to save it to files.

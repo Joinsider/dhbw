@@ -23,8 +23,6 @@ import de.fampopprol.dhbwhorb.services.notifications.NotificationServiceLocator
 import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.cookies.HttpCookies
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -36,6 +34,17 @@ import java.io.File
 private const val TAG = "Main"
 
 private fun configureDesktopTrustStore() {
+    val osName = System.getProperty("os.name").lowercase()
+    if (osName.contains("mac")) {
+        // On macOS, KeychainStore is often better as it uses system certificates.
+        // However, we only set it if not already configured.
+        if (System.getProperty("javax.net.ssl.trustStoreType").isNullOrBlank()) {
+            System.setProperty("javax.net.ssl.trustStoreType", "KeychainStore")
+            Napier.d("Using macOS KeychainStore for SSL trust", tag = TAG)
+            return
+        }
+    }
+
     val configuredTrustStore = System.getProperty("javax.net.ssl.trustStore")
     if (!configuredTrustStore.isNullOrBlank()) {
         Napier.d("Using preconfigured trustStore: $configuredTrustStore", tag = TAG)
@@ -51,7 +60,9 @@ private fun configureDesktopTrustStore() {
     val detectedTrustStore = candidates.firstOrNull { File(it).exists() }
     if (detectedTrustStore != null) {
         System.setProperty("javax.net.ssl.trustStore", detectedTrustStore)
-        System.setProperty("javax.net.ssl.trustStoreType", "JKS")
+        if (System.getProperty("javax.net.ssl.trustStoreType").isNullOrBlank()) {
+            System.setProperty("javax.net.ssl.trustStoreType", "JKS")
+        }
         Napier.d("Configured trustStore: $detectedTrustStore", tag = TAG)
     } else {
         Napier.w("No cacerts file found under java.home=$javaHome", tag = TAG)
@@ -77,11 +88,8 @@ fun main() {
     Napier.d("Database initialized", tag = TAG)
 
     // Create shared HttpClient for cookie sharing
-    val sharedHttpClient = HttpClient {
-        expectSuccess = false
-        install(HttpCookies)
-    }
-    Napier.d("Shared HttpClient created", tag = TAG)
+    val sharedHttpClient = AuthenticationService.createSharedHttpClient()
+    Napier.d("Shared HttpClient created using AuthenticationService.createSharedHttpClient()", tag = TAG)
 
     // Create session manager
     val secureStorage = SecureStorage()

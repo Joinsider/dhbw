@@ -50,7 +50,10 @@ actual class SecureStorage {
             try {
                 keyring.getPassword(serviceName, key) ?: defaultValue
             } catch (e: PasswordAccessException) {
-                e.printStackTrace()
+                // Only print stack trace if it's not a "not found" error
+                if (e.message?.contains("No stored credentials match", ignoreCase = true) != true) {
+                    e.printStackTrace()
+                }
                 defaultValue
             }
         } else {

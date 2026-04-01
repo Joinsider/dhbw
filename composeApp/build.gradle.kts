@@ -101,6 +101,7 @@ kotlin {
                 implementation(libs.kotlinx.coroutinesSwing)
                 implementation(libs.java.keyring)
                 implementation(libs.ktor.client.cio)
+                implementation(libs.ktor.client.okhttp)
             }
         }
     }
