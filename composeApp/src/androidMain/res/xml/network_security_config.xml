@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config>
+        <domain includeSubdomains="true">dualis.dhbw.de</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/harica_root_ca_2021" />
+        </trust-anchors>
+    </domain-config>
+    <base-config>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

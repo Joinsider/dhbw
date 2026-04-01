@@ -57,6 +57,7 @@ import org.jetbrains.compose.resources.stringResource
 fun TimetablePage(
     viewModel: TimetableViewModel? = null,
     onNavigateToGrades: () -> Unit = {},
+    onNavigateToDocuments: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     isLoggedIn: Boolean = true,
     modifier: Modifier = Modifier
@@ -87,6 +88,7 @@ fun TimetablePage(
                         when (item) {
                             BottomNavItem.TIMETABLE -> { /* Already here */ }
                             BottomNavItem.GRADES -> onNavigateToGrades()
+                            BottomNavItem.DOCUMENTS -> onNavigateToDocuments()
                             BottomNavItem.SETTINGS -> onNavigateToSettings()
                         }
                     }

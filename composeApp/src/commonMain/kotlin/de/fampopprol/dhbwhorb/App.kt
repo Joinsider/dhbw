@@ -3,11 +3,13 @@ package de.fampopprol.dhbwhorb
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,6 +18,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
+import de.fampopprol.dhbwhorb.data.dualis.remote.parser.DocumentParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.GradeParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.HtmlParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisGradeService
@@ -30,6 +33,9 @@ import de.fampopprol.dhbwhorb.data.storage.preferences.ThemePreferences
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferences
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
 import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
+import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService
+import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsViewModel
+import de.fampopprol.dhbwhorb.ui.pages.DocumentsPage
 import de.fampopprol.dhbwhorb.ui.pages.GradesPage
 import de.fampopprol.dhbwhorb.ui.pages.SettingsPage
 import de.fampopprol.dhbwhorb.ui.pages.Startpage
@@ -53,6 +59,7 @@ enum class AppScreen {
     LOGIN,
     TIMETABLE,
     GRADES,
+    DOCUMENTS,
     SETTINGS
 }
 
@@ -145,6 +152,25 @@ fun App(
         } else {
             null
         }
+    }
+
+    val composableScope = rememberCoroutineScope()
+    
+    val documentsViewModel = remember(authenticationService, sharedHttpClient) {
+        val apiClient = DualisApiClient(sharedHttpClient)
+        val htmlParser = HtmlParser()
+        val documentParser = DocumentParser()
+        val documentService = DualisDocumentService(
+            apiClient = apiClient,
+            sessionManager = sessionManager,
+            authenticationService = authenticationService,
+            documentParser = documentParser,
+            htmlParser = htmlParser
+        )
+        DocumentsViewModel(
+            coroutineScope = composableScope,
+            dualisDocumentService = documentService
+        )
     }
 
     // Keep CredentialsProvider for backward compatibility with existing UI
@@ -253,6 +279,9 @@ fun App(
                         onNavigateToGrades = {
                             currentScreen = AppScreen.GRADES
                         },
+                        onNavigateToDocuments = {
+                            currentScreen = AppScreen.DOCUMENTS
+                        },
                         onNavigateToSettings = {
                             currentScreen = AppScreen.SETTINGS
                         },
@@ -268,6 +297,28 @@ fun App(
                         viewModel = gradesViewModel,
                         onNavigateToTimetable = {
                             currentScreen = AppScreen.TIMETABLE
+                        },
+                        onNavigateToDocuments = {
+                            currentScreen = AppScreen.DOCUMENTS
+                        },
+                        onNavigateToSettings = {
+                            currentScreen = AppScreen.SETTINGS
+                        },
+                        isLoggedIn = isLoggedIn,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 16.dp)
+                    )
+                }
+
+                AppScreen.DOCUMENTS -> {
+                    DocumentsPage(
+                        viewModel = documentsViewModel,
+                        onNavigateToTimetable = {
+                            currentScreen = AppScreen.TIMETABLE
+                        },
+                        onNavigateToGrades = {
+                            currentScreen = AppScreen.GRADES
                         },
                         onNavigateToSettings = {
                             currentScreen = AppScreen.SETTINGS
@@ -286,6 +337,9 @@ fun App(
                         },
                         onNavigateToGrades = {
                             currentScreen = AppScreen.GRADES
+                        },
+                        onNavigateToDocuments = {
+                            currentScreen = AppScreen.DOCUMENTS
                         },
                         onLogout = handleLogout,
                         isLoggedIn = isLoggedIn,

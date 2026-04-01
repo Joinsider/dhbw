@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 fun SettingsPage(
     onNavigateToTimetable: () -> Unit = {},
     onNavigateToGrades: () -> Unit = {},
+    onNavigateToDocuments: () -> Unit = {},
     onLogout: () -> Unit = {},
     isLoggedIn: Boolean = true,
     currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -60,6 +61,7 @@ fun SettingsPage(
                         when (item) {
                             BottomNavItem.TIMETABLE -> onNavigateToTimetable()
                             BottomNavItem.GRADES -> onNavigateToGrades()
+                            BottomNavItem.DOCUMENTS -> onNavigateToDocuments()
                             BottomNavItem.SETTINGS -> { /* Already here */ }
                         }
                     }

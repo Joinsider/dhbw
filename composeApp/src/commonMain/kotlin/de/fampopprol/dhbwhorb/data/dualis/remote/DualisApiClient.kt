@@ -1,7 +1,9 @@
 package de.fampopprol.dhbwhorb.data.dualis.remote
 
+import de.fampopprol.dhbwhorb.net.HttpClientFactory
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
@@ -31,7 +33,7 @@ class DualisApiClient(
          * For production use, prefer passing the same HttpClient used by AuthenticationService.
          */
         fun createDefault(): DualisApiClient {
-            val client = HttpClient {
+            val client = HttpClient(HttpClientFactory.createEngine()) {
                 expectSuccess = false
                 install(HttpCookies)
             }
@@ -87,6 +89,30 @@ class DualisApiClient(
         } catch (e: Exception) {
             Napier.e("Request failed with exception: ${e.message}", e, tag = TAG)
             return ApiResult.Failure("Network error: ${e.message}")
+        }
+    }
+
+    suspend fun getRawBytes(url: String, cookie: String?): Result<ByteArray> {
+        return try {
+            Napier.d("Executing GET request for raw bytes to: $url", tag = TAG)
+
+            val response = client.get(url) {
+                if (cookie != null) {
+                    headers.append("Cookie", cookie)
+                }
+            }
+
+            if (!response.status.isSuccess()) {
+                Napier.e("Request for raw bytes failed with status: ${response.status}", tag = TAG)
+                return Result.failure(Exception("HTTP ${response.status.value}: ${response.status.description}"))
+            }
+
+            val bytes = response.body<ByteArray>()
+            Napier.d("Raw bytes request successful, response length: ${bytes.size} bytes", tag = TAG)
+            Result.success(bytes)
+        } catch (e: Exception) {
+            Napier.e("Request for raw bytes failed with exception: ${e.message}", e, tag = TAG)
+            Result.failure(e)
         }
     }
 
