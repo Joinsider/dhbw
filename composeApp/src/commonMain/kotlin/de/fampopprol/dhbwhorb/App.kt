@@ -3,11 +3,13 @@ package de.fampopprol.dhbwhorb
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,6 +18,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
+import de.fampopprol.dhbwhorb.data.dualis.remote.parser.DocumentParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.GradeParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.HtmlParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisGradeService
@@ -151,17 +154,24 @@ fun App(
         }
     }
 
+    val composableScope = rememberCoroutineScope()
+    
     val documentsViewModel = remember(database, authenticationService, sharedHttpClient) {
         if (database != null) {
             val apiClient = DualisApiClient(sharedHttpClient)
             val htmlParser = HtmlParser()
+            val documentParser = DocumentParser()
             val documentService = DualisDocumentService(
                 apiClient = apiClient,
                 sessionManager = sessionManager,
                 authenticationService = authenticationService,
-                htmlParser = htmlParser,
+                documentParser = documentParser,
+                htmlParser = htmlParser
             )
-            DocumentsViewModel(documentService)
+            DocumentsViewModel(
+                coroutineScope = composableScope
+                // documentService can be added when fully integrated
+            )
         } else {
             null
         }
@@ -273,9 +283,6 @@ fun App(
                         onNavigateToGrades = {
                             currentScreen = AppScreen.GRADES
                         },
-                        onNavigateToDocuments = {
-                            currentScreen = AppScreen.DOCUMENTS
-                        },
                         onNavigateToSettings = {
                             currentScreen = AppScreen.SETTINGS
                         },
@@ -306,22 +313,28 @@ fun App(
                 }
 
                 AppScreen.DOCUMENTS -> {
-                    DocumentsPage(
-                        viewModel = documentsViewModel,
-                        onNavigateToTimetable = {
-                            currentScreen = AppScreen.TIMETABLE
-                        },
-                        onNavigateToGrades = {
-                            currentScreen = AppScreen.GRADES
-                        },
-                        onNavigateToSettings = {
-                            currentScreen = AppScreen.SETTINGS
-                        },
-                        isLoggedIn = isLoggedIn,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 16.dp)
-                    )
+                    if (documentsViewModel != null) {
+                        DocumentsPage(
+                            viewModel = documentsViewModel,
+                            onNavigateToTimetable = {
+                                currentScreen = AppScreen.TIMETABLE
+                            },
+                            onNavigateToGrades = {
+                                currentScreen = AppScreen.GRADES
+                            },
+                            onNavigateToSettings = {
+                                currentScreen = AppScreen.SETTINGS
+                            },
+                            isLoggedIn = isLoggedIn,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = 16.dp)
+                        )
+                    } else {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Documents not available")
+                        }
+                    }
                 }
 
                 AppScreen.SETTINGS -> {

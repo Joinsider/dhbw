@@ -87,6 +87,7 @@ fun TimetablePage(
                         when (item) {
                             BottomNavItem.TIMETABLE -> { /* Already here */ }
                             BottomNavItem.GRADES -> onNavigateToGrades()
+                            BottomNavItem.DOCUMENTS -> { /* TODO: Add documents navigation */ }
                             BottomNavItem.SETTINGS -> onNavigateToSettings()
                         }
                     }

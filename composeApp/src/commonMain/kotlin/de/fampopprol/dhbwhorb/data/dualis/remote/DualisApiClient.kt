@@ -3,6 +3,7 @@ package de.fampopprol.dhbwhorb.data.dualis.remote
 import de.fampopprol.dhbwhorb.net.HttpClientFactory
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter

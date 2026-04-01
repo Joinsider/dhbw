@@ -27,7 +27,15 @@ class DocumentsViewModel(
         _error,
         _requiresLogin,
         _isDownloading
-    ) { documents, searchQuery, isLoading, isRefreshing, error, requiresLogin, isDownloading ->
+    ) { flows ->
+        val documents = flows[0] as List<DualisDocument>
+        val searchQuery = flows[1] as String
+        val isLoading = flows[2] as Boolean
+        val isRefreshing = flows[3] as Boolean
+        val error = flows[4] as String?
+        val requiresLogin = flows[5] as Boolean
+        val isDownloading = flows[6] as Map<String, Boolean>
+        
         val filteredDocuments = if (searchQuery.isBlank()) {
             documents
         } else {
