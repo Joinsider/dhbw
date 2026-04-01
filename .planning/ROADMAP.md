@@ -17,6 +17,11 @@ Goal: Fix the login issues caused by missing SSL root trust.
 
 ## Phase 2: Document Scraping Foundation (High)
 Goal: Extend the data layer to support document retrieval.
+**Plans:** 2 plans
+- [ ] 02-01-PLAN.md — Document Model & Core Parsing (Wave 1)
+- [ ] 02-02-PLAN.md — Document Service & Integration (Wave 2)
+
+**Requirements:**
 - [ ] **DOC-01**: Research and map the HTML structure for "Documents" in Dualis.
 - [ ] **DOC-02**: Create `DocumentParser.kt` based on the mapping.
 - [ ] **DOC-03**: Implement `fetchDocuments()` in the shared data layer.
