@@ -279,6 +279,9 @@ fun App(
                         onNavigateToGrades = {
                             currentScreen = AppScreen.GRADES
                         },
+                        onNavigateToDocuments = {
+                            currentScreen = AppScreen.DOCUMENTS
+                        },
                         onNavigateToSettings = {
                             currentScreen = AppScreen.SETTINGS
                         },
