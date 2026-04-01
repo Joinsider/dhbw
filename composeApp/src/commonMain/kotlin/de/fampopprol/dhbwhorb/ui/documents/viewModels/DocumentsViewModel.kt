@@ -3,6 +3,7 @@ package de.fampopprol.dhbwhorb.ui.documents.viewModels
 import de.fampopprol.dhbwhorb.data.dualis.models.DualisDocument
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService
 import de.fampopprol.dhbwhorb.util.openFile
+import de.fampopprol.dhbwhorb.util.saveFileWithDialog
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
@@ -176,9 +177,8 @@ class DocumentsViewModel(
 
                 result.onSuccess { documentData ->
                     Napier.d("Downloaded document successfully: ${document.title}, size: ${documentData.size} bytes", tag = TAG)
-                    // For save-to-files, we use openFile with same mechanism
-                    // (openFile is platform-specific and will save/prompt as appropriate)
-                    openFile(documentData, document.title + ".pdf")
+                    // For save-to-files, we use saveFileWithDialog to prompt for save location
+                    saveFileWithDialog(documentData, document.title + ".pdf")
                     _error.value = null
                 }.onFailure { e ->
                     Napier.e("Failed to download document for saving: ${e.message}", e, tag = TAG)

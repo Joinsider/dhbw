@@ -4,3 +4,5 @@
 package de.fampopprol.dhbwhorb.util
 
 expect fun openFile(byteArray: ByteArray, fileName: String)
+
+expect fun saveFileWithDialog(byteArray: ByteArray, fileName: String)
