@@ -106,7 +106,7 @@ actual class NotificationDispatcher {
             setTitle(title)
             setBody(message)
             setSound(UNNotificationSound.defaultSound())
-            setBadge(changeCount)
+            setBadge(NSNumber(int = changeCount))
             setCategoryIdentifier(CATEGORY_LECTURE_CHANGE)
         }
 

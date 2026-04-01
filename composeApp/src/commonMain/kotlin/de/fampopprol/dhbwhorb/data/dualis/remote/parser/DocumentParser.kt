@@ -39,7 +39,7 @@ class DocumentParser {
                 val title = normalizeCell(cells[0].groupValues[1])
                 val date = normalizeCell(cells[1].groupValues[1])
                 val time = normalizeCell(cells[2].groupValues[1])
-                
+
                 val downloadCellHtml = cells[4].groupValues[1]
                 val downloadUrlMatch = hrefPattern.find(downloadCellHtml)
                 val downloadUrl = downloadUrlMatch?.groupValues[1] ?: ""
@@ -55,11 +55,18 @@ class DocumentParser {
                     )
                 }
             }
-            Napier.d("Parsed ${documents.size} documents", tag = TAG)
+
+            // Deduplicate by (title, date, time) combination to remove duplicates from page parsing
+            val uniqueDocuments = documents.distinctBy { "${it.title}|${it.date}|${it.time}" }
+            if (documents.size != uniqueDocuments.size) {
+                Napier.d("Parsed ${documents.size} documents (${uniqueDocuments.size} unique after deduplication)", tag = TAG)
+            } else {
+                Napier.d("Parsed ${documents.size} documents", tag = TAG)
+            }
         } catch (e: Exception) {
             Napier.e("Error parsing documents: ${e.message}", e, tag = TAG)
         }
-        return documents
+        return documents.distinctBy { "${it.title}|${it.date}|${it.time}" }
     }
 
     private fun normalizeCell(text: String): String {

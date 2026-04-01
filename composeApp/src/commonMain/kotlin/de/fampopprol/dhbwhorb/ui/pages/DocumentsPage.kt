@@ -155,11 +155,12 @@ fun DocumentsPage(
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 items(uiState.documents) { document ->
+                                    val documentKey = "${document.title}|${document.date}|${document.time}"
                                     DocumentCard(
                                         document = document,
                                         onDownloadClick = { viewModel.downloadAndOpenDocument(document) },
                                         onSaveToFiles = { doc -> viewModel.saveDocumentToFiles(doc) },
-                                        isDownloading = uiState.isDownloading[document.title] ?: false
+                                        isDownloading = uiState.isDownloading[documentKey] ?: false
                                     )
                                 }
                             }

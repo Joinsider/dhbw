@@ -9,7 +9,8 @@
     "ui_phase": true,
     "ui_safety_gate": true,
     "research_before_questions": false,
-    "skip_discuss": false
+    "skip_discuss": false,
+    "_auto_chain_active": false
   },
   "git": {
     "branching_strategy": "milestone"
@@ -17,7 +18,11 @@
   "hooks": {
     "context_warnings": true
   },
-  "platforms": ["android", "ios", "desktop"],
+  "platforms": [
+    "android",
+    "ios",
+    "desktop"
+  ],
   "tech_stack": {
     "network": "Ktor",
     "ui": "Compose Multiplatform",

@@ -145,7 +145,8 @@ class DocumentsViewModel(
 
     fun downloadAndOpenDocument(document: DualisDocument) {
         coroutineScope.launch {
-            _isDownloading.update { it + (document.title to true) }
+            val documentKey = getDocumentKey(document)
+            _isDownloading.update { it + (documentKey to true) }
             try {
                 Napier.d("Downloading document: ${document.title}", tag = TAG)
                 val result = dualisDocumentService.downloadDocument(document.downloadUrl)
@@ -162,14 +163,15 @@ class DocumentsViewModel(
                 Napier.e("Error downloading document: ${e.message}", e, tag = TAG)
                 _error.value = "Error: ${e.message}"
             } finally {
-                _isDownloading.update { it - document.title }
+                _isDownloading.update { it - documentKey }
             }
         }
     }
 
     fun saveDocumentToFiles(document: DualisDocument) {
         coroutineScope.launch {
-            _isDownloading.update { it + (document.title to true) }
+            val documentKey = getDocumentKey(document)
+            _isDownloading.update { it + (documentKey to true) }
             try {
                 Napier.d("Saving document to files: ${document.title}", tag = TAG)
                 val result = dualisDocumentService.downloadDocument(document.downloadUrl)
@@ -188,8 +190,13 @@ class DocumentsViewModel(
                 Napier.e("Error saving document: ${e.message}", e, tag = TAG)
                 _error.value = "Error: ${e.message}"
             } finally {
-                _isDownloading.update { it - document.title }
+                _isDownloading.update { it - documentKey }
             }
         }
+    }
+
+    private fun getDocumentKey(document: DualisDocument): String {
+        // Create a unique key using title, date, and time to handle multiple documents with same title
+        return "${document.title}|${document.date}|${document.time}"
     }
 }
