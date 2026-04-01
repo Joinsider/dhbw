@@ -166,4 +166,30 @@ class DocumentsViewModel(
             }
         }
     }
+
+    fun saveDocumentToFiles(document: DualisDocument) {
+        coroutineScope.launch {
+            _isDownloading.update { it + (document.title to true) }
+            try {
+                Napier.d("Saving document to files: ${document.title}", tag = TAG)
+                val result = dualisDocumentService.downloadDocument(document.downloadUrl)
+
+                result.onSuccess { documentData ->
+                    Napier.d("Downloaded document successfully: ${document.title}, size: ${documentData.size} bytes", tag = TAG)
+                    // For save-to-files, we use openFile with same mechanism
+                    // (openFile is platform-specific and will save/prompt as appropriate)
+                    openFile(documentData, document.title + ".pdf")
+                    _error.value = null
+                }.onFailure { e ->
+                    Napier.e("Failed to download document for saving: ${e.message}", e, tag = TAG)
+                    _error.value = "Failed to save document: ${e.message}"
+                }
+            } catch (e: Exception) {
+                Napier.e("Error saving document: ${e.message}", e, tag = TAG)
+                _error.value = "Error: ${e.message}"
+            } finally {
+                _isDownloading.update { it - document.title }
+            }
+        }
+    }
 }
