@@ -118,7 +118,7 @@ Goal: Add visual feedback for loading state and fix document saving on desktop p
 **Goal:** Fix IDE compilation errors by providing missing macOS expect/actual implementations for FileViewer functions
 **Requirements**: Fix missing expect/actual for macOS platform variants (macosX64Main, macosArm64Main)
 **Depends on:** Phase 7
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 07.1-PLAN.md — macOS FileViewer Implementation (Wave 1: 2 tasks)
