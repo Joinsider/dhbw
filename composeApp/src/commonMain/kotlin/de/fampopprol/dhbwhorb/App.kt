@@ -156,25 +156,21 @@ fun App(
 
     val composableScope = rememberCoroutineScope()
     
-    val documentsViewModel = remember(database, authenticationService, sharedHttpClient) {
-        if (database != null) {
-            val apiClient = DualisApiClient(sharedHttpClient)
-            val htmlParser = HtmlParser()
-            val documentParser = DocumentParser()
-            val documentService = DualisDocumentService(
-                apiClient = apiClient,
-                sessionManager = sessionManager,
-                authenticationService = authenticationService,
-                documentParser = documentParser,
-                htmlParser = htmlParser
-            )
-            DocumentsViewModel(
-                coroutineScope = composableScope,
-                dualisDocumentService = documentService
-            )
-        } else {
-            null
-        }
+    val documentsViewModel = remember(authenticationService, sharedHttpClient) {
+        val apiClient = DualisApiClient(sharedHttpClient)
+        val htmlParser = HtmlParser()
+        val documentParser = DocumentParser()
+        val documentService = DualisDocumentService(
+            apiClient = apiClient,
+            sessionManager = sessionManager,
+            authenticationService = authenticationService,
+            documentParser = documentParser,
+            htmlParser = htmlParser
+        )
+        DocumentsViewModel(
+            coroutineScope = composableScope,
+            dualisDocumentService = documentService
+        )
     }
 
     // Keep CredentialsProvider for backward compatibility with existing UI
@@ -313,28 +309,22 @@ fun App(
                 }
 
                 AppScreen.DOCUMENTS -> {
-                    if (documentsViewModel != null) {
-                        DocumentsPage(
-                            viewModel = documentsViewModel,
-                            onNavigateToTimetable = {
-                                currentScreen = AppScreen.TIMETABLE
-                            },
-                            onNavigateToGrades = {
-                                currentScreen = AppScreen.GRADES
-                            },
-                            onNavigateToSettings = {
-                                currentScreen = AppScreen.SETTINGS
-                            },
-                            isLoggedIn = isLoggedIn,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = 16.dp)
-                        )
-                    } else {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("Documents not available")
-                        }
-                    }
+                    DocumentsPage(
+                        viewModel = documentsViewModel,
+                        onNavigateToTimetable = {
+                            currentScreen = AppScreen.TIMETABLE
+                        },
+                        onNavigateToGrades = {
+                            currentScreen = AppScreen.GRADES
+                        },
+                        onNavigateToSettings = {
+                            currentScreen = AppScreen.SETTINGS
+                        },
+                        isLoggedIn = isLoggedIn,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 16.dp)
+                    )
                 }
 
                 AppScreen.SETTINGS -> {
