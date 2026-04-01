@@ -158,6 +158,7 @@ fun DocumentsPage(
                                     DocumentCard(
                                         document = document,
                                         onDownloadClick = { viewModel.downloadAndOpenDocument(document) },
+                                        onSaveToFiles = { doc -> viewModel.saveDocumentToFiles(doc) },
                                         isDownloading = uiState.isDownloading[document.title] ?: false
                                     )
                                 }
