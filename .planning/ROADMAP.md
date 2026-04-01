@@ -48,3 +48,13 @@ Goal: Ensure overall app stability and polish.
 - [ ] **VAL-02**: Optimize scraping logic and network timeouts.
 - [ ] **VAL-03**: Clean up technical debt in parsers and services.
 - [ ] **VAL-04**: Update documentation and prepare for release.
+
+### Phase 5: Recheck implementation of documents and add actual fetching from dualis. Use the example folder for a tutorial on how to use dualis. If unsure ask me questions
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 5 to break down)

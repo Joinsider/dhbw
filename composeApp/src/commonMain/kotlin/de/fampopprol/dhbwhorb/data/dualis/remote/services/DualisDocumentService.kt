@@ -45,10 +45,31 @@ class DualisDocumentService(
             }
         }
 
-        // Handle demo mode (optional, can add later)
+        // Handle demo mode
         if (sessionManager.isDemoMode()) {
-            // TODO: Return demo documents if needed
-            return Result.success(emptyList())
+            Napier.d("Returning demo documents", tag = TAG)
+            return Result.success(
+                listOf(
+                    DualisDocument(
+                        title = "Studienbescheinigung",
+                        date = "25.03.26",
+                        time = "09:40",
+                        downloadUrl = "/scripts/filetransfer.exe?demo_cert"
+                    ),
+                    DualisDocument(
+                        title = "Zahlungsinformation Semesterbeiträge",
+                        date = "19.02.26",
+                        time = "14:47",
+                        downloadUrl = "/scripts/filetransfer.exe?demo_payment"
+                    ),
+                    DualisDocument(
+                        title = "Semesternotenbescheid - Download",
+                        date = "11.02.26",
+                        time = "15:52",
+                        downloadUrl = "/scripts/filetransfer.exe?demo_grades"
+                    )
+                )
+            )
         }
 
         try {
@@ -107,7 +128,10 @@ class DualisDocumentService(
     }
 
     private suspend fun downloadDocumentWithRetry(url: String, attemptCount: Int): Result<ByteArray> {
-        Napier.d("Downloading document from: $url (attempt $attemptCount)", tag = TAG)
+        // Convert relative URLs to absolute (Dualis returns relative paths like /scripts/filetransfer.exe?...)
+        val absoluteUrl = if (url.startsWith("/")) "https://dualis.dhbw.de$url" else url
+
+        Napier.d("Downloading document from: $absoluteUrl (attempt $attemptCount)", tag = TAG)
 
         if (!sessionManager.isAuthenticated() && !sessionManager.isDemoMode()) {
             val reAuthResult = reAuthenticate()
@@ -132,7 +156,7 @@ class DualisDocumentService(
             val rawCookie = authData.cookie
             val cookie = rawCookie?.substringBefore(";")
 
-            val result = apiClient.getRawBytes(url, cookie)
+            val result = apiClient.getRawBytes(absoluteUrl, cookie)
 
             return result.fold(
                 onSuccess = { bytes ->
@@ -145,7 +169,7 @@ class DualisDocumentService(
                         if (reAuthResult.isFailure) {
                             return Result.failure(reAuthResult.exceptionOrNull()!!)
                         }
-                        return downloadDocumentWithRetry(url, attemptCount + 1)
+                        return downloadDocumentWithRetry(absoluteUrl, attemptCount + 1)
                     }
                     Result.failure(exception)
                 }

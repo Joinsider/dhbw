@@ -169,8 +169,8 @@ fun App(
                 htmlParser = htmlParser
             )
             DocumentsViewModel(
-                coroutineScope = composableScope
-                // documentService can be added when fully integrated
+                coroutineScope = composableScope,
+                dualisDocumentService = documentService
             )
         } else {
             null

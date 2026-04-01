@@ -1,15 +1,22 @@
 package de.fampopprol.dhbwhorb.ui.documents.viewModels
 
 import de.fampopprol.dhbwhorb.data.dualis.models.DualisDocument
+import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService
 import de.fampopprol.dhbwhorb.util.openFile
+import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class DocumentsViewModel(
     private val coroutineScope: CoroutineScope,
-    // private val dualisDocumentService: DualisDocumentService // Assuming this will be injected
+    private val dualisDocumentService: DualisDocumentService
 ) {
+    companion object {
+        private const val TAG = "DocumentsViewModel"
+    }
 
     private val _documents = MutableStateFlow<List<DualisDocument>>(emptyList())
     private val _searchQuery = MutableStateFlow("")
@@ -63,24 +70,72 @@ class DocumentsViewModel(
     }
 
     fun loadDocuments() {
-        coroutineScope.launch {
-            _isLoading.value = true
-            // Dummy data for now
-            _documents.value = listOf(
-                DualisDocument("Exam Results", "2023-01-15", "10:00", "https://example.com/exam_results.pdf"),
-                DualisDocument("Course Registration", "2023-02-01", "11:00", "https://example.com/course_registration.pdf"),
-                DualisDocument("Library Fines", "2023-03-10", "12:00", "https://example.com/library_fines.pdf"),
-                DualisDocument("Timetable", "2023-03-15", "13:00", "https://example.com/timetable.pdf")
-            )
+        // Check if we can attempt loading: authenticated, demo mode, or credentials available for re-auth
+        if (!dualisDocumentService.hasCredentialsOrSession()) {
+            Napier.d("Skipping loadDocuments: not authenticated and no stored credentials", tag = TAG)
+            _requiresLogin.value = true
             _isLoading.value = false
+            return
+        }
+
+        _isLoading.value = true
+        _error.value = null
+        _requiresLogin.value = false
+
+        coroutineScope.launch {
+            try {
+                Napier.d("Loading documents from Dualis...", tag = TAG)
+                val result = dualisDocumentService.fetchDocuments()
+
+                result.onSuccess { documents ->
+                    Napier.d("Loaded ${documents.size} documents", tag = TAG)
+                    _documents.value = documents
+                    _isLoading.value = false
+                    _error.value = null
+                }.onFailure { e ->
+                    Napier.e("Failed to load documents: ${e.message}", e, tag = TAG)
+                    _isLoading.value = false
+                    _error.value = "Failed to load documents: ${e.message}"
+                }
+            } catch (e: Exception) {
+                Napier.e("Error loading documents: ${e.message}", e, tag = TAG)
+                _isLoading.value = false
+                _error.value = "Error: ${e.message}"
+            }
         }
     }
 
     fun refreshDocuments() {
-        coroutineScope.launch {
-            _isRefreshing.value = true
-            // TODO: Implement actual refresh logic
+        if (!dualisDocumentService.hasCredentialsOrSession()) {
+            Napier.d("Skipping refreshDocuments: login required", tag = TAG)
+            _requiresLogin.value = true
             _isRefreshing.value = false
+            return
+        }
+
+        _isRefreshing.value = true
+        _error.value = null
+
+        coroutineScope.launch {
+            try {
+                Napier.d("Refreshing documents from Dualis (pull-to-refresh)...", tag = TAG)
+                val result = dualisDocumentService.fetchDocuments()
+
+                result.onSuccess { documents ->
+                    Napier.d("Refreshed ${documents.size} documents", tag = TAG)
+                    _documents.value = documents
+                    _isRefreshing.value = false
+                    _error.value = null
+                }.onFailure { e ->
+                    Napier.e("Failed to refresh documents: ${e.message}", e, tag = TAG)
+                    _isRefreshing.value = false
+                    _error.value = "Failed to refresh documents: ${e.message}"
+                }
+            } catch (e: Exception) {
+                Napier.e("Error refreshing documents: ${e.message}", e, tag = TAG)
+                _isRefreshing.value = false
+                _error.value = "Error: ${e.message}"
+            }
         }
     }
 
@@ -92,12 +147,20 @@ class DocumentsViewModel(
         coroutineScope.launch {
             _isDownloading.update { it + (document.title to true) }
             try {
-                // val documentData = dualisDocumentService.downloadDocument(document.downloadUrl)
-                // Dummy data
-                val documentData = ByteArray(10) { it.toByte() } // Simulate some data
-                openFile(documentData, document.title + ".pdf")
+                Napier.d("Downloading document: ${document.title}", tag = TAG)
+                val result = dualisDocumentService.downloadDocument(document.downloadUrl)
+
+                result.onSuccess { documentData ->
+                    Napier.d("Downloaded document successfully: ${document.title}, size: ${documentData.size} bytes", tag = TAG)
+                    openFile(documentData, document.title + ".pdf")
+                    _error.value = null
+                }.onFailure { e ->
+                    Napier.e("Failed to download document: ${e.message}", e, tag = TAG)
+                    _error.value = "Failed to download document: ${e.message}"
+                }
             } catch (e: Exception) {
-                _error.value = "Failed to download document: ${e.message}"
+                Napier.e("Error downloading document: ${e.message}", e, tag = TAG)
+                _error.value = "Error: ${e.message}"
             } finally {
                 _isDownloading.update { it - document.title }
             }
