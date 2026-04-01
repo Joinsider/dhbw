@@ -6,9 +6,11 @@ wave: 1-4
 depends_on: []
 files_modified:
   - composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/pages/TimetablePage.kt
+  - composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/App.kt
   - composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/pages/GradesPage.kt
   - composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/pages/SettingsPage.kt
   - composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/documents/components/DocumentCard.kt
+  - composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/pages/DocumentsPage.kt
   - composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/documents/viewModels/DocumentsViewModel.kt
 autonomous: false
 requirements:
@@ -36,7 +38,7 @@ must_haves:
       provides: "Navigation consistency audit"
       contains: "onNavigateToDocuments"
     - path: "composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/documents/components/DocumentCard.kt"
-      provides: "Enhanced download UI with save/open choice"
+      provides: "Enhanced download UI with save/open choice using dropdown menu"
       contains: "onSaveToFiles"
     - path: "composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/documents/viewModels/DocumentsViewModel.kt"
       provides: "Save-to-files function alongside download-and-open"
@@ -54,7 +56,7 @@ must_haves:
       to: "DualisDocumentService.fetchDocuments()"
       via: "coroutineScope.launch"
       pattern: "dualisDocumentService.fetchDocuments()"
-    - from: "DocumentCard download button"
+    - from: "DocumentCard download/save buttons"
       to: "DocumentsViewModel.saveDocumentToFiles() or downloadAndOpenDocument()"
       via: "callback parameter"
       pattern: "onSaveToFiles or onDownloadClick"
@@ -85,7 +87,7 @@ must_haves:
 **Goal:** Unblock Documents page access by adding missing `onNavigateToDocuments` parameter to TimetablePage and wiring it through App.kt.
 
 **Success Criteria:**
-1. TimetablePage function signature includes `onNavigateToDocuments: () -> Unit` parameter
+1. TimetablePage function signature includes `onNavigateToDocuments: () -> Unit` parameter between `onNavigateToGrades` and `onNavigateToSettings`
 2. BottomNavigationBar Documents item calls `onNavigateToDocuments()` on selection
 3. App.kt passes callback that sets `currentScreen = AppScreen.DOCUMENTS`
 4. Navigation works when clicking DOCUMENTS in bottom nav from any page (verified manually)
@@ -97,10 +99,10 @@ must_haves:
   <name>Task 1.1: Add onNavigateToDocuments parameter to TimetablePage</name>
   <files>composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/pages/TimetablePage.kt</files>
   <action>
-    Add `onNavigateToDocuments: () -> Unit = {}` parameter to the TimetablePage composable function signature (around line 57-62).
+    Modify the TimetablePage composable function signature.
 
-    Current signature (line 57-62):
-    ```
+    **Current signature (lines 57-62):**
+    ```kotlin
     @Composable
     fun TimetablePage(
         viewModel: TimetableViewModel? = null,
@@ -111,14 +113,32 @@ must_haves:
     )
     ```
 
-    Add `onNavigateToDocuments: () -> Unit = {}` between onNavigateToGrades and onNavigateToSettings for consistency with GradesPage signature pattern.
-
-    Then update the BottomNavigationBar selection handler (lines 82-94) to replace the TODO comment on line 90:
+    **Change to (add onNavigateToDocuments between onNavigateToGrades and onNavigateToSettings):**
+    ```kotlin
+    @Composable
+    fun TimetablePage(
+        viewModel: TimetableViewModel? = null,
+        onNavigateToGrades: () -> Unit = {},
+        onNavigateToDocuments: () -> Unit = {},
+        onNavigateToSettings: () -> Unit = {},
+        isLoggedIn: Boolean = true,
+        modifier: Modifier = Modifier
+    )
     ```
+
+    Then update the BottomNavigationBar selection handler (around line 84-94) to replace the TODO comment.
+
+    **Current code (line 90):**
+    ```kotlin
+    BottomNavItem.DOCUMENTS -> { /* TODO: Add documents navigation */ }
+    ```
+
+    **Change to:**
+    ```kotlin
     BottomNavItem.DOCUMENTS -> onNavigateToDocuments()
     ```
 
-    This matches the pattern used for GRADES and SETTINGS.
+    This matches the pattern used for GRADES and SETTINGS items.
 
     Per D-01 decision.
   </action>
@@ -126,7 +146,7 @@ must_haves:
     <automated>cd /Users/johannes/StudioProjects/dhbw && ./gradlew compileCommonMainKotlin -x test</automated>
   </verify>
   <done>
-    TimetablePage accepts onNavigateToDocuments parameter, BottomNav Documents click triggers callback instead of TODO comment.
+    TimetablePage accepts onNavigateToDocuments parameter at correct position (between onNavigateToGrades and onNavigateToSettings). BottomNav Documents click triggers onNavigateToDocuments() callback instead of TODO comment.
   </done>
 </task>
 
@@ -134,9 +154,9 @@ must_haves:
   <name>Task 1.2: Wire TimetablePage navigation callback in App.kt</name>
   <files>composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/App.kt</files>
   <action>
-    In App.kt, find the TimetablePage call (around line 277-289).
+    In App.kt, find the TimetablePage call in the AppScreen.TIMETABLE branch.
 
-    Current state:
+    **Current state:**
     ```kotlin
     AppScreen.TIMETABLE -> {
         TimetablePage(
@@ -153,11 +173,24 @@ must_haves:
     }
     ```
 
-    Add the missing callback:
+    **Add the missing callback between onNavigateToGrades and onNavigateToSettings:**
     ```kotlin
-    onNavigateToDocuments = {
-        currentScreen = AppScreen.DOCUMENTS
-    },
+    AppScreen.TIMETABLE -> {
+        TimetablePage(
+            viewModel = timetableViewModel,
+            onNavigateToGrades = {
+                currentScreen = AppScreen.GRADES
+            },
+            onNavigateToDocuments = {
+                currentScreen = AppScreen.DOCUMENTS
+            },
+            onNavigateToSettings = {
+                currentScreen = AppScreen.SETTINGS
+            },
+            isLoggedIn = isLoggedIn,
+            modifier = Modifier...
+        )
+    }
     ```
 
     Insert it between onNavigateToGrades and onNavigateToSettings for consistency with other pages.
@@ -168,7 +201,7 @@ must_haves:
     <automated>cd /Users/johannes/StudioProjects/dhbw && ./gradlew compileCommonMainKotlin -x test</automated>
   </verify>
   <done>
-    App.kt passes onNavigateToDocuments callback to TimetablePage. Navigation chain complete: TimetablePage → callback → App.kt → AppScreen.DOCUMENTS.
+    App.kt passes onNavigateToDocuments callback to TimetablePage with correct parameter order. Navigation chain complete: BottomNav DOCUMENTS → onNavigateToDocuments() → App.kt → AppScreen.DOCUMENTS.
   </done>
 </task>
 
@@ -185,9 +218,9 @@ must_haves:
 **Goal:** Verify all pages (TimetablePage, GradesPage, SettingsPage, DocumentsPage) have consistent navigation parameter patterns. Identify and fix any other missing callbacks.
 
 **Success Criteria:**
-1. All page composables accept 4 navigation callbacks: to Timetable, Grades, Documents, Settings
+1. All page composables accept required navigation callbacks in consistent order
 2. Each page's BottomNavigationBar has complete switch statement with no TODOs
-3. App.kt passes all 4 callbacks to every page
+3. App.kt passes all navigation callbacks to every page consistently
 4. Code compiles without errors
 5. No warnings about missing parameters
 
@@ -197,18 +230,18 @@ must_haves:
   <name>Task 2.1: Verify and fix GradesPage navigation parameters</name>
   <files>composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/pages/GradesPage.kt</files>
   <action>
-    Read GradesPage function signature. Verify it has all 4 navigation parameters:
+    Read GradesPage function signature. Verify it has all required navigation parameters in consistent order:
     - onNavigateToTimetable
     - onNavigateToGrades (should not exist - already on this page)
     - onNavigateToDocuments
     - onNavigateToSettings
 
-    Expected signature (from App.kt lines 293-303, we can see what's being passed):
-    - onNavigateToTimetable: () -> Unit
-    - onNavigateToDocuments: () -> Unit
-    - onNavigateToSettings: () -> Unit
+    Check that:
+    1. GradesPage function signature includes onNavigateToDocuments (if missing, add it)
+    2. BottomNavigationBar switch statement has all 4 items with no TODOs
+    3. Proper callback is called for each item (avoid TIMETABLE navigating to GRADES, etc.)
 
-    If GradesPage is missing onNavigateToDocuments, add it to the function signature and wire it in the BottomNavigationBar switch statement.
+    If any parameters are missing or callbacks are wired incorrectly, fix them to match the pattern established in TimetablePage.
 
     Per D-02 decision.
   </action>
@@ -216,7 +249,7 @@ must_haves:
     <automated>cd /Users/johannes/StudioProjects/dhbw && ./gradlew compileCommonMainKotlin -x test</automated>
   </verify>
   <done>
-    GradesPage has all required navigation parameters. BottomNav switch covers all items with no TODOs.
+    GradesPage has all required navigation parameters in correct order. BottomNav switch covers all items with correct callbacks and no TODOs.
   </done>
 </task>
 
@@ -224,15 +257,18 @@ must_haves:
   <name>Task 2.2: Verify and fix SettingsPage navigation parameters</name>
   <files>composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/pages/SettingsPage.kt</files>
   <action>
-    Read SettingsPage function signature. Verify it has all required navigation parameters:
+    Read SettingsPage function signature. Verify it has all required navigation parameters in consistent order:
     - onNavigateToTimetable
     - onNavigateToGrades
     - onNavigateToDocuments
     - onNavigateToSettings (should not exist - already on this page)
 
-    From App.kt lines 330-340, we can see what's currently being passed.
+    Check that:
+    1. SettingsPage function signature includes onNavigateToDocuments (if missing, add it)
+    2. BottomNavigationBar switch statement has all 4 items with no TODOs
+    3. Proper callback is called for each item
 
-    If SettingsPage is missing onNavigateToDocuments or any other callback, add them to the function signature and wire them in the BottomNavigationBar switch statement.
+    If any parameters are missing or callbacks are wired incorrectly, fix them to match the pattern.
 
     Per D-02 decision.
   </action>
@@ -240,7 +276,7 @@ must_haves:
     <automated>cd /Users/johannes/StudioProjects/dhbw && ./gradlew compileCommonMainKotlin -x test</automated>
   </verify>
   <done>
-    SettingsPage has all required navigation parameters. BottomNav switch covers all items with no TODOs.
+    SettingsPage has all required navigation parameters in correct order. BottomNav switch covers all items with correct callbacks and no TODOs.
   </done>
 </task>
 
@@ -248,13 +284,18 @@ must_haves:
   <name>Task 2.3: Verify DocumentsPage navigation parameters are complete</name>
   <files>composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/pages/DocumentsPage.kt</files>
   <action>
-    Read DocumentsPage function signature (lines 40-46). Verify it has all required navigation parameters:
+    Read DocumentsPage function signature. Verify it has all required navigation parameters in consistent order:
     - onNavigateToTimetable
     - onNavigateToGrades
     - onNavigateToDocuments (should not exist - already on this page)
     - onNavigateToSettings
 
-    Expected signature should match the pattern. If all 3 callbacks are present and wired in BottomNavigationBar, no changes needed. If any are missing, add them.
+    Check that:
+    1. All 3 navigation callbacks are present (all except DOCUMENTS)
+    2. BottomNavigationBar switch statement has all 4 items with no TODOs
+    3. Proper callback is called for each item
+
+    If any parameters are missing or callbacks are wired incorrectly, fix them to match the pattern.
 
     Per D-02 decision.
   </action>
@@ -262,7 +303,7 @@ must_haves:
     <automated>cd /Users/johannes/StudioProjects/dhbw && ./gradlew compileCommonMainKotlin -x test</automated>
   </verify>
   <done>
-    DocumentsPage has consistent navigation parameter pattern with other pages. Code compiles.
+    DocumentsPage has all required navigation parameters in correct order. BottomNav switch covers all items with correct callbacks and no TODOs.
   </done>
 </task>
 
@@ -282,7 +323,7 @@ must_haves:
 1. DocumentParser correctly extracts title, date, time, and downloadUrl from HTML table rows
 2. DocumentParser ignores header rows and malformed data
 3. DualisDocumentService handles session expiration and re-authentication
-4. Manual testing guide is created and located in .planning/06-MANUAL-TESTING-GUIDE.md
+4. Manual testing guide is created and located in .planning/phases/06-currently-the-documents-page.../06-MANUAL-TESTING-GUIDE.md
 5. Testing guide includes steps to verify on Android, iOS, and Desktop with real Dualis account
 6. Code inspection shows no obvious parsing bugs (regex patterns, null checks, error handling)
 
@@ -292,27 +333,27 @@ must_haves:
   <name>Task 3.1: Code review and verify DocumentParser regex patterns</name>
   <files>composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/data/dualis/remote/parser/DocumentParser.kt</files>
   <action>
-    Review DocumentParser implementation (lines 1-73) to verify correctness:
+    Review DocumentParser implementation to verify correctness:
 
-    1. Check rowPattern (line 11): `<tr\b[^>]*>([\s\S]*?)</tr>` matches opening tr tag with any attributes, captures content, closes with </tr>. Correct.
+    1. Check rowPattern regex: `<tr\b[^>]*>([\s\S]*?)</tr>` matches opening tr tag with any attributes, captures content, closes with </tr>. Correct.
 
-    2. Check tdPattern (line 12): `<td\b[^>]*>([\s\S]*?)</td>` captures table cell content. Correct.
+    2. Check tdPattern regex: `<td\b[^>]*>([\s\S]*?)</td>` captures table cell content. Correct.
 
-    3. Verify normalizeCell function (lines 65-72):
+    3. Verify normalizeCell function:
        - Removes <script> tags
        - Removes all HTML tags with regex
        - Converts &nbsp; to space
        - Normalizes whitespace with \s+
        - Trims result
-       This looks correct.
+       This logic should be correct.
 
-    4. Verify document extraction logic (lines 39-56):
+    4. Verify document extraction logic:
        - Extracts cells 0 (title), 1 (date), 2 (time), 4 (download link)
        - Looks for href attribute in cell 4
        - Validates title and downloadUrl are not empty before adding
-       - This looks correct.
+       This logic should be correct.
 
-    5. No changes needed if parsing looks correct. If any issues found, document them.
+    5. No code changes needed if parsing looks correct. If any issues found, document them for the checkpoint.
 
     Per D-03 decision.
   </action>
@@ -320,7 +361,7 @@ must_haves:
     <automated>cd /Users/johannes/StudioProjects/dhbw && ./gradlew compileCommonMainKotlin -x test</automated>
   </verify>
   <done>
-    DocumentParser code verified. Regex patterns and HTML extraction logic appear correct. Ready for manual testing with real Dualis data.
+    DocumentParser code reviewed. Regex patterns and HTML extraction logic appear correct and ready for manual testing with real Dualis data.
   </done>
 </task>
 
@@ -328,34 +369,34 @@ must_haves:
   <name>Task 3.2: Code review and verify DualisDocumentService session handling</name>
   <files>composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/data/dualis/remote/services/DualisDocumentService.kt</files>
   <action>
-    Review DualisDocumentService implementation (lines 1-219) to verify correctness:
+    Review DualisDocumentService implementation to verify correctness:
 
-    1. Verify hasCredentialsOrSession (lines 26-28): Checks for authenticated, demo mode, or stored credentials. Correct.
+    1. Verify hasCredentialsOrSession method: Checks for authenticated, demo mode, or stored credentials. Should be correct.
 
-    2. Verify fetchDocuments flow (lines 34-119):
+    2. Verify fetchDocuments flow:
        - Calls fetchDocumentsWithRetry
-       - Checks authentication, re-authenticates if needed (lines 41-46)
-       - Handles demo mode gracefully (lines 48-72)
-       - Constructs Dualis URL with sessionId and CREATEDOCUMENT parameter (line 84)
-       - Validates page is not error page (lines 95-108)
-       - Retries up to MAX_RETRY_ATTEMPTS (2) on failure
+       - Checks authentication, re-authenticates if needed
+       - Handles demo mode gracefully
+       - Constructs Dualis URL with sessionId and CREATEDOCUMENT parameter
+       - Validates page is not error page
+       - Retries up to MAX_RETRY_ATTEMPTS on failure
        - Calls DocumentParser.parseDocuments()
-       - This looks correct.
+       This logic should be correct.
 
-    3. Verify downloadDocument flow (lines 126-180):
-       - Converts relative URLs to absolute (line 132)
-       - Handles re-authentication on 401 errors (line 166)
+    3. Verify downloadDocument flow:
+       - Converts relative URLs to absolute
+       - Handles re-authentication on 401 errors
        - Returns ByteArray for file saving
-       - This looks correct.
+       This logic should be correct.
 
-    4. Verify reAuthenticate method (lines 189-217):
+    4. Verify reAuthenticate method:
        - Uses sessionManager to prevent concurrent re-auth
        - Clears old auth data
        - Calls authenticationService.login()
        - Handles success/failure results
-       - This looks correct.
+       This logic should be correct.
 
-    5. No changes needed if logic looks correct. If any issues found, document them.
+    5. No code changes needed if logic looks correct. If any issues found, document them for the checkpoint.
 
     Per D-03 decision.
   </action>
@@ -363,12 +404,12 @@ must_haves:
     <automated>cd /Users/johannes/StudioProjects/dhbw && ./gradlew compileCommonMainKotlin -x test</automated>
   </verify>
   <done>
-    DualisDocumentService code verified. Session handling, retry logic, and URL construction appear correct. Ready for manual testing.
+    DualisDocumentService code reviewed. Session handling, retry logic, and URL construction appear correct and ready for manual testing.
   </done>
 </task>
 
 <task type="checkpoint:human-verify">
-  <what-built>Code review of DocumentParser and DualisDocumentService — no bugs found in parsing logic or session handling</what-built>
+  <what-built>Code review of DocumentParser and DualisDocumentService — verifying for bugs in parsing logic and session handling</what-built>
   <how-to-verify>
     Reviewed:
     1. DocumentParser regex patterns for extracting HTML table rows and cells
@@ -383,7 +424,7 @@ must_haves:
 
 <task type="auto">
   <name>Task 3.3: Create manual testing guide for real Dualis data verification</name>
-  <files>.planning/06-MANUAL-TESTING-GUIDE.md</files>
+  <files>.planning/phases/06-currently-the-documents-page-is-inaccessible-as-nothing-happens-if-i-click-on-the-documents-page-verify-the-implementation-and-fix-the-feature-to-support-the-download-and-fetching-officially-from-dualis/06-MANUAL-TESTING-GUIDE.md</files>
   <action>
     Create comprehensive manual testing guide for verifying Documents feature with real Dualis access. This guides the user (and future developers) on how to test when real Dualis login credentials become available.
 
@@ -413,7 +454,8 @@ must_haves:
 
     5. **Test Case 4: Download Document**
        - Click download button on any document
-       - Choose "Save to Files" or "Open Directly" (after Wave 4 implementation)
+       - Dropdown menu appears with "Open" and "Save to Files" options
+       - Choose "Open Directly" or "Save to Files"
        - Expected: PDF downloads and either saves to files app or opens in PDF viewer
        - Verify no 401/403 errors in logs
 
@@ -451,10 +493,10 @@ must_haves:
     Per D-04 decision.
   </action>
   <verify>
-    <automated>test -f /Users/johannes/StudioProjects/dhbw/.planning/06-MANUAL-TESTING-GUIDE.md && echo "File exists"</automated>
+    <automated>test -f /Users/johannes/StudioProjects/dhbw/.planning/phases/06-currently-the-documents-page-is-inaccessible-as-nothing-happens-if-i-click-on-the-documents-page-verify-the-implementation-and-fix-the-feature-to-support-the-download-and-fetching-officially-from-dualis/06-MANUAL-TESTING-GUIDE.md && echo "File exists"</automated>
   </verify>
   <done>
-    Manual testing guide created at .planning/06-MANUAL-TESTING-GUIDE.md. Contains 7 test cases covering navigation, display, search, download, session handling, errors, and multi-platform verification.
+    Manual testing guide created at phase-specific location. Contains 7 test cases covering navigation, display, search, download, session handling, errors, and multi-platform verification.
   </done>
 </task>
 
@@ -468,16 +510,17 @@ must_haves:
 
 ### Plan 06-04: Add Save-to-Files Option for Document Downloads (Wave 4)
 
-**Goal:** Enhance download functionality to offer users a choice: save document to files app OR open directly (current behavior). Implement platform-agnostic save mechanism using existing `openFile` utility.
+**Goal:** Enhance download functionality to offer users a choice via dropdown menu: save document to files app OR open directly (current behavior). Implement with popup menu on existing DocumentCard layout to avoid breaking ListItem design.
 
 **Success Criteria:**
-1. DocumentCard component shows both "Download" and "Save" buttons (or combined dropdown)
-2. Clicking "Save" triggers `onSaveToFiles` callback instead of download-and-open
-3. DocumentsViewModel implements `saveDocumentToFiles()` function
-4. Function downloads document bytes and saves to platform-specific location using `openFile` utility
-5. Download state tracking works for both operations (shows loading indicator)
-6. Error handling works for both operations (displays error message)
-7. Code compiles and builds on all platforms
+1. DocumentCard component shows single download button with dropdown menu
+2. Dropdown menu offers "Open" and "Save to Files" options
+3. Clicking each option triggers correct callback: onDownloadClick or onSaveToFiles
+4. DocumentsViewModel implements `saveDocumentToFiles(document: DualisDocument)` function
+5. Function downloads document bytes and saves to platform-specific location
+6. Download state tracking works for both operations (shows loading indicator)
+7. Error handling works for both operations (displays error message)
+8. Code compiles and builds on all platforms
 
 **Tasks:**
 
@@ -485,76 +528,103 @@ must_haves:
   <name>Task 4.1: Read DocumentCard component to understand current UI structure</name>
   <files>composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/documents/components/DocumentCard.kt</files>
   <action>
-    Read the DocumentCard component to understand:
-    1. Current button layout and styling
-    2. What parameters it accepts (onDownloadClick, etc.)
-    3. How isDownloading state is used
-    4. Any existing button patterns we should follow
+    Read the DocumentCard component (lines 1-56) to understand:
+    1. Current layout: Card wrapping ListItem
+    2. ListItem structure: headline (title), supporting (date - time), leading (icon), trailing (download button)
+    3. Current button: IconButton with Download icon, onClick calls onDownloadClick, disabled during isDownloading
+    4. Current trailingContent: Shows CircularProgressIndicator when isDownloading, otherwise IconButton
 
-    This is a prerequisite for Task 4.2 (adding save button).
+    This is a prerequisite for Task 4.2 (converting to dropdown menu approach).
   </action>
   <verify>
-    <automated>grep -n "fun DocumentCard\|onDownloadClick\|Button" /Users/johannes/StudioProjects/dhbw/composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/documents/components/DocumentCard.kt | head -20</automated>
+    <automated>grep -n "fun DocumentCard\|onDownloadClick\|Button\|trailingContent" /Users/johannes/StudioProjects/dhbw/composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/documents/components/DocumentCard.kt</automated>
   </verify>
   <done>
-    DocumentCard structure understood. Ready to add onSaveToFiles callback and button.
+    DocumentCard structure understood. Current design: ListItem with single trailing icon button for download. Ready to convert to dropdown menu.
   </done>
 </task>
 
 <task type="auto">
-  <name>Task 4.2: Enhance DocumentCard to support save-to-files callback</name>
+  <name>Task 4.2: Enhance DocumentCard to support save-to-files callback via popup menu</name>
   <files>composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/documents/components/DocumentCard.kt</files>
   <action>
-    Modify DocumentCard composable to add a second button or convert single button to dropdown/choice dialog.
+    Modify DocumentCard composable to add dropdown menu instead of single button. This preserves the ListItem design while adding a second action.
 
-    Option A (Recommended): Add "Save" button next to existing "Download" button
-    - Keep existing onDownloadClick button with label "Open"
-    - Add new onSaveToFiles button with label "Save"
-    - Both buttons show loading state during download
-    - Both share the same isDownloading state tracking
-
-    Option B: Dropdown menu with "Open Directly" and "Save to Files" options
-    - Single button with dropdown menu
-    - User selects action before download starts
-
-    Implement Option A (simpler, more discoverable):
-
-    Add parameter to function signature:
+    **Add this import at top:**
     ```kotlin
-    onSaveToFiles: (DualisDocument) -> Unit
+    import androidx.compose.material.icons.filled.MoreVert
+    import androidx.compose.material3.DropdownMenu
+    import androidx.compose.material3.DropdownMenuItem
+    import androidx.compose.runtime.mutableStateOf
     ```
 
-    Update button row to show both buttons (approximate layout):
+    **Update function signature to add onSaveToFiles parameter:**
     ```kotlin
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Button(
-            onClick = { onDownloadClick(document) },
-            modifier = Modifier.weight(1f),
-            enabled = !isDownloading
-        ) {
-            Text("Open")
-        }
-        Spacer(modifier = Modifier.width(8.dp))
-        Button(
-            onClick = { onSaveToFiles(document) },
-            modifier = Modifier.weight(1f),
-            enabled = !isDownloading
-        ) {
-            Text("Save")
+    @Composable
+    fun DocumentCard(
+        document: DualisDocument,
+        onDownloadClick: () -> Unit,
+        onSaveToFiles: (DualisDocument) -> Unit,
+        isDownloading: Boolean = false,
+        modifier: Modifier = Modifier
+    )
+    ```
+
+    **Replace the trailingContent block (lines 40-53) with this dropdown menu implementation:**
+    ```kotlin
+    trailingContent = {
+        var showMenu by remember { mutableStateOf(false) }
+
+        if (isDownloading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp)
+            )
+        } else {
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Download options"
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Open") },
+                        onClick = {
+                            onDownloadClick()
+                            showMenu = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Save to Files") },
+                        onClick = {
+                            onSaveToFiles(document)
+                            showMenu = false
+                        }
+                    )
+                }
+            }
         }
     }
     ```
 
-    Per D-05 decision.
+    This approach:
+    - Keeps existing ListItem design (no layout changes)
+    - Uses MoreVert icon (three dots) for consistency with Material3
+    - Menu closes automatically after selection
+    - Respects isDownloading state (shows progress instead of menu)
+    - Passes document to onSaveToFiles so callback has the data
+
+    Per D-05 decision. Approach A: popup menu on single button (recommended).
   </action>
   <verify>
     <automated>cd /Users/johannes/StudioProjects/dhbw && ./gradlew compileCommonMainKotlin -x test</automated>
   </verify>
   <done>
-    DocumentCard has two buttons: "Open" (calls onDownloadClick) and "Save" (calls onSaveToFiles). Both respect isDownloading state.
+    DocumentCard has dropdown menu with "Open" and "Save to Files" options. ListItem design preserved. Both options respect isDownloading state.
   </done>
 </task>
 
@@ -562,9 +632,9 @@ must_haves:
   <name>Task 4.3: Update DocumentsPage to pass onSaveToFiles to DocumentCard</name>
   <files>composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/pages/DocumentsPage.kt</files>
   <action>
-    In DocumentsPage, find the DocumentCard component call (around line 158).
+    In DocumentsPage, find the DocumentCard component call (around line 158 or in the documents list LazyColumn).
 
-    Current code:
+    **Current code:**
     ```kotlin
     DocumentCard(
         document = document,
@@ -573,15 +643,17 @@ must_haves:
     )
     ```
 
-    Add onSaveToFiles parameter:
+    **Change to (add onSaveToFiles parameter):**
     ```kotlin
     DocumentCard(
         document = document,
         onDownloadClick = { viewModel.downloadAndOpenDocument(document) },
-        onSaveToFiles = { viewModel.saveDocumentToFiles(document) },
+        onSaveToFiles = { doc -> viewModel.saveDocumentToFiles(doc) },
         isDownloading = uiState.isDownloading[document.title] ?: false
     )
     ```
+
+    The `onSaveToFiles` callback receives the document (passed from DocumentCard's menu handler) and calls the viewModel function with it.
 
     Per D-05 decision.
   </action>
@@ -589,7 +661,7 @@ must_haves:
     <automated>cd /Users/johannes/StudioProjects/dhbw && ./gradlew compileCommonMainKotlin -x test</automated>
   </verify>
   <done>
-    DocumentsPage passes both onDownloadClick and onSaveToFiles callbacks to DocumentCard.
+    DocumentsPage passes both onDownloadClick and onSaveToFiles callbacks to DocumentCard with correct parameter signature: onSaveToFiles: (DualisDocument) -> Unit.
   </done>
 </task>
 
@@ -597,9 +669,9 @@ must_haves:
   <name>Task 4.4: Implement saveDocumentToFiles function in DocumentsViewModel</name>
   <files>composeApp/src/commonMain/kotlin/de/fampopprol/dhbwhorb/ui/documents/viewModels/DocumentsViewModel.kt</files>
   <action>
-    Add new function `saveDocumentToFiles` to DocumentsViewModel. This function downloads the document and saves it to the files app (using the same openFile utility).
+    Add new function `saveDocumentToFiles` to DocumentsViewModel. This function downloads the document and saves it to the files app.
 
-    Add after the existing downloadAndOpenDocument function (around line 169):
+    **Add after the existing downloadAndOpenDocument function:**
 
     ```kotlin
     fun saveDocumentToFiles(document: DualisDocument) {
@@ -613,7 +685,6 @@ must_haves:
                     Napier.d("Downloaded document successfully: ${document.title}, size: ${documentData.size} bytes", tag = TAG)
                     // For save-to-files, we use openFile with same mechanism
                     // (openFile is platform-specific and will save/prompt as appropriate)
-                    // Alternative: Could show a platform-specific file chooser dialog
                     openFile(documentData, document.title + ".pdf")
                     _error.value = null
                 }.onFailure { e ->
@@ -630,7 +701,16 @@ must_haves:
     }
     ```
 
-    Note: The implementation reuses the existing openFile utility. For a true "save-to-files" experience (file chooser dialog), platform-specific code would be needed. Per D-06, we're keeping the current openFile behavior which provides the same user outcome.
+    **Note on implementation:** The function reuses the existing openFile utility (same as downloadAndOpenDocument). For a true "save-to-files" experience with file chooser dialog, platform-specific code would be needed. Per D-06, we're keeping the current openFile behavior which provides the same user outcome: the document gets saved to the device.
+
+    The function:
+    - Takes DualisDocument parameter (passed from DocumentCard dropdown)
+    - Sets isDownloading state while processing
+    - Calls dualisDocumentService.downloadDocument with the URL
+    - On success: calls openFile to save/handle the PDF
+    - On failure: displays error message
+    - Clears error on success
+    - Updates isDownloading state in finally block (always runs)
 
     Per D-05 and D-06 decisions.
   </action>
@@ -638,18 +718,18 @@ must_haves:
     <automated>cd /Users/johannes/StudioProjects/dhbw && ./gradlew compileCommonMainKotlin -x test</automated>
   </verify>
   <done>
-    DocumentsViewModel has saveDocumentToFiles function that mirrors downloadAndOpenDocument behavior (downloads and opens/saves file).
+    DocumentsViewModel has saveDocumentToFiles function that mirrors downloadAndOpenDocument behavior. Function takes DualisDocument, manages loading state, handles errors, and uses openFile utility to save document.
   </done>
 </task>
 
 <task type="checkpoint:human-verify">
   <what-built>
     Complete Documents feature implementation:
-    - TimetablePage navigation fixed (Wave 1)
-    - All page navigation parameters audited for consistency (Wave 2)
-    - Service layer code reviewed and verified (Wave 3)
-    - Manual testing guide created (Wave 3)
-    - Download UI enhanced with save option (Wave 4)
+    - TimetablePage navigation fixed (Wave 1: Tasks 1.1-1.2)
+    - All page navigation parameters audited for consistency (Wave 2: Tasks 2.1-2.3)
+    - Service layer code reviewed and verified (Wave 3: Tasks 3.1-3.2)
+    - Manual testing guide created (Wave 3: Task 3.3)
+    - Download UI enhanced with dropdown menu for save option (Wave 4: Tasks 4.1-4.4)
   </what-built>
   <how-to-verify>
     On Android emulator or iOS simulator:
@@ -662,20 +742,23 @@ must_haves:
 
     2. **UI Test**
        - On Documents page, verify you see document cards
-       - Each card shows: title, date, time
-       - Two buttons visible: "Open" and "Save"
-       - Search field at top works (try typing partial title)
+       - Each card shows: title, date - time
+       - Three-dot menu button visible in trailing area
+       - Click menu button, two options appear: "Open" and "Save to Files"
 
     3. **Download Test (Demo Mode)**
-       - Click "Open" button on any document
+       - Click menu button on any document
+       - Choose "Open" option
        - Should show loading state briefly
        - Error expected in demo mode: "Document download not available in demo mode"
        - This is correct behavior
+       - Try "Save to Files" option — same behavior expected
 
     4. **Code Compilation**
        - No red squiggles in IDE
        - `./gradlew compileCommonMainKotlin` passes
        - No missing parameter errors
+       - No warnings about unused code
 
     If all above pass, proceed. If issues found, describe them.
   </how-to-verify>
@@ -689,23 +772,33 @@ must_haves:
     Final integration check before completion:
 
     1. Verify App.kt TimetablePage call includes onNavigateToDocuments (Wave 1 Task 1.2)
+       - Check AppScreen.TIMETABLE branch
+       - Callback should be: `onNavigateToDocuments = { currentScreen = AppScreen.DOCUMENTS }`
+
     2. Verify all page callsites in App.kt are consistent
+       - TimetablePage: should have onNavigateToGrades, onNavigateToDocuments, onNavigateToSettings
+       - GradesPage: should have onNavigateToTimetable, onNavigateToDocuments, onNavigateToSettings
+       - SettingsPage: should have onNavigateToTimetable, onNavigateToGrades, onNavigateToDocuments
+       - DocumentsPage: should have onNavigateToTimetable, onNavigateToGrades, onNavigateToSettings
+
     3. Run full compilation to ensure no integration issues
+
     4. Create a mental checklist:
-       - [ ] TimetablePage has onNavigateToDocuments parameter
-       - [ ] BottomNav in TimetablePage calls it
-       - [ ] App.kt passes callback that routes to AppScreen.DOCUMENTS
-       - [ ] All 4 pages have consistent navigation parameters
-       - [ ] DocumentCard has onSaveToFiles callback
-       - [ ] DocumentsPage passes onSaveToFiles to DocumentCard
-       - [ ] DocumentsViewModel has saveDocumentToFiles function
-       - [ ] Manual testing guide exists at .planning/06-MANUAL-TESTING-GUIDE.md
+       - [ ] TimetablePage has onNavigateToDocuments parameter (Wave 1 Task 1.1)
+       - [ ] BottomNav in TimetablePage calls onNavigateToDocuments() (Wave 1 Task 1.1)
+       - [ ] App.kt passes onNavigateToDocuments callback = { currentScreen = AppScreen.DOCUMENTS } (Wave 1 Task 1.2)
+       - [ ] All 4 pages have consistent navigation parameters (Wave 2 Tasks 2.1-2.3)
+       - [ ] DocumentCard has onSaveToFiles parameter (Wave 4 Task 4.2)
+       - [ ] DocumentCard shows dropdown menu with "Open" and "Save to Files" (Wave 4 Task 4.2)
+       - [ ] DocumentsPage passes onSaveToFiles callback to DocumentCard (Wave 4 Task 4.3)
+       - [ ] DocumentsViewModel has saveDocumentToFiles function (Wave 4 Task 4.4)
+       - [ ] Manual testing guide exists at phase-specific location (Wave 3 Task 3.3)
   </action>
   <verify>
     <automated>cd /Users/johannes/StudioProjects/dhbw && ./gradlew compileCommonMainKotlin -x test 2>&1 | tail -20</automated>
   </verify>
   <done>
-    All Wave 1-4 tasks integrated. Code compiles without errors. Feature complete and ready for execution.
+    All Wave 1-4 tasks integrated and verified. Code compiles without errors. Feature complete and ready for execution.
   </done>
 </task>
 
@@ -737,7 +830,7 @@ must_haves:
 - Can run in parallel with Waves 1-2
 
 **Wave 4 (SEQUENTIAL):** Download enhancement
-- 06-04: Add save-to-files UI and implementation
+- 06-04: Add save-to-files UI with dropdown menu and implementation
 - Enhances user experience with choice
 - ~25 minutes execution time
 - Depends on Waves 1-3 for context
@@ -751,7 +844,7 @@ must_haves:
 - **D-02:** Navigation audit across all pages (Task 2.1-2.3)
 - **D-03:** DocumentParser and DualisDocumentService verified (Task 3.1-3.2)
 - **D-04:** Manual testing guide created (Task 3.3)
-- **D-05:** Save-to-files option added (Task 4.2-4.4)
+- **D-05:** Save-to-files option added via popup menu (Task 4.2-4.4)
 - **D-06:** openFile utility reused for save behavior (Task 4.4 implementation notes)
 - **D-07:** Error handling unchanged (all tasks preserve existing error flow)
 - **D-08:** UI state tracking adequate (isDownloading, isLoading, error used consistently)
@@ -766,7 +859,7 @@ must_haves:
 
 ## Output
 
-After completion, create `.planning/phases/06-documents-page-fix/06-EXECUTION-SUMMARY.md` documenting:
+After completion, create `.planning/phases/06-currently-the-documents-page-is-inaccessible-as-nothing-happens-if-i-click-on-the-documents-page-verify-the-implementation-and-fix-the-feature-to-support-the-download-and-fetching-officially-from-dualis/06-EXECUTION-SUMMARY.md` documenting:
 1. All tasks completed with timestamps
 2. Any bugs/issues found and resolved
 3. Verification results (compilation, manual tests)
