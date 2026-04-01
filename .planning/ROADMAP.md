@@ -107,5 +107,8 @@ Goal: Add visual feedback for loading state and fix document saving on desktop p
 
 **Depends on:** Phase 6
 
-**Plans:** 0 plans
-- [ ] TBD (run `/gsd:plan-phase 07` to break down)
+**Plans:** 4 plans
+- [ ] 07-01-PLAN.md — UI Loading State & Interface (Wave 1)
+- [ ] 07-02-PLAN.md — Desktop Implementation & ViewModel (Wave 2)
+- [ ] 07-03-PLAN.md — Mobile Platform Implementations (Wave 3)
+- [ ] 07-04-PLAN.md — Verification (Wave 4)
