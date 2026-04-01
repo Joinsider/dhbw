@@ -124,7 +124,13 @@
     <string name="nav_timetable">Timetable</string>
     <string name="nav_exams">Exams</string>
     <string name="nav_grades">Grades</string>
+    <string name="nav_documents">Documents</string>
     <string name="nav_settings">Settings</string>
+
+    <!-- Documents Page -->
+    <string name="documents">Documents</string>
+    <string name="login_required_for_documents">Login required to view documents</string>
+    <string name="no_documents_found">No documents found</string>
 
     <!-- Timetable Page -->
     <string name="this_week">This Week</string>

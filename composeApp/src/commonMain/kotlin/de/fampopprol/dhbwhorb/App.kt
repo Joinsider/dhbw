@@ -30,6 +30,9 @@ import de.fampopprol.dhbwhorb.data.storage.preferences.ThemePreferences
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferences
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
 import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
+import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService
+import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsViewModel
+import de.fampopprol.dhbwhorb.ui.pages.DocumentsPage
 import de.fampopprol.dhbwhorb.ui.pages.GradesPage
 import de.fampopprol.dhbwhorb.ui.pages.SettingsPage
 import de.fampopprol.dhbwhorb.ui.pages.Startpage
@@ -53,6 +56,7 @@ enum class AppScreen {
     LOGIN,
     TIMETABLE,
     GRADES,
+    DOCUMENTS,
     SETTINGS
 }
 
@@ -142,6 +146,22 @@ fun App(
                 gradeCacheMetadataDao = database.gradeCacheMetadataDao()
             )
             GradesViewModel(gradeService, database.gradeDao())
+        } else {
+            null
+        }
+    }
+
+    val documentsViewModel = remember(database, authenticationService, sharedHttpClient) {
+        if (database != null) {
+            val apiClient = DualisApiClient(sharedHttpClient)
+            val htmlParser = HtmlParser()
+            val documentService = DualisDocumentService(
+                apiClient = apiClient,
+                sessionManager = sessionManager,
+                authenticationService = authenticationService,
+                htmlParser = htmlParser,
+            )
+            DocumentsViewModel(documentService)
         } else {
             null
         }
@@ -253,6 +273,9 @@ fun App(
                         onNavigateToGrades = {
                             currentScreen = AppScreen.GRADES
                         },
+                        onNavigateToDocuments = {
+                            currentScreen = AppScreen.DOCUMENTS
+                        },
                         onNavigateToSettings = {
                             currentScreen = AppScreen.SETTINGS
                         },
@@ -268,6 +291,28 @@ fun App(
                         viewModel = gradesViewModel,
                         onNavigateToTimetable = {
                             currentScreen = AppScreen.TIMETABLE
+                        },
+                        onNavigateToDocuments = {
+                            currentScreen = AppScreen.DOCUMENTS
+                        },
+                        onNavigateToSettings = {
+                            currentScreen = AppScreen.SETTINGS
+                        },
+                        isLoggedIn = isLoggedIn,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 16.dp)
+                    )
+                }
+
+                AppScreen.DOCUMENTS -> {
+                    DocumentsPage(
+                        viewModel = documentsViewModel,
+                        onNavigateToTimetable = {
+                            currentScreen = AppScreen.TIMETABLE
+                        },
+                        onNavigateToGrades = {
+                            currentScreen = AppScreen.GRADES
                         },
                         onNavigateToSettings = {
                             currentScreen = AppScreen.SETTINGS
@@ -286,6 +331,9 @@ fun App(
                         },
                         onNavigateToGrades = {
                             currentScreen = AppScreen.GRADES
+                        },
+                        onNavigateToDocuments = {
+                            currentScreen = AppScreen.DOCUMENTS
                         },
                         onLogout = handleLogout,
                         isLoggedIn = isLoggedIn,

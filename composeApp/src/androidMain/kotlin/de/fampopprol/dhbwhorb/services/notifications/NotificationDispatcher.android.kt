@@ -52,7 +52,15 @@ actual class NotificationDispatcher {
             Napier.d("NotificationDispatcher.initialize called", tag = TAG)
         }
 
-        private fun getContext(): Context {
+        /**
+         * Get the application context.
+         * Returns null if NotificationDispatcher has not been initialized.
+         */
+        fun getContext(): Context? {
+            return applicationContext
+        }
+
+        private fun requireContext(): Context {
             return applicationContext
                 ?: throw IllegalStateException(
                     "NotificationDispatcher not initialized. Call NotificationDispatcher.initialize(context) first."
@@ -61,7 +69,7 @@ actual class NotificationDispatcher {
     }
 
     private val context: Context
-        get() = getContext()
+        get() = requireContext()
 
     init {
         Napier.d("NotificationDispatcher instance created", tag = TAG)

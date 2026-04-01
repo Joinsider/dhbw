@@ -29,9 +29,12 @@ Goal: Extend the data layer to support document retrieval.
 
 ## Phase 3: Document Features & UI (High)
 Goal: Provide a user-friendly interface for document management.
-**Plans:** 2 plans
+**Plans:** 5 plans
 - [ ] 03-01-PLAN.md — Navigation Foundation & UI Components (Wave 1)
 - [ ] 03-02-PLAN.md — Documents Page & Integration (Wave 2)
+- [ ] 03-03-PLAN.md — Search Functionality (Wave 3)
+- [ ] 03-04-PLAN.md — Data & Platform Layer for Downloads (Wave 4)
+- [ ] 03-05-PLAN.md — UI Integration for Downloads (Wave 5)
 
 **Requirements:**
 - [ ] **DOC-UI-01**: Create a "Documents" screen using Compose Multiplatform.

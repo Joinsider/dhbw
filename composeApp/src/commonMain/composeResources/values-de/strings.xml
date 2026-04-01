@@ -122,7 +122,13 @@
     <string name="nav_timetable">Stundenplan</string>
     <string name="nav_exams">Prüfungen</string>
     <string name="nav_grades">Noten</string>
+    <string name="nav_documents">Dokumente</string>
     <string name="nav_settings">Einstellungen</string>
+
+    <!-- Documents Page -->
+    <string name="documents">Dokumente</string>
+    <string name="login_required_for_documents">Anmeldung erforderlich, um Dokumente anzuzeigen</string>
+    <string name="no_documents_found">Keine Dokumente gefunden</string>
 
     <!-- Timetable Page -->
     <string name="this_week">Diese Woche</string>

@@ -91,6 +91,30 @@ class DualisApiClient(
         }
     }
 
+    suspend fun getRawBytes(url: String, cookie: String?): Result<ByteArray> {
+        return try {
+            Napier.d("Executing GET request for raw bytes to: $url", tag = TAG)
+
+            val response = client.get(url) {
+                if (cookie != null) {
+                    headers.append("Cookie", cookie)
+                }
+            }
+
+            if (!response.status.isSuccess()) {
+                Napier.e("Request for raw bytes failed with status: ${response.status}", tag = TAG)
+                return Result.failure(Exception("HTTP ${response.status.value}: ${response.status.description}"))
+            }
+
+            val bytes = response.body<ByteArray>()
+            Napier.d("Raw bytes request successful, response length: ${bytes.size} bytes", tag = TAG)
+            Result.success(bytes)
+        } catch (e: Exception) {
+            Napier.e("Request for raw bytes failed with exception: ${e.message}", e, tag = TAG)
+            Result.failure(e)
+        }
+    }
+
     /**
      * Result wrapper for API responses.
      * Contains either the HTML content or an error message.

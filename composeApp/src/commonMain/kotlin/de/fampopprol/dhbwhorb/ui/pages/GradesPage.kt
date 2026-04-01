@@ -44,6 +44,7 @@ import org.jetbrains.compose.resources.stringResource
 fun GradesPage(
     viewModel: GradesViewModel? = null,
     onNavigateToTimetable: () -> Unit = {},
+    onNavigateToDocuments: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     isLoggedIn: Boolean = true,
     modifier: Modifier = Modifier
@@ -73,7 +74,7 @@ fun GradesPage(
                             BottomNavItem.TIMETABLE -> onNavigateToTimetable()
                             BottomNavItem.GRADES -> { /* Already here */
                             }
-
+                            BottomNavItem.DOCUMENTS -> onNavigateToDocuments()
                             BottomNavItem.SETTINGS -> onNavigateToSettings()
                         }
                     }
