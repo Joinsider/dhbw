@@ -14,9 +14,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -35,7 +36,7 @@ import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
 import de.fampopprol.dhbwhorb.util.isMobilePlatform
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DocumentsPage(
     viewModel: DocumentsViewModel,
@@ -126,42 +127,57 @@ fun DocumentsPage(
                         singleLine = true
                     )
 
-                    if (uiState.isLoading) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    }
-
-                    PullToRefreshBox(
-                        isRefreshing = uiState.isRefreshing,
-                        onRefresh = { viewModel.refreshDocuments() },
-                    ) {
-                        if (uiState.documents.isEmpty() && uiState.searchQuery.isNotEmpty() && !uiState.isLoading) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("No documents found matching your search.")
-                            }
-                        } else if (uiState.documents.isEmpty() && !uiState.isLoading) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("No documents available.")
-                            }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(vertical = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                items(uiState.documents) { document ->
-                                    val documentKey = "${document.title}|${document.date}|${document.time}"
-                                    DocumentCard(
-                                        document = document,
-                                        onDownloadClick = { viewModel.downloadAndOpenDocument(document) },
-                                        onSaveToFiles = { doc -> viewModel.saveDocumentToFiles(doc) },
-                                        isDownloading = uiState.isDownloading[documentKey] ?: false
-                                    )
+                    if (uiState.isLoading && uiState.documents.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            LoadingIndicator()
+                        }
+                    } else {
+                        PullToRefreshBox(
+                            isRefreshing = uiState.isRefreshing,
+                            onRefresh = { viewModel.refreshDocuments() },
+                        ) {
+                            if (uiState.documents.isEmpty() && uiState.searchQuery.isNotEmpty() && !uiState.isLoading) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("No documents found matching your search.")
+                                }
+                            } else if (uiState.documents.isEmpty() && !uiState.isLoading) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("No documents available.")
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(vertical = 16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    items(uiState.documents) { document ->
+                                        val documentKey =
+                                            "${document.title}|${document.date}|${document.time}"
+                                        DocumentCard(
+                                            document = document,
+                                            onDownloadClick = {
+                                                viewModel.downloadAndOpenDocument(
+                                                    document
+                                                )
+                                            },
+                                            onSaveToFiles = { doc ->
+                                                viewModel.saveDocumentToFiles(
+                                                    doc
+                                                )
+                                            },
+                                            isDownloading = uiState.isDownloading[documentKey]
+                                                ?: false
+                                        )
+                                    }
                                 }
                             }
                         }

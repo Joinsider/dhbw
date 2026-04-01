@@ -23,38 +23,73 @@ import de.fampopprol.dhbwhorb.services.notifications.NotificationServiceLocator
 import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.cookies.HttpCookies
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
+import java.io.File
+
+private const val TAG = "Main"
+
+private fun configureDesktopTrustStore() {
+    val osName = System.getProperty("os.name").lowercase()
+    if (osName.contains("mac")) {
+        // On macOS, KeychainStore is often better as it uses system certificates.
+        // However, we only set it if not already configured.
+        if (System.getProperty("javax.net.ssl.trustStoreType").isNullOrBlank()) {
+            System.setProperty("javax.net.ssl.trustStoreType", "KeychainStore")
+            Napier.d("Using macOS KeychainStore for SSL trust", tag = TAG)
+            return
+        }
+    }
+
+    val configuredTrustStore = System.getProperty("javax.net.ssl.trustStore")
+    if (!configuredTrustStore.isNullOrBlank()) {
+        Napier.d("Using preconfigured trustStore: $configuredTrustStore", tag = TAG)
+        return
+    }
+
+    val javaHome = System.getProperty("java.home")
+    val candidates = listOf(
+        "$javaHome/lib/security/cacerts",
+        "$javaHome/jre/lib/security/cacerts"
+    )
+
+    val detectedTrustStore = candidates.firstOrNull { File(it).exists() }
+    if (detectedTrustStore != null) {
+        System.setProperty("javax.net.ssl.trustStore", detectedTrustStore)
+        if (System.getProperty("javax.net.ssl.trustStoreType").isNullOrBlank()) {
+            System.setProperty("javax.net.ssl.trustStoreType", "JKS")
+        }
+        Napier.d("Configured trustStore: $detectedTrustStore", tag = TAG)
+    } else {
+        Napier.w("No cacerts file found under java.home=$javaHome", tag = TAG)
+    }
+}
 
 fun main() {
     // Initialize Napier for JVM logging
     Napier.base(DebugAntilog())
-    Napier.d("JVM Desktop application starting", tag = "Main")
+    Napier.d("JVM Desktop application starting", tag = TAG)
+    configureDesktopTrustStore()
 
     // Create coroutine scope for background operations
     val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     // Initialize services
-    Napier.d("Initializing services...", tag = "Main")
+    Napier.d("Initializing services...", tag = TAG)
 
     // Create database
     val database = createRoomDatabase(
         getDatabaseBuilder()
     )
-    Napier.d("Database initialized", tag = "Main")
+    Napier.d("Database initialized", tag = TAG)
 
     // Create shared HttpClient for cookie sharing
-    val sharedHttpClient = HttpClient {
-        expectSuccess = false
-        install(HttpCookies)
-    }
-    Napier.d("Shared HttpClient created", tag = "Main")
+    val sharedHttpClient = AuthenticationService.createSharedHttpClient()
+    Napier.d("Shared HttpClient created using AuthenticationService.createSharedHttpClient()", tag = TAG)
 
     // Create session manager
     val secureStorage = SecureStorage()
@@ -66,7 +101,7 @@ fun main() {
         sessionManager = sessionManager,
         client = sharedHttpClient
     )
-    Napier.d("AuthenticationService initialized", tag = "Main")
+    Napier.d("AuthenticationService initialized", tag = TAG)
 
     // Create API client
     val dualisApiClient = DualisApiClient(client = sharedHttpClient)
@@ -86,14 +121,14 @@ fun main() {
         lecturerDao = database.lecturerDao(),
         lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
     )
-    Napier.d("DualisLectureService initialized", tag = "Main")
+    Napier.d("DualisLectureService initialized", tag = TAG)
 
     // Create lecture service
     val lectureService = LectureService(
         database = database,
         dualisLectureService = dualisLectureService
     )
-    Napier.d("LectureService initialized", tag = "Main")
+    Napier.d("LectureService initialized", tag = TAG)
 
     // Create timetable ViewModel
     val timetableViewModel = TimetableViewModel(
@@ -101,19 +136,19 @@ fun main() {
         lecturerDao = database.lecturerDao(),
         lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
     )
-    Napier.d("TimetableViewModel initialized", tag = "Main")
+    Napier.d("TimetableViewModel initialized", tag = TAG)
 
     // Initialize notification system
     val notificationPreferences = NotificationPreferences(secureStorageWrapper)
     val notificationPreferencesInteractor = NotificationPreferencesInteractor(notificationPreferences)
-    Napier.d("NotificationPreferencesInteractor initialized", tag = "Main")
+    Napier.d("NotificationPreferencesInteractor initialized", tag = TAG)
 
     val lectureChangeMonitor = LectureChangeMonitor(
         dualisLectureService = dualisLectureService,
         lectureEventDao = database.lectureDao(),
         lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
     )
-    Napier.d("LectureChangeMonitor initialized", tag = "Main")
+    Napier.d("LectureChangeMonitor initialized", tag = TAG)
 
     val notificationDispatcher = NotificationDispatcher()
     val notificationManager = NotificationManager(
@@ -122,11 +157,11 @@ fun main() {
         preferences = notificationPreferencesInteractor
     )
     NotificationServiceLocator.initialize(notificationManager)
-    Napier.d("NotificationManager initialized and registered", tag = "Main")
+    Napier.d("NotificationManager initialized and registered", tag = TAG)
 
     // Initialize scheduler
     val lectureMonitorScheduler = LectureMonitorScheduler(appScope)
-    Napier.d("LectureMonitorScheduler initialized", tag = "Main")
+    Napier.d("LectureMonitorScheduler initialized", tag = TAG)
 
     // Observe BOTH preferences to start/stop scheduler
     // Combine both flows so scheduler reacts to changes in either toggle
@@ -139,30 +174,30 @@ fun main() {
         }.collect { (notificationsEnabled, lectureAlertsEnabled) ->
             val shouldSchedule = notificationsEnabled && lectureAlertsEnabled
 
-            Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", tag = "Main")
-            Napier.d("🖥️  PREFERENCE CHANGE DETECTED (Desktop)", tag = "Main")
-            Napier.d("   Master notifications toggle: $notificationsEnabled", tag = "Main")
-            Napier.d("   Lecture alerts toggle: $lectureAlertsEnabled", tag = "Main")
-            Napier.d("   → Should schedule: $shouldSchedule", tag = "Main")
-            Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", tag = "Main")
+            Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", tag = TAG)
+            Napier.d("🖥️  PREFERENCE CHANGE DETECTED (Desktop)", tag = TAG)
+            Napier.d("   Master notifications toggle: $notificationsEnabled", tag = TAG)
+            Napier.d("   Lecture alerts toggle: $lectureAlertsEnabled", tag = TAG)
+            Napier.d("   → Should schedule: $shouldSchedule", tag = TAG)
+            Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", tag = TAG)
 
             if (shouldSchedule) {
-                Napier.d("✅ Both toggles enabled → Starting lecture monitoring scheduler...", tag = "Main")
+                Napier.d("✅ Both toggles enabled → Starting lecture monitoring scheduler...", tag = TAG)
                 lectureMonitorScheduler.schedule()
             } else {
-                Napier.d("🛑 One or both toggles disabled → Stopping lecture monitoring scheduler...", tag = "Main")
+                Napier.d("🛑 One or both toggles disabled → Stopping lecture monitoring scheduler...", tag = TAG)
                 lectureMonitorScheduler.cancel()
             }
         }
     }
 
-    Napier.i("All services initialized successfully!", tag = "Main")
+    Napier.i("All services initialized successfully!", tag = TAG)
 
     application {
-        Napier.d("Creating main window", tag = "Main")
+        Napier.d("Creating main window", tag = TAG)
         Window(
             onCloseRequest = {
-                Napier.d("Application closing", tag = "Main")
+                Napier.d("Application closing", tag = TAG)
                 lectureMonitorScheduler.cancel()
                 appScope.cancel()
                 exitApplication()
