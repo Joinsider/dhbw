@@ -8,6 +8,7 @@ package de.fampopprol.dhbwhorb.services.notifications
 
 import io.github.aakira.napier.Napier
 import kotlinx.cinterop.ExperimentalForeignApi
+import platform.Foundation.NSNumber
 import platform.UserNotifications.*
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine

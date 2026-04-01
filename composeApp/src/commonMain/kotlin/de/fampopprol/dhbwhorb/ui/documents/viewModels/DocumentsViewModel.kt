@@ -5,8 +5,6 @@ import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService
 import de.fampopprol.dhbwhorb.util.openFile
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
