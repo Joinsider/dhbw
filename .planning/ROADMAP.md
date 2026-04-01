@@ -58,3 +58,42 @@ Goal: Ensure overall app stability and polish.
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 5 to break down)
+
+### Phase 6: Documents Page Fix & Dualis Integration
+
+**Goal:** Fix the inaccessible documents page by completing navigation integration, verifying Dualis document fetching works correctly, and enhancing download functionality with save-to-files option. All platforms (Android, iOS, Desktop) must be functional.
+
+**Requirements:**
+- [ ] **DOC-UI-01**: Create a "Documents" screen using Compose Multiplatform (verify implementation complete)
+- [ ] **DOC-UI-02**: Implement search functionality for the document list (verify implementation complete)
+- [ ] **DOC-UI-03**: Implement document download and platform-native file viewing (enhance with save-to-files option)
+- [ ] **DOC-UI-04**: Add loading indicators and error states for document fetching (verify adequate)
+
+**Depends on:** Phase 5
+
+**Plans:** 1 comprehensive plan (4 waves, 13 tasks)
+- [x] 06-PLAN.md — Complete phase plan (created 2026-04-01)
+
+**Wave 1:** Fix TimetablePage navigation (blockers)
+- [ ] 06-01: Add onNavigateToDocuments callback to TimetablePage and wire in App.kt
+
+**Wave 2:** Audit navigation consistency (parallel)
+- [ ] 06-02: Audit all page navigation parameters (TimetablePage, GradesPage, SettingsPage, DocumentsPage)
+
+**Wave 3:** Verify service layer (parallel)
+- [ ] 06-03: Code review DocumentParser and DualisDocumentService + create manual testing guide
+
+**Wave 4:** Enhance download UI (sequential)
+- [ ] 06-04: Add save-to-files option with new button in DocumentCard and ViewModel function
+
+**Phase Decisions:**
+- D-01: Add onNavigateToDocuments callback to TimetablePage
+- D-02: Audit all page navigation handlers for consistency
+- D-03: Verify DocumentParser and DualisDocumentService implementation
+- D-04: Document manual testing procedure for real Dualis data
+- D-05: Enhance download to offer save-to-files choice
+- D-06: Keep existing openFile behavior for downloads
+- D-07: Keep current error message approach (no formal tests)
+- D-08: Current error state tracking adequate
+
+**Status:** Ready for execution via `/gsd:execute-phase 06`
