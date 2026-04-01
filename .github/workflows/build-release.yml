@@ -177,6 +177,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
 
       - name: Read composeApp version
@@ -190,22 +191,40 @@ jobs:
           echo "version=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION_NAME"    >> "$GITHUB_OUTPUT"
 
-      - name: Check if release tag already exists
+      - name: Check release and git tag state
         id: check-tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.version.outputs.tag }}"
+          RELEASE_EXISTS="false"
+          TAG_EXISTS="false"
+
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            echo "Release $TAG already exists — skipping creation."
+            RELEASE_EXISTS="true"
+            echo "Release $TAG already exists."
+          else
+            echo "Release $TAG does not exist yet."
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null 2>&1; then
+            TAG_EXISTS="true"
+            echo "Git tag $TAG already exists in origin."
+          else
+            echo "Git tag $TAG is missing in origin."
+          fi
+
+          echo "release_exists=$RELEASE_EXISTS" >> "$GITHUB_OUTPUT"
+          echo "tag_exists=$TAG_EXISTS" >> "$GITHUB_OUTPUT"
+
+          if [ "$RELEASE_EXISTS" = "true" ] && [ "$TAG_EXISTS" = "true" ]; then
             echo "skipped=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Release $TAG does not exist yet — will create."
             echo "skipped=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Ensure Git tag exists in remote
-        if: steps.check-tag.outputs.skipped != 'true'
+        if: steps.check-tag.outputs.tag_exists != 'true'
         run: |
           TAG="${{ steps.version.outputs.tag }}"
 
@@ -220,7 +239,7 @@ jobs:
           git push origin "refs/tags/$TAG"
 
       - name: Wait until tag is visible
-        if: steps.check-tag.outputs.skipped != 'true'
+        if: steps.check-tag.outputs.tag_exists != 'true'
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           for i in {1..10}; do
@@ -235,7 +254,7 @@ jobs:
           exit 1
 
       - name: Create Release
-        if: steps.check-tag.outputs.skipped != 'true'
+        if: steps.check-tag.outputs.release_exists != 'true'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.tag }}
