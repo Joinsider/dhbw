@@ -27,6 +27,19 @@ To provide a complete, feature-rich alternative to the official `dualis.dhbw.de`
 
 See: `.planning/milestones/v2.0-ROADMAP.md` for full details.
 
+---
+
+## Current Milestone: v3.0 Stability & Compliance
+
+**Goal:** Fix critical ANR/freezing issues reported in Google Play Console, ensure Android 15+ API compliance, optimize performance, and improve code quality through proper lifecycle management.
+
+**Target Fixes:**
+- ANR crashes and app freezing (main thread initialization, memory leaks)
+- Android API deprecations (edge-to-edge, status/navigation bar colors)
+- Large screen support (foldables, tablets, split-screen)
+- Performance bottlenecks (N+1 database queries, blocking file I/O)
+- Background service optimization (worker scheduling, resource cleanup)
+
 ## Tech Stack
 - **Framework:** Kotlin Multiplatform (KMP)
 - **UI:** Compose Multiplatform
