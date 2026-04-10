@@ -13,7 +13,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.window.layout.FoldingFeature
+import androidx.window.layout.WindowInfoTracker
 import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.HtmlParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.TimetableParser
@@ -88,6 +92,33 @@ class MainActivity : ComponentActivity() {
 
         // Register HttpClientManager for lifecycle-based cleanup
         lifecycle.addObserver(httpClientManager)
+
+        // Add fold state detection for foldable devices
+        // lifecycleScope + repeatOnLifecycle(STARTED) auto-cancels when activity pauses → no memory leaks
+        lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                WindowInfoTracker.getOrCreate(this@MainActivity)
+                    .windowLayoutInfo(this@MainActivity)
+                    .collect { newLayoutInfo ->
+                        val foldingFeature = newLayoutInfo.displayFeatures
+                            .filterIsInstance<FoldingFeature>()
+                            .firstOrNull()
+
+                        if (foldingFeature != null) {
+                            Napier.d(
+                                "Fold detected: state=${foldingFeature.state}, " +
+                                "orientation=${foldingFeature.orientation}, " +
+                                "bounds=${foldingFeature.bounds}",
+                                tag = "MainActivity"
+                            )
+                            // TODO: Future enhancement — use foldingFeature.bounds to adapt layouts
+                            // (e.g., two-column on book posture, avoid hinge in HALF_OPENED state)
+                        } else {
+                            Napier.d("No fold detected (phone or non-foldable tablet)", tag = "MainActivity")
+                        }
+                    }
+            }
+        }
 
         // Lock orientation to portrait for phones only (not tablets)
         if (isPhone()) {
