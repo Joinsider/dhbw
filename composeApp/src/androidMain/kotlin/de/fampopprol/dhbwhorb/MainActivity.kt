@@ -73,7 +73,6 @@ class MainActivity : ComponentActivity() {
     private var notificationManager: NotificationManager? = null
     private var lectureMonitorScheduler: LectureMonitorScheduler? = null
 
-    @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -120,12 +119,19 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Lock orientation to portrait for phones only (not tablets)
-        if (isPhone()) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            Napier.d("Device detected as phone - locking to portrait orientation", tag = "MainActivity")
+        // Conditional orientation lock: portrait on API <36 (Android 15-), free rotation on API 36+ (Android 16+)
+        // Android 16 (API 36) enforces user rotation preferences and discourages hard orientation locks.
+        if (Build.VERSION.SDK_INT < 36) {
+            // Android 15 and earlier: Lock to portrait for phones only
+            if (isPhone()) {
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                Napier.d("Android 15 phone detected - locking to portrait", tag = "MainActivity")
+            } else {
+                Napier.d("Android 15 tablet detected - allowing all orientations", tag = "MainActivity")
+            }
         } else {
-            Napier.d("Device detected as tablet - allowing all orientations", tag = "MainActivity")
+            // Android 16+: Allow all orientations (system respects user rotation preference)
+            Napier.d("Android 16+ detected - allowing system to manage orientation", tag = "MainActivity")
         }
 
         // Test logging to verify Napier is working
