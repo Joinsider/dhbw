@@ -235,48 +235,56 @@ class MainActivity : ComponentActivity() {
         )
         Napier.d("LectureChangeMonitor initialized", tag = "MainActivity")
 
-        // Create NotificationManager
-        val notificationDispatcher = NotificationDispatcher()
-        val nm = NotificationManager(
-            monitor = lectureChangeMonitor,
-            dispatcher = notificationDispatcher,
-            preferences = prefInteractor
-        )
-        notificationManager = nm
+        // Early exit: Skip notification services if notifications disabled
+        val shouldInitializeNotifications = prefInteractor.notificationsEnabled.value || prefInteractor.lectureAlertsEnabled.value
+        if (shouldInitializeNotifications) {
+            // Create NotificationManager
+            val notificationDispatcher = NotificationDispatcher()
+            val nm = NotificationManager(
+                monitor = lectureChangeMonitor,
+                dispatcher = notificationDispatcher,
+                preferences = prefInteractor
+            )
+            notificationManager = nm
 
-        // Register NotificationManager in ServiceLocator for Worker access
-        NotificationServiceLocator.initialize(nm)
-        Napier.d("NotificationManager initialized and registered", tag = "MainActivity")
+            // Register NotificationManager in ServiceLocator for Worker access
+            NotificationServiceLocator.initialize(nm)
+            Napier.d("✓ NotificationManager initialized and registered", tag = "MainActivity")
 
-        // Initialize scheduler
-        val scheduler = LectureMonitorScheduler(applicationContext)
-        lectureMonitorScheduler = scheduler
-        Napier.d("LectureMonitorScheduler initialized", tag = "MainActivity")
+            // Initialize scheduler
+            val scheduler = LectureMonitorScheduler(applicationContext)
+            lectureMonitorScheduler = scheduler
+            Napier.d("✓ LectureMonitorScheduler initialized (notifications enabled)", tag = "MainActivity")
+        } else {
+            Napier.d("ℹ️  Notifications disabled — skipping NotificationManager and LectureMonitorScheduler initialization", tag = "MainActivity")
+        }
 
-        // Observe BOTH preferences to start/stop scheduler
+        // Observe BOTH preferences to start/stop scheduler (only if scheduler was initialized)
         // Combine both flows so scheduler reacts to changes in either toggle
-        launch {
-            combine(
-                prefInteractor.notificationsEnabled,
-                prefInteractor.lectureAlertsEnabled
-            ) { notificationsEnabled, lectureAlertsEnabled ->
-                Pair(notificationsEnabled, lectureAlertsEnabled)
-            }.collect { (notificationsEnabled, lectureAlertsEnabled) ->
-                val shouldSchedule = notificationsEnabled && lectureAlertsEnabled
+        if (lectureMonitorScheduler != null) {
+            launch {
+                combine(
+                    prefInteractor.notificationsEnabled,
+                    prefInteractor.lectureAlertsEnabled
+                ) { notificationsEnabled, lectureAlertsEnabled ->
+                    Pair(notificationsEnabled, lectureAlertsEnabled)
+                }.collect { (notificationsEnabled, lectureAlertsEnabled) ->
+                    val shouldSchedule = notificationsEnabled && lectureAlertsEnabled
 
-                Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", tag = "MainActivity")
-                Napier.d("📱 PREFERENCE CHANGE DETECTED (Android)", tag = "MainActivity")
-                Napier.d("   Master notifications toggle: $notificationsEnabled", tag = "MainActivity")
-                Napier.d("   Lecture alerts toggle: $lectureAlertsEnabled", tag = "MainActivity")
-                Napier.d("   → Should schedule: $shouldSchedule", tag = "MainActivity")
-                Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                    Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", tag = "MainActivity")
+                    Napier.d("📱 PREFERENCE CHANGE DETECTED (Android)", tag = "MainActivity")
+                    Napier.d("   Master notifications toggle: $notificationsEnabled", tag = "MainActivity")
+                    Napier.d("   Lecture alerts toggle: $lectureAlertsEnabled", tag = "MainActivity")
+                    Napier.d("   → Should schedule: $shouldSchedule", tag = "MainActivity")
+                    Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-                if (shouldSchedule) {
-                    Napier.d("✅ Both toggles enabled → Starting lecture monitoring scheduler...", tag = "MainActivity")
-                    scheduler.schedule()
-                } else {
-                    Napier.d("🛑 One or both toggles disabled → Stopping lecture monitoring scheduler...", tag = "MainActivity")
-                    scheduler.cancel()
+                    if (shouldSchedule) {
+                        Napier.d("✅ Both toggles enabled → Starting lecture monitoring scheduler...", tag = "MainActivity")
+                        lectureMonitorScheduler?.schedule()
+                    } else {
+                        Napier.d("🛑 One or both toggles disabled → Stopping lecture monitoring scheduler...", tag = "MainActivity")
+                        lectureMonitorScheduler?.cancel()
+                    }
                 }
             }
         }
