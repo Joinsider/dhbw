@@ -40,7 +40,7 @@ import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsViewModel
 import de.fampopprol.dhbwhorb.ui.pages.DocumentsPage
 import de.fampopprol.dhbwhorb.ui.pages.GradesPage
 import de.fampopprol.dhbwhorb.ui.pages.SettingsPage
-import de.fampopprol.dhbwhorb.ui.pages.Startpage
+import de.fampopprol.dhbwhorb.ui.pages.LoginPage
 import de.fampopprol.dhbwhorb.ui.pages.TimetablePage
 import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
 import de.fampopprol.dhbwhorb.ui.grades.viewModels.GradesViewModel
@@ -222,7 +222,7 @@ fun App(
                             verticalArrangement = Arrangement.Center
                         ) {
                             authenticationService?.let { auth ->
-                                Startpage(
+                                LoginPage(
                                     onLoginSuccess = {
                                         isLoggedIn = true
                                         currentScreen = AppScreen.TIMETABLE
@@ -243,7 +243,7 @@ fun App(
                             verticalArrangement = Arrangement.Center
                         ) {
                             authenticationService?.let { auth ->
-                                Startpage(
+                                LoginPage(
                                     onLoginSuccess = {
                                         isLoggedIn = true
                                         currentScreen = AppScreen.TIMETABLE

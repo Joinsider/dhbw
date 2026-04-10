@@ -27,6 +27,9 @@ class MockAppDatabase : AppDatabase() {
     override fun gradeCacheMetadataDao(): GradeCacheMetadataDao = MockGradeCacheMetadataDao()
     override fun syncMetadataDao(): SyncMetadataDao = MockSyncMetadataDao()
     override fun createInvalidationTracker(): InvalidationTracker = throw NotImplementedError()
+    
+    @Suppress("NOTHING_TO_OVERRIDE")
+    override fun clearAllTables() {}
 }
 
 class MockLectureEventDao : LectureEventDao {

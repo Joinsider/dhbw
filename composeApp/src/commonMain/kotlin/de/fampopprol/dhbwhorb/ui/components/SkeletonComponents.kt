@@ -163,3 +163,49 @@ fun DocumentCardSkeleton(modifier: Modifier = Modifier) {
         }
     }
 }
+
+@Composable
+fun EventSkeleton(modifier: Modifier = Modifier, smallFont: Boolean = false) {
+    val brush = ShimmerBrush()
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(4.dp))
+            .background(brush)
+            .padding(4.dp)
+    ) {
+        Column {
+            if (!smallFont) {
+                // Time range placeholder
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+            // Title placeholder
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .height(if (smallFont) 12.dp else 14.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+            )
+            
+            if (!smallFont) {
+                Spacer(modifier = Modifier.height(4.dp))
+                // Additional info placeholder
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.5f)
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
+                )
+            }
+        }
+    }
+}

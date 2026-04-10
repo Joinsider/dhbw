@@ -1,6 +1,5 @@
 package de.fampopprol.dhbwhorb.net
 
-import de.fampopprol.dhbwhorb.data.network.CustomDnsResolver
 import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.client.engine.okhttp.OkHttp
 

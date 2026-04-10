@@ -223,7 +223,8 @@ fun WeeklyLecturesView(
                                     modifier = Modifier.padding(bottom = 16.dp)
                                         .width(dayColumnWidth),
                                     width = dayColumnWidth,
-                                    onLectureClick = onLectureClick
+                                    onLectureClick = onLectureClick,
+                                    isSkeleton = isRefreshing && lectures.isEmpty()
                                 )
                             }
                         }

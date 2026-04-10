@@ -73,8 +73,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        // Register HttpClientManager for lifecycle-based cleanup
-        lifecycle.addObserver(httpClientManager)
         setContent {
             Napier.d("Setting content with App(), isInitialized=$isInitialized", tag = "MainActivity")
             App(
@@ -86,6 +84,9 @@ class MainActivity : ComponentActivity() {
                 isInitialized = isInitialized
             )
         }
+
+        // Register HttpClientManager for lifecycle-based cleanup
+        lifecycle.addObserver(httpClientManager)
 
         // Lock orientation to portrait for phones only (not tablets)
         if (isPhone()) {

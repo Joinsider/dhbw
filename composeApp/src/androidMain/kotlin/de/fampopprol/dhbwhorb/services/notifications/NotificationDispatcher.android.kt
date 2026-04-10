@@ -73,7 +73,6 @@ actual class NotificationDispatcher {
 
     init {
         Napier.d("NotificationDispatcher instance created", tag = TAG)
-        createNotificationChannel()
     }
 
     /**
@@ -86,9 +85,13 @@ actual class NotificationDispatcher {
                 description = CHANNEL_DESCRIPTION
             }
 
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
-            Napier.d("Notification channel created", tag = TAG)
+            try {
+                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                notificationManager.createNotificationChannel(channel)
+                Napier.d("Notification channel created", tag = TAG)
+            } catch (e: Exception) {
+                Napier.w("Could not create notification channel: ${e.message}", tag = TAG)
+            }
         }
     }
 
@@ -96,6 +99,7 @@ actual class NotificationDispatcher {
      * Request notification permission from the user (Android 13+).
      */
     actual suspend fun requestPermission(): Boolean {
+        createNotificationChannel() // Ensure channel exists when requesting permission
         Napier.d("requestPermission called (returns current permission state)", tag = TAG)
         // Permission request must be initiated from an Activity
         // This method returns current permission state

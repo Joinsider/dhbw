@@ -63,7 +63,7 @@ class LazyLoadingTest {
         )
         
         // Process the initial combine emission
-        kotlinx.coroutines.test.runCurrent()
+        runCurrent()
         
         // Initially it should show loading
         assertTrue(viewModel.uiState.value.isLoading, "ViewModel should be in loading state initially")
