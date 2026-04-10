@@ -12,9 +12,13 @@ import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.Mutex
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
@@ -42,6 +46,23 @@ class TimetableViewModel(
         private set
 
     private var currentWeekOffset = 0
+
+    // Race condition prevention: Mutex serializes all load operations
+    // Prevents concurrent initial fetch + refresh from race-conditioning data updates
+    private val loadMutex = Mutex()
+
+    // Three separate StateFlows for deterministic loading state management
+    // - isLoading: true during initial data fetch (skeleton data shown)
+    // - data: current data (empty initially, skeleton data, then full data)
+    // - isRefreshing: true during pull-to-refresh or background sync
+    private val _isLoading = MutableStateFlow<Boolean>(true)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
+    private val _data = MutableStateFlow<List<LectureModel>>(emptyList())
+    val data: StateFlow<List<LectureModel>> = _data
+
+    private val _isRefreshing = MutableStateFlow<Boolean>(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing
 
     init {
         loadLecturesForCurrentWeek()
@@ -122,56 +143,62 @@ class TimetableViewModel(
     /**
      * Refresh lectures for the current week from the API.
      * This forces a fresh fetch and only updates if new data is received.
+     * Uses Mutex to prevent concurrent operations from race-conditioning data updates.
      */
     fun refreshLectures() {
         val refreshWeekOffset = currentWeekOffset
-        uiState = uiState.copy(isRefreshing = true)
-
         coroutineScope.launch {
-            try {
-                Napier.d("Refreshing lectures for week offset: $refreshWeekOffset", tag = TAG)
+            loadMutex.withLock {
+                _isRefreshing.value = true
+                try {
+                    Napier.d("Refreshing lectures for week offset: $refreshWeekOffset", tag = TAG)
 
-                // Force fetch from API with retry
-                val lectureEntities = getDataWithRetry("Refresh Lectures") {
-                    if (lectureService == null) {
-                        Napier.w("LectureService not ready during refresh", tag = TAG)
-                        return@getDataWithRetry null
+                    // Force fetch from API with retry
+                    val lectureEntities = getDataWithRetry("Refresh Lectures") {
+                        if (lectureService == null) {
+                            Napier.w("LectureService not ready during refresh", tag = TAG)
+                            return@getDataWithRetry null
+                        }
+                        lectureService.getLecturesForWeek(refreshWeekOffset, forceRefresh = true)
+                    } ?: emptyList()
+
+                    val lectureModels = lectureEntities.map { entity ->
+                        entity.toLectureModel()
                     }
-                    lectureService.getLecturesForWeek(refreshWeekOffset, forceRefresh = true)
-                } ?: emptyList()
 
-                val lectureModels = lectureEntities.map { entity ->
-                    entity.toLectureModel()
-                }
+                    val weekLabelData = generateWeekLabelData(refreshWeekOffset)
 
-                val weekLabelData = generateWeekLabelData(refreshWeekOffset)
+                    if (currentWeekOffset == refreshWeekOffset) {
+                        uiState = uiState.copy(
+                            lectures = lectureModels,
+                            weekLabelData = weekLabelData,
+                            currentWeekOffset = refreshWeekOffset,
+                            isRefreshing = false,
+                            error = null
+                        )
+                        _data.value = lectureModels
+                    } else {
+                        Napier.d("Ignored refresh result because week offset changed from $refreshWeekOffset to $currentWeekOffset", tag = TAG)
+                        uiState = uiState.copy(isRefreshing = false)
+                    }
 
-                if (currentWeekOffset == refreshWeekOffset) {
+                    Napier.d("Successfully refreshed ${lectureModels.size} lectures", tag = TAG)
+                } catch (e: Exception) {
+                    Napier.e("Error refreshing lectures: ${e.message}", e, tag = TAG)
                     uiState = uiState.copy(
-                        lectures = lectureModels,
-                        weekLabelData = weekLabelData,
-                        currentWeekOffset = refreshWeekOffset,
                         isRefreshing = false,
-                        error = null
+                        error = "Failed to refresh lectures: ${e.message}"
                     )
-                } else {
-                    Napier.d("Ignored refresh result because week offset changed from $refreshWeekOffset to $currentWeekOffset", tag = TAG)
-                    uiState = uiState.copy(isRefreshing = false)
+                } finally {
+                    _isRefreshing.value = false
                 }
-
-                Napier.d("Successfully refreshed ${lectureModels.size} lectures", tag = TAG)
-            } catch (e: Exception) {
-                Napier.e("Error refreshing lectures: ${e.message}", e, tag = TAG)
-                uiState = uiState.copy(
-                    isRefreshing = false,
-                    error = "Failed to refresh lectures: ${e.message}"
-                )
             }
         }
     }
 
     /**
      * Load lectures for a specific week offset from current week.
+     * Uses Mutex to prevent concurrent loads from race-conditioning data updates.
      */
     private fun loadLecturesForWeek(weekOffset: Int) {
         // Immediately clear lectures and update week label when switching weeks
@@ -186,64 +213,71 @@ class TimetableViewModel(
         )
 
         coroutineScope.launch {
-            try {
-                Napier.d("Loading lectures (staged) for week offset: $weekOffset", tag = TAG)
+            loadMutex.withLock {
+                _isLoading.value = true
+                try {
+                    Napier.d("Loading lectures (staged) for week offset: $weekOffset", tag = TAG)
 
-                // Staged fetch with retry logic
-                val stagedResult = getDataWithRetry("Load Lectures Staged") {
-                    if (lectureService == null) {
-                        Napier.w("LectureService not ready during staged load", tag = TAG)
-                        return@getDataWithRetry null
+                    // Staged fetch with retry logic
+                    val stagedResult = getDataWithRetry("Load Lectures Staged") {
+                        if (lectureService == null) {
+                            Napier.w("LectureService not ready during staged load", tag = TAG)
+                            return@getDataWithRetry null
+                        }
+                        lectureService.getLecturesForWeekStaged(weekOffset)
                     }
-                    lectureService.getLecturesForWeekStaged(weekOffset)
-                }
 
-                if (stagedResult != null) {
-                    val (lectures, isReloading) = stagedResult
-                    val lectureModels = lectures.map { entity -> entity.toLectureModel() }
+                    if (stagedResult != null) {
+                        val (lectures, isReloading) = stagedResult
+                        val lectureModels = lectures.map { entity -> entity.toLectureModel() }
 
-                    // Only update if we're still on the same week (user didn't navigate away)
-                    if (currentWeekOffset == weekOffset) {
+                        // Only update if we're still on the same week (user didn't navigate away)
+                        if (currentWeekOffset == weekOffset) {
+                            uiState = uiState.copy(
+                                lectures = lectureModels,
+                                isLoading = isReloading,
+                                error = null
+                            )
+                            _data.value = lectureModels
+                        }
+
+                        // If still reloading in background, poll/update once background fetch likely finished
+                        if (isReloading) {
+                            // Simple follow-up: try fetching from DB after background refresh completes implicitly
+                            // Reuse existing service which returns DB data when available
+                            val fullLectures = getDataWithRetry("Load Full Lectures") {
+                                lectureService?.getLecturesForWeek(weekOffset, forceRefresh = false)
+                            } ?: emptyList()
+
+                            val fullModels = fullLectures.map { it.toLectureModel() }
+
+                            // Only update if we're still on the same week
+                            if (currentWeekOffset == weekOffset) {
+                                uiState = uiState.copy(
+                                    lectures = fullModels,
+                                    isLoading = false,
+                                    error = null
+                                )
+                                _data.value = fullModels
+                            }
+                        }
+                    } else {
                         uiState = uiState.copy(
-                            lectures = lectureModels,
-                            isLoading = isReloading,
-                            error = null
+                            isLoading = false,
+                            error = "Services not ready after 5 seconds"
                         )
                     }
 
-                    // If still reloading in background, poll/update once background fetch likely finished
-                    if (isReloading) {
-                        // Simple follow-up: try fetching from DB after background refresh completes implicitly
-                        // Reuse existing service which returns DB data when available
-                        val fullLectures = getDataWithRetry("Load Full Lectures") {
-                            lectureService?.getLecturesForWeek(weekOffset, forceRefresh = false)
-                        } ?: emptyList()
-
-                        val fullModels = fullLectures.map { it.toLectureModel() }
-
-                        // Only update if we're still on the same week
-                        if (currentWeekOffset == weekOffset) {
-                            uiState = uiState.copy(
-                                lectures = fullModels,
-                                isLoading = false,
-                                error = null
-                            )
-                        }
-                    }
-                } else {
+                    Napier.d("Staged load complete for week $weekOffset (lectures: ${uiState.lectures.size})", tag = TAG)
+                } catch (e: Exception) {
+                    Napier.e("Error loading lectures (staged): ${e.message}", e, tag = TAG)
                     uiState = uiState.copy(
                         isLoading = false,
-                        error = "Services not ready after 5 seconds"
+                        error = "Failed to load lectures: ${e.message}"
                     )
+                } finally {
+                    _isLoading.value = false
                 }
-
-                Napier.d("Staged load complete for week $weekOffset (lectures: ${uiState.lectures.size})", tag = TAG)
-            } catch (e: Exception) {
-                Napier.e("Error loading lectures (staged): ${e.message}", e, tag = TAG)
-                uiState = uiState.copy(
-                    isLoading = false,
-                    error = "Failed to load lectures: ${e.message}"
-                )
             }
         }
     }
