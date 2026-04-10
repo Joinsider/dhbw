@@ -338,6 +338,12 @@ See PLAN.md Wave 4 section for full UAT checklist. Key tests:
 - Root cause: the previous grep pattern dropped quotes around `$NEW`, so valid `archiveVersion.set("2.1.0")` values were incorrectly reported as missing.
 - Updated check now uses fixed-string matching to avoid regex/quoting edge cases.
 
+### 2026-04-10 — Build-skip control flow fix for manual releases
+
+- Removed premature GitHub Release creation from `bump-version` (this could make `create-release` treat the run as already released and skip all build jobs).
+- Updated `create-release` checkout to use branch head (`${{ github.base_ref || github.ref_name }}`), so tagging/building follows the just-bumped commit.
+- Moved multilingual release note body injection into the `create-release` draft release step, preserving Phase 13 notes behavior without short-circuiting compilation.
+
 ---
 
 *Phase 13 execution completed: 2026-04-10*  

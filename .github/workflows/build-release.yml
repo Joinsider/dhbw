@@ -258,29 +258,6 @@ jobs:
              git push origin "HEAD:${{ github.base_ref || github.ref_name }}"
            fi
 
-      - name: Create GitHub Release with notes
-        if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-           VERSION="${{ steps.semver.outputs.new_version }}"
-           CHANGELOG_EN="${{ github.event.inputs.changelog_en }}"
-           CHANGELOG_DE="${{ github.event.inputs.changelog_de }}"
-           
-           if [ -z "$CHANGELOG_EN" ]; then
-             echo "Skipping GitHub Release creation: no changelog_en provided"
-             exit 0
-           fi
-           
-           NOTES="## English\n$CHANGELOG_EN\n\n## Deutsch\n$CHANGELOG_DE"
-           
-           gh release create "v$VERSION" \
-             --title "v$VERSION" \
-             --notes "$(printf "$NOTES")" \
-             --target main || true
-           
-           echo "✅ GitHub Release v$VERSION created with multilingual notes"
-
   create-release:
     runs-on: ubuntu-latest
     environment: production
@@ -298,7 +275,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ssh-key: ${{ secrets.DEPLOY_KEY }}
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
+          ref: ${{ github.base_ref || github.ref_name }}
 
       - name: Read composeApp version
         id: version
@@ -379,9 +356,15 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: v${{ steps.version.outputs.version }}
+          body: |
+            ## English
+            ${{ github.event.inputs.changelog_en || 'No English release notes provided.' }}
+
+            ## Deutsch
+            ${{ github.event.inputs.changelog_de || 'Keine deutschen Release-Notizen angegeben.' }}
           draft: true
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
