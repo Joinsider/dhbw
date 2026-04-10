@@ -122,19 +122,14 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Conditional orientation lock: portrait on API <36 (Android 15-), free rotation on API 36+ (Android 16+)
-        // Android 16 (API 36) enforces user rotation preferences and discourages hard orientation locks.
-        if (Build.VERSION.SDK_INT < 36) {
-            // Android 15 and earlier: Lock to portrait for phones only
-            if (isPhone()) {
-                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                Napier.d("Android 15 phone detected - locking to portrait", tag = "MainActivity")
-            } else {
-                Napier.d("Android 15 tablet detected - allowing all orientations", tag = "MainActivity")
-            }
+        // Orientation lock: Portrait for phones, free rotation for tablets/foldables
+        // Decision based on device form factor, NOT Android version
+        if (isPhone()) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            Napier.d("Phone detected - locking to portrait orientation", tag = "MainActivity")
         } else {
-            // Android 16+: Allow all orientations (system respects user rotation preference)
-            Napier.d("Android 16+ detected - allowing system to manage orientation", tag = "MainActivity")
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER
+            Napier.d("Tablet or foldable detected - allowing free rotation", tag = "MainActivity")
         }
 
         // Test logging to verify Napier is working
