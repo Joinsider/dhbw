@@ -52,6 +52,8 @@ kotlin {
             implementation(libs.okhttp)
             // Use OkHttp DNS-over-HTTPS for fallback
             implementation(libs.okhttp.dnsoverhttps)
+            // Foldable device support via WindowInfoTracker and FoldingFeature
+            implementation(libs.androidx.window)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
