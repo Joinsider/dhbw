@@ -156,8 +156,8 @@ jobs:
           fi
 
       - name: Validate all version fields
-         if: steps.semver.outputs.skipped != 'true'
-         run: |
+        if: steps.semver.outputs.skipped != 'true'
+        run: |
            NEW="${{ steps.semver.outputs.new_version }}"
            NEW_CODE="${{ steps.versioncode.outputs.new_code }}"
            
@@ -216,9 +216,9 @@ jobs:
             git push origin "HEAD:$TARGET_BRANCH"
           fi
 
-       - name: Write fastlane changelogs
-         if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
-         run: |
+      - name: Write fastlane changelogs
+        if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
+        run: |
            VERSION_CODE="${{ steps.versioncode.outputs.new_code }}"
            CHANGELOG_EN="${{ github.event.inputs.changelog_en }}"
            CHANGELOG_DE="${{ github.event.inputs.changelog_de }}"
@@ -240,9 +240,9 @@ jobs:
              echo "✅ Created German changelog at $DE_FILE"
            fi
 
-       - name: Commit changelog files
-         if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
-         run: |
+      - name: Commit changelog files
+        if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
+        run: |
            VERSION_CODE="${{ steps.versioncode.outputs.new_code }}"
            
            git config user.name  "github-actions[bot]"
@@ -258,11 +258,11 @@ jobs:
              git push origin "HEAD:${{ github.base_ref || github.ref_name }}"
            fi
 
-       - name: Create GitHub Release with notes
-         if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
-         env:
-           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-         run: |
+      - name: Create GitHub Release with notes
+        if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
            VERSION="${{ steps.semver.outputs.new_version }}"
            CHANGELOG_EN="${{ github.event.inputs.changelog_en }}"
            CHANGELOG_DE="${{ github.event.inputs.changelog_de }}"

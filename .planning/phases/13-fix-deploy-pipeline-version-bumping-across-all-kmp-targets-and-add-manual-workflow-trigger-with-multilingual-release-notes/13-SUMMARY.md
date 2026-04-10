@@ -320,6 +320,20 @@ See PLAN.md Wave 4 section for full UAT checklist. Key tests:
 
 ---
 
+## Post-Completion Hotfixes
+
+### 2026-04-10 — Workflow YAML syntax repair
+
+- Fixed invalid YAML indentation in `.github/workflows/build-release.yml` that caused GitHub to reject the workflow at line 159.
+- Corrected step/key alignment for:
+  - `Validate all version fields`
+  - `Write fastlane changelogs`
+  - `Commit changelog files`
+  - `Create GitHub Release with notes`
+- Result: workflow file parses successfully again while preserving Phase 13 release automation behavior.
+
+---
+
 *Phase 13 execution completed: 2026-04-10*  
 *Plan created: 2026-04-10*  
 *Summary created: 2026-04-10*
