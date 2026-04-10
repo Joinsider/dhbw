@@ -49,6 +49,14 @@ import de.fampopprol.dhbwhorb.util.isMobilePlatform
 import kotlinx.datetime.Month
 import org.jetbrains.compose.resources.InternalResourceApi
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.runtime.DisposableEffect
+import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
+import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
+import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisLectureService
+import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
+import de.fampopprol.dhbwhorb.data.storage.database.AppDatabase
+import de.fampopprol.dhbwhorb.services.LectureService
+import io.ktor.client.HttpClient
 
 @OptIn(ExperimentalMaterial3Api::class, InternalResourceApi::class,
     ExperimentalMaterial3ExpressiveApi::class
@@ -56,13 +64,50 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun TimetablePage(
     viewModel: TimetableViewModel? = null,
+    database: AppDatabase? = null,
+    authenticationService: AuthenticationService? = null,
+    sharedHttpClient: HttpClient? = null,
+    sessionManager: SessionManager? = null,
     onNavigateToGrades: () -> Unit = {},
     onNavigateToDocuments: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     isLoggedIn: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val uiState = viewModel?.uiState ?: TimetableUiState()
+    // Truly lazy initialization of ViewModel if not provided
+    val actualViewModel = viewModel ?: remember(database, authenticationService, sharedHttpClient, sessionManager) {
+        if (database != null && authenticationService != null && sharedHttpClient != null && sessionManager != null) {
+            val dualisApiClient = DualisApiClient(sharedHttpClient)
+            val dualisLectureService = DualisLectureService(
+                apiClient = dualisApiClient,
+                sessionManager = sessionManager,
+                authenticationService = authenticationService,
+                lectureEventDao = database.lectureDao(),
+                lecturerDao = database.lecturerDao(),
+                lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
+            )
+            val lectureService = LectureService(
+                database = database,
+                dualisLectureServiceFactory = { dualisLectureService }
+            )
+            TimetableViewModel(
+                lectureService = lectureService,
+                lecturerDao = database.lecturerDao(),
+                lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
+            )
+        } else {
+            null
+        }
+    }
+
+    // Call cleanup on disposal
+    DisposableEffect(actualViewModel) {
+        onDispose {
+            actualViewModel?.cleanup()
+        }
+    }
+
+    val uiState = actualViewModel?.uiState ?: TimetableUiState()
 
     // State for selected lecture dialog
     var selectedLecture by remember { mutableStateOf<LectureModel?>(null) }
@@ -70,8 +115,8 @@ fun TimetablePage(
     val hapticFeedback = LocalHapticFeedback.current
 
     //  lectures when page is displayed
-    LaunchedEffect(Unit) {
-        viewModel?.loadLecturesForCurrentWeek()
+    LaunchedEffect(actualViewModel) {
+        actualViewModel?.loadLecturesForCurrentWeek()
     }
 
     Scaffold(
@@ -106,12 +151,12 @@ fun TimetablePage(
                 formatWeekLabel(data)
             } ?: stringResource(Res.string.this_week)
 
-            val isBusy = uiState.isRefreshing || uiState.isLoading
+            val isBusy = (uiState.isRefreshing || uiState.isLoading || actualViewModel == null)
 
             if (isMobilePlatform()) {
                 PullToRefreshBox(
                     isRefreshing = uiState.isRefreshing,
-                    onRefresh = { viewModel?.refreshLectures() },
+                    onRefresh = { actualViewModel?.refreshLectures() },
                     modifier = Modifier.fillMaxSize(),
                     indicator = {
                         if (uiState.isRefreshing) {
@@ -130,13 +175,13 @@ fun TimetablePage(
                     WeeklyLecturesView(
                         lectures = uiState.lectures,
                         weekLabel = weekLabel,
-                        onPreviousWeek = { viewModel?.goToPreviousWeek() },
-                        onNextWeek = { viewModel?.goToNextWeek() },
+                        onPreviousWeek = { actualViewModel?.goToPreviousWeek() },
+                        onNextWeek = { actualViewModel?.goToNextWeek() },
                         onWeekLabelClick = {
-                            if (uiState.currentWeekOffset != 0) viewModel?.loadLecturesForCurrentWeek()
+                            if (uiState.currentWeekOffset != 0) actualViewModel?.loadLecturesForCurrentWeek()
                         },
                         onLectureClick = { lecture -> selectedLecture = lecture },
-                        onRefresh = { viewModel?.refreshLectures() },
+                        onRefresh = { actualViewModel?.refreshLectures() },
                         isRefreshing = isBusy,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -145,13 +190,13 @@ fun TimetablePage(
                 WeeklyLecturesView(
                     lectures = uiState.lectures,
                     weekLabel = weekLabel,
-                    onPreviousWeek = { viewModel?.goToPreviousWeek() },
-                    onNextWeek = { viewModel?.goToNextWeek() },
+                    onPreviousWeek = { actualViewModel?.goToPreviousWeek() },
+                    onNextWeek = { actualViewModel?.goToNextWeek() },
                     onWeekLabelClick = {
-                        if (uiState.currentWeekOffset != 0) viewModel?.loadLecturesForCurrentWeek()
+                        if (uiState.currentWeekOffset != 0) actualViewModel?.loadLecturesForCurrentWeek()
                     },
                     onLectureClick = { lecture -> selectedLecture = lecture },
-                    onRefresh = { viewModel?.refreshLectures() },
+                    onRefresh = { actualViewModel?.refreshLectures() },
                     isRefreshing = isBusy,
                     modifier = Modifier.fillMaxSize()
                 )

@@ -22,10 +22,12 @@ import kotlinx.coroutines.delay
  * Implements 5-second delayed refetch for cancellation confirmation.
  */
 class LectureChangeMonitor(
-    private val dualisLectureService: DualisLectureService,
+    private val dualisLectureServiceFactory: () -> DualisLectureService,
     private val lectureEventDao: LectureEventDao,
     private val lectureLecturerCrossRefDao: LectureLecturerCrossRefDao
 ) {
+    private val dualisLectureService by lazy { dualisLectureServiceFactory() }
+
     companion object {
         private const val TAG = "LectureChangeMonitor"
         private const val CANCELLATION_RECHECK_DELAY_MS = 5000L

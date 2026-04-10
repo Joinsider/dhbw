@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,35 +65,41 @@ enum class AppScreen {
     SETTINGS
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 @Preview
 fun App(
     testAuthenticationService: AuthenticationService? = null,
     testCredentialsProvider: CredentialsStorageProvider? = null,
+    testSecureStorage: de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorageInterface? = null,
     timetableViewModel: TimetableViewModel? = null,
     database: AppDatabase? = null,
-    notificationPreferencesInteractor: NotificationPreferencesInteractor? = null
+    notificationPreferencesInteractor: NotificationPreferencesInteractor? = null,
+    sharedHttpClient: HttpClient? = null,
+    sessionManager: SessionManager? = null,
+    isInitialized: Boolean = true
 ) {
     // Ensure Napier is initialized (fallback in case platform didn't initialize it)
     LaunchedEffect(Unit) {
         try {
             // Test if Napier is initialized by attempting to log
-            Napier.d("App() composable started", tag = "App")
+            Napier.d("App() composable started, isInitialized=$isInitialized", tag = "App")
         } catch (_: Exception) {
             // If not initialized, initialize it now
             Napier.base(DebugAntilog())
-            Napier.d("Napier initialized from App() composable", tag = "App")
+            Napier.d("Napier initialized from App() composable, isInitialized=$isInitialized", tag = "App")
         }
     }
 
     // Initialize SecureStorage, SessionManager, and Services
     // Use test dependencies if provided, otherwise create real ones
-    val secureStorage = remember { SecureStorage() }
-    val secureStorageWrapper = remember { SecureStorageWrapper(secureStorage) }
-    val sessionManager = remember { SessionManager(secureStorageWrapper) }
+    val actualSecureStorage = testSecureStorage ?: remember { SecureStorageWrapper(SecureStorage()) }
+    
+    // Use passed sessionManager or create one
+    val actualSessionManager = sessionManager ?: remember(actualSecureStorage) { SessionManager(actualSecureStorage) }
 
     // Initialize theme preferences
-    val themePreferences = remember { ThemePreferences(secureStorage) }
+    val themePreferences = remember { ThemePreferences(actualSecureStorage) }
     var themeMode by remember { mutableStateOf(themePreferences.getThemeMode()) }
     var materialYouEnabled by remember { mutableStateOf(themePreferences.getMaterialYouEnabled()) }
     // Default to Purple40 (0xFF6650a4) which is 4284932260L
@@ -100,7 +108,7 @@ fun App(
 
     // Initialize notification preferences
     // Use passed parameter if provided (from MainActivity), otherwise create new one (for preview)
-    val notificationPreferences = remember { NotificationPreferences(secureStorageWrapper) }
+    val notificationPreferences = remember { NotificationPreferences(actualSecureStorage) }
     val actualNotificationPreferencesInteractor = notificationPreferencesInteractor
         ?: remember { NotificationPreferencesInteractor(notificationPreferences) }
 
@@ -111,8 +119,8 @@ fun App(
     // Notification dispatcher (used later by schedulers/monitors)
     val notificationDispatcher = remember { NotificationDispatcher() }
 
-    // Create shared HttpClient for all Dualis services (IMPORTANT for cookie sharing!)
-    val sharedHttpClient = remember {
+    // Use passed sharedHttpClient or create one
+    val actualHttpClient = sharedHttpClient ?: remember {
         HttpClient {
             expectSuccess = false
             install(HttpCookies)
@@ -125,67 +133,31 @@ fun App(
     }
 
     // Initialize services with shared HttpClient
-    val authenticationService = testAuthenticationService ?: remember {
+    val authenticationService = testAuthenticationService ?: remember(actualSessionManager, actualHttpClient) {
         AuthenticationService(
-            sessionManager = sessionManager,
-            client = sharedHttpClient
+            sessionManager = actualSessionManager,
+            client = actualHttpClient
         )
     }
 
-    // Initialize GradesViewModel locally for now (TODO: Move to platform entry points like TimetableViewModel)
-    // We need to reuse the same HttpClient (via authenticationService) or pass it to apiClient
-    val gradesViewModel = remember(database, authenticationService, sharedHttpClient) {
-        if (database != null) {
-            val apiClient = DualisApiClient(sharedHttpClient)
-            val gradeParser = GradeParser()
-            val htmlParser = HtmlParser()
-            val gradeService = DualisGradeService(
-                apiClient = apiClient,
-                sessionManager = sessionManager,
-                authenticationService = authenticationService,
-                gradeParser = gradeParser,
-                htmlParser = htmlParser,
-                gradeDao = database.gradeDao(),
-                gradeCacheMetadataDao = database.gradeCacheMetadataDao()
-            )
-            GradesViewModel(gradeService, database.gradeDao())
-        } else {
-            null
-        }
-    }
-
-    val composableScope = rememberCoroutineScope()
-    
-    val documentsViewModel = remember(authenticationService, sharedHttpClient) {
-        val apiClient = DualisApiClient(sharedHttpClient)
-        val htmlParser = HtmlParser()
-        val documentParser = DocumentParser()
-        val documentService = DualisDocumentService(
-            apiClient = apiClient,
-            sessionManager = sessionManager,
-            authenticationService = authenticationService,
-            documentParser = documentParser,
-            htmlParser = htmlParser
-        )
-        DocumentsViewModel(
-            coroutineScope = composableScope,
-            dualisDocumentService = documentService
-        )
-    }
+    // ViewModels are now lazily initialized in their respective pages
+    // GradesViewModel and DocumentsViewModel local instantiation removed from here
 
     // Keep CredentialsProvider for backward compatibility with existing UI
     val credentialsProvider =
-        testCredentialsProvider ?: remember { CredentialsStorageProvider(secureStorageWrapper) }
+        testCredentialsProvider ?: remember { CredentialsStorageProvider(actualSecureStorage) }
 
     // Navigation state
     var currentScreen by remember { mutableStateOf(AppScreen.WELCOME) }
     var isLoggedIn by remember { mutableStateOf(false) }
 
     // Session check on startup
-    LaunchedEffect(Unit) {
-        isLoggedIn = authenticationService.isAuthenticated()
-        if (isLoggedIn) {
-            currentScreen = AppScreen.TIMETABLE
+    LaunchedEffect(authenticationService) {
+        authenticationService?.let {
+            isLoggedIn = it.isAuthenticated()
+            if (isLoggedIn && currentScreen == AppScreen.WELCOME) {
+                currentScreen = AppScreen.TIMETABLE
+            }
         }
     }
 
@@ -194,7 +166,7 @@ fun App(
         Napier.d("Logout initiated", tag = "App")
 
         // Clear session data
-        sessionManager.logout()
+        actualSessionManager.logout()
 
         // Clear credentials
         credentialsProvider.clearCredentials()
@@ -234,146 +206,168 @@ fun App(
                 .background(MaterialTheme.colorScheme.background)
                 .testTag("appContainer")
         ) {
-            when (currentScreen) {
-                AppScreen.WELCOME -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .safeContentPadding(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Startpage(
-                            onLoginSuccess = {
-                                isLoggedIn = true
-                                currentScreen = AppScreen.TIMETABLE
-                            },
+            if (!isInitialized) {
+                // Initial Skeleton state for the entire app during service startup
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    LoadingIndicator()
+                }
+            } else {
+                when (currentScreen) {
+                    AppScreen.WELCOME -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .safeContentPadding(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            authenticationService?.let { auth ->
+                                Startpage(
+                                    onLoginSuccess = {
+                                        isLoggedIn = true
+                                        currentScreen = AppScreen.TIMETABLE
+                                    },
+                                    authenticationService = auth,
+                                    credentialsProvider = credentialsProvider,
+                                )
+                            } ?: LoadingIndicator()
+                        }
+                    }
+
+                    AppScreen.LOGIN -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .safeContentPadding(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            authenticationService?.let { auth ->
+                                Startpage(
+                                    onLoginSuccess = {
+                                        isLoggedIn = true
+                                        currentScreen = AppScreen.TIMETABLE
+                                    },
+                                    authenticationService = auth,
+                                    credentialsProvider = credentialsProvider,
+                                )
+                            } ?: LoadingIndicator()
+                        }
+                    }
+
+                    AppScreen.TIMETABLE -> {
+                        TimetablePage(
+                            viewModel = timetableViewModel,
+                            database = database,
                             authenticationService = authenticationService,
-                            credentialsProvider = credentialsProvider,
+                            sharedHttpClient = actualHttpClient,
+                            sessionManager = actualSessionManager,
+                            onNavigateToGrades = {
+                                currentScreen = AppScreen.GRADES
+                            },
+                            onNavigateToDocuments = {
+                                currentScreen = AppScreen.DOCUMENTS
+                            },
+                            onNavigateToSettings = {
+                                currentScreen = AppScreen.SETTINGS
+                            },
+                            isLoggedIn = isLoggedIn,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = 16.dp)
                         )
                     }
-                }
 
-                AppScreen.LOGIN -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .safeContentPadding(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Startpage(
-                            onLoginSuccess = {
-                                isLoggedIn = true
+                    AppScreen.GRADES -> {
+                        GradesPage(
+                            viewModel = null, // Initialized lazily inside GradesPage
+                            database = database,
+                            authenticationService = authenticationService,
+                            sharedHttpClient = actualHttpClient,
+                            sessionManager = actualSessionManager,
+                            onNavigateToTimetable = {
                                 currentScreen = AppScreen.TIMETABLE
                             },
-                            authenticationService = authenticationService,
-                            credentialsProvider = credentialsProvider,
+                            onNavigateToDocuments = {
+                                currentScreen = AppScreen.DOCUMENTS
+                            },
+                            onNavigateToSettings = {
+                                currentScreen = AppScreen.SETTINGS
+                            },
+                            isLoggedIn = isLoggedIn,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = 16.dp)
                         )
                     }
-                }
 
-                AppScreen.TIMETABLE -> {
-                    TimetablePage(
-                        viewModel = timetableViewModel,
-                        onNavigateToGrades = {
-                            currentScreen = AppScreen.GRADES
-                        },
-                        onNavigateToDocuments = {
-                            currentScreen = AppScreen.DOCUMENTS
-                        },
-                        onNavigateToSettings = {
-                            currentScreen = AppScreen.SETTINGS
-                        },
-                        isLoggedIn = isLoggedIn,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 16.dp)
-                    )
-                }
+                    AppScreen.DOCUMENTS -> {
+                        DocumentsPage(
+                            viewModel = null, // Initialized lazily inside DocumentsPage
+                            authenticationService = authenticationService,
+                            sharedHttpClient = actualHttpClient,
+                            sessionManager = actualSessionManager,
+                            onNavigateToTimetable = {
+                                currentScreen = AppScreen.TIMETABLE
+                            },
+                            onNavigateToGrades = {
+                                currentScreen = AppScreen.GRADES
+                            },
+                            onNavigateToSettings = {
+                                currentScreen = AppScreen.SETTINGS
+                            },
+                            isLoggedIn = isLoggedIn,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = 16.dp)
+                        )
+                    }
 
-                AppScreen.GRADES -> {
-                    GradesPage(
-                        viewModel = gradesViewModel,
-                        onNavigateToTimetable = {
-                            currentScreen = AppScreen.TIMETABLE
-                        },
-                        onNavigateToDocuments = {
-                            currentScreen = AppScreen.DOCUMENTS
-                        },
-                        onNavigateToSettings = {
-                            currentScreen = AppScreen.SETTINGS
-                        },
-                        isLoggedIn = isLoggedIn,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 16.dp)
-                    )
-                }
-
-                AppScreen.DOCUMENTS -> {
-                    DocumentsPage(
-                        viewModel = documentsViewModel,
-                        onNavigateToTimetable = {
-                            currentScreen = AppScreen.TIMETABLE
-                        },
-                        onNavigateToGrades = {
-                            currentScreen = AppScreen.GRADES
-                        },
-                        onNavigateToSettings = {
-                            currentScreen = AppScreen.SETTINGS
-                        },
-                        isLoggedIn = isLoggedIn,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 16.dp)
-                    )
-                }
-
-                AppScreen.SETTINGS -> {
-                    SettingsPage(
-                        onNavigateToTimetable = {
-                            currentScreen = AppScreen.TIMETABLE
-                        },
-                        onNavigateToGrades = {
-                            currentScreen = AppScreen.GRADES
-                        },
-                        onNavigateToDocuments = {
-                            currentScreen = AppScreen.DOCUMENTS
-                        },
-                        onLogout = handleLogout,
-                        isLoggedIn = isLoggedIn,
-                        currentThemeMode = themeMode,
-                        onThemeModeChange = { newMode ->
-                            themeMode = newMode
-                            themePreferences.setThemeMode(newMode)
-                        },
-                        materialYouEnabled = materialYouEnabled,
-                        onMaterialYouChange = { enabled ->
-                            materialYouEnabled = enabled
-                            themePreferences.setMaterialYouEnabled(enabled)
-                        },
-                        currentSeedColor = seedColor,
-                        onSeedColorChange = { newColor ->
-                            // Store as ARGB Long (UInt)
-                            val colorLong = newColor.toArgb().toLong()
-                            seedColorLong = colorLong
-                            themePreferences.setCustomColor(colorLong)
-                        },
-                        notificationsEnabled = notificationsEnabled,
-                        onNotificationsEnabledChange = { enabled ->
-                            // This immediately updates StateFlow, triggering collectors in MainActivity/main.kt
-                            actualNotificationPreferencesInteractor.setNotificationsEnabled(enabled)
-                        },
-                        lectureAlertsEnabled = lectureAlertsEnabled,
-                        onLectureAlertsEnabledChange = { enabled ->
-                            // This immediately updates StateFlow, triggering collectors in MainActivity/main.kt
-                            actualNotificationPreferencesInteractor.setLectureAlertsEnabled(enabled)
-                        },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 16.dp)
-                    )
+                    AppScreen.SETTINGS -> {
+                        SettingsPage(
+                            onNavigateToTimetable = {
+                                currentScreen = AppScreen.TIMETABLE
+                            },
+                            onNavigateToGrades = {
+                                currentScreen = AppScreen.GRADES
+                            },
+                            onNavigateToDocuments = {
+                                currentScreen = AppScreen.DOCUMENTS
+                            },
+                            onLogout = handleLogout,
+                            isLoggedIn = isLoggedIn,
+                            currentThemeMode = themeMode,
+                            onThemeModeChange = { newMode ->
+                                themeMode = newMode
+                                themePreferences.setThemeMode(newMode)
+                            },
+                            materialYouEnabled = materialYouEnabled,
+                            onMaterialYouChange = { enabled ->
+                                materialYouEnabled = enabled
+                                themePreferences.setMaterialYouEnabled(enabled)
+                            },
+                            currentSeedColor = seedColor,
+                            onSeedColorChange = { newColor ->
+                                // Store as ARGB Long (UInt)
+                                val colorLong = newColor.toArgb().toLong()
+                                seedColorLong = colorLong
+                                themePreferences.setCustomColor(colorLong)
+                            },
+                            notificationsEnabled = notificationsEnabled,
+                            onNotificationsEnabledChange = { enabled ->
+                                // This immediately updates StateFlow, triggering collectors in MainActivity/main.kt
+                                actualNotificationPreferencesInteractor.setNotificationsEnabled(enabled)
+                            },
+                            lectureAlertsEnabled = lectureAlertsEnabled,
+                            onLectureAlertsEnabledChange = { enabled ->
+                                // This immediately updates StateFlow, triggering collectors in MainActivity/main.kt
+                                actualNotificationPreferencesInteractor.setLectureAlertsEnabled(enabled)
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = 16.dp)
+                        )
+                    }
                 }
             }
         }

@@ -14,8 +14,11 @@ import androidx.compose.ui.test.runComposeUiTest
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
+import de.fampopprol.dhbwhorb.data.storage.credentials.FakeSecureStorage
 import de.fampopprol.dhbwhorb.testutil.MockAuthenticationService
 import de.fampopprol.dhbwhorb.testutil.MockCredentialsProvider
+import io.ktor.client.HttpClient
 import kotlin.test.Test
 
 @OptIn(ExperimentalTestApi::class)
@@ -30,13 +33,19 @@ class AppTest {
 
     private fun createMockCredentialsProvider() = MockCredentialsProvider()
 
+    private fun createMockHttpClient() = HttpClient { }
+
     @Test
     fun app_displaysAppContainer_initially() = runComposeUiTest {
+        val secureStorage = FakeSecureStorage()
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
                 App(
                     testAuthenticationService = createMockAuthService(authenticated = false),
-                    testCredentialsProvider = createMockCredentialsProvider()
+                    testCredentialsProvider = createMockCredentialsProvider(),
+                    testSecureStorage = secureStorage,
+                    sessionManager = SessionManager(secureStorage),
+                    sharedHttpClient = createMockHttpClient()
                 )
             }
         }
@@ -47,11 +56,15 @@ class AppTest {
 
     @Test
     fun app_displaysAppTitle_initially() = runComposeUiTest {
+        val secureStorage = FakeSecureStorage()
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
                 App(
                     testAuthenticationService = createMockAuthService(authenticated = false),
-                    testCredentialsProvider = createMockCredentialsProvider()
+                    testCredentialsProvider = createMockCredentialsProvider(),
+                    testSecureStorage = secureStorage,
+                    sessionManager = SessionManager(secureStorage),
+                    sharedHttpClient = createMockHttpClient()
                 )
             }
         }
@@ -65,11 +78,15 @@ class AppTest {
 
     @Test
     fun app_displaysLoginForm_initially() = runComposeUiTest {
+        val secureStorage = FakeSecureStorage()
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
                 App(
                     testAuthenticationService = createMockAuthService(authenticated = false),
-                    testCredentialsProvider = createMockCredentialsProvider()
+                    testCredentialsProvider = createMockCredentialsProvider(),
+                    testSecureStorage = secureStorage,
+                    sessionManager = SessionManager(secureStorage),
+                    sharedHttpClient = createMockHttpClient()
                 )
             }
         }
@@ -83,11 +100,15 @@ class AppTest {
 
     @Test
     fun app_showsLoginFormComponents() = runComposeUiTest {
+        val secureStorage = FakeSecureStorage()
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
                 App(
                     testAuthenticationService = createMockAuthService(authenticated = false),
-                    testCredentialsProvider = createMockCredentialsProvider()
+                    testCredentialsProvider = createMockCredentialsProvider(),
+                    testSecureStorage = secureStorage,
+                    sessionManager = SessionManager(secureStorage),
+                    sharedHttpClient = createMockHttpClient()
                 )
             }
         }
@@ -104,11 +125,15 @@ class AppTest {
 
     @Test
     fun app_usesCorrectTheme() = runComposeUiTest {
+        val secureStorage = FakeSecureStorage()
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
                 App(
                     testAuthenticationService = createMockAuthService(authenticated = false),
-                    testCredentialsProvider = createMockCredentialsProvider()
+                    testCredentialsProvider = createMockCredentialsProvider(),
+                    testSecureStorage = secureStorage,
+                    sessionManager = SessionManager(secureStorage),
+                    sharedHttpClient = createMockHttpClient()
                 )
             }
         }
@@ -122,11 +147,15 @@ class AppTest {
 
     @Test
     fun app_hasCorrectLayout_onWelcomeScreen() = runComposeUiTest {
+        val secureStorage = FakeSecureStorage()
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
                 App(
                     testAuthenticationService = createMockAuthService(authenticated = false),
-                    testCredentialsProvider = createMockCredentialsProvider()
+                    testCredentialsProvider = createMockCredentialsProvider(),
+                    testSecureStorage = secureStorage,
+                    sessionManager = SessionManager(secureStorage),
+                    sharedHttpClient = createMockHttpClient()
                 )
             }
         }

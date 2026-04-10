@@ -68,15 +68,11 @@ fun MainViewController() = ComposeUIViewController {
     // Create Dualis lecture service (cached with remember)
     val dualisLectureService = remember {
         val dualisApiClient = DualisApiClient(client = sharedHttpClient)
-        val htmlParser = HtmlParser()
-        val timetableParser = TimetableParser()
 
         DualisLectureService(
             apiClient = dualisApiClient,
             sessionManager = sessionManager,
             authenticationService = authenticationService,
-            timetableParser = timetableParser,
-            htmlParser = htmlParser,
             lectureEventDao = database.lectureDao(),
             lecturerDao = database.lecturerDao(),
             lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
@@ -89,7 +85,7 @@ fun MainViewController() = ComposeUIViewController {
     val lectureService = remember {
         LectureService(
             database = database,
-            dualisLectureService = dualisLectureService
+            dualisLectureServiceFactory = { dualisLectureService }
         ).also {
             Napier.d("LectureService initialized", tag = "MainViewController")
         }

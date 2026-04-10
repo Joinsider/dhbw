@@ -6,7 +6,7 @@
 
 package de.fampopprol.dhbwhorb.data.storage.preferences
 
-import de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorage
+import de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorageInterface
 
 /**
  * Enum representing the available theme modes
@@ -30,7 +30,7 @@ enum class ThemeMode {
 /**
  * Manages theme preferences using SecureStorage
  */
-class ThemePreferences(private val storage: SecureStorage) {
+class ThemePreferences(private val storage: SecureStorageInterface) {
 
     companion object {
         private const val THEME_MODE_KEY = "theme_mode_preference"

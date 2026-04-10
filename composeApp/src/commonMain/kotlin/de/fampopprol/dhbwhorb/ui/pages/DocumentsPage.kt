@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -35,23 +36,59 @@ import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsViewModel
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
 import de.fampopprol.dhbwhorb.util.isMobilePlatform
+import de.fampopprol.dhbwhorb.ui.components.DocumentCardSkeleton
+import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService
+import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+
+import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsUiState
+import kotlinx.coroutines.flow.MutableStateFlow
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DocumentsPage(
-    viewModel: DocumentsViewModel,
+    viewModel: DocumentsViewModel? = null,
+    authenticationService: de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService? = null,
+    sharedHttpClient: io.ktor.client.HttpClient? = null,
+    sessionManager: de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager? = null,
     onNavigateToTimetable: () -> Unit,
     onNavigateToGrades: () -> Unit,
     onNavigateToSettings: () -> Unit,
     isLoggedIn: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    // Truly lazy initialization of ViewModel if not provided
+    val composableScope = rememberCoroutineScope()
+    val actualViewModel = viewModel ?: remember(authenticationService, sharedHttpClient, sessionManager) {
+        if (authenticationService != null && sharedHttpClient != null && sessionManager != null) {
+            val documentService = DualisDocumentService(
+                apiClient = DualisApiClient(sharedHttpClient),
+                sessionManager = sessionManager,
+                authenticationService = authenticationService
+            )
+            DocumentsViewModel(
+                coroutineScope = composableScope,
+                dualisDocumentService = documentService
+            )
+        } else {
+            null
+        }
+    }
+
+    // Call cleanup on disposal
+    DisposableEffect(actualViewModel) {
+        onDispose {
+            actualViewModel?.cleanup()
+        }
+    }
+
+    val uiState by (actualViewModel?.uiState ?: MutableStateFlow(DocumentsUiState())).collectAsState()
 
     // If we were previously blocked due to missing login and the app is now logged in, try again once
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn && uiState.requiresLogin) {
-            viewModel.loadDocuments()
+            actualViewModel?.loadDocuments()
         }
     }
 
@@ -103,7 +140,7 @@ fun DocumentsPage(
                 ) {
                     OutlinedTextField(
                         value = uiState.searchQuery,
-                        onValueChange = { viewModel.onSearchQueryChange(it) },
+                        onValueChange = { actualViewModel?.onSearchQueryChange(it) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 16.dp, bottom = 8.dp),
@@ -116,7 +153,7 @@ fun DocumentsPage(
                         },
                         trailingIcon = {
                             if (uiState.searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
+                                IconButton(onClick = { actualViewModel?.onSearchQueryChange("") }) {
                                     Icon(
                                         imageVector = Icons.Default.Clear,
                                         contentDescription = "Clear Search"
@@ -127,26 +164,30 @@ fun DocumentsPage(
                         singleLine = true
                     )
 
-                    if (uiState.isLoading && uiState.documents.isEmpty()) {
-                        Box(
+                    if ((uiState.isLoading || actualViewModel == null) && uiState.documents.isEmpty()) {
+                        // Skeleton UI for Documents
+                        LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
+                            contentPadding = PaddingValues(vertical = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            LoadingIndicator()
+                            items(6) {
+                                DocumentCardSkeleton()
+                            }
                         }
                     } else {
                         PullToRefreshBox(
                             isRefreshing = uiState.isRefreshing,
-                            onRefresh = { viewModel.refreshDocuments() },
+                            onRefresh = { actualViewModel?.refreshDocuments() },
                         ) {
-                            if (uiState.documents.isEmpty() && uiState.searchQuery.isNotEmpty() && !uiState.isLoading) {
+                            if (uiState.documents.isEmpty() && uiState.searchQuery.isNotEmpty() && !uiState.isLoading && actualViewModel != null) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text("No documents found matching your search.")
                                 }
-                            } else if (uiState.documents.isEmpty() && !uiState.isLoading) {
+                            } else if (uiState.documents.isEmpty() && !uiState.isLoading && actualViewModel != null) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
@@ -165,12 +206,12 @@ fun DocumentsPage(
                                         DocumentCard(
                                             document = document,
                                             onDownloadClick = {
-                                                viewModel.downloadAndOpenDocument(
+                                                actualViewModel?.downloadAndOpenDocument(
                                                     document
                                                 )
                                             },
                                             onSaveToFiles = { doc ->
-                                                viewModel.saveDocumentToFiles(
+                                                actualViewModel?.saveDocumentToFiles(
                                                     doc
                                                 )
                                             },

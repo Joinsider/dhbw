@@ -52,9 +52,7 @@ class DualisDocumentServiceTest {
         return DualisDocumentService(
             apiClient,
             sessionManager,
-            authService,
-            documentParser,
-            htmlParser
+            authService
         )
     }
 
