@@ -14,10 +14,10 @@ progress:
 
 ## Current Position
 
-Phase: Roadmap defined (Phase 8-12 structure complete)
+Phase: 8 (Critical Stability Fixes)
 Plan: —
-Status: Ready for Phase 8 planning (Critical Stability Fixes)
-Last activity: 2026-04-09 — Roadmap v3.0 created, all 15 requirements mapped to phases
+Status: Context gathered, ready for Phase 8 planning
+Last activity: 2026-04-10 — Phase 8 context and decisions captured
 
 ## Milestone Structure (v3.0 Stability & Compliance)
 
@@ -67,6 +67,11 @@ Status: Ready for planning (depends on Phases 8-11)
 3. Phase 8 is critical path; other phases can have limited parallelization
 4. Each phase has 2-5 success criteria that are measurable/observable
 5. Risk register included for Phase 10 (foldable testing) and Phase 12 (Material3 timing)
+
+### Phase 8 Context Session (2026-04-10)
+- **Gray areas discussed:** Initialization Priority & Database, ViewModel Lifecycle & HttpClient, Loading State & User Feedback, KMP-Specific Patterns
+- **Key decisions locked:** Lazy per-feature API initialization, skeleton loading UI, explicit HttpClient cleanup, KMP-compatible ViewModel cleanup
+- **Context artifacts:** 08-CONTEXT.md, 08-DISCUSSION-LOG.md in .planning/phases/08-critical-stability/
 
 ### Next Steps
 1. Run `/gsd:plan-phase 8` to create detailed Phase 8 plan
