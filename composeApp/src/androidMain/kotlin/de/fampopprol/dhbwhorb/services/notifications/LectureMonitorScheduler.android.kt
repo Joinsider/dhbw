@@ -9,6 +9,7 @@ package de.fampopprol.dhbwhorb.services.notifications
 import android.content.Context
 import androidx.work.*
 import androidx.work.WorkerParameters
+import de.fampopprol.dhbwhorb.widget.sync.WidgetSyncWorker
 import io.github.aakira.napier.Napier
 import java.util.concurrent.TimeUnit
 
@@ -119,6 +120,10 @@ class LectureMonitorWorker(
                 Napier.d("╚════════════════════════════════════════════════════════════════════╝", tag = TAG)
                 return Result.retry()
             }
+
+            // ENHANCEMENT per D-01: Trigger immediate widget refresh on successful check
+            Napier.d("✓ Check succeeded — triggering immediate widget sync to keep widgets fresh", tag = TAG)
+            WidgetSyncWorker.enqueueImmediate(applicationContext)
 
             Napier.d("╔════════════════════════════════════════════════════════════════════╗", tag = TAG)
             Napier.d("║  ✅ Background Worker: Completed successfully                      ║", tag = TAG)
