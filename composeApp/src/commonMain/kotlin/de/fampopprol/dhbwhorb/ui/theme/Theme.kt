@@ -15,6 +15,8 @@ import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
 
 // Enhanced Dark Color Scheme with better Material You compatibility
 val DarkColorScheme = darkColorScheme(
@@ -86,6 +88,16 @@ expect fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean = true, se
 @Composable
 expect fun SystemAppearance(darkTheme: Boolean, useMaterialYou: Boolean = true, seedColor: androidx.compose.ui.graphics.Color)
 
+// LocalThemePrefs: Cached theme preferences to prevent prop drilling and repeated storage reads
+// Used by App and all child composables to access current theme mode without reading storage
+val LocalThemePrefs = compositionLocalOf<ThemePreferences?> { null }
+
+// Data class for cached theme preferences
+data class ThemePreferences(
+    val darkMode: Boolean = false,
+    val useMaterialYou: Boolean = true
+)
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DHBWHorbTheme(
@@ -102,11 +114,18 @@ fun DHBWHorbTheme(
     // Options: MotionScheme.expressive() OR MotionScheme.standard()
     val motionScheme = MotionScheme.expressive()
 
-    MaterialExpressiveTheme (
-        colorScheme = colorScheme,
-        typography = myTypography(),
-        motionScheme = motionScheme,
-        shapes = shapes,
-        content = content
-    )
+    CompositionLocalProvider(
+        LocalThemePrefs provides ThemePreferences(
+            darkMode = darkTheme,
+            useMaterialYou = useMaterialYou
+        )
+    ) {
+        MaterialExpressiveTheme(
+            colorScheme = colorScheme,
+            typography = myTypography(),
+            motionScheme = motionScheme,
+            shapes = shapes,
+            content = content
+        )
+    }
 }

@@ -26,6 +26,7 @@ import de.fampopprol.dhbwhorb.widget.TimetableGlanceWidget
 import de.fampopprol.dhbwhorb.widget.state.TimetableWidgetState
 import de.fampopprol.dhbwhorb.widget.state.WidgetStateCodec
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.TimeUnit
 
 /**
@@ -67,7 +68,9 @@ class WidgetSyncWorker(
             // Rationale: Battery efficiency; users without widgets never trigger background work
             val widgetManager = GlanceAppWidgetManager(context)
             val hasActiveWidgets = try {
-                val widgetIds = widgetManager.getGlanceIds(TimetableGlanceWidget::class.java)
+                val widgetIds = runBlocking {
+                    widgetManager.getGlanceIds(TimetableGlanceWidget::class.java)
+                }
                 widgetIds.isNotEmpty()
             } catch (e: Exception) {
                 Napier.w("Failed to check active widgets: ${e.message}", tag = TAG)

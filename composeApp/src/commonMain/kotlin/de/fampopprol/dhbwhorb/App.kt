@@ -45,6 +45,8 @@ import de.fampopprol.dhbwhorb.ui.pages.TimetablePage
 import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
 import de.fampopprol.dhbwhorb.ui.grades.viewModels.GradesViewModel
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
+import de.fampopprol.dhbwhorb.ui.theme.LocalThemePrefs
+import de.fampopprol.dhbwhorb.ui.theme.ThemePreferences as UIThemePreferences
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
@@ -55,6 +57,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.StateFlow
 
 enum class AppScreen {
     WELCOME,
@@ -111,6 +114,25 @@ fun App(
     val notificationPreferences = remember { NotificationPreferences(actualSecureStorage) }
     val actualNotificationPreferencesInteractor = notificationPreferencesInteractor
         ?: remember { NotificationPreferencesInteractor(notificationPreferences) }
+
+    // Load theme preferences from storage and cache in CompositionLocal
+    // Compute dark mode setting based on theme mode  
+    val computedDarkTheme = when (themeMode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+    
+    // Cache in CompositionLocal for all children
+    var uiThemePrefs by remember { mutableStateOf<UIThemePreferences?>(null) }
+    
+    LaunchedEffect(computedDarkTheme, materialYouEnabled) {
+        uiThemePrefs = UIThemePreferences(
+            darkMode = computedDarkTheme,
+            useMaterialYou = materialYouEnabled
+        )
+        Napier.d("Theme preferences loaded: darkMode=$computedDarkTheme, materialYou=$materialYouEnabled", tag = "App")
+    }
 
     // Observe notification preferences
     val notificationsEnabled by actualNotificationPreferencesInteractor.notificationsEnabled.collectAsState()
@@ -191,22 +213,23 @@ fun App(
         Napier.d("Logout completed", tag = "App")
     }
 
-    DHBWHorbTheme(
-        darkTheme = when (themeMode) {
-            ThemeMode.LIGHT -> false
-            ThemeMode.DARK -> true
-            ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        },
-        useMaterialYou = materialYouEnabled,
-        seedColor = seedColor
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .testTag("appContainer")
+    CompositionLocalProvider(LocalThemePrefs provides (uiThemePrefs ?: UIThemePreferences())) {
+        DHBWHorbTheme(
+            darkTheme = when (themeMode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+            },
+            useMaterialYou = materialYouEnabled,
+            seedColor = seedColor
         ) {
-            if (!isInitialized) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .testTag("appContainer")
+            ) {
+                if (!isInitialized) {
                 // Initial Skeleton state for the entire app during service startup
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     LoadingIndicator()
@@ -376,6 +399,7 @@ fun App(
                     }
                 }
             }
+        }
         }
     }
 }
