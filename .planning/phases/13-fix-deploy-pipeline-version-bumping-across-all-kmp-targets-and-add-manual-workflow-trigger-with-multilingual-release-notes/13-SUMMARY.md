@@ -17,12 +17,12 @@
 
 | Criterion | Status | Evidence |
 |-----------|--------|----------|
-| All KMP targets have same semantic version at release | ✅ | 9 version fields validated across build.gradle.kts and Config.xcconfig |
+| All KMP targets have same semantic version at release | ✅ | 6 version fields validated across build.gradle.kts and Config.xcconfig |
 | Release notes available in English + German | ✅ | Fastlane changelog steps for en-US and de-DE directories |
 | Package filenames include semver | ✅ | Rename steps for DEB, DMG, MSI with pattern `dhbw-student-app-v{version}.{ext}` |
 | Version metadata embedded in packages | ✅ | DEB metadata verification via `dpkg-deb -I`, DMG/MSI via post-build checks |
 | Single consolidated workflow | ✅ | All logic in build-release.yml with sequential job dependencies |
-| Version validation fails fast | ✅ | Comprehensive 9-field validation with explicit error reporting |
+| Version validation fails fast | ✅ | Comprehensive 6-field validation with explicit error reporting |
 
 ---
 
@@ -48,26 +48,18 @@
   - Desktop: `packageVersion = "2.0.3"`, `archiveVersion.set("2.0.3")` ✓
   - iOS: `MARKETING_VERSION = 2.0.3`, `CURRENT_PROJECT_VERSION = 23` ✓
 
-- ✅ **Added platform-specific version properties** to build.gradle.kts:
-  ```kotlin
-  dmgPackageVersion = "2.0.3"
-  msiPackageVersion = "2.0.3"
-  debPackageVersion = "2.0.3"
-  ```
+- ✅ **Extended version write step** with sed commands for all version fields:
+   - Android: `versionName`, `versionCode`
+   - Desktop: `packageVersion` (applies to DMG, MSI, DEB), `archiveVersion`
+   - iOS: `MARKETING_VERSION`, `CURRENT_PROJECT_VERSION`
 
-- ✅ **Extended version write step** with 5 new sed commands for platform-specific properties:
-  - `dmgPackageVersion` update
-  - `msiPackageVersion` update
-  - `debPackageVersion` update
-  - Plus existing: `packageVersion`, `archiveVersion`, Android/iOS versions
-
-- ✅ **Added comprehensive validation step** checking all 9 version fields:
+- ✅ **Added comprehensive validation step** checking all version fields:
   ```
-  ✅ All 9 version fields verified successfully
+  ✅ All version fields verified successfully
   ```
-  Validation errors detected for:
+  Validation for:
   - Android (2): versionName, versionCode
-  - Desktop (5): packageVersion, archiveVersion, dmgPackageVersion, msiPackageVersion, debPackageVersion
+  - Desktop (2): packageVersion, archiveVersion
   - iOS (2): MARKETING_VERSION, CURRENT_PROJECT_VERSION
 
 **Files Modified:**
@@ -153,9 +145,6 @@
 | Android | versionCode | 23 | `$NEW_CODE` | Integer |
 | Desktop | packageVersion | 2.0.3 | `$NEW` (no prefix) | String |
 | Desktop | archiveVersion | 2.0.3 | `$NEW` (set() method) | String |
-| Desktop | dmgPackageVersion | 2.0.3 | `$NEW` | String (NEW) |
-| Desktop | msiPackageVersion | 2.0.3 | `$NEW` | String (NEW) |
-| Desktop | debPackageVersion | 2.0.3 | `$NEW` | String (NEW) |
 | iOS | MARKETING_VERSION | 2.0.3 | `$NEW` | String |
 | iOS | CURRENT_PROJECT_VERSION | 23 | `$NEW_CODE` | Integer |
 
@@ -166,9 +155,9 @@ Compute Semver
     ↓
 Bump Android versionCode
     ↓
-Write All Versions (9 fields)
+Write All Versions (6 fields)
     ↓
-VALIDATE (9 fields) ← FAIL FAST HERE
+VALIDATE (6 fields) ← FAIL FAST HERE
     ↓
 Commit Version Bump
     ↓
@@ -302,8 +291,8 @@ See PLAN.md Wave 4 section for full UAT checklist. Key tests:
 | Metric | Value |
 |--------|-------|
 | Total Lines Added | ~350 (workflow + build config) |
-| Version Fields Managed | 9 (Android: 2, Desktop: 5, iOS: 2) |
-| Validation Checks | 9 (fail-fast design) |
+| Version Fields Managed | 6 (Android: 2, Desktop: 2, iOS: 2) |
+| Validation Checks | 6 (fail-fast design) |
 | Multilingual Support | 2 (English, German) |
 | Package Formats Supported | 5 (APK, AAB, DEB, DMG, MSI) |
 | Build Runners Required | 5 (ubuntu, macos, windows, ubuntu, ubuntu) |
@@ -313,12 +302,13 @@ See PLAN.md Wave 4 section for full UAT checklist. Key tests:
 ## Self-Check: PASSED ✅
 
 ### Files Verified
-- ✅ `composeApp/build.gradle.kts` - Platform properties added
-- ✅ `.github/workflows/build-release.yml` - All steps in place
+- ✅ `composeApp/build.gradle.kts` - Platform properties removed (packageVersion applies to all)
+- ✅ `.github/workflows/build-release.yml` - All steps in place, invalid property updates removed
 - ✅ `iosApp/Configuration/Config.xcconfig` - Versions verified
 
 ### Commits Verified
 - ✅ `bee7670` - Wave 1 & 2 implementation
+- ✅ `cbac9df` - Fix: removed invalid platform-specific properties
 - ✅ `e8976f4` - Sed command fix
 
 ### Functional Verification
