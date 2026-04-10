@@ -10,10 +10,11 @@ import io.github.aakira.napier.Napier
 class DualisDocumentService(
     private val apiClient: DualisApiClient,
     private val sessionManager: SessionManager,
-    private val authenticationService: AuthenticationService,
-    private val documentParser: DocumentParser,
-    private val htmlParser: HtmlParser
+    private val authenticationService: AuthenticationService
 ) {
+    private val documentParser by lazy { DocumentParser() }
+    private val htmlParser by lazy { HtmlParser() }
+
     companion object {
         private const val TAG = "DualisDocumentService"
         private const val BASE_URL = "https://dualis.dhbw.de/scripts/mgrqispi.dll"

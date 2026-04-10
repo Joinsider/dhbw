@@ -17,7 +17,7 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
 @Preview
-fun Startpage(
+fun LoginPage(
     onLoginSuccess: () -> Unit = {},
     authenticationService: AuthenticationService,
     credentialsProvider: CredentialsStorageProvider,

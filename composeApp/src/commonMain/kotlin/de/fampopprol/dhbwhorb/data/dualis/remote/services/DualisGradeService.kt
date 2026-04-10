@@ -15,11 +15,12 @@ class DualisGradeService(
     private val apiClient: DualisApiClient,
     private val sessionManager: SessionManager,
     private val authenticationService: AuthenticationService,
-    private val gradeParser: GradeParser,
-    private val htmlParser: HtmlParser,
     private val gradeDao: GradeDao,
     private val gradeCacheMetadataDao: GradeCacheMetadataDao
 ) {
+    private val gradeParser by lazy { GradeParser() }
+    private val htmlParser by lazy { HtmlParser() }
+
     companion object {
         private const val TAG = "DualisGradeService"
         private const val BASE_URL = "https://dualis.dhbw.de/scripts/mgrqispi.dll"

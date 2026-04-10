@@ -34,16 +34,17 @@ import kotlin.time.ExperimentalTime
  * 5. Enriches parsed data with additional fetches if needed
  * 6. Saves to database
  */
-class DualisLectureService(
+open class DualisLectureService(
     private val apiClient: DualisApiClient,
     private val sessionManager: SessionManager,
     private val authenticationService: AuthenticationService,
-    private val timetableParser: TimetableParser,
-    private val htmlParser: HtmlParser,
     private val lectureEventDao: LectureEventDao,
     private val lecturerDao: LecturerDao,
     private val lectureLecturerCrossRefDao: LectureLecturerCrossRefDao
 ) {
+    private val timetableParser by lazy { TimetableParser() }
+    private val htmlParser by lazy { HtmlParser() }
+
     companion object {
         private const val TAG = "DualisLectureService"
         private const val BASE_URL = "https://dualis.dhbw.de/scripts/mgrqispi.dll"
@@ -54,7 +55,7 @@ class DualisLectureService(
      * Fetch weekly lectures for the current week.
      */
     @OptIn(ExperimentalTime::class)
-    suspend fun getWeeklyLecturesForCurrentWeek(): Result<List<LectureEventEntity>> {
+    open suspend fun getWeeklyLecturesForCurrentWeek(): Result<List<LectureEventEntity>> {
         Napier.d("Fetching weekly lectures for current week", tag = TAG)
 
         val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
@@ -67,14 +68,14 @@ class DualisLectureService(
      * Fetch weekly lectures for a specific date.
      * The Dualis API will return the week containing this date.
      */
-    suspend fun getWeeklyLecturesForDate(date: LocalDate): Result<List<LectureEventEntity>> {
+    open suspend fun getWeeklyLecturesForDate(date: LocalDate): Result<List<LectureEventEntity>> {
         return fetchWeeklyLecturesWithRetry(date, 0)
     }
 
     /**
      * Internal method to fetch weekly lectures with retry logic for authentication.
      */
-    private suspend fun fetchWeeklyLecturesWithRetry(
+    protected open suspend fun fetchWeeklyLecturesWithRetry(
         date: LocalDate,
         attemptCount: Int
     ): Result<List<LectureEventEntity>> {
@@ -292,7 +293,7 @@ class DualisLectureService(
         // Delete old lectures for this week
         try {
             Napier.d("🗑️  Deleting existing lectures in range: $weekStart to $weekEnd", tag = TAG)
-            lectureEventDao.deleteInRange(weekStart.toString(), weekEnd.toString())
+            lectureEventDao.deleteInRange(weekStart, weekEnd)
             Napier.d("✅ Deleted old lectures for the week", tag = TAG)
         } catch (e: Exception) {
             Napier.e("❌ Failed to delete old lectures: ${e.message}", tag = TAG, throwable = e)
@@ -352,7 +353,7 @@ class DualisLectureService(
             val weekEnd = tempLectures.maxOf { it.endTime }
             Napier.d("Deleting existing lectures in range: $weekStart to $weekEnd", tag = TAG)
             try {
-                lectureEventDao.deleteInRange(weekStart.toString(), weekEnd.toString())
+                lectureEventDao.deleteInRange(weekStart, weekEnd)
                 Napier.d("Deleted old lectures for the week", tag = TAG)
             } catch (e: Exception) {
                 Napier.w("Failed to delete old lectures: ${e.message}", tag = TAG)
@@ -580,7 +581,7 @@ class DualisLectureService(
     /**
      * Fetch lectures for a specific week range.
      */
-    suspend fun getWeeklyLecturesForWeek(start: LocalDateTime, end: LocalDateTime): Result<List<LectureEventEntity>> {
+    open suspend fun getWeeklyLecturesForWeek(start: LocalDateTime, end: LocalDateTime): Result<List<LectureEventEntity>> {
         Napier.d("Fetching weekly lectures for week: $start to $end", tag = TAG)
 
         // Use the start date to fetch the week
@@ -592,11 +593,11 @@ class DualisLectureService(
      * Returns basic LectureEventEntity list (no lecturers, rooms from weekly grid, maybe short/full as available).
      * Nothing is saved to the database here.
      */
-    suspend fun getWeeklySkeletonForWeek(start: LocalDateTime, end: LocalDateTime): Result<List<LectureEventEntity>> {
+    open suspend fun getWeeklySkeletonForWeek(start: LocalDateTime, end: LocalDateTime): Result<List<LectureEventEntity>> {
         return getWeeklySkeletonForDate(start.date)
     }
 
-    private suspend fun getWeeklySkeletonForDate(date: LocalDate): Result<List<LectureEventEntity>> {
+    protected open suspend fun getWeeklySkeletonForDate(date: LocalDate): Result<List<LectureEventEntity>> {
         Napier.d("Fetching weekly skeleton for date: $date", tag = TAG)
 
         // Check authentication

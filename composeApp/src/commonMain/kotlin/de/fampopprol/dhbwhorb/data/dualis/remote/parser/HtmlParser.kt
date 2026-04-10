@@ -16,9 +16,11 @@ class HtmlParser {
      * Check if the HTML content is a redirect page.
      */
     fun isRedirectPage(htmlContent: String): Boolean {
-        // Look specifically for <meta http-equiv="refresh" ... content="...URL=..."> patterns
+        // Look specifically for <meta http-equiv="refresh" ... patterns
+        // Standard: <meta http-equiv="refresh" content="0; URL=...">
+        // Simple: <meta http-equiv="refresh" content="0">
         val refreshMetaPattern =
-            """<meta[^>]*http-equiv\s*=\s*['"]?refresh['"]?[^>]*content\s*=\s*['"]?\s*\d+\s*;\s*url\s*=\s*[^'">]+['"]?""".toRegex(
+            """<meta[^>]*http-equiv\s*=\s*['"]?refresh['"]?[^>]*content\s*=\s*['"]?\s*\d+\s*(?:;\s*url\s*=\s*[^'">]+)?['"]?""".toRegex(
                 RegexOption.IGNORE_CASE
             )
         val isRedirect = refreshMetaPattern.containsMatchIn(htmlContent)

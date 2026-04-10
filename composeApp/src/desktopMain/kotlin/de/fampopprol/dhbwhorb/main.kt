@@ -106,17 +106,11 @@ fun main() {
     // Create API client
     val dualisApiClient = DualisApiClient(client = sharedHttpClient)
 
-    // Create parsers
-    val htmlParser = HtmlParser()
-    val timetableParser = TimetableParser()
-
     // Create Dualis lecture service
     val dualisLectureService = DualisLectureService(
         apiClient = dualisApiClient,
         sessionManager = sessionManager,
         authenticationService = authenticationService,
-        timetableParser = timetableParser,
-        htmlParser = htmlParser,
         lectureEventDao = database.lectureDao(),
         lecturerDao = database.lecturerDao(),
         lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
@@ -126,7 +120,7 @@ fun main() {
     // Create lecture service
     val lectureService = LectureService(
         database = database,
-        dualisLectureService = dualisLectureService
+        dualisLectureServiceFactory = { dualisLectureService }
     )
     Napier.d("LectureService initialized", tag = TAG)
 
@@ -144,7 +138,7 @@ fun main() {
     Napier.d("NotificationPreferencesInteractor initialized", tag = TAG)
 
     val lectureChangeMonitor = LectureChangeMonitor(
-        dualisLectureService = dualisLectureService,
+        dualisLectureServiceFactory = { dualisLectureService },
         lectureEventDao = database.lectureDao(),
         lectureLecturerCrossRefDao = database.lectureLecturerCrossRefDao()
     )

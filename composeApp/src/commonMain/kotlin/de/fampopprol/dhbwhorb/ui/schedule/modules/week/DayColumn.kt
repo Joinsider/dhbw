@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import de.fampopprol.dhbwhorb.ui.components.EventSkeleton
 import de.fampopprol.dhbwhorb.ui.schedule.models.LectureModel
 import kotlinx.datetime.DayOfWeek
 
@@ -26,7 +27,8 @@ fun DayColumn(
     hourHeight: Float = 80f,
     modifier: Modifier = Modifier,
     width: Dp,
-    onLectureClick: (LectureModel) -> Unit = {}
+    onLectureClick: (LectureModel) -> Unit = {},
+    isSkeleton: Boolean = false
 ) {
     Column(
         modifier = modifier
@@ -69,31 +71,60 @@ fun DayColumn(
 
             // Lectures positioned by time
             Box(modifier = Modifier.fillMaxWidth()) {
-                lectures.forEach { lecture ->
-                    val startMinutes = lecture.start.hour * 60 + lecture.start.minute
-                    val endMinutes = lecture.end.hour * 60 + lecture.end.minute
-                    val startHourMinutes = startHour * 60
+                if (isSkeleton) {
+                    // Render some dummy skeleton events
+                    // Fixed positions for predictability in skeleton
+                    val skeletonEvents = listOf(
+                        Pair(8.5f, 1.5f),  // 08:30 - 10:00
+                        Pair(11.0f, 2.0f), // 11:00 - 13:00
+                        Pair(14.0f, 1.0f)  // 14:00 - 15:00
+                    )
 
-                    val offsetMinutes = startMinutes - startHourMinutes
-                    val durationMinutes = endMinutes - startMinutes
+                    skeletonEvents.forEach { (startOffset, duration) ->
+                        val offsetDp = (startOffset - startHour) * hourHeight
+                        val heightDp = duration * hourHeight
 
-                    val offsetDp = (offsetMinutes / 60f * hourHeight).dp
-                    val heightDp = (durationMinutes / 60f * hourHeight).dp
-
-                    Box(
-                        modifier = Modifier
-                            .padding(top = offsetDp)
-                            .height(heightDp)
-                            .fillMaxWidth()
-                    ) {
-                        EventModule(
-                            lecture = lecture,
+                        Box(
                             modifier = Modifier
-                                .padding(2.dp)
-                                .height(heightDp),
-                            smallFont = width < 100.dp,
-                            onClick = { onLectureClick(lecture) }
-                        )
+                                .padding(top = offsetDp.dp)
+                                .height(heightDp.dp)
+                                .fillMaxWidth()
+                        ) {
+                            EventSkeleton(
+                                modifier = Modifier
+                                    .padding(2.dp)
+                                    .height(heightDp.dp),
+                                smallFont = width < 100.dp
+                            )
+                        }
+                    }
+                } else {
+                    lectures.forEach { lecture ->
+                        val startMinutes = lecture.start.hour * 60 + lecture.start.minute
+                        val endMinutes = lecture.end.hour * 60 + lecture.end.minute
+                        val startHourMinutes = startHour * 60
+
+                        val offsetMinutes = startMinutes - startHourMinutes
+                        val durationMinutes = endMinutes - startMinutes
+
+                        val offsetDp = (offsetMinutes / 60f * hourHeight).dp
+                        val heightDp = (durationMinutes / 60f * hourHeight).dp
+
+                        Box(
+                            modifier = Modifier
+                                .padding(top = offsetDp)
+                                .height(heightDp)
+                                .fillMaxWidth()
+                        ) {
+                            EventModule(
+                                lecture = lecture,
+                                modifier = Modifier
+                                    .padding(2.dp)
+                                    .height(heightDp),
+                                smallFont = width < 100.dp,
+                                onClick = { onLectureClick(lecture) }
+                            )
+                        }
                     }
                 }
             }

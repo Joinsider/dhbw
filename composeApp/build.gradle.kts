@@ -52,10 +52,17 @@ kotlin {
             implementation(libs.okhttp)
             // Use OkHttp DNS-over-HTTPS for fallback
             implementation(libs.okhttp.dnsoverhttps)
+            // Foldable device support via WindowInfoTracker and FoldingFeature
+            implementation(libs.androidx.window)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
+            // Material3 Expressive Components:
+            // App uses Material3 Expressive (advanced animations, typography variations) which is only available in alpha releases.
+            // Do NOT upgrade to stable (1.10.0) release — it will break Expressive component imports.
+            // Keep current alpha version (1.10.0-alpha05 or newer alpha) for Expressive functionality.
+            // See Phase 12 decision D-11 for rationale.
             implementation(libs.compose.material3)
             implementation(compose.ui)
             implementation(compose.components.resources)
@@ -110,7 +117,7 @@ kotlin {
 android {
     namespace = "de.fampopprol.dhbwhorb"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
-    buildToolsVersion = "35.0.0"
+    buildToolsVersion = "36.0.0"
 
     dependenciesInfo {
         includeInApk = false

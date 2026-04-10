@@ -6,12 +6,16 @@ import de.fampopprol.dhbwhorb.util.openFile
 import de.fampopprol.dhbwhorb.util.saveFileWithDialog
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class DocumentsViewModel(
-    private val coroutineScope: CoroutineScope,
-    private val dualisDocumentService: DualisDocumentService
+    private val dualisDocumentService: DualisDocumentService?,
+    private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
     companion object {
         private const val TAG = "DocumentsViewModel"
@@ -68,33 +72,87 @@ class DocumentsViewModel(
         loadDocuments()
     }
 
-    fun loadDocuments() {
-        // Check if we can attempt loading: authenticated, demo mode, or credentials available for re-auth
-        if (!dualisDocumentService.hasCredentialsOrSession()) {
-            Napier.d("Skipping loadDocuments: not authenticated and no stored credentials", tag = TAG)
-            _requiresLogin.value = true
-            _isLoading.value = false
-            return
+    /**
+     * Retries a database or network operation for up to 5 seconds.
+     * This ensures that if services are still initializing in the background,
+     * the ViewModel will eventually get the data once they are ready.
+     * 
+     * Retry Strategy:
+     * - Max attempts: 5
+     * - Delay between attempts: 1 second
+     * - Total duration: ~5 seconds
+     */
+    private suspend fun <T> getDataWithRetry(
+        actionName: String,
+        block: suspend () -> T?
+    ): T? {
+        val maxAttempts = 5
+        val delayMillis = 1000L
+        var lastException: Exception? = null
+
+        for (attempt in 1..maxAttempts) {
+            try {
+                // Check if services are ready (not null)
+                // This is specifically for Task 1.2 and 2.3 requirements
+                val result = block()
+                if (result != null) return result
+                
+                Napier.d("Attempt $attempt for $actionName returned null (service might not be ready), retrying...", tag = TAG)
+            } catch (e: Exception) {
+                lastException = e
+                Napier.w("Attempt $attempt for $actionName failed: ${e.message}", tag = TAG)
+            }
+
+            if (attempt < maxAttempts) {
+                delay(delayMillis)
+            }
         }
 
+        Napier.e("All $maxAttempts attempts failed for $actionName. Last error: ${lastException?.message}", tag = TAG)
+        return null
+    }
+
+    /**
+     * Cleanup resources and cancel coroutine scope.
+     */
+    fun cleanup() {
+        Napier.d("Cleaning up DocumentsViewModel", tag = TAG)
+        coroutineScope.cancel()
+    }
+
+    fun loadDocuments() {
         _isLoading.value = true
         _error.value = null
         _requiresLogin.value = false
 
         coroutineScope.launch {
             try {
-                Napier.d("Loading documents from Dualis...", tag = TAG)
-                val result = dualisDocumentService.fetchDocuments()
+                // Use retry logic to wait for dualisDocumentService
+                val service = getDataWithRetry("Documents Service Availability") {
+                    dualisDocumentService
+                }
 
-                result.onSuccess { documents ->
-                    Napier.d("Loaded ${documents.size} documents", tag = TAG)
-                    _documents.value = documents
+                if (service == null) {
                     _isLoading.value = false
-                    _error.value = null
-                }.onFailure { e ->
-                    Napier.e("Failed to load documents: ${e.message}", e, tag = TAG)
+                    _error.value = "Documents service not available. Please try again later."
+                } else if (!service.hasCredentialsOrSession()) {
+                    Napier.d("Skipping loadDocuments: not authenticated and no stored credentials", tag = TAG)
+                    _requiresLogin.value = true
                     _isLoading.value = false
-                    _error.value = "Failed to load documents: ${e.message}"
+                } else {
+                    Napier.d("Loading documents from Dualis...", tag = TAG)
+                    val result = service.fetchDocuments()
+
+                    result.onSuccess { documents ->
+                        Napier.d("Loaded ${documents.size} documents", tag = TAG)
+                        _documents.value = documents
+                        _isLoading.value = false
+                        _error.value = null
+                    }.onFailure { e ->
+                        Napier.e("Failed to load documents: ${e.message}", e, tag = TAG)
+                        _isLoading.value = false
+                        _error.value = "Failed to load documents: ${e.message}"
+                    }
                 }
             } catch (e: Exception) {
                 Napier.e("Error loading documents: ${e.message}", e, tag = TAG)
@@ -105,30 +163,37 @@ class DocumentsViewModel(
     }
 
     fun refreshDocuments() {
-        if (!dualisDocumentService.hasCredentialsOrSession()) {
-            Napier.d("Skipping refreshDocuments: login required", tag = TAG)
-            _requiresLogin.value = true
-            _isRefreshing.value = false
-            return
-        }
-
         _isRefreshing.value = true
         _error.value = null
 
         coroutineScope.launch {
             try {
-                Napier.d("Refreshing documents from Dualis (pull-to-refresh)...", tag = TAG)
-                val result = dualisDocumentService.fetchDocuments()
+                // Use retry logic to wait for dualisDocumentService
+                val service = getDataWithRetry("Documents Service Availability (Refresh)") {
+                    dualisDocumentService
+                }
 
-                result.onSuccess { documents ->
-                    Napier.d("Refreshed ${documents.size} documents", tag = TAG)
-                    _documents.value = documents
+                if (service == null) {
                     _isRefreshing.value = false
-                    _error.value = null
-                }.onFailure { e ->
-                    Napier.e("Failed to refresh documents: ${e.message}", e, tag = TAG)
+                    _error.value = "Service not ready"
+                } else if (!service.hasCredentialsOrSession()) {
+                    Napier.d("Skipping refreshDocuments: login required", tag = TAG)
+                    _requiresLogin.value = true
                     _isRefreshing.value = false
-                    _error.value = "Failed to refresh documents: ${e.message}"
+                } else {
+                    Napier.d("Refreshing documents from Dualis (pull-to-refresh)...", tag = TAG)
+                    val result = service.fetchDocuments()
+
+                    result.onSuccess { documents ->
+                        Napier.d("Refreshed ${documents.size} documents", tag = TAG)
+                        _documents.value = documents
+                        _isRefreshing.value = false
+                        _error.value = null
+                    }.onFailure { e ->
+                        Napier.e("Failed to refresh documents: ${e.message}", e, tag = TAG)
+                        _isRefreshing.value = false
+                        _error.value = "Failed to refresh documents: ${e.message}"
+                    }
                 }
             } catch (e: Exception) {
                 Napier.e("Error refreshing documents: ${e.message}", e, tag = TAG)
@@ -147,8 +212,18 @@ class DocumentsViewModel(
             val documentKey = getDocumentKey(document)
             _isDownloading.update { it + (documentKey to true) }
             try {
+                // Use retry logic to wait for dualisDocumentService
+                val service = getDataWithRetry("Documents Service Availability (Download)") {
+                    dualisDocumentService
+                }
+
+                if (service == null) {
+                    _error.value = "Service not ready"
+                    return@launch
+                }
+
                 Napier.d("Downloading document: ${document.title}", tag = TAG)
-                val result = dualisDocumentService.downloadDocument(document.downloadUrl)
+                val result = service.downloadDocument(document.downloadUrl)
 
                 result.onSuccess { documentData ->
                     Napier.d("Downloaded document successfully: ${document.title}, size: ${documentData.size} bytes", tag = TAG)
@@ -172,8 +247,18 @@ class DocumentsViewModel(
             val documentKey = getDocumentKey(document)
             _isDownloading.update { it + (documentKey to true) }
             try {
+                // Use retry logic to wait for dualisDocumentService
+                val service = getDataWithRetry("Documents Service Availability (Save)") {
+                    dualisDocumentService
+                }
+
+                if (service == null) {
+                    _error.value = "Service not ready"
+                    return@launch
+                }
+
                 Napier.d("Saving document to files: ${document.title}", tag = TAG)
-                val result = dualisDocumentService.downloadDocument(document.downloadUrl)
+                val result = service.downloadDocument(document.downloadUrl)
 
                 result.onSuccess { documentData ->
                     Napier.d("Downloaded document successfully: ${document.title}, size: ${documentData.size} bytes", tag = TAG)

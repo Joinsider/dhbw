@@ -47,5 +47,5 @@ interface LectureEventDao {
     suspend fun deleteAll()
 
     @Query("DELETE FROM lecture WHERE startTime >= :start AND endTime <= :end")
-    suspend fun deleteInRange(start: String, end: String)
+    suspend fun deleteInRange(start: kotlinx.datetime.LocalDateTime, end: kotlinx.datetime.LocalDateTime)
 }

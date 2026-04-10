@@ -25,8 +25,10 @@ import kotlinx.datetime.LocalDateTime
 class LectureService(
     private val database: AppDatabase,
     private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO),
-    private val dualisLectureService: DualisLectureService
+    private val dualisLectureServiceFactory: () -> DualisLectureService
 ) : WidgetLectureRepository {
+    private val dualisLectureService by lazy { dualisLectureServiceFactory() }
+
     companion object {
         private const val SYNC_KEY_TIMETABLE = "timetable"
         private const val SYNC_THRESHOLD_DAYS = 3

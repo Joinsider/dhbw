@@ -4,6 +4,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import io.github.aakira.napier.Napier
+import kotlinx.coroutines.cancel
 
 // Represents the state of the login form
 data class LoginFormUiState(
@@ -15,10 +18,21 @@ data class LoginFormUiState(
 )
 
 class LoginFormViewModel : ViewModel() {
+    companion object {
+        private const val TAG = "LoginFormViewModel"
+    }
 
     // Expose the state to the UI, making it observable
     var uiState by mutableStateOf(LoginFormUiState())
         private set // Only the ViewModel can change the state
+
+    /**
+     * Cleanup resources and cancel coroutine scope.
+     */
+    fun cleanup() {
+        Napier.d("Cleaning up LoginFormViewModel", tag = TAG)
+        viewModelScope.cancel()
+    }
 
     // Event handler for when the username changes
     fun onUsernameChange(newValue: String) {

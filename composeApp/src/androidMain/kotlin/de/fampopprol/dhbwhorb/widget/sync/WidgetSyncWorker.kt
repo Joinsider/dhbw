@@ -26,6 +26,7 @@ import de.fampopprol.dhbwhorb.widget.TimetableGlanceWidget
 import de.fampopprol.dhbwhorb.widget.state.TimetableWidgetState
 import de.fampopprol.dhbwhorb.widget.state.WidgetStateCodec
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.TimeUnit
 
 /**
@@ -45,10 +46,43 @@ class WidgetSyncWorker(
         private const val TAG = "WidgetSyncWorker"
         private const val WORK_NAME_PERIODIC = "widget_sync_periodic"
         private const val WORK_NAME_ONE_TIME  = "widget_sync_immediate"
+        /**
+         * WorkManager enforces a minimum of 15 minutes for periodic work (Android API constraint).
+         * Widget sync interval set to 30 minutes as a reasonable balance:
+         * - Long enough to minimize battery impact
+         * - Short enough to keep widgets reasonably fresh
+         * - Can be easily adjusted here for testing without code hunt
+         *
+         * NOT user-facing in Settings (v3.0) — this constant allows testers to verify behavior
+         * at different intervals by changing one line and rebuilding.
+         *
+         * Rationale: Widget updates are less critical than immediate data; 30-minute interval
+         * provides good responsiveness without excessive battery drain. Users with no widgets
+         * won't trigger this work at all (see smart scheduling in MainActivity.initializeServicesAsync).
+         */
         private const val REPEAT_INTERVAL_MINUTES = 30L
 
         /** Enqueue a periodic background sync (every 30 min, network required). */
         fun schedulePeriodicSync(context: Context) {
+            // Smart scheduling: only schedule if user has active widgets
+            // Rationale: Battery efficiency; users without widgets never trigger background work
+            val widgetManager = GlanceAppWidgetManager(context)
+            val hasActiveWidgets = try {
+                val widgetIds = runBlocking {
+                    widgetManager.getGlanceIds(TimetableGlanceWidget::class.java)
+                }
+                widgetIds.isNotEmpty()
+            } catch (e: Exception) {
+                Napier.w("Failed to check active widgets: ${e.message}", tag = TAG)
+                // On error, assume widgets may exist — err on the side of scheduling
+                true
+            }
+
+            if (!hasActiveWidgets) {
+                Napier.d("No active widgets detected — skipping periodic sync scheduling", tag = TAG)
+                return
+            }
+
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
@@ -60,7 +94,7 @@ class WidgetSyncWorker(
                 ExistingPeriodicWorkPolicy.KEEP,
                 request,
             )
-            Napier.d("Periodic widget sync scheduled every $REPEAT_INTERVAL_MINUTES min", tag = TAG)
+            Napier.d("✓ Periodic widget sync scheduled every $REPEAT_INTERVAL_MINUTES min (active widgets detected)", tag = TAG)
         }
 
         /** Enqueue an immediate one-time sync (e.g. from onUpdate). */

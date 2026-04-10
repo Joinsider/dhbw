@@ -9,6 +9,7 @@ package de.fampopprol.dhbwhorb.services.notifications
 import android.content.Context
 import androidx.work.*
 import androidx.work.WorkerParameters
+import de.fampopprol.dhbwhorb.widget.sync.WidgetSyncWorker
 import io.github.aakira.napier.Napier
 import java.util.concurrent.TimeUnit
 
@@ -21,7 +22,16 @@ class LectureMonitorScheduler(private val context: Context) {
     companion object {
         private const val TAG = "LectureMonitorScheduler"
         private const val WORK_NAME = "lecture_change_monitor"
-        private const val REPEAT_INTERVAL_MINUTES = 15L // Changed to 5 minutes for testing
+        /**
+         * WorkManager enforces a minimum of 15 minutes for periodic work (Android API constraint).
+         * This value is locked at 15 minutes for lecture monitoring. This interval is less
+         * battery-sensitive than widget sync and provides reasonable responsiveness for lecture
+         * change notifications.
+         *
+         * Rationale: Lecture checks happen less frequently than widget updates; 15-minute
+         * minimum is acceptable for this use case. Not user-configurable in v3.0.
+         */
+        private const val REPEAT_INTERVAL_MINUTES = 15L
     }
 
     /**
@@ -33,8 +43,6 @@ class LectureMonitorScheduler(private val context: Context) {
         // Use more permissive constraints that work even when device is locked
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
-            // Note: WorkManager enforces minimum 15 minutes for periodic work
-            // For testing, the 5-minute request will be clamped to 15 minutes
             .build()
         Napier.d("   ✓ Constraints: Network required (works in Doze maintenance windows)", tag = TAG)
 
@@ -45,7 +53,7 @@ class LectureMonitorScheduler(private val context: Context) {
             .setConstraints(constraints)
             .setInitialDelay(1, TimeUnit.MINUTES) // Wait 1 minute after app start
             .build()
-        Napier.d("   ✓ Work request created: every $REPEAT_INTERVAL_MINUTES minutes (may be clamped to 15 min minimum)", tag = TAG)
+        Napier.d("   ✓ Work request created: every $REPEAT_INTERVAL_MINUTES minutes", tag = TAG)
         Napier.d("   ✓ Initial delay: 1 minute", tag = TAG)
         Napier.d("   ℹ️  Note: Job will run during Doze maintenance windows even when device is locked", tag = TAG)
 
@@ -112,6 +120,10 @@ class LectureMonitorWorker(
                 Napier.d("╚════════════════════════════════════════════════════════════════════╝", tag = TAG)
                 return Result.retry()
             }
+
+            // ENHANCEMENT per D-01: Trigger immediate widget refresh on successful check
+            Napier.d("✓ Check succeeded — triggering immediate widget sync to keep widgets fresh", tag = TAG)
+            WidgetSyncWorker.enqueueImmediate(applicationContext)
 
             Napier.d("╔════════════════════════════════════════════════════════════════════╗", tag = TAG)
             Napier.d("║  ✅ Background Worker: Completed successfully                      ║", tag = TAG)
