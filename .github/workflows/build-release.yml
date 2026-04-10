@@ -399,13 +399,20 @@ jobs:
       - name: Find DEB file
         id: find-deb
         run: |
-          DEB_FILE=$(find composeApp/build/compose/binaries/main/deb -name "*.deb" -type f)
+          DEB_FILE=$(find composeApp/build/compose/binaries/main/deb -name "*.deb" -type f | head -n 1)
+          if [ -z "$DEB_FILE" ]; then
+            echo "Error: No DEB file found"
+            exit 1
+          fi
           echo "deb_file=$DEB_FILE" >> $GITHUB_OUTPUT
           echo "deb_name=$(basename $DEB_FILE)" >> $GITHUB_OUTPUT
 
       - name: Rename DEB package
+        id: rename-deb
         if: success()
         run: |
+          ORIGINAL_DEB="${{ steps.find-deb.outputs.deb_file }}"
+          echo "deb_renamed=$ORIGINAL_DEB" >> $GITHUB_OUTPUT
           DEB_FILE=$(find composeApp/build/compose/binaries/main/deb -name "dhbw-*.deb" -type f)
           if [ -z "$DEB_FILE" ]; then
             echo "Skipping DEB rename: file not found"
@@ -415,6 +422,7 @@ jobs:
           DEB_DIR=$(dirname "$DEB_FILE")
           NEW_NAME="$DEB_DIR/dhbw-student-app-v$VERSION.deb"
           mv "$DEB_FILE" "$NEW_NAME"
+          echo "deb_renamed=$NEW_NAME" >> $GITHUB_OUTPUT
           echo "✅ Renamed DEB to $(basename $NEW_NAME)"
 
       - name: Verify DEB metadata
@@ -432,7 +440,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: deb-amd64
-          path: ${{ steps.find-deb.outputs.deb_file }}
+          path: ${{ steps.rename-deb.outputs.deb_renamed || steps.find-deb.outputs.deb_file }}
           retention-days: 1
 
 
@@ -473,8 +481,11 @@ jobs:
           echo "dmg_name=$(basename $DMG_FILE)" >> $GITHUB_OUTPUT
 
       - name: Rename DMG package
+        id: rename-dmg
         if: success()
         run: |
+          ORIGINAL_DMG="${{ steps.find-dmg.outputs.dmg_file }}"
+          echo "dmg_renamed=$ORIGINAL_DMG" >> $GITHUB_OUTPUT
           DMG_FILE=$(find composeApp/build/compose/binaries/main/dmg -name "*.dmg" -type f | head -n 1)
           if [ -z "$DMG_FILE" ]; then
             echo "Skipping DMG rename: file not found"
@@ -491,7 +502,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dmg-macos
-          path: ${{ steps.find-dmg.outputs.dmg_file }}
+          path: ${{ steps.rename-dmg.outputs.dmg_renamed || steps.find-dmg.outputs.dmg_file }}
           retention-days: 1
 
   build-android-apk:

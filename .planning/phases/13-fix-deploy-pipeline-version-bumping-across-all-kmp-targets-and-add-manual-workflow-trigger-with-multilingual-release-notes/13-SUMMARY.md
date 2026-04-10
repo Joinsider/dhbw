@@ -344,6 +344,12 @@ See PLAN.md Wave 4 section for full UAT checklist. Key tests:
 - Updated `create-release` checkout to use branch head (`${{ github.base_ref || github.ref_name }}`), so tagging/building follows the just-bumped commit.
 - Moved multilingual release note body injection into the `create-release` draft release step, preserving Phase 13 notes behavior without short-circuiting compilation.
 
+### 2026-04-10 — Renamed artifact upload path fix (DEB/DMG)
+
+- Root cause: upload steps used pre-rename outputs (`steps.find-*.outputs.*`), so artifacts were renamed successfully but upload searched for old paths.
+- Added `rename-deb` and `rename-dmg` step IDs with explicit `deb_renamed` / `dmg_renamed` outputs.
+- Upload steps now prefer renamed paths and fall back to original find outputs when rename is skipped.
+
 ---
 
 *Phase 13 execution completed: 2026-04-10*  
