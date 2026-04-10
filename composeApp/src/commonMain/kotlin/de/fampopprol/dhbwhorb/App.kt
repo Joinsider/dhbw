@@ -80,8 +80,43 @@ fun App(
     notificationPreferencesInteractor: NotificationPreferencesInteractor? = null,
     sharedHttpClient: HttpClient? = null,
     sessionManager: SessionManager? = null,
-    isInitialized: Boolean = true
+    isInitialized: Boolean = true,
+    databaseErrorMessage: String? = null
 ) {
+    // Handle unrecoverable database errors (show blocking error screen)
+    if (databaseErrorMessage != null) {
+        DHBWHorbTheme {
+            Box(
+                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Database Error",
+                        style = MaterialTheme.typography.headlineLarge,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    Text(
+                        text = databaseErrorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 16.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Text(
+                        text = "Please restart the app. If the problem persists, please reinstall.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        return  // Block all navigation past this screen
+    }
+
     // Ensure Napier is initialized (fallback in case platform didn't initialize it)
     LaunchedEffect(Unit) {
         try {

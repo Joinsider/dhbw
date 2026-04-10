@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
     private var notificationPreferencesInteractor by mutableStateOf<NotificationPreferencesInteractor?>(null)
     private var sharedHttpClient by mutableStateOf<HttpClient?>(null)
     private var sessionManager by mutableStateOf<SessionManager?>(null)
+    private var databaseError by mutableStateOf<String?>(null)
 
     // ViewModel at activity scope - persists across activity recreation
     private lateinit var timetableViewModel: TimetableViewModel
@@ -97,7 +98,8 @@ class MainActivity : ComponentActivity() {
                 sharedHttpClient = sharedHttpClient,
                 sessionManager = sessionManager,
                 timetableViewModel = if (::timetableViewModel.isInitialized) timetableViewModel else null,
-                isInitialized = isInitialized
+                isInitialized = isInitialized,
+                databaseErrorMessage = databaseError
             )
         }
 
@@ -170,9 +172,42 @@ class MainActivity : ComponentActivity() {
     private suspend fun initializeServicesAsync() = withContext(Dispatchers.IO) {
         Napier.d("Initializing services asynchronously...", tag = "MainActivity")
 
-        // 1. Initialize database using DatabaseInitializer
-        val db = DatabaseInitializer.initializeDatabaseAsync(getDatabaseBuilder(applicationContext))
-        database = db
+        // 1. Initialize database using DatabaseInitializer with auto-recovery on corruption
+        val db = try {
+            DatabaseInitializer.initializeDatabaseAsync(getDatabaseBuilder(applicationContext))
+        } catch (e: Exception) {
+            Napier.e(
+                "Database initialization failed: ${e.message}\nAttempting auto-recovery (delete and retry)",
+                tag = "MainActivity"
+            )
+            
+            try {
+                // Step 1: Delete corrupted database file
+                val dbFile = applicationContext.getDatabasePath("dhbw_horb")
+                if (dbFile.exists()) {
+                    dbFile.delete()
+                    Napier.i("Corrupted database file deleted: ${dbFile.absolutePath}", tag = "MainActivity")
+                }
+                
+                // Step 2: Retry initialization with fresh database
+                val recoveredDb = DatabaseInitializer.initializeDatabaseAsync(getDatabaseBuilder(applicationContext))
+                Napier.i("Database recovered successfully after deletion", tag = "MainActivity")
+                recoveredDb
+            } catch (recoveryError: Exception) {
+                Napier.e(
+                    "Database auto-recovery failed: ${recoveryError.message}\nDatabase file path: ${applicationContext.getDatabasePath("dhbw_horb").absolutePath}",
+                    tag = "MainActivity"
+                )
+                null
+            }
+        }
+        
+        if (db == null) {
+            databaseError = "Database error. Please restart the app. If the problem persists, please reinstall."
+            database = null
+        } else {
+            database = db
+        }
 
         // 2. Initialize HttpClient using HttpClientInitializer
         val client = HttpClientInitializer.initializeHttpClientAsync()
