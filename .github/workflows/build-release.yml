@@ -138,6 +138,10 @@ jobs:
           sed -i -E "s/(versionName\s*=\s*)\"v?[^\"]+\"/\1\"v$NEW\"/" composeApp/build.gradle.kts
           # Update Desktop packageVersion (pure semver)
           sed -i -E "s/(packageVersion\s*=\s*)\"[^\"]+\"/\1\"$NEW\"/" composeApp/build.gradle.kts
+           # Update platform-specific package versions (DMG, MSI, DEB)
+           sed -i -E "s/(dmgPackageVersion\s*=\s*)\"[^\"]+\"/\1\"$NEW\"/" composeApp/build.gradle.kts
+           sed -i -E "s/(msiPackageVersion\s*=\s*)\"[^\"]+\"/\1\"$NEW\"/" composeApp/build.gradle.kts
+           sed -i -E "s/(debPackageVersion\s*=\s*)\"[^\"]+\"/\1\"$NEW\"/" composeApp/build.gradle.kts
           # Update Fat Jar archiveVersion
           sed -i -E "s/(archiveVersion\.set\()\"[^\"]+\"\)/\1\"$NEW\")/" composeApp/build.gradle.kts
           
