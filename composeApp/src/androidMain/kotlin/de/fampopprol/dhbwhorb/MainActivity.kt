@@ -291,9 +291,11 @@ class MainActivity : ComponentActivity() {
 
         Napier.i("All services initialized successfully in background!", tag = "MainActivity")
 
-        // Schedule periodic widget background sync
+        // Schedule periodic widget background sync (only if active widgets detected)
+        Napier.d("Checking for active widgets and scheduling sync...", tag = "MainActivity")
         WidgetSyncWorker.schedulePeriodicSync(applicationContext)
-        Napier.d("Widget periodic sync scheduled", tag = "MainActivity")
+        // Note: schedulePeriodicSync() internally checks for active widgets and skips if none found
+        Napier.d("Widget sync setup complete (see worker logs for scheduling result)", tag = "MainActivity")
     }
 
     /**
