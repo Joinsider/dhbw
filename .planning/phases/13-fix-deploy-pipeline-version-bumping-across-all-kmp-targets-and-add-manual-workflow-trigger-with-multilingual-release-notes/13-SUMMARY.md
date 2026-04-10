@@ -332,6 +332,12 @@ See PLAN.md Wave 4 section for full UAT checklist. Key tests:
   - `Create GitHub Release with notes`
 - Result: workflow file parses successfully again while preserving Phase 13 release automation behavior.
 
+### 2026-04-10 — Archive version validation matcher fix
+
+- Fixed the `archiveVersion` verification expression in `.github/workflows/build-release.yml` to correctly match `archiveVersion.set("X.Y.Z")`.
+- Root cause: the previous grep pattern dropped quotes around `$NEW`, so valid `archiveVersion.set("2.1.0")` values were incorrectly reported as missing.
+- Updated check now uses fixed-string matching to avoid regex/quoting edge cases.
+
 ---
 
 *Phase 13 execution completed: 2026-04-10*  

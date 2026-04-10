@@ -179,7 +179,7 @@ jobs:
              echo "❌ ERROR: Desktop packageVersion not updated to $NEW"
              ERRORS=$((ERRORS + 1))
            fi
-           if ! grep -q "archiveVersion\.set("$NEW")" composeApp/build.gradle.kts; then
+           if ! grep -Fq "archiveVersion.set(\"$NEW\")" composeApp/build.gradle.kts; then
              echo "❌ ERROR: Desktop archiveVersion not updated to $NEW"
              ERRORS=$((ERRORS + 1))
            fi
