@@ -96,30 +96,29 @@ class MainActivity : ComponentActivity() {
         lifecycle.addObserver(httpClientManager)
 
         // Add fold state detection for foldable devices
-        // lifecycleScope + repeatOnLifecycle(STARTED) auto-cancels when activity pauses → no memory leaks
+        // IMPORTANT: Launch without repeatOnLifecycle to avoid pause/resume cycles on screen wake
+        // The listener will persist as long as the activity exists, which is correct behavior
         lifecycleScope.launch {
-            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                WindowInfoTracker.getOrCreate(this@MainActivity)
-                    .windowLayoutInfo(this@MainActivity)
-                    .collect { newLayoutInfo ->
-                        val foldingFeature = newLayoutInfo.displayFeatures
-                            .filterIsInstance<FoldingFeature>()
-                            .firstOrNull()
+            WindowInfoTracker.getOrCreate(this@MainActivity)
+                .windowLayoutInfo(this@MainActivity)
+                .collect { newLayoutInfo ->
+                    val foldingFeature = newLayoutInfo.displayFeatures
+                        .filterIsInstance<FoldingFeature>()
+                        .firstOrNull()
 
-                        if (foldingFeature != null) {
-                            Napier.d(
-                                "Fold detected: state=${foldingFeature.state}, " +
-                                "orientation=${foldingFeature.orientation}, " +
-                                "bounds=${foldingFeature.bounds}",
-                                tag = "MainActivity"
-                            )
-                            // TODO: Future enhancement — use foldingFeature.bounds to adapt layouts
-                            // (e.g., two-column on book posture, avoid hinge in HALF_OPENED state)
-                        } else {
-                            Napier.d("No fold detected (phone or non-foldable tablet)", tag = "MainActivity")
-                        }
+                    if (foldingFeature != null) {
+                        Napier.d(
+                            "Fold detected: state=${foldingFeature.state}, " +
+                            "orientation=${foldingFeature.orientation}, " +
+                            "bounds=${foldingFeature.bounds}",
+                            tag = "MainActivity"
+                        )
+                        // TODO: Future enhancement — use foldingFeature.bounds to adapt layouts
+                        // (e.g., two-column on book posture, avoid hinge in HALF_OPENED state)
+                    } else {
+                        Napier.d("No fold detected (phone or non-foldable tablet)", tag = "MainActivity")
                     }
-            }
+                }
         }
 
         // Orientation lock: Portrait for phones, free rotation for tablets/foldables
@@ -323,7 +322,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        Napier.d("MainActivity onResume() called", tag = "MainActivity")
+        Napier.d("MainActivity onResume() called - checking if services are still initialized", tag = "MainActivity")
+        // Verify authentication state after screen wake to detect unexpected logout
+        if (sessionManager?.isAuthenticated() == false && isInitialized) {
+            Napier.w("⚠️ UNEXPECTED LOGOUT DETECTED on onResume - session was cleared", tag = "MainActivity")
+        }
     }
 
     override fun onPause() {
