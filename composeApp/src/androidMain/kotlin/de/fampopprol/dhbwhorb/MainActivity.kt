@@ -205,9 +205,10 @@ class MainActivity : ComponentActivity() {
         if (db == null) {
             databaseError = "Database error. Please restart the app. If the problem persists, please reinstall."
             database = null
-        } else {
-            database = db
+            return@withContext
         }
+        
+        database = db
 
         // 2. Initialize HttpClient using HttpClientInitializer
         val client = HttpClientInitializer.initializeHttpClientAsync()

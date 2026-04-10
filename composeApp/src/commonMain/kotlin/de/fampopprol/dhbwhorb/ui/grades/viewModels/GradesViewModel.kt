@@ -10,7 +10,6 @@ import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
-import kotlinx.coroutines.Mutex
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,8 +47,6 @@ class GradesViewModel(
         private set
 
     // Race condition prevention: Mutex serializes all load operations
-    private val loadMutex = Mutex()
-
     // Three separate StateFlows for deterministic loading state
     private val _isLoading = MutableStateFlow<Boolean>(true)
     val isLoading: StateFlow<Boolean> = _isLoading
@@ -195,30 +192,24 @@ class GradesViewModel(
         uiState = uiState.copy(isLoading = !forceRefresh, isRefreshing = forceRefresh)
         
         coroutineScope.launch {
-            loadMutex.withLock {
-                if (forceRefresh) {
-                    _isRefreshing.value = true
-                } else {
-                    _isLoading.value = true
+            if (forceRefresh) {
+                _isRefreshing.value = true
+            } else {
+                _isLoading.value = true
+            }
+
+            try {
+                // Use retry logic to wait for gradeService
+                val service = getDataWithRetry("Grades Service Availability (All)") {
+                    gradeService
                 }
 
-                try {
-                    // Use retry logic to wait for gradeService
-                    val service = getDataWithRetry("Grades Service Availability (All)") {
-                        gradeService
-                    }
-
-                    if (service == null) {
-                        uiState = uiState.copy(isLoading = false, isRefreshing = false, error = "Service not ready")
-                        return@loadMutex
-                    }
-
-                    if (!service.hasCredentialsOrSession()) {
-                        Napier.d("Skipping loadAllGrades: login required", tag = TAG)
-                        uiState = uiState.copy(isLoading = false, isRefreshing = false, requiresLogin = true)
-                        return@loadMutex
-                    }
-
+                if (service == null) {
+                    uiState = uiState.copy(isLoading = false, isRefreshing = false, error = "Service not ready")
+                } else if (!service.hasCredentialsOrSession()) {
+                    Napier.d("Skipping loadAllGrades: login required", tag = TAG)
+                    uiState = uiState.copy(isLoading = false, isRefreshing = false, requiresLogin = true)
+                } else {
                     Napier.d("Loading grades for all semesters (forceRefresh: $forceRefresh)", tag = TAG)
                     val allGrades = mutableListOf<GradeEntity>()
 
@@ -253,17 +244,17 @@ class GradesViewModel(
                         error = null
                     )
                     _data.value = uiState
-                } catch (e: Exception) {
-                    Napier.e("Error loading all grades: ${e.message}", e, tag = TAG)
-                    uiState = uiState.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = "Error: ${e.message}"
-                    )
-                } finally {
-                    _isLoading.value = false
-                    _isRefreshing.value = false
                 }
+            } catch (e: Exception) {
+                Napier.e("Error loading all grades: ${e.message}", e, tag = TAG)
+                uiState = uiState.copy(
+                    isLoading = false,
+                    isRefreshing = false,
+                    error = "Error: ${e.message}"
+                )
+            } finally {
+                _isLoading.value = false
+                _isRefreshing.value = false
             }
         }
     }
@@ -290,7 +281,7 @@ class GradesViewModel(
         }
 
         coroutineScope.launch {
-            loadMutex.withLock {
+            
                 if (isRefresh) {
                     _isRefreshing.value = true
                 } else {
@@ -305,42 +296,38 @@ class GradesViewModel(
 
                     if (service == null) {
                         uiState = uiState.copy(isLoading = false, isRefreshing = false, error = "Service not ready")
-                        return@loadMutex
-                    }
-
-                    if (!service.hasCredentialsOrSession()) {
+                    } else if (!service.hasCredentialsOrSession()) {
                         Napier.d("Skipping loadGradesForSemester: login required", tag = TAG)
                         uiState = uiState.copy(isLoading = false, isRefreshing = false, requiresLogin = true)
-                        return@loadMutex
-                    }
-
-                    Napier.d("Loading grades for semester: $semesterName ($semesterId), isRefresh: $isRefresh", tag = TAG)
-                    
-                    // Call the service with forceRefresh flag
-                    // When isRefresh is true (pull-to-refresh), we force reload from network
-                    val result = service.getGradesForSemester(
-                        semesterId = semesterId,
-                        semesterName = semesterName,
-                        forceRefresh = isRefresh
-                    )
-
-                    result.onSuccess { grades ->
-                        val gpa = calculateGpa(grades)
-                        uiState = uiState.copy(
-                            grades = grades,
-                            semesterGpa = gpa,
-                            isRefreshing = false,
-                            isLoading = false,
-                            error = null
+                    } else {
+                        Napier.d("Loading grades for semester: $semesterName ($semesterId), isRefresh: $isRefresh", tag = TAG)
+                        
+                        // Call the service with forceRefresh flag
+                        // When isRefresh is true (pull-to-refresh), we force reload from network
+                        val result = service.getGradesForSemester(
+                            semesterId = semesterId,
+                            semesterName = semesterName,
+                            forceRefresh = isRefresh
                         )
-                        _data.value = uiState
-                    }.onFailure { e ->
-                         Napier.e("Failed to load grades: ${e.message}", e, tag = TAG)
-                         uiState = uiState.copy(
-                            isRefreshing = false,
-                            isLoading = false,
-                            error = "Failed to load grades: ${e.message}"
-                        )
+
+                        result.onSuccess { grades ->
+                            val gpa = calculateGpa(grades)
+                            uiState = uiState.copy(
+                                grades = grades,
+                                semesterGpa = gpa,
+                                isRefreshing = false,
+                                isLoading = false,
+                                error = null
+                            )
+                            _data.value = uiState
+                        }.onFailure { e ->
+                             Napier.e("Failed to load grades: ${e.message}", e, tag = TAG)
+                             uiState = uiState.copy(
+                                isRefreshing = false,
+                                isLoading = false,
+                                error = "Failed to load grades: ${e.message}"
+                            )
+                        }
                     }
                 } catch (e: Exception) {
                      Napier.e("Error loading grades: ${e.message}", e, tag = TAG)
@@ -353,7 +340,6 @@ class GradesViewModel(
                     _isLoading.value = false
                     _isRefreshing.value = false
                 }
-            }
         }
     }
 

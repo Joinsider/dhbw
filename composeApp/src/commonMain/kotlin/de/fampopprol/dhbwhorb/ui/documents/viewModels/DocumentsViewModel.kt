@@ -8,7 +8,6 @@ import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
-import kotlinx.coroutines.Mutex
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -21,9 +20,6 @@ class DocumentsViewModel(
     companion object {
         private const val TAG = "DocumentsViewModel"
     }
-
-    // Race condition prevention: Mutex serializes all load operations
-    private val loadMutex = Mutex()
 
     private val _documents = MutableStateFlow<List<DualisDocument>>(emptyList())
     private val _searchQuery = MutableStateFlow("")
@@ -130,27 +126,20 @@ class DocumentsViewModel(
         _requiresLogin.value = false
 
         coroutineScope.launch {
-            loadMutex.withLock {
-                try {
-                    // Use retry logic to wait for dualisDocumentService
-                    val service = getDataWithRetry("Documents Service Availability") {
-                        dualisDocumentService
-                    }
+            try {
+                // Use retry logic to wait for dualisDocumentService
+                val service = getDataWithRetry("Documents Service Availability") {
+                    dualisDocumentService
+                }
 
-                    if (service == null) {
-                        _isLoading.value = false
-                        _error.value = "Documents service not available. Please try again later."
-                        return@loadMutex
-                    }
-
-                    // Check if we can attempt loading: authenticated, demo mode, or credentials available for re-auth
-                    if (!service.hasCredentialsOrSession()) {
-                        Napier.d("Skipping loadDocuments: not authenticated and no stored credentials", tag = TAG)
-                        _requiresLogin.value = true
-                        _isLoading.value = false
-                        return@loadMutex
-                    }
-
+                if (service == null) {
+                    _isLoading.value = false
+                    _error.value = "Documents service not available. Please try again later."
+                } else if (!service.hasCredentialsOrSession()) {
+                    Napier.d("Skipping loadDocuments: not authenticated and no stored credentials", tag = TAG)
+                    _requiresLogin.value = true
+                    _isLoading.value = false
+                } else {
                     Napier.d("Loading documents from Dualis...", tag = TAG)
                     val result = service.fetchDocuments()
 
@@ -164,11 +153,11 @@ class DocumentsViewModel(
                         _isLoading.value = false
                         _error.value = "Failed to load documents: ${e.message}"
                     }
-                } catch (e: Exception) {
-                    Napier.e("Error loading documents: ${e.message}", e, tag = TAG)
-                    _isLoading.value = false
-                    _error.value = "Error: ${e.message}"
                 }
+            } catch (e: Exception) {
+                Napier.e("Error loading documents: ${e.message}", e, tag = TAG)
+                _isLoading.value = false
+                _error.value = "Error: ${e.message}"
             }
         }
     }
@@ -178,26 +167,20 @@ class DocumentsViewModel(
         _error.value = null
 
         coroutineScope.launch {
-            loadMutex.withLock {
-                try {
-                    // Use retry logic to wait for dualisDocumentService
-                    val service = getDataWithRetry("Documents Service Availability (Refresh)") {
-                        dualisDocumentService
-                    }
+            try {
+                // Use retry logic to wait for dualisDocumentService
+                val service = getDataWithRetry("Documents Service Availability (Refresh)") {
+                    dualisDocumentService
+                }
 
-                    if (service == null) {
-                        _isRefreshing.value = false
-                        _error.value = "Service not ready"
-                        return@loadMutex
-                    }
-
-                    if (!service.hasCredentialsOrSession()) {
-                        Napier.d("Skipping refreshDocuments: login required", tag = TAG)
-                        _requiresLogin.value = true
-                        _isRefreshing.value = false
-                        return@loadMutex
-                    }
-
+                if (service == null) {
+                    _isRefreshing.value = false
+                    _error.value = "Service not ready"
+                } else if (!service.hasCredentialsOrSession()) {
+                    Napier.d("Skipping refreshDocuments: login required", tag = TAG)
+                    _requiresLogin.value = true
+                    _isRefreshing.value = false
+                } else {
                     Napier.d("Refreshing documents from Dualis (pull-to-refresh)...", tag = TAG)
                     val result = service.fetchDocuments()
 
@@ -211,11 +194,11 @@ class DocumentsViewModel(
                         _isRefreshing.value = false
                         _error.value = "Failed to refresh documents: ${e.message}"
                     }
-                } catch (e: Exception) {
-                    Napier.e("Error refreshing documents: ${e.message}", e, tag = TAG)
-                    _isRefreshing.value = false
-                    _error.value = "Error: ${e.message}"
                 }
+            } catch (e: Exception) {
+                Napier.e("Error refreshing documents: ${e.message}", e, tag = TAG)
+                _isRefreshing.value = false
+                _error.value = "Error: ${e.message}"
             }
         }
     }
