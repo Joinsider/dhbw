@@ -3,6 +3,7 @@ package de.fampopprol.dhbwhorb
 import android.annotation.SuppressLint
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -246,20 +247,43 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Determines if the device is a phone (not a tablet) based on screen size.
-     * Tablets typically have screen size XLARGE or are at least 600dp wide.
+     *
+     * Primary: API 30+ uses WindowMetrics for real-time bounds (works correctly on foldables
+     * and split-screen where Configuration may report incorrect values).
+     * Fallback: API 24-29 uses Configuration API (SCREENLAYOUT_SIZE_* and smallestScreenWidthDp).
+     *
+     * A device is considered a phone if its smallest dimension is < 600dp.
+     * Foldables return phone=true when folded (~370dp) and phone=false when unfolded (~840dp).
      */
     private fun isPhone(): Boolean {
-        val configuration = resources.configuration
-        val screenLayout = configuration.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // API 30+: Use WindowMetrics for real-time bounds
+            val metrics = windowManager.currentWindowMetrics
+            val bounds = metrics.bounds
+            val widthDp = bounds.width() / resources.displayMetrics.density
+            val heightDp = bounds.height() / resources.displayMetrics.density
 
-        // Check if it's a large or xlarge screen (tablet)
-        val isTabletByScreenSize = screenLayout >= Configuration.SCREENLAYOUT_SIZE_LARGE
-
-        // Additionally check smallest screen width (sw600dp is typical tablet threshold)
-        val smallestScreenWidthDp = configuration.smallestScreenWidthDp
-        val isTabletByWidth = smallestScreenWidthDp >= 600
-
-        return !isTabletByScreenSize && !isTabletByWidth
+            // Consider phone if smallest dimension < 600dp
+            val smallestDimensionDp = minOf(widthDp, heightDp)
+            val result = smallestDimensionDp < 600
+            Napier.d(
+                "isPhone() detected: $result (WindowMetrics: ${bounds.width()}x${bounds.height()} → ${smallestDimensionDp}dp)",
+                tag = "MainActivity"
+            )
+            result
+        } else {
+            // Fallback: Configuration API (API 24-29)
+            val configuration = resources.configuration
+            val screenLayout = configuration.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK
+            val isTabletByScreenSize = screenLayout >= Configuration.SCREENLAYOUT_SIZE_LARGE
+            val isTabletByWidth = configuration.smallestScreenWidthDp >= 600
+            val result = !isTabletByScreenSize && !isTabletByWidth
+            Napier.d(
+                "isPhone() detected: $result (Configuration fallback: screenLayout=${screenLayout}, sw${configuration.smallestScreenWidthDp}dp)",
+                tag = "MainActivity"
+            )
+            result
+        }
     }
 
     override fun onResume() {
