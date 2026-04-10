@@ -65,6 +65,9 @@ class MainActivity : ComponentActivity() {
     private var notificationPreferencesInteractor by mutableStateOf<NotificationPreferencesInteractor?>(null)
     private var sharedHttpClient by mutableStateOf<HttpClient?>(null)
     private var sessionManager by mutableStateOf<SessionManager?>(null)
+
+    // ViewModel at activity scope - persists across activity recreation
+    private lateinit var timetableViewModel: TimetableViewModel
     
     // Lifecycle-aware manager for HttpClient for definitive cleanup
     private val httpClientManager = HttpClientManager()
@@ -88,6 +91,7 @@ class MainActivity : ComponentActivity() {
                 notificationPreferencesInteractor = notificationPreferencesInteractor,
                 sharedHttpClient = sharedHttpClient,
                 sessionManager = sessionManager,
+                timetableViewModel = if (::timetableViewModel.isInitialized) timetableViewModel else null,
                 isInitialized = isInitialized
             )
         }
@@ -209,8 +213,13 @@ class MainActivity : ComponentActivity() {
 
         Napier.d("LectureService initialized", tag = "MainActivity")
 
-        // TimetableViewModel is now lazily initialized in TimetablePage
-        // and its instantiation has been removed from here
+        // Create TimetableViewModel at activity scope (persists across activity recreation)
+        timetableViewModel = TimetableViewModel(
+            lectureService = lectureService,
+            lecturerDao = db.lecturerDao(),
+            lectureLecturerCrossRefDao = db.lectureLecturerCrossRefDao()
+        )
+        Napier.d("TimetableViewModel initialized at activity scope", tag = "MainActivity")
 
         // Initialize notification preferences
         val notificationPreferences = NotificationPreferences(secureStorageWrapper)
@@ -336,12 +345,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        
-        // Cleanup services and ViewModels
-        authenticationService?.logout() // Clear session cache if needed
-        
+
+        // CRITICAL: Do NOT call logout() here. onDestroy() is called on configuration changes
+        // (screen rotation, fold state changes, screen wake, etc.), not just on app termination.
+        // Calling logout() on every onDestroy() would log out the user on screen wake.
+        //
+        // Logout should ONLY happen via explicit user action (SettingsPage logout button).
+        // Session data is persisted in SecureStorage and survives activity recreation.
+        //
+        // Only cleanup resources that need active management:
         lifecycleScope.cancel()
-        Napier.d("MainActivity onDestroy() called, services cleaned up and lifecycle scope cancelled", tag = "MainActivity")
+        Napier.d("MainActivity onDestroy() called, lifecycle scope cancelled (NOT logging out)", tag = "MainActivity")
     }
 }
 

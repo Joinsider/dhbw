@@ -256,26 +256,32 @@ fun App(
                     }
 
                     AppScreen.TIMETABLE -> {
-                        TimetablePage(
-                            viewModel = timetableViewModel,
-                            database = database,
-                            authenticationService = authenticationService,
-                            sharedHttpClient = actualHttpClient,
-                            sessionManager = actualSessionManager,
-                            onNavigateToGrades = {
-                                currentScreen = AppScreen.GRADES
-                            },
-                            onNavigateToDocuments = {
-                                currentScreen = AppScreen.DOCUMENTS
-                            },
-                            onNavigateToSettings = {
-                                currentScreen = AppScreen.SETTINGS
-                            },
-                            isLoggedIn = isLoggedIn,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = 16.dp)
-                        )
+                        if (timetableViewModel != null) {
+                            TimetablePage(
+                                viewModel = timetableViewModel,
+                                database = database,
+                                authenticationService = authenticationService,
+                                sharedHttpClient = actualHttpClient,
+                                sessionManager = actualSessionManager,
+                                onNavigateToGrades = {
+                                    currentScreen = AppScreen.GRADES
+                                },
+                                onNavigateToDocuments = {
+                                    currentScreen = AppScreen.DOCUMENTS
+                                },
+                                onNavigateToSettings = {
+                                    currentScreen = AppScreen.SETTINGS
+                                },
+                                isLoggedIn = isLoggedIn,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 16.dp)
+                            )
+                        } else {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                LoadingIndicator()
+                            }
+                        }
                     }
 
                     AppScreen.GRADES -> {
