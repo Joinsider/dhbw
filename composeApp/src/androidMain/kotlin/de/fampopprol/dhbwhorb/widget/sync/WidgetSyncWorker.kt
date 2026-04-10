@@ -45,6 +45,20 @@ class WidgetSyncWorker(
         private const val TAG = "WidgetSyncWorker"
         private const val WORK_NAME_PERIODIC = "widget_sync_periodic"
         private const val WORK_NAME_ONE_TIME  = "widget_sync_immediate"
+        /**
+         * WorkManager enforces a minimum of 15 minutes for periodic work (Android API constraint).
+         * Widget sync interval set to 30 minutes as a reasonable balance:
+         * - Long enough to minimize battery impact
+         * - Short enough to keep widgets reasonably fresh
+         * - Can be easily adjusted here for testing without code hunt
+         *
+         * NOT user-facing in Settings (v3.0) — this constant allows testers to verify behavior
+         * at different intervals by changing one line and rebuilding.
+         *
+         * Rationale: Widget updates are less critical than immediate data; 30-minute interval
+         * provides good responsiveness without excessive battery drain. Users with no widgets
+         * won't trigger this work at all (see smart scheduling in MainActivity.initializeServicesAsync).
+         */
         private const val REPEAT_INTERVAL_MINUTES = 30L
 
         /** Enqueue a periodic background sync (every 30 min, network required). */
