@@ -74,7 +74,10 @@ class MainActivity : ComponentActivity() {
     private var lectureMonitorScheduler: LectureMonitorScheduler? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Edge-to-edge rendering: system bars drawn under app content with automatic inset handling.
+        // No deprecated setStatusBarColor/setNavigationBarColor calls needed; system theme provides colors.
         enableEdgeToEdge()
+        Napier.d("enableEdgeToEdge() called - system bars will draw under app content", tag = "MainActivity")
         super.onCreate(savedInstanceState)
 
         setContent {
