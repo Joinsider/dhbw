@@ -15,6 +15,7 @@
 | 10 | Android API Compliance | System Integration | Complete    | 2026-04-10 |
 | 11 | Background Services & Resource Mgmt | Workers & Lifecycle | Complete    | 2026-04-10 |
 | 12 | Code Quality & Cleanup | Architecture | CODE-01, CODE-02, CODE-03, CODE-04, CODE-05 | 3-4 weeks |
+| 13 | Deploy Pipeline & Release Automation | CI/CD | DEPLOY-01 through DEPLOY-12 | 1-2 days |
 
 ---
 
@@ -265,6 +266,63 @@ All success criteria met and verified. Phase 10 is production-ready for deployme
 
 ---
 
+## Phase 13: Deploy Pipeline & Release Automation
+
+**Goal:** Consolidate the deployment pipeline to ensure consistent version bumping across all KMP targets (Android, iOS, macOS, Windows, Linux) and integrate multilingual release notes into a single workflow trigger.
+
+**Business Impact:** Reduce manual release steps, eliminate version mismatches between platforms, provide users with integrated release notes workflow.
+
+**Status:** READY FOR EXECUTION (2026-04-10)
+
+### Requirements Addressed
+- **DEPLOY-01**: Merge changelog.yml into build-release.yml
+- **DEPLOY-02**: Manual per-language release notes during workflow trigger
+- **DEPLOY-03**: Fixed English + German (template-based for future)
+- **DEPLOY-04**: Release notes provided before version bump
+- **DEPLOY-05**: Release notes written to fastlane + GitHub Release
+- **DEPLOY-06**: All KMP targets same semantic version at release time
+- **DEPLOY-07**: Single source of truth, single transaction write
+- **DEPLOY-08**: Semver in filename for all desktop outputs
+- **DEPLOY-09**: Version metadata in package internals (DMG, MSI, DEB)
+- **DEPLOY-10**: Desktop versionCode synced with Android
+- **DEPLOY-11**: Validate all versions after write; fail if mismatch
+- **DEPLOY-12**: Fail fast if any platform missing version config
+
+### Success Criteria
+1. **Workflow Inputs:** Users can provide changelog_en and changelog_de when manually triggering build-release.yml
+2. **Version Consistency:** All platforms (Android versionCode/versionName, iOS MARKETING_VERSION/CURRENT_PROJECT_VERSION, Desktop packageVersion) updated atomically
+3. **Version Validation:** Workflow validates all versions match; fails if any platform config missing
+4. **Fastlane Changelogs:** English and German changelogs written to fastlane/metadata/android/{en-US,de-DE}/changelogs/{versionCode}.txt
+5. **GitHub Release Notes:** Release body includes both English and German notes from workflow inputs
+6. **Desktop Naming:** DEB, DMG, MSI packages named with semver (dhbw-student-app-v{version}.{ext})
+7. **No Duplicate Workflows:** changelog.yml workflow deleted; all changelog functionality in build-release.yml
+
+### Technical Implementation
+- Extended build-release.yml workflow_dispatch with changelog_en and changelog_de inputs
+- Created bump-and-notes job to consolidate version bump + changelog write + validation
+- Updated create-release job to populate GitHub Release body with changelog inputs
+- Renamed DEB and DMG artifacts with semver pattern (matching APK/AAB/MSI)
+- Deleted separate changelog.yml workflow
+- Version properties verified in build.gradle.kts and Config.xcconfig
+
+### Plans
+1. **13-01:** Consolidate workflow with changelog inputs, validation, and artifact naming
+   - Tasks: Add workflow inputs, create bump-and-notes job, update release notes, rename artifacts
+   - Files: .github/workflows/build-release.yml, .github/workflows/changelog.yml (delete)
+   - Autonomous: Yes
+
+### Dependencies
+- No blocker on prior phases (pure CI/CD configuration, no code changes)
+
+### Key Files Modified
+- `.github/workflows/build-release.yml` (consolidated, new inputs, new job, validation)
+- `.github/workflows/changelog.yml` (deleted)
+
+### Notes
+Phase 13 is final phase of v3.0 milestone. After Phase 13 completes, project is ready for v3.0 release with integrated release automation.
+
+---
+
 ## Execution Strategy
 
 ### Wave Pattern
@@ -274,12 +332,14 @@ All success criteria met and verified. Phase 10 is production-ready for deployme
 - **Wave 4 (Weeks 8-10):** Phase 10 - Android API compliance
 - **Wave 5 (Weeks 11-13):** Phase 11 - Background services
 - **Wave 6 (Weeks 14-17):** Phase 12 - Code quality & cleanup
+- **Wave 7 (Final):** Phase 13 - Deploy pipeline automation
 
 ### Key Decision Points
 1. **Phase 8 Sign-off:** Verify ANR elimination before proceeding to Phases 9-11
 2. **Phase 10 Decision:** Defer foldable support if physical testing unavailable; document in ADR
 3. **Phase 11 Decision:** Evaluate DI framework adoption; may defer to v3.1 if complexity too high
 4. **Phase 12 Decision:** Defer Material3 stable update if not released by week 14; use alpha/beta if necessary
+5. **Phase 13 Release:** After approval, trigger build-release.yml to publish v3.0
 
 ### Testing & Validation
 - **Phase 8:** ANR profiler testing on Android 12+; memory profiler across screen transitions
@@ -287,6 +347,7 @@ All success criteria met and verified. Phase 10 is production-ready for deployme
 - **Phase 10:** Testing on Android 14, 15, 16 emulators; Galaxy Z Fold/Flip emulator for foldables
 - **Phase 11:** Battery profiler for background sync; connection pool profiler for HttpClient
 - **Phase 12:** UI frame rate profiling; deterministic testing for loading state race conditions
+- **Phase 13:** Workflow execution test (bump=patch, manual inputs); verify all artifacts named correctly
 
 ---
 
@@ -300,6 +361,7 @@ All success criteria met and verified. Phase 10 is production-ready for deployme
 | DI framework adoption causes regressions | Medium | Low | Evaluate only; defer to v3.1 if too risky |
 | Flow-based loading introduces new race conditions | Medium | Low | Comprehensive unit tests; use cold Flow pattern |
 | Edge-to-edge layout issues on Android 14 | Medium | Low | Test on Android 14/15 range; use WindowCompat |
+| Version mismatch in release workflow | Medium | Low | Validation step fails early; detailed error messaging |
 
 ---
 
@@ -308,21 +370,11 @@ All success criteria met and verified. Phase 10 is production-ready for deployme
 **Milestone:** v3.0 Stability & Compliance  
 **Previous Milestone:** v2.0 (ended at Phase 7.1)  
 **Phase Numbering:** Continues from Phase 7.1 (starts at Phase 8)  
-**Target Release Date:** 2026-06-30 (16 weeks from 2026-04-09)
+**Target Release Date:** 2026-05-31 (after Phase 13 completion)
 
-This roadmap ensures 100% coverage of all 15 requirements (5 STAB, 3 ANDROID, 3 BG, 5 CODE) across 5 focused phases that are independently testable and deployable.
-
-### Phase 13: Fix deploy pipeline version bumping across all KMP targets and add manual workflow trigger with multilingual release notes
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 12
-**Plans:** 1/1 plans complete
-
-Plans:
-- [ ] TBD (run /gsd-plan-phase 13 to break down)
+This roadmap ensures 100% coverage of all 17 requirements (5 STAB, 3 ANDROID, 3 BG, 5 CODE, 1 DEPLOY) across 6 focused phases that are independently testable and deployable.
 
 ---
 
 *Created: 2026-04-09*  
-*Last Updated: 2026-04-09*
+*Last Updated: 2026-04-10*
