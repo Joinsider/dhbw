@@ -138,10 +138,6 @@ jobs:
           sed -i -E "s/(versionName\s*=\s*)\"v?[^\"]+\"/\1\"v$NEW\"/" composeApp/build.gradle.kts
           # Update Desktop packageVersion (pure semver)
           sed -i -E "s/(packageVersion\s*=\s*)\"[^\"]+\"/\1\"$NEW\"/" composeApp/build.gradle.kts
-           # Update platform-specific package versions (DMG, MSI, DEB)
-           sed -i -E "s/(dmgPackageVersion\s*=\s*)\"[^\"]+\"/\1\"$NEW\"/" composeApp/build.gradle.kts
-           sed -i -E "s/(msiPackageVersion\s*=\s*)\"[^\"]+\"/\1\"$NEW\"/" composeApp/build.gradle.kts
-           sed -i -E "s/(debPackageVersion\s*=\s*)\"[^\"]+\"/\1\"$NEW\"/" composeApp/build.gradle.kts
           # Update Fat Jar archiveVersion
           sed -i -E "s/(archiveVersion\.set\()\"[^\"]+\"\)/\1\"$NEW\")/" composeApp/build.gradle.kts
           
@@ -152,7 +148,7 @@ jobs:
           fi
 
           echo "--- Updated composeApp/build.gradle.kts ---"
-          grep -E "versionName|versionCode|packageVersion|dmgPackageVersion|msiPackageVersion|debPackageVersion|archiveVersion" composeApp/build.gradle.kts
+          grep -E "versionName|versionCode|packageVersion|archiveVersion" composeApp/build.gradle.kts
           
           if [ -f "iosApp/Configuration/Config.xcconfig" ]; then
             echo "--- Updated iosApp/Configuration/Config.xcconfig ---"
@@ -178,25 +174,13 @@ jobs:
              ERRORS=$((ERRORS + 1))
            fi
            
-           # Desktop (5 fields: packageVersion, archiveVersion, dmg, msi, deb)
+           # Desktop (2 fields: packageVersion, archiveVersion)
            if ! grep -q "packageVersion.*"$NEW"" composeApp/build.gradle.kts; then
              echo "❌ ERROR: Desktop packageVersion not updated to $NEW"
              ERRORS=$((ERRORS + 1))
            fi
            if ! grep -q "archiveVersion\.set("$NEW")" composeApp/build.gradle.kts; then
              echo "❌ ERROR: Desktop archiveVersion not updated to $NEW"
-             ERRORS=$((ERRORS + 1))
-           fi
-           if ! grep -q "dmgPackageVersion.*"$NEW"" composeApp/build.gradle.kts; then
-             echo "❌ ERROR: Desktop dmgPackageVersion not updated to $NEW"
-             ERRORS=$((ERRORS + 1))
-           fi
-           if ! grep -q "msiPackageVersion.*"$NEW"" composeApp/build.gradle.kts; then
-             echo "❌ ERROR: Desktop msiPackageVersion not updated to $NEW"
-             ERRORS=$((ERRORS + 1))
-           fi
-           if ! grep -q "debPackageVersion.*"$NEW"" composeApp/build.gradle.kts; then
-             echo "❌ ERROR: Desktop debPackageVersion not updated to $NEW"
              ERRORS=$((ERRORS + 1))
            fi
            

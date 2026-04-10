@@ -202,9 +202,6 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "dhbw-horb-student-app"
             packageVersion = "2.0.3"
-            dmgPackageVersion = "2.0.3"
-            msiPackageVersion = "2.0.3"
-            debPackageVersion = "2.0.3"
             // Avoid SSL trust chain issues in packaged apps caused by missing JDK modules.
             includeAllModules = true
             modules(
