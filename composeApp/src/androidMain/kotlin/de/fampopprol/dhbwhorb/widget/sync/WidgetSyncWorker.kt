@@ -63,6 +63,23 @@ class WidgetSyncWorker(
 
         /** Enqueue a periodic background sync (every 30 min, network required). */
         fun schedulePeriodicSync(context: Context) {
+            // Smart scheduling: only schedule if user has active widgets
+            // Rationale: Battery efficiency; users without widgets never trigger background work
+            val widgetManager = GlanceAppWidgetManager(context)
+            val hasActiveWidgets = try {
+                val widgetIds = widgetManager.getGlanceIds(TimetableGlanceWidget::class.java)
+                widgetIds.isNotEmpty()
+            } catch (e: Exception) {
+                Napier.w("Failed to check active widgets: ${e.message}", tag = TAG)
+                // On error, assume widgets may exist — err on the side of scheduling
+                true
+            }
+
+            if (!hasActiveWidgets) {
+                Napier.d("No active widgets detected — skipping periodic sync scheduling", tag = TAG)
+                return
+            }
+
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
@@ -74,7 +91,7 @@ class WidgetSyncWorker(
                 ExistingPeriodicWorkPolicy.KEEP,
                 request,
             )
-            Napier.d("Periodic widget sync scheduled every $REPEAT_INTERVAL_MINUTES min", tag = TAG)
+            Napier.d("✓ Periodic widget sync scheduled every $REPEAT_INTERVAL_MINUTES min (active widgets detected)", tag = TAG)
         }
 
         /** Enqueue an immediate one-time sync (e.g. from onUpdate). */
