@@ -1,0 +1,1 @@
+Release v2.1.0  Fixes: - Fixes SSL issues with Dualis on android versions < 14 - Better stability than in older versions
