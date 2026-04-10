@@ -11,6 +11,10 @@ import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+// Material3 Expressive Components (Phase 12, D-11):
+// App uses Material3 Expressive which requires alpha releases.
+// Stable 1.10.0 release will break Expressive components.
+// Keep alpha version; update only to newer alphas if needed for bug fixes.
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
