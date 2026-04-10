@@ -68,8 +68,13 @@ class MainActivity : ComponentActivity() {
 
     // ViewModel at activity scope - persists across activity recreation
     private lateinit var timetableViewModel: TimetableViewModel
-    
-    // Lifecycle-aware manager for HttpClient for definitive cleanup
+
+    // Lifecycle-aware manager for HttpClient resource cleanup.
+    // The httpClientManager implements DefaultLifecycleObserver and calls httpClient.close()
+    // in onDestroy(), preventing "too many open connections" errors on app restart.
+    // This cleanup is registered with lifecycle.addObserver() at line ~100.
+    // See HttpClientManager class for implementation details.
+    // Requirement BG-02: HttpClient Resource Leaks (Phase 8 completion verified)
     private val httpClientManager = HttpClientManager()
     
     // Non-UI services
