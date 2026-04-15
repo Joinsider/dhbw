@@ -43,18 +43,19 @@ jobs:
           
           # Find and download the deb asset
           ASSET_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | endswith(".deb")) | .url')
+          ASSET_NAME=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | endswith(".deb")) | .name')
           
           if [ -z "$ASSET_URL" ]; then
             echo "Error: No .deb asset found in release $RELEASE_TAG"
             exit 1
           fi
           
-          echo "Downloading asset from: $ASSET_URL"
+          echo "Downloading asset from: $ASSET_URL (saving as $ASSET_NAME)"
           
           # Download the asset
           curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                -H "Accept: application/octet-stream" \
-               "$ASSET_URL" -o downloads/dhbw-next_amd64.deb
+               "$ASSET_URL" -o "downloads/$ASSET_NAME"
 
       - name: Setup APT repository structure
         run: |
@@ -166,9 +167,9 @@ jobs:
               <h2>Step 2: Add Repository</h2>
               <pre>echo "deb [arch=amd64 signed-by=/usr/share/keyrings/dhbw-next.gpg] https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }} stable main" | sudo tee /etc/apt/sources.list.d/dhbw-next.list</pre>
           
-              <h2>Step 3: Install</h2>
+              <h2>Step 3: Install / Upgrade</h2>
               <pre>sudo apt update
-          sudo apt install dhbw-next</pre>
+          sudo apt install dhbw-horb-student-app</pre>
           
               <hr>
               <p><a href="pool/">Browse packages</a> | <a href="dists/">Browse distributions</a></p>
