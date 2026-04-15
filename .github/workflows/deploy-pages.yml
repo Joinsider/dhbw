@@ -87,8 +87,8 @@ jobs:
         run: |
           cd public
           
-          # Generate Packages for amd64
-          dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
+          # Force dpkg-scanpackages to pick up all architectures implicitly or without flag if single architecture handling is fuzzy
+          dpkg-scanpackages pool/ > dists/stable/main/binary-amd64/Packages
           gzip -9 -k -f dists/stable/main/binary-amd64/Packages
 
       - name: Generate Release file
