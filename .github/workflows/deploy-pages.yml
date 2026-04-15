@@ -87,7 +87,17 @@ jobs:
         run: |
           cd public
           
-          # Use --arch amd64 explicitly again but ensure apt accepts architecture mismatch by parsing it properly
+          # dpkg-scanpackages filters strict architecture matches when looking inside the deb control files. Let's enforce that dpkg finds our files
+          mkdir -p tmp_deb_extract
+          for f in pool/main/*.deb; do 
+            dpkg-deb -R "$f" tmp_deb_extract
+            sed -i 's/Architecture: .*/Architecture: amd64/' tmp_deb_extract/DEBIAN/control
+            dpkg-deb -b tmp_deb_extract "$f"
+            rm -rf tmp_deb_extract/*
+          done
+          rm -rf tmp_deb_extract
+          
+          # Now scan the fixed debs
           dpkg-scanpackages -a amd64 pool/ > dists/stable/main/binary-amd64/Packages
           gzip -9 -k -f dists/stable/main/binary-amd64/Packages
 
