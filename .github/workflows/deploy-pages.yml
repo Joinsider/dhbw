@@ -29,7 +29,7 @@ jobs:
         with:
           lfs: true
 
-      - name: Download AMD64 DEB from latest release
+      - name: Download DEB from latest release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -41,11 +41,11 @@ jobs:
           
           echo "Latest release tag: $RELEASE_TAG"
           
-          # Find and download the amd64.deb asset
-          ASSET_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | contains("amd64.deb")) | .url')
+          # Find and download the deb asset
+          ASSET_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | endswith(".deb")) | .url')
           
           if [ -z "$ASSET_URL" ]; then
-            echo "Error: No amd64.deb asset found in release $RELEASE_TAG"
+            echo "Error: No .deb asset found in release $RELEASE_TAG"
             exit 1
           fi
           
