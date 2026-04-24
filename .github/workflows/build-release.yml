@@ -1,11 +1,11 @@
 name: Build and Release Multi-Platform Packages
 
 on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main
+  #pull_request:
+  #  types:
+  #    - closed
+  #  branches:
+  #    - main
   # -- Manual trigger -----------------------------------------------------------
   # Choose how the version should be incremented before building.
   # On a PR merge the default (patch) is used automatically.
