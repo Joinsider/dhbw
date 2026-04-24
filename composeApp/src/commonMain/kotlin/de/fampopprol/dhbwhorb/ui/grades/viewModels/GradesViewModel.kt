@@ -110,7 +110,7 @@ class GradesViewModel(
     }
 
     fun loadSemesters() {
-        uiState = uiState.copy(isLoadingSemesters = true, error = null, requiresLogin = false)
+        uiState = uiState.copy(isLoadingSemesters = true, isLoading = true, error = null, requiresLogin = false)
         
         coroutineScope.launch {
             try {
@@ -123,6 +123,7 @@ class GradesViewModel(
                     Napier.e("GradeService not ready after retry", tag = TAG)
                     uiState = uiState.copy(
                         isLoadingSemesters = false,
+                        isLoading = false,
                         error = "Grades service not available. Please try again later."
                     )
                     return@launch
@@ -146,18 +147,16 @@ class GradesViewModel(
 
                 result.onSuccess { semesters ->
                     Napier.d("Loaded ${semesters.size} semesters", tag = TAG)
-                    // Select the first semester (usually the most recent one) by default if nothing is selected
-                    val defaultSemesterId = semesters.values.firstOrNull()
+                    // Automatically load the combined page (ALL_SEMESTERS_ID) by default
                     
                     uiState = uiState.copy(
                         semesters = semesters,
-                        selectedSemesterId = defaultSemesterId,
-                        isLoadingSemesters = false
+                        selectedSemesterId = ALL_SEMESTERS_ID,
+                        isLoadingSemesters = false,
+                        isLoading = true // Will be set by loadAllGrades
                     )
 
-                    if (defaultSemesterId != null) {
-                        loadGradesForSemester(defaultSemesterId, semesters.entries.first { it.value == defaultSemesterId }.key)
-                    }
+                    loadAllGrades()
                 }.onFailure { e ->
                     Napier.e("Failed to load semesters: ${e.message}", e, tag = TAG)
                     uiState = uiState.copy(

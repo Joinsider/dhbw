@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +28,7 @@ import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeEntity
 import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.grades
 import de.fampopprol.dhbwhorb.resources.login_required_for_grades
+import de.fampopprol.dhbwhorb.resources.retry
 import de.fampopprol.dhbwhorb.ui.grades.components.GpaSummaryCard
 import de.fampopprol.dhbwhorb.ui.grades.components.GradeCard
 import de.fampopprol.dhbwhorb.ui.grades.components.OverallStatsCard
@@ -135,7 +138,7 @@ fun GradesPage(
                         style = MaterialTheme.typography.bodyLarge
                     )
                 }
-            } else if ((uiState.isLoading || actualViewModel == null) && uiState.grades.isEmpty()) {
+            } else if ((uiState.isLoading || uiState.isLoadingSemesters || actualViewModel == null) && uiState.grades.isEmpty()) {
                 // Skeleton UI for Grades
                 LazyColumn(
                     modifier = Modifier
@@ -161,11 +164,23 @@ fun GradesPage(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = uiState.error,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(16.dp)
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = uiState.error,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        
+                        Button(
+                            onClick = { actualViewModel?.loadSemesters() }
+                        ) {
+                            Text(text = stringResource(Res.string.retry))
+                        }
+                    }
                 }
             } else {
                 PullToRefreshBox(
