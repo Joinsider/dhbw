@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -171,21 +170,11 @@ fun GradesPage(
             } else {
                 PullToRefreshBox(
                     isRefreshing = uiState.isRefreshing,
-                    onRefresh = { actualViewModel?.refreshGrades() },
+                    onRefresh = {
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                        actualViewModel?.refreshGrades()
+                    },
                     modifier = Modifier.fillMaxSize(),
-                    indicator = {
-                        if (uiState.isRefreshing) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(top = 58.dp),
-                                contentAlignment = Alignment.TopCenter
-                            ) {
-                                LoadingIndicator()
-                            }
-                            hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-                        }
-                    }
                 ) {
                     LazyColumn(
                         modifier = Modifier
