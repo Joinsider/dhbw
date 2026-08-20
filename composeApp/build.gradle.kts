@@ -171,7 +171,13 @@ android {
             all {
                 // Exclude Compose UI tests from Android unit tests
                 // These tests work on iOS and JVM but require instrumented tests on Android
-                it.exclude("**/AppTest.class", "**/LoginFormTest.class", "**/ui/**/*Test.class")
+                it.exclude(
+                    "**/AppTest.class",
+                    "**/LoginFormTest.class",
+                    "**/ui/**/*Test.class",
+                    // Renders Compose UI, needs an Android runtime (Build.FINGERPRINT); covered by desktopTest.
+                    "**/Phase8StabilityTest.class"
+                )
             }
         }
     }

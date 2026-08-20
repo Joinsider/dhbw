@@ -80,7 +80,8 @@ class ViewModelCleanupTest {
         )
         
         // Starts loading in init
-        assertTrue(viewModel.uiState.isLoading, "Initially loading")
+        testScheduler.runCurrent()
+        assertTrue(viewModel.uiState.isLoadingWeeks.contains(0), "Initially loading week 0")
         
         // Simulating user navigating away (calling back button / close)
         viewModel.cleanup()

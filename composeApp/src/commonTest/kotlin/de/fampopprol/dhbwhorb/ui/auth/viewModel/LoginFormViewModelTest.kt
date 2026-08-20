@@ -186,9 +186,27 @@ class LoginFormViewModelTest {
     }
 
     @Test
-    fun validateFields_specialCharactersInUsername_fails() {
+    fun validateFields_dottedUsername_isAccepted() {
         val viewModel = LoginFormViewModel()
         viewModel.onUsernameChange("test.user@hb.dhbw-stuttgart.de")
+        viewModel.onPasswordChange("password123")
+
+        val isValid = viewModel.validateFields(
+            usernameCannotBeEmpty = "Username cannot be empty",
+            usernameInvalidFormat = "Username must be valid email",
+            passwordCannotBeEmpty = "Password cannot be empty"
+        )
+
+        assertTrue(isValid, "firstname.lastname@hb.dhbw-stuttgart.de is the regular DHBW format")
+        assertNull(viewModel.uiState.usernameError)
+    }
+
+    @Test
+    fun validateFields_specialCharactersInUsername_fails() {
+        val viewModel = LoginFormViewModel()
+        // Note: dots ARE allowed (test.user@… is the regular DHBW address format). Characters
+        // outside [a-zA-Z0-9.] such as '+' are what the pattern is meant to reject.
+        viewModel.onUsernameChange("test+user@hb.dhbw-stuttgart.de")
         viewModel.onPasswordChange("password123")
 
         val isValid = viewModel.validateFields(
