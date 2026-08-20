@@ -1,11 +1,11 @@
 import SwiftUI
-import composeApp
+import ComposeApp
 
 @main
 struct iOSApp: App {
 
     init() {
-        UIRootViewControllerHelper.getViewController = {
+        UIRootViewControllerHelper.shared.getViewController = {
             let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene
             return windowScene?.windows.first?.rootViewController
         }

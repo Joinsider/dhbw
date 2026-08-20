@@ -4,32 +4,40 @@ Kotlin Multiplatform (KMP) app targeting **Android, Desktop (JVM), iOS, macOS** 
 
 ## Architecture Overview
 
-Single module `composeApp` with KMP source sets. Package root: `de.fampopprol.dhbwhorb`.
+Multi-module KMP build. Package root stays `de.fampopprol.dhbwhorb` in every module — module
+boundaries do not change package names, so imports are identical across the split.
 
 ```
-commonMain/
-  data/
-    dualis/
-      remote/         # HTTP client, HTML parsers, services (AuthenticationService, DualisGradeService, DualisLectureService)
-      demo/           # Demo mode static data (DemoDataProvider)
-      models/         # Domain models (Course, Exam, Grade, Timetable, …)
-    storage/
-      credentials/    # SecureStorage (expect/actual), SecureStorageWrapper, SecureStorageInterface
-      database/       # Room AppDatabase v4, DatabaseFactory (expect/actual getDatabaseBuilder)
-      preferences/    # ThemePreferences, NotificationPreferences (use SecureStorage directly)
-  services/
-    LectureService.kt                 # Cache-first: returns DB data, background-refreshes if >3 days old
-    notifications/                    # NotificationDispatcher (expect/actual), LectureChangeMonitor
-  ui/
-    pages/            # LoginPage, StartPage, TimetablePage, GradesPage, SettingsPage
-    grades/viewModels/GradesViewModel.kt
-    schedule/viewModels/TimetableViewModel.kt
-    navigation/BottomNavigationBar.kt
-    theme/            # Theme.kt (MaterialExpressiveTheme + material-kolor for Material You)
-  util/Platform.kt    # PlatformType enum + isMobilePlatform()
+:core:common     Platform detection, AndroidAppContext           (no dependencies)
+:domain          Dualis models, TimeHelper                       -> :core:common
+:data            Ktor client, HTML parsers, Dualis services,
+                 Room database + DAOs, SecureStorage, prefs      -> :domain
+:services        LectureService, notifications, widget use
+                 cases, FileViewer                               -> :data
+:presentation    ViewModels                                      -> :services
+:shared          Umbrella; exports the four modules above as
+                 `Shared.framework` for Apple targets — no Compose
+:composeApp      Compose UI, navigation, platform entry points,
+                 Android Glance widget                           -> all of the above
 ```
 
-Platform entry points: `androidMain/MainActivity.kt`, `desktopMain/main.kt`.
+`:presentation` is deliberately NOT part of `Shared.framework`: its ViewModels still hold state in
+Compose's `mutableStateOf`. It joins once they expose `StateFlow` instead.
+
+Verify the framework stays Compose-free after changes:
+
+```bash
+./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
+nm -gU shared/build/bin/iosSimulatorArm64/debugFramework/Shared.framework/Shared | grep -c androidx.compose   # must be 0
+```
+
+Two service locators exist as bridges and are meant to disappear once DI is in place:
+`AndroidAppContext` (`:core:common`) hands the Android Context to `:data`, and
+`WidgetRefreshTrigger` (`:services`) lets background work request a Glance refresh that only
+`:composeApp` can perform.
+
+Platform entry points: `composeApp/androidMain/MainActivity.kt`, `composeApp/desktopMain/main.kt`,
+`composeApp/iosMain/MainViewController.kt`.
 
 ## Critical Patterns
 
@@ -59,7 +67,7 @@ var uiState by mutableStateOf(GradesUiState())
 ```
 
 ### Room Database
-Schema version 4, `exportSchema = true`, schemas in `composeApp/schemas/`. Uses `fallbackToDestructiveMigration(dropAllTables = true)` — **no manual migrations**. KSP processors declared per target in `dependencies {}`:
+Schema version 4, `exportSchema = true`, schemas in `data/schemas/`. Uses `fallbackToDestructiveMigration(dropAllTables = true)` — **no manual migrations**. KSP processors declared per target in `dependencies {}`:
 ```kotlin
 add("kspAndroid", libs.androidx.room.compiler)
 add("kspDesktop", libs.androidx.room.compiler)
@@ -117,6 +125,6 @@ Files must include SPDX headers:
 | `…/data/dualis/remote/DualisApiClient.kt` | Raw HTTP GET; no parsing |
 | `…/services/LectureService.kt` | Cache-first fetch strategy (3-day threshold) |
 | `…/data/storage/database/AppDatabase.kt` | Room DB definition; `clearAllData()` for logout |
-| `composeApp/schemas/` | Room schema exports (auto-generated, do not edit) |
+| `data/schemas/` | Room schema exports (auto-generated, do not edit) |
 | `gradle/libs.versions.toml` | All dependency versions and plugin aliases |
 

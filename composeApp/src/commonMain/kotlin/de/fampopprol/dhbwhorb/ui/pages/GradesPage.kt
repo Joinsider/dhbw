@@ -93,6 +93,9 @@ fun GradesPage(
     val hapticFeedback = LocalHapticFeedback.current
 
     // If we were previously blocked due to missing login and the app is now logged in, try again once
+    // Local val: smart casts do not cross module boundaries since the state moved to :presentation.
+    val errorMessage = uiState.error
+
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn && uiState.requiresLogin) {
             actualViewModel?.loadSemesters()
@@ -160,7 +163,7 @@ fun GradesPage(
                         GradeCardSkeleton()
                     }
                 }
-            } else if (uiState.error != null && uiState.grades.isEmpty()) {
+            } else if (errorMessage != null && uiState.grades.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -170,7 +173,8 @@ fun GradesPage(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(
-                            text = uiState.error,
+                            // Local val: smart casts do not cross module boundaries.
+                            text = errorMessage,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(16.dp),
                             style = MaterialTheme.typography.bodyLarge
@@ -244,9 +248,10 @@ fun GradesPage(
                             }
                         } else {
                             // Single semester mode - show as before
-                            if (uiState.semesterGpa != null) {
+                            val semesterGpa = uiState.semesterGpa
+                            if (semesterGpa != null) {
                                 item {
-                                    GpaSummaryCard(gpa = uiState.semesterGpa)
+                                    GpaSummaryCard(gpa = semesterGpa)
                                 }
                             }
 
