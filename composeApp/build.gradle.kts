@@ -8,8 +8,6 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
-    alias(libs.plugins.ksp)
-    alias(libs.plugins.androidx.room)
     alias(libs.plugins.kover)
     alias(libs.plugins.kotlinSerialization)
 }
@@ -28,6 +26,14 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
+
+            // Swift reaches into the shared modules (e.g. UIRootViewControllerHelper), and
+            // implementation dependencies do not end up in the framework's public API.
+            export(projects.core.common)
+            export(projects.domain)
+            export(projects.data)
+            export(projects.services)
+            export(projects.presentation)
         }
     }
 
@@ -56,6 +62,12 @@ kotlin {
             implementation(libs.androidx.window)
         }
         commonMain.dependencies {
+            api(projects.core.common)
+            api(projects.domain)
+            api(projects.data)
+            api(projects.services)
+            api(projects.presentation)
+
             implementation(compose.runtime)
             implementation(compose.foundation)
             // Material3 Expressive Components:
@@ -69,12 +81,9 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
-            implementation(libs.androidx.room.runtime)
-            implementation(libs.androidx.sqlite.bundled)
             implementation(libs.kotlinx.datetime)
             implementation(libs.material.icons.extended)
             implementation(libs.napier)
-            implementation(libs.ktor.client.core)
             implementation(libs.kotlinx.datetime.v040)
             implementation(libs.kotlinx.serialization.json)
             implementation("com.materialkolor:material-kolor:4.0.5") {
@@ -83,6 +92,11 @@ kotlin {
         }
 
         commonTest.dependencies {
+            // The test suite still lives here while the module contracts settle (see P1 notes).
+            // It builds Room databases and Ktor mocks directly, so it needs those artefacts even
+            // though :data keeps them as implementation details.
+            implementation(libs.androidx.sqlite.bundled)
+            implementation(libs.ktor.client.core)
             implementation(libs.kotlin.test)
             @OptIn(ExperimentalComposeLibrary::class)
             implementation(compose.uiTest)
@@ -188,12 +202,14 @@ android {
 
 dependencies {
     debugImplementation(compose.uiTooling)
-    add("kspAndroid", libs.androidx.room.compiler)
-    add("kspIosSimulatorArm64", libs.androidx.room.compiler)
-    add("kspIosArm64", libs.androidx.room.compiler)
-    add("kspMacosArm64", libs.androidx.room.compiler)
-    add("kspMacosX64", libs.androidx.room.compiler)
-    add("kspDesktop", libs.androidx.room.compiler)
+
+    // Aggregate the library modules into this project's coverage report — after the module split
+    // the report would otherwise only cover the UI layer.
+    kover(projects.core.common)
+    kover(projects.domain)
+    kover(projects.data)
+    kover(projects.services)
+    kover(projects.presentation)
 }
 
 compose.desktop {
@@ -249,10 +265,6 @@ compose.resources {
     packageOfResClass = "de.fampopprol.dhbwhorb.resources"
     publicResClass = true
     generateResClass = always
-}
-
-room {
-    schemaDirectory("$projectDir/schemas")
 }
 
 // ─── Kover — KMP-unified coverage ────────────────────────────────────────────

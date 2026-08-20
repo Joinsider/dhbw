@@ -174,28 +174,68 @@ Jahr, und eine Woche über den Jahreswechsel bekommt für beide Hälften dasselb
 braucht den angefragten Datumsbereich, den der Parser nicht kennt; sie gehört in die
 Repository-Schicht. Als `@Ignore`-Test in `TimetableParserTest` festgehalten, **fällig in P3**.
 
-### P1 — Modulschnitt, ohne Verhaltensänderung · Größe L
+### P1 — Modulschnitt · Größe L · **abgeschlossen**
 
-Reines Verschieben. Keine Logik ändern, kein Bugfix nebenbei — sonst ist der Diff nicht reviewbar.
+Der Package-Root bleibt in jedem Modul `de.fampopprol.dhbwhorb`, Modulgrenzen ändern keine
+Package-Namen — deshalb war kein einziger Import anzupassen.
 
-* Module gemäß §1.1 anlegen, `settings.gradle.kts` erweitern.
-* Verschieben: `data/dualis/**` → `:data:dualis`; `data/storage/**` → `:data:local`;
-  `data/dualis/models/**` + `data/helpers/**` → `:domain`; `util/Platform.kt` → `:core:common`.
-* KSP/Room-Konfiguration wandert vollständig nach `:data:local` (inkl. `schemas/`-Verzeichnis
-  und der `kspAndroid`/`kspIos*`/`kspMacos*`/`kspDesktop`-Einträge).
-* `:shared` als Umbrella anlegen, Framework `baseName = "Shared"`, `isStatic = true`,
-  `export(projects.domain)` + `export(projects.presentation)` + `export(projects.core.common)`.
-  Der bestehende `ComposeApp`-Framework-Export bleibt zunächst parallel bestehen, damit iOS
-  weiterläuft, während P7 noch nicht fertig ist.
-* SKIE-Plugin (`co.touchlab.skie`) auf `:shared` aktivieren.
+```
+:core:common    11 Dateien   Platform-Erkennung, AndroidAppContext
+:domain         11 Dateien   Dualis-Modelle, TimeHelper
+:data           55 Dateien   Ktor, Parser, Dualis-Services, Room + DAOs, SecureStorage, Prefs
+:services       30 Dateien   LectureService, Notifications, Widget-UseCases, FileViewer
+:presentation    6 Dateien   ViewModels
+:shared          1 Datei     Umbrella -> Shared.framework für Apple
+:composeApp     52 Dateien   Compose-UI, Navigation, Entry Points, Glance-Widget
+```
 
-**Fertig wenn:** `./gradlew build` grün auf allen Targets; `:shared`-Framework enthält keine
-Compose-Symbole (Prüfung: `nm -gU Shared.framework/Shared | grep -ci androidx.compose` ergibt 0);
-Framework-Größe protokolliert als Baseline für P7.
+**Abnahme erfüllt:** `Shared.framework` (iosSimulatorArm64) enthält **0 Compose-Symbole** bei
+**72 MB** — gegenüber 368 MB und 50.066 Compose-Symbolen im bestehenden `ComposeApp.framework`.
+Alle Targets kompilieren (Android, Desktop, iosArm64, iosSimulatorArm64, macosArm64, macosX64),
+beide Gates grün: 209 / 320 Tests, 0 Fehler.
 
-**Risiko:** Room-KSP über Modulgrenzen bei nativen Targets ist erfahrungsgemäß die fehleranfälligste
-Stelle. Wenn `:data:local` auf iosArm64 nicht durchgeht, zuerst nur Android+Desktop schneiden und
-die nativen Targets in einem Folge-Commit nachziehen.
+`:presentation` ist bewusst **nicht** Teil von `Shared.framework`. Ein erster Versuch mit
+Presentation im Framework ergab 19.504 Compose-Symbole und 180 MB, weil die ViewModels über
+`mutableStateOf` und `lifecycle-viewmodel-compose` an der Compose-Runtime hängen. Das Modul kommt
+in P4 dazu, sobald die Stores `StateFlow` liefern.
+
+**Drei Zyklen, die der Schnitt sichtbar gemacht hat.** Alle drei sind derselbe Befund: Zugriff auf
+App-Ressourcen wird heute über statische Halter gelöst, und die stehen im App-Modul.
+
+1. `SecureStorage.android` las `DualisApplication.appContext` → hätte `:data → :composeApp`
+   bedeutet. Der Context-Halter ist als `AndroidAppContext` nach `:core:common` gewandert,
+   `DualisApplication` befüllt ihn in `onCreate()`.
+2. `LectureMonitorScheduler.android` rief `WidgetSyncWorker` direkt auf, der Glance braucht und
+   deshalb in `:composeApp` bleiben muss. Umgedreht über `WidgetRefreshTrigger`, den
+   `DualisApplication` bedient — `Application.onCreate()` läuft immer vor jedem Worker im Prozess.
+3. `FileViewer.android` holt seinen Context aus `NotificationDispatcher.getContext()`. Deshalb
+   liegt `FileViewer` jetzt in `:services` statt in `:core:common` — dort, wo seine
+   Abhängigkeiten sind.
+
+Beide neuen Halter sind Service Locators und teilen deren Probleme. **P2 ersetzt sie durch
+Koin-Bereitstellung** — sie sind ausdrücklich Übergangslösungen, keine Zielarchitektur.
+
+**Coverage-Report repariert.** Nach dem Schnitt deckte `koverXmlReportKmpCoverage` nur noch
+`:composeApp` ab (18 Pakete, ohne Parser und Data) — die CI hätte weiter grün gemeldet, während
+SonarCloud den größten Teil des Codes nicht mehr sieht. Kover ist jetzt in allen Modulen aktiv und
+wird über `kover(projects.…)` in `:composeApp` aggregiert: 49 Pakete, 33,7 % Instruction-Coverage.
+
+**Der iOS-Build war schon vor P1 kaputt** und ist jetzt repariert. Auf `v3` wie auf `main`
+scheiterte `xcodebuild` an `import composeApp` (klein geschrieben, das Framework heißt
+`ComposeApp`); danach an `UIRootViewControllerHelper.getViewController`, denn ein Kotlin-`object`
+erreicht Swift als `.shared`. Zwei Einzeiler in `iOSApp.swift`. Ohne sie ist auf iOS überhaupt
+nichts verifizierbar, deshalb sind sie trotz der Regel „nur verschieben" Teil dieser Phase.
+Der Simulator-Build läuft jetzt durch.
+
+**Tests sind bewusst in `:composeApp` geblieben.** Sie decken über die Modulgrenzen hinweg weiter
+alles ab, weil `:composeApp` von allen Modulen abhängt, und die CI-Gates bleiben unverändert. Ein
+Umzug der Tests in ihre Module braucht pro Modul eigene Test-Abhängigkeiten und gehört zu P3/P4,
+wenn die Modulverträge stehen. Zwei Test-Abhängigkeiten (`sqlite-bundled`, `ktor-client-core`)
+mussten `:composeApp` explizit bekommen, weil die Tests Room und Ktor direkt benutzen.
+
+**Kleinere Anpassungen:** Zwei Smart Casts in `GradesPage` durch lokale `val`s ersetzt — Smart
+Casts greifen nicht über Modulgrenzen. `ic_school.xml` nach `:services` verschoben, weil
+`NotificationDispatcher` es referenziert und `R` modul-lokal aufgelöst wird.
 
 ### P2 — Koin: ein Composition Root statt drei · Größe M
 
