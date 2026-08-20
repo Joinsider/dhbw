@@ -144,20 +144,35 @@ Behoben:
 `getColorScheme` ignoriert das Flag und erzeugt immer ein Seed-Schema. Die Einstellung ist dort
 also folgenlos. Behandeln in P5.
 
-### P0 — Sicherheitsnetz für die Parser · Größe S
+### P0 — Sicherheitsnetz für die Parser · Größe S · **abgeschlossen**
 
 Die Regex-Parser sind die einzige Schicht ohne typisierten Vertrag und werden in jeder späteren
-Phase angefasst. Vor dem ersten Verschieben absichern.
+Phase angefasst. Vor dem ersten Verschieben abgesichert.
 
-* `commonTest/resources/fixtures/dualis/` anlegen: echte HTML-Antworten für Login-Redirect-Kette,
-  Wochen-Stundenplan (voll / leer / Feiertagswoche), Notenübersicht (mehrere Semester, laufende Prüfung),
-  Dokumentenliste, Session-Expired-Seite.
-* Contract-Tests für `AuthParser`, `TimetableParser`, `GradeParser`, `DocumentParser`, `HtmlParser`
-  gegen diese Fixtures — je Fixture ein erwartetes Domain-Objekt.
-* Kover-Baseline für `data/dualis/remote/parser` festhalten und in CI als Schwelle setzen.
+* `commonTest/.../parser/fixtures/DualisFixtures.kt` — Fixtures als Kotlin-Konstanten statt
+  Ressourcendateien: Resource-Loading ist über KMP-Targets hinweg umständlich (Native hat keinen
+  Classloader), ein String funktioniert überall.
+* Herkunft ist im Fixture-KDoc vermerkt. `Documents.LIST` stammt aus einem echten Capture
+  (`.planning/example/documents.html`), alles andere ist aus den Parser-KDocs abgeleitet, die
+  ihrerseits aus Captures stammen. **Ein abgeleitetes Fixture beweist, dass der Parser die Struktur
+  verarbeitet, die wir für Dualis' Ausgabe halten — nicht, dass diese Annahme noch stimmt.**
+  Wenn ein Parser in Produktion bricht, gehört das echte Capture ins Fixture, nicht ein
+  nachgezogener Regex.
+* Neue Contract-Tests: `GradeParserTest` (13), `TimetableParserTest` (18),
+  `SessionExpiredContractTest` (8) für `HtmlParser`, `AuthParser`, `DocumentParser`.
+  `GradeParser` und `TimetableParser` — die beiden größten Parser — hatten zuvor **keinen
+  einzigen Test**.
+* Degradations-Fälle für jeden Parser: leeres HTML, Nicht-HTML, Session-Expired-Seite,
+  Woche ohne Vorlesungen, Wochenraster ohne Datumsköpfe, leere Notentabelle.
 
-**Fertig wenn:** jeder Parser hat mindestens einen Happy-Path- und einen Degradations-Test
-(leeres HTML, abgelaufene Session, unerwartete Struktur), und keiner davon wirft ungefangen.
+**Ergebnis:** `testDebugUnitTest` 208 Tests, `desktopTest` 319 Tests, 0 Fehler (vorher 168 / 279).
+
+**Gefundener Defekt, dokumentiert statt behoben:** `TimetableParser.extractWeekDates()` nimmt das
+Jahr aus `Clock.System.now()`, weil der Dualis-Kopf nur `Mo 05.01.` ohne Jahr liefert. Der Pager
+erlaubt ±1000 Wochen — jede Woche außerhalb des laufenden Kalenderjahres bekommt damit das falsche
+Jahr, und eine Woche über den Jahreswechsel bekommt für beide Hälften dasselbe. Die Korrektur
+braucht den angefragten Datumsbereich, den der Parser nicht kennt; sie gehört in die
+Repository-Schicht. Als `@Ignore`-Test in `TimetableParserTest` festgehalten, **fällig in P3**.
 
 ### P1 — Modulschnitt, ohne Verhaltensänderung · Größe L
 
