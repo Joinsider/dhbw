@@ -12,6 +12,9 @@ import kotlinx.coroutines.test.*
 import io.ktor.client.HttpClient
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.launch
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class LazyLoadingTest {
@@ -57,17 +60,27 @@ class LazyLoadingTest {
 
     @Test
     fun testDocumentsViewModelHandlesNullServiceInitially() = runTest {
+        // backgroundScope, not `this`: the ViewModel's stateIn job never completes, so a test-scope
+        // child would keep runTest waiting forever.
         val viewModel = DocumentsViewModel(
             dualisDocumentService = null,
-            coroutineScope = this
+            coroutineScope = backgroundScope
         )
-        
-        // Process the initial combine emission
+
+        // uiState is a stateIn(WhileSubscribed) flow: without an active collector its value stays
+        // at the initial default, no matter what the ViewModel does. So subscribe first.
+        backgroundScope.launch { viewModel.uiState.collect { } }
         runCurrent()
-        
-        // Initially it should show loading
+
+        // init { loadDocuments() } sets the loading flag before the retry loop starts.
         assertTrue(viewModel.uiState.value.isLoading, "ViewModel should be in loading state initially")
-        
-        advanceUntilIdle()
+
+        // Retry loop exhausts after ~5s and reports the missing service instead of hanging.
+        // Explicit virtual time instead of advanceUntilIdle(): the ViewModel's work runs in
+        // backgroundScope, whose delays advanceUntilIdle() does not drive.
+        testScheduler.advanceTimeBy(10_000)
+        testScheduler.runCurrent()
+        assertFalse(viewModel.uiState.value.isLoading, "Loading must end once retries are exhausted")
+        assertNotNull(viewModel.uiState.value.error, "A missing service has to surface as an error")
     }
 }

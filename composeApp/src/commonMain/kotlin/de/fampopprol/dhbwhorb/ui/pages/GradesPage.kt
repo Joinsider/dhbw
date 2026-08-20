@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeEntity
 import de.fampopprol.dhbwhorb.resources.Res
@@ -152,7 +153,7 @@ fun GradesPage(
                         Text(
                             text = stringResource(Res.string.grades),
                             style = MaterialTheme.typography.headlineLargeEmphasized,
-                            modifier = Modifier.padding(bottom = 24.dp)
+                            modifier = Modifier.testTag("gradesPageTitle").padding(bottom = 24.dp)
                         )
                     }
                     items(6) {
@@ -203,7 +204,7 @@ fun GradesPage(
                             Text(
                                 text = stringResource(Res.string.grades),
                                 style = MaterialTheme.typography.headlineLargeEmphasized,
-                                modifier = Modifier.padding(bottom = 24.dp)
+                                modifier = Modifier.testTag("gradesPageTitle").padding(bottom = 24.dp)
                             )
                         }
 

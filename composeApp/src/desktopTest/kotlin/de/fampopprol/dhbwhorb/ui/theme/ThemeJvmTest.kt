@@ -11,12 +11,17 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.runComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import androidx.compose.ui.graphics.luminance
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
  * JVM/Desktop-specific theme tests.
- * Tests desktop-specific theming behavior (no dynamic colors).
+ *
+ * Desktop derives its colour scheme from the seed colour via MaterialKolor
+ * (see `Theme.desktop.kt`), it does not use the static [LightColorScheme]/[DarkColorScheme].
+ * These tests therefore assert the seed-derived behaviour, not fixed colour values.
  */
 @OptIn(ExperimentalTestApi::class)
 class ThemeJvmTest {
@@ -32,31 +37,50 @@ class ThemeJvmTest {
     }
 
     @Test
-    fun getColorScheme_lightMode_usesStaticLightColors() = runComposeUiTest {
+    fun getColorScheme_lightMode_derivesSchemeFromSeed() = runComposeUiTest {
+        var defaultSeedPrimary: androidx.compose.ui.graphics.Color? = null
+        var customSeedPrimary: androidx.compose.ui.graphics.Color? = null
+
         setContent {
-            DHBWHorbTheme(darkTheme = false) {
-                val colorScheme = MaterialTheme.colorScheme
-                // Desktop always uses static colors (no Material You)
-                assertEquals(LightColorScheme.primary, colorScheme.primary)
-                assertEquals(LightColorScheme.background, colorScheme.background)
-                assertEquals(LightColorScheme.surface, colorScheme.surface)
-                assertEquals(LightColorScheme.onPrimary, colorScheme.onPrimary)
+            DHBWHorbTheme(darkTheme = false, seedColor = Purple40) {
+                defaultSeedPrimary = MaterialTheme.colorScheme.primary
             }
         }
+        waitForIdle()
+
+        setContent {
+            DHBWHorbTheme(darkTheme = false, seedColor = androidx.compose.ui.graphics.Color(0xFF1B6B2F)) {
+                customSeedPrimary = MaterialTheme.colorScheme.primary
+            }
+        }
+        waitForIdle()
+
+        assertNotNull(defaultSeedPrimary)
+        assertNotNull(customSeedPrimary)
+        assertNotEquals(defaultSeedPrimary, customSeedPrimary, "Seed colour must drive the scheme")
     }
 
     @Test
-    fun getColorScheme_darkMode_usesStaticDarkColors() = runComposeUiTest {
+    fun getColorScheme_darkMode_isDarkerThanLightMode() = runComposeUiTest {
+        var lightBackground: androidx.compose.ui.graphics.Color? = null
+        var darkBackground: androidx.compose.ui.graphics.Color? = null
+
         setContent {
-            DHBWHorbTheme(darkTheme = true) {
-                val colorScheme = MaterialTheme.colorScheme
-                // Desktop always uses static colors (no Material You)
-                assertEquals(DarkColorScheme.primary, colorScheme.primary)
-                assertEquals(DarkColorScheme.background, colorScheme.background)
-                assertEquals(DarkColorScheme.surface, colorScheme.surface)
-                assertEquals(DarkColorScheme.onPrimary, colorScheme.onPrimary)
-            }
+            DHBWHorbTheme(darkTheme = false) { lightBackground = MaterialTheme.colorScheme.background }
         }
+        waitForIdle()
+
+        setContent {
+            DHBWHorbTheme(darkTheme = true) { darkBackground = MaterialTheme.colorScheme.background }
+        }
+        waitForIdle()
+
+        assertNotNull(lightBackground)
+        assertNotNull(darkBackground)
+        assertTrue(
+            darkBackground!!.luminance() < lightBackground!!.luminance(),
+            "Dark theme background must be darker than the light one"
+        )
     }
 
     @Test
@@ -64,7 +88,8 @@ class ThemeJvmTest {
         setContent {
             DHBWHorbTheme {
                 val typography = MaterialTheme.typography
-                assertEquals(Typography, typography)
+                // The theme applies myTypography(), not the static Typography value.
+                assertEquals(myTypography(), typography)
                 assertNotNull(typography.bodyLarge)
                 assertNotNull(typography.headlineLarge)
                 assertNotNull(typography.titleLarge)
@@ -114,8 +139,7 @@ class ThemeJvmTest {
 
         assertNotNull(lightPrimary)
         assertNotNull(darkPrimary)
-        assertEquals(LightColorScheme.primary, lightPrimary)
-        assertEquals(DarkColorScheme.primary, darkPrimary)
+        assertNotEquals(lightPrimary, darkPrimary, "Toggling the theme must change the scheme")
     }
 
     @Test

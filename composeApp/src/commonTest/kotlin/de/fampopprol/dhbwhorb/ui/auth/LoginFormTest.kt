@@ -100,7 +100,8 @@ class LoginFormTest {
             }
         }
 
-        onNodeWithText("Password").assertIsDisplayed()
+        // Tag instead of label text: the label is a localised string resource.
+        onNodeWithTag("passwordField").assertIsDisplayed()
     }
 
     @Test
@@ -111,6 +112,7 @@ class LoginFormTest {
             }
         }
 
-        onNodeWithText("Login").assertIsDisplayed()
+        // Tag instead of button text: the caption is a localised string resource.
+        onNodeWithTag("loginButton").assertIsDisplayed()
     }
 }

@@ -11,6 +11,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runComposeUiTest
+import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
+import de.fampopprol.dhbwhorb.ui.navigation.navItemTestTag
 import kotlin.test.Test
 
 @OptIn(ExperimentalTestApi::class)
@@ -30,8 +32,9 @@ class GradesPageTest {
         onNodeWithTag("gradesPageTitle").assertIsDisplayed()
 
         // Bottom navigation should be visible when logged in
-        onNodeWithText("Timetable").assertIsDisplayed()
-        onNodeWithText("Settings").assertIsDisplayed()
+        // Tags instead of labels: nav captions are localised string resources.
+        onNodeWithTag(navItemTestTag(BottomNavItem.TIMETABLE)).assertIsDisplayed()
+        onNodeWithTag(navItemTestTag(BottomNavItem.SETTINGS)).assertIsDisplayed()
     }
 
     @Test
@@ -48,8 +51,8 @@ class GradesPageTest {
         onNodeWithTag("gradesPageTitle").assertIsDisplayed()
 
         // Bottom navigation should not be visible when not logged in
-        onNodeWithText("Timetable").assertDoesNotExist()
-        onNodeWithText("Settings").assertDoesNotExist()
+        onNodeWithTag(navItemTestTag(BottomNavItem.TIMETABLE)).assertDoesNotExist()
+        onNodeWithTag(navItemTestTag(BottomNavItem.SETTINGS)).assertDoesNotExist()
     }
 }
 

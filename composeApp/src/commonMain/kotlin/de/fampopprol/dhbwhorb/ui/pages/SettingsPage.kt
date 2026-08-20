@@ -109,7 +109,7 @@ fun SettingsPage(
                     onLectureAlertsEnabledChange = onLectureAlertsEnabledChange
                 )
 
-                HelpSelectionCard(onLogout)
+                HelpSelectionCard(onLogout = onLogout, showLogout = isLoggedIn)
             }
         }
     }
