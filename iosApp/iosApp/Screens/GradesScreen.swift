@@ -4,7 +4,11 @@
 import SwiftUI
 import Shared
 
-/// Grades, either for one semester or combined.
+/// Every semester's grades, oldest first.
+///
+/// There is no semester picker any more. The store hands over one list, already in the order the
+/// semesters happened in (`SemesterOrder`), and the sections come from `GradesState.sections` —
+/// the same grouping the Compose page draws, so the two cannot disagree about what belongs where.
 struct GradesScreen: View {
 
     @Environment(AppModel.self) private var model
@@ -22,9 +26,6 @@ struct GradesScreen: View {
                     description: Text("grades.loginRequired")
                 )
             } else {
-                if !state.semesters.isEmpty {
-                    semesterPicker
-                }
                 if let error = state.error {
                     Section {
                         Text(error.userMessage)
@@ -33,29 +34,34 @@ struct GradesScreen: View {
                         Button("common.retry") { model.grades.dispatch(GradesIntentLoad()) }
                     }
                 }
+
                 if state.isLoading && state.grades.isEmpty {
                     HStack { ProgressView(); Text("common.loading").foregroundStyle(.secondary) }
-                } else if visibleGrades.isEmpty {
+                } else if visibleSections.isEmpty {
                     // Two different nothings: a search that matched nothing, and a load that
-                    // brought nothing. Showing "check the spelling" for the second one — which is
-                    // what demo mode produces, because Dualis grades have no demo data — reads as
-                    // if the user had mistyped something.
+                    // brought nothing.
                     if searchText.isEmpty {
-                        ContentUnavailableView(
-                            "grades.emptyTitle",
-                            systemImage: "chart.bar.doc.horizontal",
-                            description: Text("grades.empty")
-                        )
+                        if state.error == nil {
+                            ContentUnavailableView(
+                                "grades.emptyTitle",
+                                systemImage: "chart.bar.doc.horizontal",
+                                description: Text("grades.empty")
+                            )
+                        }
                     } else {
                         ContentUnavailableView.search
                     }
                 } else {
-                    statisticsSection
-                    ForEach(sections, id: \.title) { section in
-                        Section(section.title) {
-                            ForEach(section.entries, id: \.moduleNumber) { entry in
+                    if searchText.isEmpty {
+                        summary
+                    }
+                    ForEach(visibleSections, id: \.semesterName) { section in
+                        Section {
+                            ForEach(section.grades, id: \.moduleNumber) { entry in
                                 GradeRow(entry: entry)
                             }
+                        } header: {
+                            SemesterHeader(section: section)
                         }
                     }
                 }
@@ -86,59 +92,91 @@ struct GradesScreen: View {
         .accessibilityIdentifier("gradesScreen")
     }
 
-    private var semesterPicker: some View {
-        Picker("grades.semester", selection: semesterBinding) {
-            Text("grades.allSemesters").tag(Semester.companion.All.id)
-            ForEach(state.semesters, id: \.id) { semester in
-                Text(semester.name).tag(semester.id)
-            }
-        }
-        .pickerStyle(.menu)
-        .accessibilityIdentifier("gradesSemesterPicker")
-    }
-
-    /// Bound to the semester *id*: `Semester` is a Kotlin class, and `Picker` needs a `Hashable`
-    /// tag it can compare.
-    private var semesterBinding: Binding<String> {
-        Binding(
-            get: { state.selectedSemester?.id ?? Semester.companion.All.id },
-            set: { id in
-                let chosen = state.semesters.first { $0.id == id } ?? Semester.companion.All
-                model.grades.dispatch(GradesIntentSemesterSelected(semester: chosen))
-            }
-        )
-    }
-
-    private var statisticsSection: some View {
-        Section("grades.statistics") {
-            if let gpa = state.isShowingAllSemesters ? state.overallGpa : state.semesterGpa {
-                LabeledContent(
-                    state.isShowingAllSemesters ? "grades.overallGpa" : "grades.semesterGpa",
-                    value: gpa.doubleValue.formatted(.number.precision(.fractionLength(2)))
+    /// The three numbers that describe the whole degree so far.
+    private var summary: some View {
+        Section {
+            HStack(spacing: 12) {
+                statTile(
+                    value: state.overallGpa.map { $0.doubleValue.formatted(.number.precision(.fractionLength(2))) } ?? "–",
+                    label: "grades.overallGpa",
+                    isBrand: true
+                )
+                statTile(
+                    value: state.totalCreditsEarned.formatted(.number.precision(.fractionLength(0))),
+                    label: "grades.creditsEarned",
+                    isBrand: false
+                )
+                statTile(
+                    value: "\(state.modulesCompleted)",
+                    label: "grades.modulesCompleted",
+                    isBrand: false
                 )
             }
-            LabeledContent(
-                "grades.creditsEarned",
-                value: state.totalCreditsEarned.formatted(.number.precision(.fractionLength(1)))
-            )
-            LabeledContent("grades.modulesCompleted", value: "\(state.modulesCompleted)")
+            .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
         }
     }
 
-    private var visibleGrades: [GradeEntry] {
-        guard !searchText.isEmpty else { return state.grades }
-        return state.grades.filter {
-            $0.moduleName.localizedCaseInsensitiveContains(searchText)
-                || $0.moduleNumber.localizedCaseInsensitiveContains(searchText)
+    private func statTile(value: String, label: LocalizedStringKey, isBrand: Bool) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.title2.bold())
+                .fontDesign(.rounded)
+                .monospacedDigit()
+                .foregroundStyle(isBrand ? Color.brand : Color.primary)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(isBrand ? Color.brandSoft : Color(uiColor: .tertiarySystemFill), in: .rect(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
     }
 
-    /// One section per semester in the combined view, one section otherwise.
-    private var sections: [(title: String, entries: [GradeEntry])] {
-        let grouped = Dictionary(grouping: visibleGrades) { $0.semesterName }
-        return grouped.keys.sorted(by: >).map { name in
-            (title: name, entries: grouped[name] ?? [])
+    /// The store's sections, narrowed by the search field. Sections that lose every module
+    /// disappear rather than standing there empty.
+    private var visibleSections: [SemesterGrades] {
+        guard !searchText.isEmpty else { return state.sections }
+        return state.sections.compactMap { section in
+            let matches = section.grades.filter {
+                $0.moduleName.localizedCaseInsensitiveContains(searchText)
+                    || $0.moduleNumber.localizedCaseInsensitiveContains(searchText)
+            }
+            return matches.isEmpty ? nil : SemesterGrades(semesterName: section.semesterName, grades: matches)
         }
+    }
+}
+
+/// Semester name on the left, its own average on the right.
+private struct SemesterHeader: View {
+
+    let section: SemesterGrades
+
+    var body: some View {
+        HStack {
+            Text(section.semesterName)
+            Spacer()
+            if let average = semesterAverage {
+                Text(average.formatted(.number.precision(.fractionLength(2))))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.brand)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Credit-weighted, the same rule `ComputeGpa` applies — but for one section only, which the
+    /// store does not carry. Modules without a numeric grade or without credits do not count.
+    private var semesterAverage: Double? {
+        var points = 0.0
+        var credits = 0.0
+        for entry in section.grades {
+            guard let value = entry.numericGrade?.doubleValue, entry.credits > 0 else { continue }
+            points += value * entry.credits
+            credits += entry.credits
+        }
+        return credits > 0 ? points / credits : nil
     }
 }
 

@@ -4,6 +4,20 @@
 import SwiftUI
 import Shared
 
+/// How a week is drawn.
+///
+/// Persisted, because it is a preference rather than a navigation state: whoever reads the week
+/// as a grid wants it as a grid tomorrow too. `@AppStorage` and not the settings store — no other
+/// platform has this choice, so putting it in `SettingsState` would export an iOS-only field to
+/// Android and Desktop.
+enum TimetableLayout: String {
+    case grid
+    case list
+
+    var symbol: String { self == .grid ? "list.bullet" : "square.grid.3x3.topleft.filled" }
+    var switchLabel: LocalizedStringKey { self == .grid ? "timetable.showList" : "timetable.showGrid" }
+}
+
 /// The weekly timetable.
 ///
 /// One horizontally paged scroll view over week offsets, the way the Compose pager works, so the
@@ -13,46 +27,42 @@ import Shared
 struct TimetableScreen: View {
 
     @Environment(AppModel.self) private var model
-    @State private var focusedOffset: Int? = 0
+    @AppStorage("timetableLayout") private var layoutRaw = TimetableLayout.grid.rawValue
+    @State private var focusedOffset = 0
     @State private var refreshError: String?
 
-    private static let offsets = Array(-104...104)
+    /// A year in each direction. `TabView` keeps a handful of pages alive around the current one,
+    /// so the range costs nothing until it is scrolled through.
+    private static let offsets = Array(-52...52)
 
+    private var layout: TimetableLayout { TimetableLayout(rawValue: layoutRaw) ?? .grid }
     private var state: TimetableState { model.timetable.state }
-    private var week: WeekState { state.week(offset: Int32(focusedOffset ?? 0)) }
+    private var week: WeekState { state.week(offset: Int32(focusedOffset)) }
 
     var body: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(spacing: 0) {
-                ForEach(Self.offsets, id: \.self) { offset in
-                    WeekPage(week: state.week(offset: Int32(offset)), offset: offset)
-                        .containerRelativeFrame(.horizontal)
-                }
-            }
-            .scrollTargetLayout()
+        VStack(spacing: 0) {
+            weekBar
+            Divider()
+            pages
         }
-        .scrollTargetBehavior(.paging)
-        .scrollIndicators(.hidden)
-        .scrollPosition(id: $focusedOffset)
-        .navigationTitle(weekRangeText(start: week.start, end: week.end) ?? String(localized: "timetable.title"))
+        .navigationTitle("timetable.title")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    withAnimation { focusedOffset = 0 }
+                    layoutRaw = (layout == .grid ? TimetableLayout.list : .grid).rawValue
                 } label: {
-                    Text("timetable.today")
+                    Label(layout.switchLabel, systemImage: layout.symbol)
                 }
-                .disabled((focusedOffset ?? 0) == 0)
-                .accessibilityIdentifier("timetableTodayButton")
+                .accessibilityIdentifier("timetableLayoutButton")
             }
         }
         .onChange(of: focusedOffset) { _, new in
-            model.timetable.dispatch(TimetableIntentWeekFocused(offset: Int32(new ?? 0)))
+            model.timetable.dispatch(TimetableIntentWeekFocused(offset: Int32(new)))
         }
         .task {
             // The first page never "changes", so the store would otherwise never hear about it.
-            model.timetable.dispatch(TimetableIntentWeekFocused(offset: Int32(focusedOffset ?? 0)))
+            model.timetable.dispatch(TimetableIntentWeekFocused(offset: Int32(focusedOffset)))
             model.timetable.onEffect { effect in
                 if let failed = effect as? TimetableEffectRefreshFailed {
                     refreshError = failed.error.userMessage
@@ -76,6 +86,73 @@ struct TimetableScreen: View {
         }
     }
 
+    /// Week range with a step button on either side.
+    ///
+    /// The buttons exist next to the swipe because a swipe is invisible: nothing on the screen
+    /// said the week could be changed at all, and on the grid the horizontal gesture competes
+    /// with the columns.
+    private var weekBar: some View {
+        HStack(spacing: 8) {
+            Button { step(-1) } label: {
+                Image(systemName: "chevron.left").font(.body.weight(.semibold))
+            }
+            .accessibilityLabel(Text("timetable.previousWeek"))
+            .accessibilityIdentifier("timetablePreviousWeek")
+
+            Spacer(minLength: 0)
+
+            VStack(spacing: 1) {
+                Text(weekRangeText(start: week.start, end: week.end) ?? " ")
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                if focusedOffset != 0 {
+                    Button("timetable.today") { withAnimation { focusedOffset = 0 } }
+                        .font(.caption2.weight(.semibold))
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.brand)
+                        .accessibilityIdentifier("timetableTodayButton")
+                } else {
+                    Text("timetable.thisWeek")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Button { step(1) } label: {
+                Image(systemName: "chevron.right").font(.body.weight(.semibold))
+            }
+            .accessibilityLabel(Text("timetable.nextWeek"))
+            .accessibilityIdentifier("timetableNextWeek")
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(.bar)
+    }
+
+    /// A paging `TabView` rather than a `ScrollView` with `.scrollPosition`.
+    ///
+    /// The scroll-view version drifted: with the pages built lazily, every relayout — a week finishing
+    /// its load, the sheet closing — could leave the scroll offset between two pages, and the
+    /// binding then reported a week nobody had navigated to. A `TabView` selection is the page,
+    /// not a position that has to be rounded back into one.
+    private var pages: some View {
+        TabView(selection: $focusedOffset) {
+            ForEach(Self.offsets, id: \.self) { offset in
+                WeekPage(week: state.week(offset: Int32(offset)), offset: offset, layout: layout)
+                    .tag(offset)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+    }
+
+    private func step(_ delta: Int) {
+        let target = focusedOffset + delta
+        guard Self.offsets.contains(target) else { return }
+        withAnimation { focusedOffset = target }
+    }
+
     private var lectureSheetBinding: Binding<Bool> {
         Binding(
             get: { state.selectedLecture != nil },
@@ -86,21 +163,45 @@ struct TimetableScreen: View {
     }
 }
 
-/// One week: the lectures grouped by day, or why there are none.
+/// One week, in whichever layout is selected.
 private struct WeekPage: View {
 
     @Environment(AppModel.self) private var model
     let week: WeekState
     let offset: Int
+    let layout: TimetableLayout
 
     var body: some View {
+        Group {
+            switch layout {
+            case .grid:
+                TimetableGrid(
+                    week: week,
+                    onLecture: { model.timetable.dispatch(TimetableIntentLectureOpened(lecture: $0)) },
+                    onRefresh: { model.timetable.dispatch(TimetableIntentRefresh(offset: Int32(offset))) }
+                )
+            case .list:
+                agenda
+            }
+        }
+        .accessibilityIdentifier("timetableWeek\(offset)")
+    }
+
+    private var agenda: some View {
         List {
             if week.isLoading && week.lectures.isEmpty {
-                loadingRow
+                HStack {
+                    ProgressView()
+                    Text("timetable.loadingWeek").foregroundStyle(.secondary)
+                }
             } else if week.lectures.isEmpty {
-                emptyRow
+                ContentUnavailableView(
+                    "timetable.emptyTitle",
+                    systemImage: "calendar.badge.exclamationmark",
+                    description: Text("timetable.emptyDescription")
+                )
             } else {
-                ForEach(days, id: \.key) { day in
+                ForEach(week.days, id: \.key) { day in
                     Section(day.title) {
                         ForEach(day.lectures, id: \.id) { lecture in
                             Button {
@@ -126,41 +227,28 @@ private struct WeekPage: View {
         .refreshable {
             model.timetable.dispatch(TimetableIntentRefresh(offset: Int32(offset)))
         }
-        .accessibilityIdentifier("timetableWeek\(offset)")
     }
+}
 
-    private var loadingRow: some View {
-        HStack {
-            ProgressView()
-            Text("timetable.loadingWeek").foregroundStyle(.secondary)
-        }
-    }
-
-    private var emptyRow: some View {
-        ContentUnavailableView(
-            "timetable.emptyTitle",
-            systemImage: "calendar.badge.exclamationmark",
-            description: Text("timetable.emptyDescription")
-        )
-    }
+extension WeekState {
 
     /// Lectures grouped by calendar day, in order.
     ///
-    /// Grouped here and not in the store: it is a presentation decision, and the Compose UI groups
-    /// the same list its own way for a layout that has no sections.
-    private var days: [(key: String, title: String, lectures: [Lecture])] {
-        let grouped = Dictionary(grouping: week.lectures) { lecture in
+    /// Grouped here and not in the store: it is a presentation decision, and the grid below reads
+    /// the same list a different way.
+    var days: [(key: String, title: String, lectures: [Lecture])] {
+        let grouped = Dictionary(grouping: lectures) { lecture in
             "\(lecture.start.year)-\(lecture.start.month.ordinal)-\(lecture.start.day)"
         }
         return grouped.keys.sorted().compactMap { key in
-            guard let lectures = grouped[key]?.sorted(by: { $0.start.compareTo(other: $1.start) < 0 }),
-                  let first = lectures.first else { return nil }
-            return (key: key, title: first.start.dayHeaderText, lectures: lectures)
+            guard let dayLectures = grouped[key]?.sorted(by: { $0.start.compareTo(other: $1.start) < 0 }),
+                  let first = dayLectures.first else { return nil }
+            return (key: key, title: first.start.dayHeaderText, lectures: dayLectures)
         }
     }
 }
 
-private struct LectureRow: View {
+struct LectureRow: View {
 
     let lecture: Lecture
 
@@ -171,6 +259,11 @@ private struct LectureRow: View {
                 Text(lecture.end.timeText).font(.caption).foregroundStyle(.secondary).monospacedDigit()
             }
             .frame(width: 56, alignment: .leading)
+
+            RoundedRectangle(cornerRadius: 2)
+                .fill(lecture.isTest ? Color.orange : Color.brand)
+                .frame(width: 3)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(lecture.displayName).font(.body)
@@ -198,7 +291,7 @@ private struct LectureRow: View {
     }
 }
 
-private struct LectureDetailSheet: View {
+struct LectureDetailSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     let lecture: Lecture

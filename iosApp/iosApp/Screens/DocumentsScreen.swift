@@ -8,14 +8,23 @@ import Shared
 
 /// The documents Dualis has for the student.
 ///
-/// Tapping opens the file in QuickLook, the swipe action hands it to the share sheet. Neither
-/// goes through the app's own `FileViewer`: on iOS the system already owns both, and the store
-/// only ever emits the bytes.
+/// Tapping opens the file in QuickLook; the menu on each row saves it into Files or hands it to
+/// the share sheet. None of it goes through the app's own `FileViewer`: on iOS the system owns
+/// all three, and the store only ever emits the bytes.
 struct DocumentsScreen: View {
+
+    /// What to do with the bytes once they arrive.
+    ///
+    /// `DocumentsIntent.Save` covers both keeping and sharing — the store's job ends at the
+    /// download, and which sheet opens afterwards is this screen's decision. Remembering it here
+    /// is the smallest place that knows.
+    private enum Delivery { case saveToFiles, share }
 
     @Environment(AppModel.self) private var model
     @State private var previewURL: URL?
+    @State private var exportURL: URL?
     @State private var shareURL: URL?
+    @State private var delivery: Delivery = .saveToFiles
     @State private var downloadError: String?
 
     private var state: DocumentsState { model.documents.state }
@@ -50,17 +59,7 @@ struct DocumentsScreen: View {
                     )
                 }
                 ForEach(state.documents, id: \.self) { document in
-                    DocumentRow(document: document, isDownloading: state.isDownloading(document: document))
-                        .contentShape(Rectangle())
-                        .onTapGesture { model.documents.dispatch(DocumentsIntentOpen(document: document)) }
-                        .swipeActions(edge: .trailing) {
-                            Button {
-                                model.documents.dispatch(DocumentsIntentSave(document: document))
-                            } label: {
-                                Label("documents.share", systemImage: "square.and.arrow.up")
-                            }
-                            .tint(.accentColor)
-                        }
+                    row(for: document)
                 }
             }
         }
@@ -77,7 +76,11 @@ struct DocumentsScreen: View {
                 case let open as DocumentsEffectOpenFile:
                     previewURL = writeToTemporaryFile(name: open.fileName, bytes: open.bytes)
                 case let save as DocumentsEffectSaveFile:
-                    shareURL = writeToTemporaryFile(name: save.fileName, bytes: save.bytes)
+                    let url = writeToTemporaryFile(name: save.fileName, bytes: save.bytes)
+                    switch delivery {
+                    case .saveToFiles: exportURL = url
+                    case .share: shareURL = url
+                    }
                 case let failed as DocumentsEffectDownloadFailed:
                     downloadError = failed.error.userMessage
                 default:
@@ -85,13 +88,17 @@ struct DocumentsScreen: View {
                 }
             }
         }
-        .sheet(isPresented: Binding(get: { previewURL != nil }, set: { if !$0 { previewURL = nil } })) {
+        .sheet(isPresented: binding($previewURL)) {
             if let previewURL {
-                QuickLookSheet(url: previewURL)
-                    .ignoresSafeArea()
+                QuickLookSheet(url: previewURL).ignoresSafeArea()
             }
         }
-        .sheet(isPresented: Binding(get: { shareURL != nil }, set: { if !$0 { shareURL = nil } })) {
+        .sheet(isPresented: binding($exportURL)) {
+            if let exportURL {
+                DocumentExportSheet(url: exportURL)
+            }
+        }
+        .sheet(isPresented: binding($shareURL)) {
             if let shareURL {
                 ActivitySheet(url: shareURL)
             }
@@ -107,6 +114,63 @@ struct DocumentsScreen: View {
         .accessibilityIdentifier("documentsScreen")
     }
 
+    private func row(for document: DualisDocument) -> some View {
+        HStack {
+            Button {
+                model.documents.dispatch(DocumentsIntentOpen(document: document))
+            } label: {
+                DocumentRow(document: document, isDownloading: state.isDownloading(document: document))
+            }
+            .buttonStyle(.plain)
+
+            Menu {
+                Button {
+                    model.documents.dispatch(DocumentsIntentOpen(document: document))
+                } label: {
+                    Label("documents.open", systemImage: "eye")
+                }
+                Button {
+                    save(document, as: .saveToFiles)
+                } label: {
+                    Label("documents.saveToFiles", systemImage: "folder.badge.plus")
+                }
+                Button {
+                    save(document, as: .share)
+                } label: {
+                    Label("documents.share", systemImage: "square.and.arrow.up")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .foregroundStyle(Color.brand)
+                    .padding(.leading, 8)
+            }
+            .accessibilityLabel(Text("documents.actions"))
+        }
+        .swipeActions(edge: .trailing) {
+            Button {
+                save(document, as: .saveToFiles)
+            } label: {
+                Label("documents.saveToFiles", systemImage: "folder.badge.plus")
+            }
+            .tint(Color.brand)
+            Button {
+                save(document, as: .share)
+            } label: {
+                Label("documents.share", systemImage: "square.and.arrow.up")
+            }
+            .tint(.gray)
+        }
+    }
+
+    private func save(_ document: DualisDocument, as delivery: Delivery) {
+        self.delivery = delivery
+        model.documents.dispatch(DocumentsIntentSave(document: document))
+    }
+
+    private func binding(_ url: Binding<URL?>) -> Binding<Bool> {
+        Binding(get: { url.wrappedValue != nil }, set: { if !$0 { url.wrappedValue = nil } })
+    }
+
     private var searchBinding: Binding<String> {
         Binding(
             get: { state.searchQuery },
@@ -114,10 +178,10 @@ struct DocumentsScreen: View {
         )
     }
 
-    /// QuickLook and the share sheet both work on files, not on bytes.
+    /// QuickLook, the share sheet and the Files picker all work on files, not on bytes.
     ///
-    /// The temporary directory is cleaned by the system, and the name is kept so the preview shows
-    /// what Dualis called the document instead of a UUID.
+    /// The temporary directory is cleaned by the system, and the name is kept so the preview and
+    /// the save dialog show what Dualis called the document instead of a UUID.
     private func writeToTemporaryFile(name: String, bytes: KotlinByteArray) -> URL? {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -139,7 +203,11 @@ private struct DocumentRow: View {
     let isDownloading: Bool
 
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
+            Image(systemName: "doc.text.fill")
+                .foregroundStyle(Color.brand)
+                .frame(width: 24)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(document.title)
                 Text("\(document.date) \(document.time)")
@@ -149,12 +217,9 @@ private struct DocumentRow: View {
             Spacer()
             if isDownloading {
                 ProgressView()
-            } else {
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
             }
         }
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
     }
@@ -186,6 +251,20 @@ private struct QuickLookSheet: UIViewControllerRepresentable {
             url as NSURL
         }
     }
+}
+
+/// "Save to Files": the system's own export picker, so the document lands wherever the user keeps
+/// their documents — iCloud Drive, On My iPhone, or any provider they have installed.
+private struct DocumentExportSheet: UIViewControllerRepresentable {
+
+    let url: URL
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        // asCopy, because the source is a temporary file the system may delete underneath a move.
+        UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+    }
+
+    func updateUIViewController(_ controller: UIDocumentPickerViewController, context: Context) {}
 }
 
 /// `UIActivityViewController`, which SwiftUI has no equivalent for when the URL only exists after

@@ -61,6 +61,9 @@ struct RootView: View {
                 LoginScreen()
             }
         }
+        // One accent for the whole app — see Design/Theme.swift for why that is the iOS
+        // equivalent of the Material You seed colour the other platforms use.
+        .tint(Color.brand)
         .preferredColorScheme(colorScheme)
         .animation(.default, value: model.app.state.isLoggedIn)
         // The KMP side writes the widget snapshot into the App Group and posts this; the name must
