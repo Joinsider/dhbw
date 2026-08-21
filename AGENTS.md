@@ -59,6 +59,22 @@ Platform entry points: `composeApp/androidMain/MainActivity.kt`, `composeApp/des
 session cookies persist across all requests. It is a `single` in `dataModule` — declared exactly
 once, so this cannot drift per platform. `KoinGraphTest.graph_actuallyBuilds` asserts the identity.
 
+`HttpClientFactory.create { }` (expect/actual in `data/…/net/`) builds it. The factory returns the
+finished client, not just an engine, because engine configuration is typed to the engine and the
+shared config is star-projected — everything platform-independent still comes from `dataModule`.
+
+### Desktop TLS — the bundled HARICA roots
+Dualis chains to HARICA's 2021 TLS roots, which are **not** in the JDK's `cacerts` (Zulu 25 ships
+only the 2015 ones). Every desktop request failed with `PKIX path building failed`; Android and
+Apple were fine because they use platform trust stores. `DesktopTrustStore.kt` therefore extends
+the JDK's default anchors with two roots bundled in `data/src/desktopMain/resources/certs/`, and
+`HttpClientFactory.desktop.kt` hands the resulting trust manager to OkHttp.
+
+It only ever **adds** anchors — chain, hostname and expiry checks stay with the JDK.
+`DesktopTrustStoreTest` pins both fingerprints, checks that no default anchor is lost, and fails
+once a JDK baseline ships the roots itself so the workaround does not outlive the problem. Read
+`resources/certs/README.md` before touching any of it.
+
 ### Error handling — `Outcome` / `AppError`
 Anything that can fail returns `Outcome<T>` (`Ok` / `Err(AppError)`) from `:core:common`, never
 `null`, `emptyList()` or `kotlin.Result`. `AppError` distinguishes `Offline`, `SessionExpired`,

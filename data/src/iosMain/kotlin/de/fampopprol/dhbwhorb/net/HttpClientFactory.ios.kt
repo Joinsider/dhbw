@@ -1,15 +1,14 @@
 package de.fampopprol.dhbwhorb.net
 
-import io.ktor.client.engine.HttpClientEngineFactory
+import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.darwin.Darwin
 
 /**
  * iOS implementation of the HttpClientFactory.
- * Uses the Darwin engine.
+ * Uses the Darwin engine, which validates against the system trust store.
  */
 actual object HttpClientFactory {
-    /**
-     * Create the iOS-specific HttpClient engine factory (Darwin).
-     */
-    actual fun createEngine(): HttpClientEngineFactory<*> = Darwin
+    actual fun create(configure: HttpClientConfig<*>.() -> Unit): HttpClient =
+        HttpClient(Darwin) { configure() }
 }
