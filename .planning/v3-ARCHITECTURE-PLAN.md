@@ -237,28 +237,73 @@ mussten `:composeApp` explizit bekommen, weil die Tests Room und Ktor direkt ben
 Casts greifen nicht über Modulgrenzen. `ic_school.xml` nach `:services` verschoben, weil
 `NotificationDispatcher` es referenziert und `R` modul-lokal aufgelöst wird.
 
-### P2 — Koin: ein Composition Root statt drei · Größe M
+### P2 — Koin: ein Composition Root statt drei · Größe M · **abgeschlossen**
 
-Das ist der Punkt mit dem größten Stabilitätsgewinn pro Zeile.
+Die Phase mit dem größten Stabilitätsgewinn pro Zeile.
 
-* `:data:di` mit `dataModule`, `:domain` mit `domainModule`, `:presentation` mit `presentationModule`.
-* `platformModule` als `expect fun` — liefert `HttpClientEngine`, `RoomDatabase.Builder`,
-  `SecureStorage`, `NotificationDispatcher`, `BackgroundScheduler`.
-* `initKoin(platformModule)` in `:shared`, aufgerufen aus `MainActivity.onCreate`,
-  `desktopMain/main.kt` und `iOSApp.init()`.
-* **Ersatzlos entfernen:**
-  * die Parameter `testAuthenticationService`, `testCredentialsProvider`, `testSecureStorage`,
-    `database`, `sharedHttpClient`, `sessionManager`, `isInitialized`, `databaseErrorMessage`
-    aus `App()` — Produktionscode läuft heute über `test`-Parameter
-  * `getDataWithRetry` in `GradesViewModel` und `TimetableViewModel` (5×1s Polling)
-  * der 500ms-`timeoutJob` in `MainActivity.onCreate`
-  * `NotificationServiceLocator` (ersetzt durch Koin-Auflösung im Worker)
-  * die Inline-Service-Konstruktion in `GradesPage` und `DocumentsPage`
-* HttpClient-Konfiguration existiert genau einmal (heute weicht iOS ab: kein `HttpTimeout`).
-* Tests injizieren über `KoinTestRule` mit überschriebenen Modulen statt über Konstruktorparameter.
+```
+MainActivity      416 -> 112 Zeilen
+App.kt            443 -> 208 Zeilen, 10 Parameter -> 0
+desktopMain/main   208 ->  66 Zeilen
+MainViewController 141 ->  81 Zeilen
+```
 
-**Fertig wenn:** Volltextsuche nach `test` in `App.kt` liefert nichts; kein Service-Typ ist
-irgendwo nullable; `MainActivity` unter 120 Zeilen; App startet ohne künstliche Delays.
+**Entfernt:**
+* `getDataWithRetry` in allen drei ViewModels — 5 Versuche × 1 s Polling, weil Services nullable
+  waren. Services sind jetzt garantiert vorhanden, das Warten entfällt ersatzlos.
+* der 500-ms-`timeoutJob` in `MainActivity`, der die UI vor den Services rendern ließ
+* `NotificationServiceLocator`, `WidgetServiceLocator`, `WidgetRefreshTrigger` und
+  `AndroidAppContext` — alle vier durch Koin ersetzt. Die letzten beiden hatte P1 selbst als
+  Übergangslösung eingeführt.
+* die Parameter `testAuthenticationService`, `testCredentialsProvider`, `testSecureStorage`,
+  `sessionManager`, `sharedHttpClient`, `database`, `notificationPreferencesInteractor`,
+  `isInitialized`, `databaseErrorMessage`, `timetableViewModel` aus `App()`
+* die Inline-Service-Konstruktion samt `DisposableEffect { onDispose { cleanup() } }` in
+  `GradesPage` und `DocumentsPage` — **damit lädt ein Tab-Wechsel nicht mehr neu**
+* der Bootstrap-Block in `WidgetSyncWorker`, der den Locator bei Cold Start nachbaute
+
+**`SecureStorage` ist keine expect/actual-Klasse mehr.** Eine expect-Klasse kann keinen
+plattformspezifischen Konstruktorparameter haben — Android braucht aber einen Context. Statt des
+statischen Context-Halters gibt es jetzt vier Implementierungen von `SecureStorageInterface`,
+gebunden in `dataPlatformModule()`. `SecureStorageWrapper` entfällt. Der Desktop-Preferences-Knoten
+bleibt identisch (`userNodeForPackage` schlüsselt aufs Package, nicht auf die Klasse), also
+**verlieren bestehende Desktop-Nutzer ihre gespeicherten Werte nicht**.
+
+**Logout ist aus der UI heraus.** `LogoutUseCase` in `:services` fasst Session beenden, Zugangsdaten
+löschen und Cache leeren zusammen — die drei gehören zusammen, sonst sieht der nächste Nutzer die
+Daten des vorherigen. Damit braucht die UI-Schicht kein `AppDatabase` mehr.
+
+**Ein echter Laufzeitfehler, den kein Compile-Check gefunden hätte.** Auf iOS startete Koin zuerst
+in einem `LaunchedEffect` — der läuft aber *nach* der Komposition, während `App()` seine
+Abhängigkeiten *während* der Komposition anfordert. Die App stürzte beim ersten Frame mit
+`KoinApplication has not been started` ab. `MainViewController()` startet den Graphen jetzt
+synchron, bevor der Controller irgendetwas komponiert — analog zu `Application.onCreate()` und
+`main()`. Der Start ist idempotent, weil Swift den Hosting-Controller mehrfach erzeugen kann.
+
+**Verifikation.** Für eine DI-Umstellung reicht ein grüner Compile nicht: eine fehlende Bindung ist
+kein Compile-Fehler, sondern ein Absturz beim ersten Öffnen des betroffenen Screens.
+* `KoinGraphTest` prüft jedes Modul mit Koins `verify()` (Konstruktorparameter gegen Bindungen,
+  ohne zu instanziieren) **und** baut in `graph_actuallyBuilds` den echten Graphen auf — echte
+  Room-DB, echter Keyring, echter Ktor-Client — inklusive Zusicherung, dass der `HttpClient` ein
+  Singleton ist, sonst geht das Session-Cookie nach dem Login verloren.
+* `ViewModelResolutionTest` löst alle drei Screen-ViewModels gegen den Mock-Graphen auf. Bewusst
+  nicht gegen den echten: der würde die im Keychain liegenden Zugangsdaten benutzen und könnte
+  einen echten Dualis-Request in die Testsuite bringen.
+* iOS im Simulator gestartet: Login-Screen rendert, Log zeigt sauberen Graph-Start.
+* Android auf dem Emulator gestartet: `DualisApplication initialised`, Stundenplan mit gültiger
+  Session, Navigation intakt, keine Koin-Fehler im Logcat.
+
+`verify()` meldete zwei Falschpositive (inline übergebene Ktor-Engine und die `() -> Service`-
+Lambdas) — als `extraTypes` deklariert. Der dritte Treffer war echt: `WidgetLectureRepository` hatte
+keine Bindung, nur die konkrete Klasse. Jetzt gebunden, und zwar auf die DB-only-Implementierung,
+damit ein Hintergrund-Refresh nie eine Session oder das Netz braucht.
+
+**Ergebnis:** `testDebugUnitTest` 211 Tests, `desktopTest` 326 Tests, 0 Fehler.
+Coverage 33,7 % → 37,5 %. Alle Targets kompilieren, iOS- und Android-Build laufen auf dem Gerät.
+
+**Zwei Tests entfallen, weil ihr Gegenstand weg ist:** `TimeoutFallbackTest` prüfte die
+Retry-Schleife, `Phase8StabilityTest.app_displaysLoadingIndicator_whenNotInitialized` den
+Initialisierungs-Zwischenzustand. Beides existiert nicht mehr.
 
 ### P3 — Domain, Repositories, Fehlermodell · Größe L
 

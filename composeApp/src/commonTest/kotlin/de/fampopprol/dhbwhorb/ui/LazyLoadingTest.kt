@@ -10,14 +10,17 @@ import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
 import de.fampopprol.dhbwhorb.data.storage.credentials.FakeSecureStorage
 import kotlinx.coroutines.test.*
 import io.ktor.client.HttpClient
+import de.fampopprol.dhbwhorb.testutil.testKoin
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.launch
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class LazyLoadingTest {
+
+    private val koin = testKoin()
 
     @Test
     fun testLectureServiceLazyLoadsDualisService() = runTest {
@@ -59,11 +62,11 @@ class LazyLoadingTest {
     }
 
     @Test
-    fun testDocumentsViewModelHandlesNullServiceInitially() = runTest {
+    fun documentsViewModel_withoutSession_endsInLoginRequired() = runTest {
         // backgroundScope, not `this`: the ViewModel's stateIn job never completes, so a test-scope
         // child would keep runTest waiting forever.
         val viewModel = DocumentsViewModel(
-            dualisDocumentService = null,
+            dualisDocumentService = koin.get(),
             coroutineScope = backgroundScope
         )
 
@@ -72,15 +75,16 @@ class LazyLoadingTest {
         backgroundScope.launch { viewModel.uiState.collect { } }
         runCurrent()
 
-        // init { loadDocuments() } sets the loading flag before the retry loop starts.
-        assertTrue(viewModel.uiState.value.isLoading, "ViewModel should be in loading state initially")
-
-        // Retry loop exhausts after ~5s and reports the missing service instead of hanging.
-        // Explicit virtual time instead of advanceUntilIdle(): the ViewModel's work runs in
-        // backgroundScope, whose delays advanceUntilIdle() does not drive.
-        testScheduler.advanceTimeBy(10_000)
+        // The service is always present now, so init { loadDocuments() } runs straight through
+        // instead of polling for it. Without a stored session it stops at "login required".
+        testScheduler.advanceUntilIdle()
         testScheduler.runCurrent()
-        assertFalse(viewModel.uiState.value.isLoading, "Loading must end once retries are exhausted")
-        assertNotNull(viewModel.uiState.value.error, "A missing service has to surface as an error")
+
+        assertFalse(viewModel.uiState.value.isLoading, "Loading has to finish")
+        assertTrue(
+            viewModel.uiState.value.requiresLogin,
+            "Without a session the user must be asked to log in, not shown an error"
+        )
+        assertNull(viewModel.uiState.value.error, "A missing session is not an error condition")
     }
 }

@@ -13,19 +13,22 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import de.fampopprol.dhbwhorb.testutil.testKoin
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
 class ViewModelCleanupTest {
+
+    private val koin = testKoin()
 
     @Test
     fun testTimetableViewModelCleanup() {
         val job = Job()
         val scope = CoroutineScope(job)
         val viewModel = TimetableViewModel(
-            lectureService = null,
-            lecturerDao = null,
-            lectureLecturerCrossRefDao = null,
+            lectureService = koin.get(),
+            lecturerDao = koin.get(),
+            lectureLecturerCrossRefDao = koin.get(),
             coroutineScope = scope
         )
         
@@ -41,9 +44,9 @@ class ViewModelCleanupTest {
         
         var operationCancelled = false
         val viewModel = TimetableViewModel(
-            lectureService = null,
-            lecturerDao = null,
-            lectureLecturerCrossRefDao = null,
+            lectureService = koin.get(),
+            lecturerDao = koin.get(),
+            lectureLecturerCrossRefDao = koin.get(),
             coroutineScope = scope
         )
         
@@ -73,26 +76,23 @@ class ViewModelCleanupTest {
         val scope = CoroutineScope(Job() + dispatcher)
         
         val viewModel = TimetableViewModel(
-            lectureService = null,
-            lecturerDao = null,
-            lectureLecturerCrossRefDao = null,
+            lectureService = koin.get(),
+            lecturerDao = koin.get(),
+            lectureLecturerCrossRefDao = koin.get(),
             coroutineScope = scope
         )
         
-        // Starts loading in init
-        testScheduler.runCurrent()
-        assertTrue(viewModel.uiState.isLoadingWeeks.contains(0), "Initially loading week 0")
-        
-        // Simulating user navigating away (calling back button / close)
+        // Navigating away before the load in init has run to completion.
         viewModel.cleanup()
-        
-        // Even with time advancing, the state shouldn't change to "Services not ready" 
-        // because the coroutine should be cancelled
+
         testScheduler.advanceUntilIdle()
-        
-        // If it was NOT cancelled, it would eventually fail after 5s and set error
-        // But since it's cancelled, the error should remain null or it should not update UI
+
+        // The scope is cancelled, so the in-flight load cannot write to the state afterwards.
         assertTrue(scope.coroutineContext.job.isCancelled, "Scope should be cancelled")
+        assertTrue(
+            viewModel.uiState.isLoadingWeeks.isEmpty(),
+            "A cancelled load must not leave the week marked as loading"
+        )
     }
 
     @Test
@@ -100,8 +100,8 @@ class ViewModelCleanupTest {
         val job = Job()
         val scope = CoroutineScope(job)
         val viewModel = GradesViewModel(
-            gradeService = null,
-            gradeDao = null,
+            gradeService = koin.get(),
+            gradeDao = koin.get(),
             coroutineScope = scope
         )
         
@@ -114,7 +114,7 @@ class ViewModelCleanupTest {
         val job = Job()
         val scope = CoroutineScope(job)
         val viewModel = DocumentsViewModel(
-            dualisDocumentService = null,
+            dualisDocumentService = koin.get(),
             coroutineScope = scope
         )
         

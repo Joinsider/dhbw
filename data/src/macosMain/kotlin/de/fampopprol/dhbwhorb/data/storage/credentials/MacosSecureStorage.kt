@@ -7,7 +7,7 @@ import platform.CoreFoundation.*
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
-actual class SecureStorage {
+class MacosSecureStorage : SecureStorageInterface {
     private val serviceName = "DualisApp"
     private val keysKey = "_stored_keys"
 
@@ -15,7 +15,7 @@ actual class SecureStorage {
     private val fallbackStorage = mutableMapOf<String, String>()
     private var useKeychainFallback = false
 
-    actual fun setString(key: String, value: String) {
+    override fun setString(key: String, value: String) {
         if (useKeychainFallback) {
             fallbackStorage[key] = value
             return
@@ -41,7 +41,7 @@ actual class SecureStorage {
         addKeyToTracking(key)
     }
 
-    actual fun getString(key: String, defaultValue: String): String {
+    override fun getString(key: String, defaultValue: String): String {
         if (useKeychainFallback) {
             return fallbackStorage[key] ?: defaultValue
         }
@@ -67,7 +67,7 @@ actual class SecureStorage {
         return defaultValue
     }
 
-    actual fun remove(key: String) {
+    override fun remove(key: String) {
         if (useKeychainFallback) {
             fallbackStorage.remove(key)
             return
@@ -77,7 +77,7 @@ actual class SecureStorage {
         removeKeyFromTracking(key)
     }
 
-    actual fun clear() {
+    override fun clear() {
         if (useKeychainFallback) {
             fallbackStorage.clear()
             return

@@ -42,25 +42,44 @@ Platform entry points: `composeApp/androidMain/MainActivity.kt`, `composeApp/des
 ## Critical Patterns
 
 ### Shared HttpClient (cookie sharing)
-`AuthenticationService` and `DualisApiClient` **must share the same `HttpClient` instance** so session cookies persist across all requests. This is wired in `App.kt` and both entry points:
-```kotlin
-val sharedHttpClient = HttpClient { install(HttpCookies); install(HttpTimeout) { … } }
-val authenticationService = AuthenticationService(sessionManager, sharedHttpClient)
-val apiClient = DualisApiClient(sharedHttpClient)
-```
+`AuthenticationService` and `DualisApiClient` **must share the same `HttpClient` instance** so
+session cookies persist across all requests. It is a `single` in `dataModule` — declared exactly
+once, so this cannot drift per platform. `KoinGraphTest.graph_actuallyBuilds` asserts the identity.
 
 ### Expect/Actual
-Platform-specific implementations exist for: `SecureStorage`, `getDatabaseBuilder()`, `NotificationDispatcher`, `getPlatform(): PlatformType`, `LectureMonitorScheduler`.
-- Android `SecureStorage` → `EncryptedSharedPreferences`
-- Desktop `SecureStorage` → `java-keyring`
+Used for `getDatabaseBuilder()`, `NotificationDispatcher`, `getPlatform(): PlatformType`, and the
+two DI entry points `dataPlatformModule()` / `servicesPlatformModule()`.
+
+Secure storage is **not** expect/actual any more: `SecureStorageInterface` has one implementation
+per platform (`AndroidSecureStorage`, `DesktopSecureStorage`, `IosSecureStorage`,
+`MacosSecureStorage`), bound in `dataPlatformModule()`. An expect class cannot take a
+platform-specific constructor parameter, which is what Android needs for its Context.
+- Android → `EncryptedSharedPreferences`, Context injected via `androidContext()`
+- Desktop → `java-keyring`, falling back to `Preferences.userNodeForPackage`
 - Android DB path → `Context.getDatabasePath("grades_database.db")`
 - Desktop DB path → `java.io.tmpdir/dhbw.db`
 
-### Dependency Injection / Testability
-`SecureStorage` (expect/actual class) is wrapped in `SecureStorageWrapper : SecureStorageInterface`. Services accept `SecureStorageInterface` for mocking. `App()` accepts optional test parameters (`testAuthenticationService`, `testCredentialsProvider`, `database`, …) used in Compose UI tests (`AppTest.kt`).
+### Dependency Injection (Koin)
+One composition root: `initKoin()` in `:shared`, called from `DualisApplication.onCreate()`,
+`desktopMain/main.kt` and `MainViewController()`. Modules: `coreModule`, `dataModule` +
+`dataPlatformModule()`, `servicesModule` + `servicesPlatformModule()`; `presentationModule` is
+passed in by the caller so `Shared.framework` stays free of the Compose runtime.
+
+**On iOS, Koin has to start before the first composition.** `App()` resolves its dependencies
+during composition while a `LaunchedEffect` only runs afterwards — starting Koin there crashes the
+first frame with "KoinApplication has not been started".
+
+Classes the framework instantiates (WorkManager workers, schedulers) implement `KoinComponent` and
+resolve themselves; `Application.onCreate()` always runs first, so the graph is ready.
+
+`App()` and the screens take no service parameters. Tests override the graph instead:
+`WithTestKoin { … }` for Compose tests, `testKoin()` for plain ones — both in `testutil/TestKoin.kt`.
+`KoinGraphTest` verifies every module and builds the real graph, so a missing binding fails in CI
+rather than when a user opens the screen.
 
 ### ViewModel State
-ViewModels use `mutableStateOf` (not StateFlow/LiveData):
+ViewModels use `mutableStateOf` (not StateFlow/LiveData) — this is what still keeps `:presentation`
+out of `Shared.framework`:
 ```kotlin
 var uiState by mutableStateOf(GradesUiState())
     private set
@@ -120,7 +139,8 @@ Files must include SPDX headers:
 
 | File | Purpose |
 |---|---|
-| `composeApp/src/commonMain/kotlin/…/App.kt` | Root composable; wires all services; defines `AppScreen` enum |
+| `composeApp/src/commonMain/kotlin/…/App.kt` | Root composable; resolves from Koin; defines `AppScreen` enum |
+| `shared/src/commonMain/kotlin/…/shared/Koin.kt` | `initKoin()` — the single composition root |
 | `…/data/dualis/remote/services/AuthenticationService.kt` | Login + redirect chain + re-auth logic |
 | `…/data/dualis/remote/DualisApiClient.kt` | Raw HTTP GET; no parsing |
 | `…/services/LectureService.kt` | Cache-first fetch strategy (3-day threshold) |

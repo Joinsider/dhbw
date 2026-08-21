@@ -34,6 +34,7 @@ kotlin {
             export(projects.data)
             export(projects.services)
             export(projects.presentation)
+            export(projects.shared)
         }
     }
 
@@ -59,6 +60,7 @@ kotlin {
             // Use OkHttp DNS-over-HTTPS for fallback
             implementation(libs.okhttp.dnsoverhttps)
             // Foldable device support via WindowInfoTracker and FoldingFeature
+            implementation(libs.koin.android)
             implementation(libs.androidx.window)
         }
         commonMain.dependencies {
@@ -67,6 +69,9 @@ kotlin {
             api(projects.data)
             api(projects.services)
             api(projects.presentation)
+            api(projects.shared)
+            implementation(libs.koin.compose)
+            implementation(libs.koin.compose.viewmodel)
 
             implementation(compose.runtime)
             implementation(compose.foundation)
@@ -114,6 +119,12 @@ kotlin {
 
         macosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+        }
+
+        val desktopTest by getting {
+            dependencies {
+                implementation(libs.koin.test)
+            }
         }
 
         val desktopMain by getting {

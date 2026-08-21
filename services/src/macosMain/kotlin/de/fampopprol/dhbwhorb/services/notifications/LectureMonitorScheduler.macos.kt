@@ -7,6 +7,7 @@
 package de.fampopprol.dhbwhorb.services.notifications
 
 import io.github.aakira.napier.Napier
+import org.koin.core.component.KoinComponent
 import kotlinx.coroutines.*
 import kotlin.time.Duration.Companion.minutes
 
@@ -14,7 +15,7 @@ import kotlin.time.Duration.Companion.minutes
  * macOS coroutine-based periodic scheduler for lecture change monitoring.
  * Runs every 2 hours using coroutine delay in a background scope.
  */
-class LectureMonitorScheduler(private val scope: CoroutineScope) {
+class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent {
 
     companion object {
         private const val TAG = "LectureMonitorScheduler"
@@ -45,8 +46,8 @@ class LectureMonitorScheduler(private val scope: CoroutineScope) {
                     Napier.d("⏰ Scheduler tick - checking for changes...", tag = TAG)
 
                     // Check if NotificationManager is initialized
-                    if (NotificationServiceLocator.isInitialized()) {
-                        val notificationManager = NotificationServiceLocator.getNotificationManager()
+                    val notificationManager = getKoin().getOrNull<NotificationManager>()
+                    if (notificationManager != null) {
                         Napier.d("🚀 Calling notificationManager.checkAndNotify()...", tag = TAG)
                         val success = notificationManager.checkAndNotify()
                         if (success) {

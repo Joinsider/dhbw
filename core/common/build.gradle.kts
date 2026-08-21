@@ -25,6 +25,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            api(libs.koin.core)
+            api(libs.kotlinx.coroutines.core)
             implementation(libs.napier)
             implementation(libs.kotlinx.datetime)
         }

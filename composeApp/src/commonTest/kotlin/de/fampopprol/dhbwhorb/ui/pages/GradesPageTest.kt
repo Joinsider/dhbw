@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runComposeUiTest
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.navItemTestTag
+import de.fampopprol.dhbwhorb.testutil.WithTestKoin
 import kotlin.test.Test
 
 @OptIn(ExperimentalTestApi::class)
@@ -21,9 +22,11 @@ class GradesPageTest {
     @Test
     fun gradesPage_displaysBottomNavigation_whenLoggedIn() = runComposeUiTest {
         setContent {
-            GradesPage(
-                isLoggedIn = true
-            )
+            WithTestKoin {
+                GradesPage(
+                    isLoggedIn = true
+                )
+            }
         }
 
         waitForIdle()
@@ -40,9 +43,11 @@ class GradesPageTest {
     @Test
     fun gradesPage_hidesBottomNavigation_whenNotLoggedIn() = runComposeUiTest {
         setContent {
-            GradesPage(
-                isLoggedIn = false
-            )
+            WithTestKoin {
+                GradesPage(
+                    isLoggedIn = false
+                )
+            }
         }
 
         waitForIdle()

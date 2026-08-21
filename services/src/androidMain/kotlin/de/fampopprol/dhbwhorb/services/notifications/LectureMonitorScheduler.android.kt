@@ -9,8 +9,9 @@ package de.fampopprol.dhbwhorb.services.notifications
 import android.content.Context
 import androidx.work.*
 import androidx.work.WorkerParameters
-import de.fampopprol.dhbwhorb.services.widget.WidgetRefreshTrigger
+import de.fampopprol.dhbwhorb.services.widget.WidgetRefresher
 import io.github.aakira.napier.Napier
+import org.koin.core.component.KoinComponent
 import java.util.concurrent.TimeUnit
 
 /**
@@ -87,7 +88,7 @@ class LectureMonitorScheduler(private val context: Context) {
 class LectureMonitorWorker(
     context: Context,
     params: WorkerParameters
-) : CoroutineWorker(context, params) {
+) : CoroutineWorker(context, params), KoinComponent {
 
     companion object {
         private const val TAG = "LectureMonitorWorker"
@@ -99,14 +100,13 @@ class LectureMonitorWorker(
         Napier.d("╚════════════════════════════════════════════════════════════════════╝", tag = TAG)
 
         return try {
-            // Check if NotificationManager is initialized
-            if (!NotificationServiceLocator.isInitialized()) {
-                Napier.e("❌ NotificationManager not initialized, cannot perform background check", tag = TAG)
+            // The worker is created by WorkManager, so it resolves its dependencies itself.
+            val notificationManager = getKoin().getOrNull<NotificationManager>()
+            if (notificationManager == null) {
+                Napier.e("❌ NotificationManager not available, cannot perform background check", tag = TAG)
                 Napier.d("╚════════════════════════════════════════════════════════════════════╝", tag = TAG)
                 return Result.failure()
             }
-
-            val notificationManager = NotificationServiceLocator.getNotificationManager()
             Napier.d("✅ NotificationManager retrieved successfully", tag = TAG)
 
             // Perform the monitoring check
@@ -123,7 +123,7 @@ class LectureMonitorWorker(
 
             // ENHANCEMENT per D-01: Trigger immediate widget refresh on successful check
             Napier.d("✓ Check succeeded — triggering immediate widget sync to keep widgets fresh", tag = TAG)
-            WidgetRefreshTrigger.requestImmediateRefresh(applicationContext)
+            getKoin().getOrNull<WidgetRefresher>()?.requestRefresh()
 
             Napier.d("╔════════════════════════════════════════════════════════════════════╗", tag = TAG)
             Napier.d("║  ✅ Background Worker: Completed successfully                      ║", tag = TAG)
