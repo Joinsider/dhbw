@@ -1,6 +1,8 @@
 # AGENTS.md – DHBW Horb Student App
 
-Kotlin Multiplatform (KMP) app targeting **Android, Desktop (JVM), iOS, macOS** using Compose Multiplatform. Scrapes the DHBW Dualis web portal for timetable and grades.
+Kotlin Multiplatform (KMP) app targeting **Android, Desktop (JVM), iOS, macOS**. Android, Desktop
+and macOS use Compose Multiplatform; **iOS is native SwiftUI since P7** and shares everything below
+the UI through `Shared.framework`. Scrapes the DHBW Dualis web portal for timetable and grades.
 
 ## Architecture Overview
 
@@ -19,9 +21,13 @@ boundaries do not change package names, so imports are identical across the spli
 :presentation    MVI stores: State / Intent / Msg / Effect,
                  reducers                                       -> :services
 :shared          Umbrella; exports the five modules above as
-                 `Shared.framework` for Apple targets — no Compose
+                 `Shared.framework` for Apple targets — no Compose,
+                 plus the Swift bridge in `shared/iosMain/…/ios/`
 :composeApp      Compose UI, navigation, platform entry points,
                  Android Glance widget                           -> all of the above
+                 (Android, Desktop and macOS only — no iOS target)
+iosApp/          The SwiftUI app: `RootView` + five screens,
+                 links `Shared.framework`
 ```
 
 Everything above `:data` talks to the six repository interfaces in `:domain`
@@ -31,7 +37,7 @@ Everything above `:data` talks to the six repository interfaces in `:domain`
 
 `:presentation` is part of `Shared.framework` since P4: the stores expose `StateFlow` and the
 module has no Compose plugin or dependency at all. Adding one would put the Compose runtime back
-into the framework and break the Swift build in P7 — the check below is what catches that.
+into the framework and break the SwiftUI app — the check below is what catches that.
 
 Verify the framework stays Compose-free after changes:
 
@@ -50,7 +56,7 @@ one is not a compile error, and dropping the dispatcher's call in P2 crashed the
 until P4.
 
 Platform entry points: `composeApp/androidMain/MainActivity.kt`, `composeApp/desktopMain/main.kt`,
-`composeApp/iosMain/MainViewController.kt`.
+`composeApp/macosMain/main.kt`, and `iosApp/iosApp/iOSApp.swift` (which calls `SharedApp.start()`).
 
 ## Critical Patterns
 
@@ -143,14 +149,15 @@ platform-specific constructor parameter, which is what Android needs for its Con
 
 ### Dependency Injection (Koin)
 One composition root: `initKoin()` in `:shared`, called from `DualisApplication.onCreate()`,
-`desktopMain/main.kt` and `MainViewController()`. Modules: `coreModule`, `dataModule` +
+`desktopMain/main.kt` and `SharedApp.start()`. Modules: `coreModule`, `dataModule` +
 `dataPlatformModule()`, `servicesModule` + `servicesPlatformModule()`, `presentationModule`.
 `extraModules` is what a platform adds on top — the Glance refresher on Android, the widget writer
 on iOS.
 
-**On iOS, Koin has to start before the first composition.** `App()` resolves its dependencies
-during composition while a `LaunchedEffect` only runs afterwards — starting Koin there crashes the
-first frame with "KoinApplication has not been started".
+**On iOS, Koin has to start before the first view is built.** `AppModel.init()` resolves the six
+stores, and it runs while `iOSApp` builds its `@State`; starting Koin from a `.task` instead would
+run after that first frame and crash with "KoinApplication has not been started". `SharedApp.start()`
+is idempotent because SwiftUI may build the root more than once.
 
 Classes the framework instantiates (WorkManager workers, schedulers) implement `KoinComponent` and
 resolve themselves; `Application.onCreate()` always runs first, so the graph is ready.
@@ -218,6 +225,13 @@ what it has already loaded for the whole session.
 Compose sees a store through two helpers in `composeApp/.../ui/store/StoreCompose.kt`:
 `store.collectState()` and `store.HandleEffects { … }`. Nothing else about a store is Compose-aware.
 
+Swift sees the same store through `StoreBox` (`iosApp/iosApp/Bridge/`), which observes the Kotlin
+bridges in `shared/iosMain/…/ios/StoreBridges.kt` — one per store, non-generic so Swift keeps the
+real intent and state types. The flows are collected inside Kotlin (`FlowObserver`) on
+`Dispatchers.Main` and call a Swift closure. **SKIE is not used**: its newest release supports
+Kotlin 2.2.0 and this project is on 2.3.20; the consequence is that sealed hierarchies reach Swift
+as classes matched with `is`, not as exhaustive Swift enums.
+
 ### Room Database
 Schema version 4, `exportSchema = true`, schemas in `data/schemas/`.
 
@@ -281,6 +295,12 @@ Files must include SPDX headers:
 # Android release APK (requires env vars SIGNING_KEYSTORE_PATH, SIGNING_KEYSTORE_PASSWORD, SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD)
 ./gradlew :composeApp:assembleRelease
 
+# iOS app (Debug, simulator). Leave CODE_SIGNING_ALLOWED=NO out when checking anything that
+# hangs off an entitlement — without it the app runs without App Group and Keychain group.
+cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Debug \
+  -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath /tmp/dhbwderived build
+
 # Desktop native packages (Dmg/Msi/Deb)
 ./gradlew :composeApp:packageDistributionForCurrentOS
 
@@ -302,6 +322,11 @@ Files must include SPDX headers:
 | `…/core/error/Outcome.kt`, `…/core/error/AppError.kt` | The error channel |
 | `presentation/…/presentation/store/BaseStore.kt` | The store contract every feature inherits |
 | `composeApp/…/ui/store/StoreCompose.kt` | The only Compose-aware part of the store plumbing |
+| `shared/src/iosMain/…/ios/SharedApp.kt` | The one door Swift uses: starts Koin, hands out the six bridges |
+| `shared/src/iosMain/…/ios/StoreBridges.kt` | One typed bridge per store, for Swift |
+| `iosApp/iosApp/Bridge/StoreBox.swift` | `@Observable` wrapper — the Swift half of the store plumbing |
+| `iosApp/iosApp/RootView.swift` | Login gate, tab bar, colour scheme, widget reload |
+| `iosApp/iosApp/Localizable.xcstrings` | iOS strings (en/de); the Compose UI has its own in `composeResources` |
 | `…/data/storage/database/AppDatabase.kt` | Room DB definition; `clearAllData()` for logout |
 | `…/data/storage/database/AppDatabaseMigrations.kt` | Schema version, migration list, destructive-fallback allowlist |
 | `data/schemas/` | Room schema exports (auto-generated, do not edit) |

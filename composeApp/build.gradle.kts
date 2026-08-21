@@ -19,24 +19,9 @@ kotlin {
         }
     }
 
-    listOf(
-        iosArm64(),
-        iosSimulatorArm64()
-    ).forEach { iosTarget ->
-        iosTarget.binaries.framework {
-            baseName = "ComposeApp"
-            isStatic = true
-
-            // Swift reaches into the shared modules (e.g. UIRootViewControllerHelper), and
-            // implementation dependencies do not end up in the framework's public API.
-            export(projects.core.common)
-            export(projects.domain)
-            export(projects.data)
-            export(projects.services)
-            export(projects.presentation)
-            export(projects.shared)
-        }
-    }
+    // No iOS targets since P7: the iOS app is SwiftUI and links `Shared.framework`. Compose
+    // here would only be dead weight in a binary nothing imports — and it would quietly re-open
+    // the door for a Compose dependency to reach `:presentation`.
 
     macosArm64()
     macosX64()
@@ -112,10 +97,6 @@ kotlin {
 
         androidUnitTest.dependencies {
             implementation(libs.robolectric)
-        }
-
-        iosMain.dependencies {
-            implementation(libs.ktor.client.darwin)
         }
 
         macosMain.dependencies {

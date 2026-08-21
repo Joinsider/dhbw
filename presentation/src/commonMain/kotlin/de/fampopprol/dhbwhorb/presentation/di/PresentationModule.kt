@@ -46,8 +46,6 @@ val presentationModule = module {
 
     single {
         GradesStore(
-            getSemesters = get(),
-            getGradesForSemester = get(),
             getAllGrades = get(),
             computeGpa = get(),
             sessionRepository = get(),

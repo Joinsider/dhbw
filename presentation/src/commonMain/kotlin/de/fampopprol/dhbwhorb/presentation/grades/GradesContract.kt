@@ -8,27 +8,30 @@ package de.fampopprol.dhbwhorb.presentation.grades
 
 import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
-import de.fampopprol.dhbwhorb.domain.model.Semester
+
+/** One semester's results, in the order [GradesState.sections] puts them. */
+data class SemesterGrades(
+    val semesterName: String,
+    val grades: List<GradeEntry>
+)
 
 /**
  * The grades screen.
+ *
+ * There is one view: everything, grouped by semester. The semester picker is gone — it split the
+ * same data into a second mode with its own average, its own loading flags and its own way of
+ * being wrong, and nobody wanted to look at one semester at a time badly enough to pay for that.
  *
  * One state object with one set of loading flags. `GradesViewModel` kept the same information
  * twice — a `mutableStateOf` state *and* three separate `StateFlow`s for loading, data and
  * refreshing — and the two could report different things at the same moment.
  */
 data class GradesState(
-    val semesters: List<Semester> = emptyList(),
-    /** Null until the semester list has arrived; [Semester.All] for the combined view. */
-    val selectedSemester: Semester? = null,
+    /** Every semester's grades, oldest semester first, modules alphabetical within a semester. */
     val grades: List<GradeEntry> = emptyList(),
-    val isLoadingSemesters: Boolean = false,
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
-    /** Set only while the combined view is selected. */
     val overallGpa: Double? = null,
-    /** Set only while a single semester is selected. */
-    val semesterGpa: Double? = null,
     val totalCreditsEarned: Double = 0.0,
     val error: AppError? = null,
     /** The user has to log in first; not an error, so the screen shows a prompt. */
@@ -38,37 +41,39 @@ data class GradesState(
      *
      * The screen re-enters the composition on every tab switch, so it needs a way to ask for a
      * load *if one is needed* rather than unconditionally — otherwise the store survives the
-     * switch but the page refetches anyway, which is the reload this phase removes.
+     * switch but the page refetches anyway, which is the reload P4 removed.
      */
     val hasLoaded: Boolean = false
 ) {
-    val isShowingAllSemesters: Boolean
-        get() = selectedSemester?.let { Semester.isAll(it) } == true
-
     val modulesCompleted: Int get() = grades.count { it.grade != null }
+
+    /**
+     * The grades grouped into the sections both UIs draw.
+     *
+     * Derived here rather than in each UI: two groupings of the same list are two chances to
+     * order them differently, and the order is the thing this screen most recently got wrong.
+     * [grades] arrives sorted, and grouping preserves that.
+     */
+    val sections: List<SemesterGrades>
+        get() = grades.groupBy { it.semesterName }
+            .map { (name, entries) -> SemesterGrades(name, entries) }
 }
 
 sealed interface GradesIntent {
-    /** Load the semester list and then the combined view. Also the retry action. */
+    /** Load everything. Also the retry action. */
     data object Load : GradesIntent
 
     /** Load only if nothing has been loaded yet. Dispatched when the screen appears. */
     data object EnsureLoaded : GradesIntent
-    data class SemesterSelected(val semester: Semester) : GradesIntent
     data object Refresh : GradesIntent
 }
 
 sealed interface GradesMsg {
-    data object LoadingSemesters : GradesMsg
-    data class SemestersLoaded(val semesters: List<Semester>) : GradesMsg
-
     data class LoadStarted(val isRefresh: Boolean) : GradesMsg
-    data class SemesterSelected(val semester: Semester) : GradesMsg
     data class GradesLoaded(
         val grades: List<GradeEntry>,
         val average: Double?,
-        val earnedCredits: Double,
-        val forAllSemesters: Boolean
+        val earnedCredits: Double
     ) : GradesMsg
     data class Failed(val error: AppError) : GradesMsg
     data object LoginRequired : GradesMsg

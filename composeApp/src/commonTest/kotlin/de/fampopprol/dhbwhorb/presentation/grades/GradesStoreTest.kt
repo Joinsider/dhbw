@@ -45,11 +45,8 @@ class GradesStoreTest {
         session: FakeSessionRepository = FakeSessionRepository(canAuthenticate = true)
     ): GradesStore {
         val getSemesters = GetSemesters(grades)
-        val getForSemester = GetGradesForSemester(grades)
         return GradesStore(
-            getSemesters = getSemesters,
-            getGradesForSemester = getForSemester,
-            getAllGrades = GetAllGrades(getSemesters, getForSemester),
+            getAllGrades = GetAllGrades(getSemesters, GetGradesForSemester(grades)),
             computeGpa = ComputeGpa(),
             sessionRepository = session,
             scope = TestScopes.immediate()
@@ -57,7 +54,7 @@ class GradesStoreTest {
     }
 
     @Test
-    fun loading_startsWithTheCombinedView() = runTest {
+    fun loading_bringsEverySemestersGrades() = runTest {
         val repository = FakeGradeRepository(
             semesters = Outcome.Ok(listOf(wise2526, sose2026)),
             grades = Outcome.Ok(listOf(grade("T4INF", "1,3", 5.0, wise2526)))
@@ -67,14 +64,40 @@ class GradesStoreTest {
         store.dispatch(GradesIntent.Load)
 
         val state = store.state.value
-        assertTrue(state.isShowingAllSemesters)
-        assertEquals(listOf(wise2526, sose2026), state.semesters)
+        assertTrue(state.hasLoaded)
         assertFalse(state.isLoading)
+        assertEquals(2, repository.requests.size, "One request per semester")
         store.close()
     }
 
     @Test
-    fun theCombinedView_averagesByCredits_andSetsOnlyTheOverallGpa() = runTest {
+    fun semesters_areOrderedByWhenTheyHappened_notByName() = runTest {
+        // Alphabetically this is WiSe 2024/25, WiSe 2025/26, SoSe 2025 — which is how the screen
+        // used to read, with the summer term at the bottom.
+        val wise2425 = Semester(id = "1", name = "WiSe 2024/25")
+        val sose2025 = Semester(id = "2", name = "SoSe 2025")
+        val wise2526 = Semester(id = "3", name = "WiSe 2025/26")
+        val repository = FakeGradeRepository(
+            semesters = Outcome.Ok(listOf(wise2526, wise2425, sose2025)),
+            gradesBySemester = mapOf(
+                wise2425.id to listOf(grade("B", "1,0", 5.0, wise2425)),
+                sose2025.id to listOf(grade("A", "2,0", 5.0, sose2025)),
+                wise2526.id to listOf(grade("C", "3,0", 5.0, wise2526))
+            )
+        )
+        val store = store(repository)
+
+        store.dispatch(GradesIntent.Load)
+
+        assertEquals(
+            listOf("WiSe 2024/25", "SoSe 2025", "WiSe 2025/26"),
+            store.state.value.sections.map { it.semesterName }
+        )
+        store.close()
+    }
+
+    @Test
+    fun theOverallAverage_isWeightedByCredits() = runTest {
         val repository = FakeGradeRepository(
             semesters = Outcome.Ok(listOf(wise2526)),
             grades = Outcome.Ok(
@@ -90,7 +113,6 @@ class GradesStoreTest {
 
         val state = store.state.value
         assertEquals(2.0, state.overallGpa)
-        assertNull(state.semesterGpa, "Only one of the two averages may be set at a time")
         assertEquals(20.0, state.totalCreditsEarned)
         store.close()
     }
@@ -114,24 +136,6 @@ class GradesStoreTest {
 
         assertEquals(2.0, store.state.value.overallGpa)
         assertEquals(2, store.state.value.modulesCompleted, "'b' counts as completed, null does not")
-        store.close()
-    }
-
-    @Test
-    fun selectingASingleSemester_setsOnlyTheSemesterGpa() = runTest {
-        val repository = FakeGradeRepository(
-            semesters = Outcome.Ok(listOf(wise2526)),
-            grades = Outcome.Ok(listOf(grade("A", "1,0", 5.0, wise2526)))
-        )
-        val store = store(repository)
-
-        store.dispatch(GradesIntent.Load)
-        store.dispatch(GradesIntent.SemesterSelected(wise2526))
-
-        val state = store.state.value
-        assertEquals(1.0, state.semesterGpa)
-        assertNull(state.overallGpa)
-        assertFalse(state.isShowingAllSemesters)
         store.close()
     }
 
@@ -197,7 +201,7 @@ class GradesStoreTest {
         store.dispatch(GradesIntent.Load)
 
         assertNull(store.state.value.error)
-        assertEquals(listOf(wise2526), store.state.value.semesters)
+        assertEquals(1, store.state.value.grades.size)
         store.close()
     }
 
