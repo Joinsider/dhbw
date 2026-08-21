@@ -87,7 +87,10 @@ android {
 }
 
 room {
-    schemaDirectory("${'$'}projectDir/schemas")
+    // Plain interpolation on purpose: the escaped form used to make the plugin write into a
+    // directory literally named `$projectDir`, so `data/schemas/` silently stopped being
+    // updated — and a migration gate reading a frozen export is worth nothing.
+    schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {

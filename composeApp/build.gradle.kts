@@ -125,6 +125,9 @@ kotlin {
         val desktopTest by getting {
             dependencies {
                 implementation(libs.koin.test)
+                // MigrationTestHelper reads the schema exports in data/schemas/ and opens real
+                // database files — the migration guard cannot run against an in-memory database.
+                implementation(libs.androidx.room.testing)
             }
         }
 

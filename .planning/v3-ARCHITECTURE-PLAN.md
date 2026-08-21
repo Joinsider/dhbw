@@ -495,7 +495,7 @@ Applikations-Singles. Ein Halter je Navigationseintrag würde bei jedem Tab-Wech
 genau das, was P4 abgestellt hat — und `saveState`/`restoreState` müssten das dann wieder
 zurückholen, ohne dass der Nutzer etwas davon hätte. `EnsureLoaded` bleibt deshalb bestehen.
 
-### P6 — Room-Migrationen statt Datenverlust · Größe M
+### P6 — Room-Migrationen statt Datenverlust · Größe M · **abgeschlossen**
 
 * `fallbackToDestructiveMigration(dropAllTables = true)` in allen vier `getDatabaseBuilder()`-Actuals
   (Android, Desktop, iOS, macOS) entfernen.
@@ -507,6 +507,60 @@ zurückholen, ohne dass der Nutzer etwas davon hätte. `EnsureLoaded` bleibt des
   einmaligem Copy-Migrationsschritt beim ersten Start von v3. Voraussetzung für P8.
 
 **Fertig wenn:** ein Update von v2.1.1 auf v3 behält Noten und Stundenplan; Migrationstest läuft in CI.
+
+**Was tatsächlich passiert ist** (`phase/p6-migrations`):
+
+* **Die Politik liegt jetzt an einer Stelle.** Die vier `getDatabaseBuilder()`-Actuals entscheiden
+  nur noch, *wo* die Datei liegt; *wie* sie geöffnet wird — Migrationen und Fallback — steht einmal
+  in `createRoomDatabase()`. Vorher stand `fallbackToDestructiveMigration(dropAllTables = true)`
+  viermal da und hätte viermal auseinanderlaufen können.
+* **Kein v4 → v5.** Der Plan sah eine Beispielmigration vor; es gibt in dieser Phase keine
+  Schemaänderung, also wäre sie erfunden gewesen. `APP_DATABASE_MIGRATIONS` ist leer, und der
+  Beweis liegt stattdessen im Gate: `APP_DATABASE_VERSION` auf 5 zu setzen lässt vier der fünf
+  Migrationstests fallen, `DESTRUCTIBLE_SCHEMA_VERSIONS` zu leeren den fünften. Beide Mutationen
+  wurden ausgeführt, nicht behauptet.
+* **Statt eines Blanko-Fallbacks eine Namensliste.** Nur die Schemata 1–3 dürfen verworfen werden.
+  Das ist keine Vorsichtsmaßnahme, sondern nachgeprüft: jeder veröffentlichte Build ab v2.0.0 trägt
+  Schema 4, die Versionen 1–3 existierten nur vor dem ersten Release. Eine künftige Lücke bricht
+  jetzt laut beim Öffnen, statt still zu löschen.
+* **Der Schema-Export lief seit P1 ins Leere.** `data/build.gradle.kts` hatte
+  `schemaDirectory("${'$'}projectDir/schemas")` mit escaptem Dollar — die Kotlin-DSL bekam also den
+  *literalen* String, und das Room-Plugin schrieb in ein Verzeichnis, das buchstäblich
+  `$projectDir` heißt. `data/schemas/` war seit dem Modulschnitt eingefroren. Ein Migrations-Gate, das einen
+  eingefrorenen Export liest, prüft nichts; das war die Voraussetzung für alles andere in dieser
+  Phase. Nachgewiesen wie der Rest: mit Version 5 landet der Export jetzt in `data/schemas/`,
+  vorher landete er daneben.
+* **Die Schema-Exporte 1–3 sind mitgezogen.** Sie lagen noch unter dem Klassennamen von vor der
+  Umbenennung (`de.joinside.dhbw.data.storage.database.AppDatabase`); dort findet
+  `MigrationTestHelper` sie nicht. Die 4.json war dort byte-identisch zur aktuellen und ist
+  entfallen. Die beiden übrigen `de.joinside.*`-Ordner beschreiben zwei *andere* Version 1 —
+  ein noch älterer Datenbankstamm, der bleibt als Beleg liegen.
+* **Der Desktop-Pfad war die eigentliche Datenverlustquelle.** Die Datenbank lag in
+  `java.io.tmpdir`; den Fallback dort zu entfernen hätte nichts gebracht, solange das Betriebssystem
+  die Datei jederzeit löschen darf. Sie liegt jetzt im Nutzerdatenverzeichnis. Nicht im Plan, aber
+  dieselbe Phasenfrage.
+* **iOS-Umzug wie entschieden: löschen, nicht kopieren.** Die alte Datei samt `-wal`, `-shm` und
+  `.lck` wird aus `NSDocumentDirectory` entfernt, die neue im App-Group-Container angelegt. Fehlt
+  das Entitlement, fällt die App auf das Dokumentverzeichnis zurück und protokolliert das laut —
+  ein fehlendes App Group soll das Widget blind machen, nicht die App abstürzen lassen.
+* **macOS bleibt, wo es ist.** `NSApplicationSupportDirectory` ist bereits persistent, und macOS
+  hat keine Widget-Extension — es gibt nichts, was mitlesen müsste.
+
+**Was das Gate nicht gesehen hätte:** die iOS-Verifikation. Der Build-Befehl aus dem Handoff nutzt
+`CODE_SIGNING_ALLOWED=NO`, und ohne Signatur bettet Xcode **keine** Entitlements ein: der Container
+wurde mit „client is not entitled" abgelehnt und die App lief stillschweigend im Fallback-Pfad
+weiter — genau das Verhalten, das sie zeigen soll, aber eben nicht das, was zu prüfen war. Mit
+regulärer Simulator-Signatur (`Sign to Run Locally`) landet die Datenbank im App-Group-Container
+und das Dokumentverzeichnis bleibt leer. **Das Apple-Developer-Portal wird dafür nicht gebraucht** —
+der Simulator prüft App Groups nicht gegen ein Provisioning-Profil. Für ein echtes Gerät bleibt die
+Registrierung offen.
+
+**Gate bei Abschluss:** `testDebugUnitTest` 288 Tests, `desktopTest` 391 Tests (386 + 5 neue),
+0 Fehler, 0 übersprungen. Framework Compose-frei (0), iOS- und Android-Build grün.
+**Auf dem Gerät nachgemessen:** die Android-Datenbank hatte vor dem Update 25 Noten, 48
+Vorlesungen, 17 Dozenten auf Schema 4 — nach dem Update dieselben Zahlen, und Noten wie Dokumente
+zeigen ihre echten Daten. Ein Tab-Durchlauf macht weiterhin **0 Requests**. Auf iOS liegt die
+Datenbank nach dem Start im App-Group-Container, `Documents` ist leer.
 
 ### P7 — Natives SwiftUI-Interface · Größe XL
 
@@ -600,11 +654,16 @@ P5 und P6 sind unabhängig voneinander und parallelisierbar. P7 setzt P4 **und**
    Konkret heißt das für P6: die alte Datei am alten Ort wird gelöscht, die neue in der App-Group
    leer angelegt, und der nächste Abruf füllt sie. Kein Kopierpfad, keine Zwei-Orte-Logik. Der
    Nutzer sieht beim ersten Start nach dem Update einen kurzen Ladevorgang statt sofortiger Daten.
+   → **In P6 so umgesetzt und auf dem Simulator nachgeprüft.**
 3. *P7:* Bleibt macOS bei Compose-Desktop, oder bekommt es später dasselbe SwiftUI-Interface?
    Der Plan geht von „bleibt Compose-Desktop" aus.
 4. *P8:* App-Group und Keychain-Access-Group erfordern Anpassungen im Apple-Developer-Portal
-   (Entitlements, Provisioning). **Die App-Group wird schon in P6 gebraucht**, nicht erst in P8 —
-   ohne sie lässt sich der DB-Umzug zwar bauen, aber nicht verifizieren.
+   (Entitlements, Provisioning). → **Für P6 hat sich das erledigt:** der Simulator prüft App Groups
+   nicht gegen ein Provisioning-Profil, eine reguläre Simulator-Signatur genügt, und der Umzug ist
+   dort vollständig verifiziert. Die Entitlements stehen ohnehin schon in `iosApp.entitlements` und
+   `TimetableWidget.entitlements`. Offen bleibt die Portal-Registrierung für **echte Geräte** —
+   ohne sie schlägt dort der Container-Lookup fehl und die App fällt in P6 sichtbar (mit
+   Fehlerprotokoll) auf das Dokumentverzeichnis zurück, womit das Widget blind bliebe.
 
 **Was der Umbau nicht löst:** Dualis bleibt HTML-Scraping ohne stabilen Vertrag. P0 macht Brüche
 sichtbar statt sie zu verhindern. Ein Portal-Redesign bricht die App weiterhin — die Fixtures

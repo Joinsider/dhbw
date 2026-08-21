@@ -30,7 +30,7 @@ import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LecturerE
         LectureLecturerCrossRef::class,
         SyncMetadataEntity::class
     ],
-    version = 4,
+    version = APP_DATABASE_VERSION,
     exportSchema = true
 )
 @TypeConverters(DateTimeConverter::class)
