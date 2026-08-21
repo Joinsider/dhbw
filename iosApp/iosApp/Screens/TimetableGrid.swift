@@ -106,27 +106,84 @@ struct TimetableGrid: View {
     }
 
     private func dayColumn(_ day: GridDay) -> some View {
-        ZStack(alignment: .topLeading) {
-            // The hour lines, so a block's height can be read against something.
-            VStack(spacing: 0) {
-                ForEach(hours, id: \.self) { _ in
-                    Rectangle()
-                        .fill(Color(uiColor: .separator).opacity(0.35))
-                        .frame(height: 0.5)
-                        .frame(maxHeight: Self.hourHeight, alignment: .top)
+        // The column has to know its own width: two lectures at the same time share it, so a
+        // block's width is a fraction of it rather than all of it.
+        GeometryReader { proxy in
+            ZStack(alignment: .topLeading) {
+                // The hour lines, so a block's height can be read against something.
+                VStack(spacing: 0) {
+                    ForEach(hours, id: \.self) { _ in
+                        Rectangle()
+                            .fill(Color(uiColor: .separator).opacity(0.35))
+                            .frame(height: 0.5)
+                            .frame(maxHeight: Self.hourHeight, alignment: .top)
+                    }
+                }
+                .frame(height: CGFloat(hours.count) * Self.hourHeight, alignment: .top)
+
+                ForEach(placed(on: day), id: \.lecture.id) { block in
+                    let laneWidth = proxy.size.width / CGFloat(block.laneCount)
+                    LectureBlock(lecture: block.lecture, isNarrow: block.laneCount > 1)
+                        .frame(width: laneWidth, height: height(of: block.lecture))
+                        .offset(x: laneWidth * CGFloat(block.lane), y: offset(of: block.lecture))
+                        .onTapGesture { onLecture(block.lecture) }
                 }
             }
-            .frame(height: CGFloat(hours.count) * Self.hourHeight, alignment: .top)
-
-            ForEach(lectures(on: day), id: \.id) { lecture in
-                LectureBlock(lecture: lecture)
-                    .frame(height: height(of: lecture))
-                    .offset(y: offset(of: lecture))
-                    .onTapGesture { onLecture(lecture) }
-            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .background(day.isToday ? Color.brandSoft.opacity(0.35) : .clear)
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(day.isToday ? Color.brandSoft.opacity(0.4) : .clear)
+        .frame(height: CGFloat(hours.count) * Self.hourHeight)
+    }
+
+    // MARK: - Overlapping lectures
+
+    /// A lecture and which of the parallel columns it gets.
+    private struct PlacedLecture {
+        let lecture: Lecture
+        let lane: Int
+        let laneCount: Int
+    }
+
+    /// Lays parallel lectures side by side instead of on top of each other.
+    ///
+    /// Two lectures at the same hour used to be drawn at the same place, and the second one's
+    /// text landed on the first one's — unreadable, and it looked like one broken block. The rule
+    /// is the one every calendar uses: lectures that overlap in time form a group, each takes the
+    /// first lane that is free, and the whole group is as wide as the column divided by the
+    /// number of lanes the group needed.
+    private func placed(on day: GridDay) -> [PlacedLecture] {
+        let ordered = lectures(on: day)
+        guard !ordered.isEmpty else { return [] }
+
+        var result: [PlacedLecture] = []
+        var group: [(lecture: Lecture, lane: Int)] = []
+        var laneEnds: [Int] = []          // when the lecture currently in each lane ends
+        var groupEnd = Int.min
+
+        func closeGroup() {
+            let laneCount = max(1, laneEnds.count)
+            result += group.map { PlacedLecture(lecture: $0.lecture, lane: $0.lane, laneCount: laneCount) }
+            group = []
+            laneEnds = []
+            groupEnd = Int.min
+        }
+
+        for lecture in ordered {
+            let start = minutes(from: lecture.start)
+            let end = minutes(from: lecture.end)
+
+            // A lecture that starts after everything in the group has ended begins a new group,
+            // so an afternoon lecture is not squeezed by a clash in the morning.
+            if start >= groupEnd { closeGroup() }
+
+            let lane = laneEnds.firstIndex { $0 <= start } ?? laneEnds.count
+            if lane < laneEnds.count { laneEnds[lane] = end } else { laneEnds.append(end) }
+            group.append((lecture, lane))
+            groupEnd = max(groupEnd, end)
+        }
+        closeGroup()
+
+        return result
     }
 
     // MARK: - Geometry
@@ -205,17 +262,20 @@ struct TimetableGrid: View {
     }
 }
 
-/// One lecture in the grid. Short by necessity — a column is about 60 pt wide on an iPhone.
+/// One lecture in the grid. Short by necessity — a column is about 60 pt wide on an iPhone, and
+/// half that when two lectures run at the same time.
 private struct LectureBlock: View {
 
     let lecture: Lecture
+    let isNarrow: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(lecture.shortName)
-                .font(.caption2.weight(.semibold))
-                .lineLimit(2)
-            if !lecture.location.isEmpty {
+                .font(.system(size: isNarrow ? 9 : 11, weight: .semibold))
+                .lineLimit(isNarrow ? 3 : 2)
+                .minimumScaleFactor(0.8)
+            if !lecture.location.isEmpty && !isNarrow {
                 Text(lecture.location)
                     .font(.system(size: 9))
                     .foregroundStyle(.secondary)
@@ -225,18 +285,27 @@ private struct LectureBlock: View {
         .padding(.horizontal, 3)
         .padding(.vertical, 2)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(lecture.isTest ? Color.orange.opacity(0.22) : Color.brandSoft, in: .rect(cornerRadius: 6))
+        .background(lecture.isTest ? Color.examFill : Color.lectureFill, in: .rect(cornerRadius: 6))
         .overlay(alignment: .leading) {
             Rectangle()
-                .fill(lecture.isTest ? Color.orange : Color.brand)
+                .fill(lecture.isTest ? Color.examEdge : Color.brand)
                 .frame(width: 2.5)
                 .clipShape(.rect(topLeadingRadius: 6, bottomLeadingRadius: 6))
+        }
+        .overlay(alignment: .topTrailing) {
+            if lecture.isTest {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 8))
+                    .foregroundStyle(Color.examEdge)
+                    .padding(2)
+            }
         }
         .padding(.horizontal, 1)
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            "\(lecture.displayName), \(lecture.start.timeText) – \(lecture.end.timeText)"
+            (lecture.isTest ? String(localized: "timetable.exam") + ": " : "")
+                + "\(lecture.displayName), \(lecture.start.timeText) – \(lecture.end.timeText)"
                 + (lecture.location.isEmpty ? "" : ", \(lecture.location)")
         )
         .accessibilityAddTraits(.isButton)

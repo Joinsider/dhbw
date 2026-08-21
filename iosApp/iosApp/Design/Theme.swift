@@ -20,6 +20,30 @@ extension Color {
             : UIColor(red: 0.78, green: 0.09, blue: 0.14, alpha: 1)
     })
 
+    /// The timetable blocks. Opaque, not translucent: the grid tints the column of the current
+    /// day, and a see-through block sitting on that tint came out a different colour from the
+    /// same lecture on any other day.
+    static let lectureFill = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.23, green: 0.10, blue: 0.11, alpha: 1)
+            : UIColor(red: 0.98, green: 0.91, blue: 0.92, alpha: 1)
+    })
+
+    /// Exams, in the warning colour rather than the accent — the same distinction Android makes
+    /// with `colorScheme.error` against `colorScheme.primary`, except that here the accent is
+    /// already red, so the exam has to move instead.
+    static let examFill = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.24, green: 0.17, blue: 0.05, alpha: 1)
+            : UIColor(red: 1.00, green: 0.95, blue: 0.86, alpha: 1)
+    })
+
+    static let examEdge = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 1.00, green: 0.69, blue: 0.25, alpha: 1)
+            : UIColor(red: 0.85, green: 0.48, blue: 0.00, alpha: 1)
+    })
+
     /// A quieter brand tone for backgrounds that carry text.
     static let brandSoft = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
