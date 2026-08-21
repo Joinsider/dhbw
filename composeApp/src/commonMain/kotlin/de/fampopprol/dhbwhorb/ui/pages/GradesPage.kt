@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -25,6 +26,9 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.domain.model.Semester
+import de.fampopprol.dhbwhorb.presentation.grades.GradesIntent
+import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
+import de.fampopprol.dhbwhorb.ui.store.collectState
 import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
 import de.fampopprol.dhbwhorb.ui.error.toUserMessage
 import de.fampopprol.dhbwhorb.resources.Res
@@ -36,8 +40,6 @@ import de.fampopprol.dhbwhorb.ui.grades.components.GradeCard
 import de.fampopprol.dhbwhorb.ui.grades.components.OverallStatsCard
 import de.fampopprol.dhbwhorb.ui.grades.components.SemesterGroupCard
 import de.fampopprol.dhbwhorb.ui.grades.components.SemesterSelector
-import de.fampopprol.dhbwhorb.ui.grades.viewModels.GradesUiState
-import de.fampopprol.dhbwhorb.ui.grades.viewModels.GradesViewModel
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
 import de.fampopprol.dhbwhorb.ui.components.GradeCardSkeleton
@@ -55,10 +57,10 @@ fun GradesPage(
     onNavigateToSettings: () -> Unit = {},
     isLoggedIn: Boolean = true,
     modifier: Modifier = Modifier,
-    viewModel: GradesViewModel = koinInject()
+    store: GradesStore = koinInject()
 ) {
 
-    val uiState = viewModel.uiState
+    val uiState by store.collectState()
     val computeGpa: ComputeGpa = koinInject()
     val hapticFeedback = LocalHapticFeedback.current
 
@@ -66,10 +68,10 @@ fun GradesPage(
     // Local val: smart casts do not cross module boundaries since the state moved to :presentation.
     val error = uiState.error
 
+    // The store outlives the composition, so the first load runs once; a login that arrives later
+    // retries the load that stopped at "login required".
     LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn && uiState.requiresLogin) {
-            viewModel.loadSemesters()
-        }
+        if (isLoggedIn) store.dispatch(GradesIntent.EnsureLoaded)
     }
 
     Scaffold(
@@ -151,7 +153,7 @@ fun GradesPage(
                         )
                         
                         Button(
-                            onClick = { viewModel.loadSemesters() }
+                            onClick = { store.dispatch(GradesIntent.Load) }
                         ) {
                             Text(text = stringResource(Res.string.retry))
                         }
@@ -162,7 +164,7 @@ fun GradesPage(
                     isRefreshing = uiState.isRefreshing,
                     onRefresh = {
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-                        viewModel.refreshGrades()
+                        store.dispatch(GradesIntent.Refresh)
                     },
                     modifier = Modifier.fillMaxSize(),
                 ) {
@@ -186,21 +188,20 @@ fun GradesPage(
                             SemesterSelector(
                                 semesters = uiState.semesters,
                                 selectedSemester = uiState.selectedSemester,
-                                onSemesterSelected = { viewModel.selectSemester(it) },
+                                onSemesterSelected = { store.dispatch(GradesIntent.SemesterSelected(it)) },
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
                         }
 
                         // Show different content based on selection
-                        val selectedSemester = uiState.selectedSemester
-                        if (selectedSemester != null && Semester.isAll(selectedSemester)) {
+                        if (uiState.isShowingAllSemesters) {
                             // Overview mode - show overall statistics
                             if (uiState.overallGpa != null || uiState.totalCreditsEarned > 0) {
                                 item {
                                     OverallStatsCard(
                                         overallGpa = uiState.overallGpa,
                                         totalCredits = uiState.totalCreditsEarned,
-                                        modulesCompleted = uiState.grades.count { it.grade != null }
+                                        modulesCompleted = uiState.modulesCompleted
                                     )
                                 }
                             }

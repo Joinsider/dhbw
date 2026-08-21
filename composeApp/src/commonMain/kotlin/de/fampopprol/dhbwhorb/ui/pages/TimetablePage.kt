@@ -40,17 +40,21 @@ import de.fampopprol.dhbwhorb.resources.november_short
 import de.fampopprol.dhbwhorb.resources.october_short
 import de.fampopprol.dhbwhorb.resources.september_short
 import de.fampopprol.dhbwhorb.resources.this_week
+import de.fampopprol.dhbwhorb.presentation.timetable.TimetableIntent
+import de.fampopprol.dhbwhorb.presentation.timetable.TimetableStore
+import de.fampopprol.dhbwhorb.ui.error.toUserMessage
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
+import de.fampopprol.dhbwhorb.ui.store.collectState
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
 import de.fampopprol.dhbwhorb.ui.schedule.modules.dialogs.LectureDetailsDialog
-import de.fampopprol.dhbwhorb.ui.schedule.models.LectureModel
 import de.fampopprol.dhbwhorb.ui.schedule.modules.week.WeekNavigationBar
-import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
-import de.fampopprol.dhbwhorb.ui.schedule.viewModels.WeekLabelData
 import de.fampopprol.dhbwhorb.ui.schedule.views.WeeklyLecturesView
 import de.fampopprol.dhbwhorb.util.isMobilePlatform
 import org.koin.compose.koinInject
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.Month
+import kotlinx.datetime.plus
 import org.jetbrains.compose.resources.InternalResourceApi
 import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -66,23 +70,21 @@ fun TimetablePage(
     onNavigateToSettings: () -> Unit = {},
     isLoggedIn: Boolean = true,
     modifier: Modifier = Modifier,
-    viewModel: TimetableViewModel = koinInject()
+    store: TimetableStore = koinInject()
 ) {
-    val uiState = viewModel.uiState
-    var selectedLecture by remember { mutableStateOf<LectureModel?>(null) }
+    val uiState by store.collectState()
     val hapticFeedback = LocalHapticFeedback.current
 
-    // Set up pager with a very large number of pages
+    // The pager fakes an infinite range around the current week.
     val initialPage = 1000
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2001 })
 
-    // Sync pager state with ViewModel
+    // The pager owns the scroll position; the store owns everything that follows from it.
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }
             .distinctUntilChanged()
             .collect { page ->
-                val offset = page - initialPage
-                viewModel.loadLecturesForWeek(offset)
+                store.dispatch(TimetableIntent.WeekFocused(page - initialPage))
             }
     }
 
@@ -110,7 +112,16 @@ fun TimetablePage(
                 .padding(bottom = paddingValues.calculateBottomPadding())
         ) {
             // Shared Navigation Bar for all pages
-            WeekLabelDisplay(uiState.weekLabelData, viewModel, initialPage, pagerState)
+            WeekLabelDisplay(
+                start = uiState.currentWeek.start,
+                end = uiState.currentWeek.end,
+                isRefreshing = uiState.currentWeek.isRefreshing,
+                onRefresh = {
+                    store.dispatch(TimetableIntent.Refresh(pagerState.currentPage - initialPage))
+                },
+                initialPage = initialPage,
+                pagerState = pagerState
+            )
 
             Box(modifier = Modifier.fillMaxSize()) {
                 HorizontalPager(
@@ -119,32 +130,30 @@ fun TimetablePage(
                     beyondViewportPageCount = 1
                 ) { page ->
                     val offset = page - initialPage
-                    val isRefreshing = viewModel.isWeekRefreshing(offset)
-                    val isLoading = viewModel.isWeekLoading(offset)
-                    val lectures = viewModel.getLecturesForWeekSync(offset)
+                    val week = uiState.week(offset)
 
                     PullToRefreshBox(
-                        isRefreshing = isRefreshing,
+                        isRefreshing = week.isRefreshing,
                         onRefresh = {
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-                            viewModel.refreshLectures(offset)
+                            store.dispatch(TimetableIntent.Refresh(offset))
                         },
                         modifier = Modifier.fillMaxSize()
                     ) {
                         WeeklyLecturesView(
-                            lectures = lectures,
-                            onLectureClick = { selectedLecture = it },
-                            isRefreshing = isLoading || isRefreshing,
+                            lectures = week.lectures,
+                            onLectureClick = { store.dispatch(TimetableIntent.LectureOpened(it)) },
+                            isRefreshing = week.isLoading || week.isRefreshing,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
                 }
 
-                // Error banner (non-blocking)
-                if (uiState.error != null) {
+                // Error banner (non-blocking): the week may still show cached lectures.
+                uiState.currentWeek.error?.let { error ->
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
                         Text(
-                            text = stringResource(Res.string.error_loading_lectures),
+                            text = error.toUserMessage(),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(16.dp)
@@ -155,8 +164,11 @@ fun TimetablePage(
         }
 
         // Selected lecture dialog
-        selectedLecture?.let { lecture ->
-            LectureDetailsDialog(lecture = lecture, onDismiss = { selectedLecture = null })
+        uiState.selectedLecture?.let { lecture ->
+            LectureDetailsDialog(
+                lecture = lecture,
+                onDismiss = { store.dispatch(TimetableIntent.LectureDismissed) }
+            )
             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
         }
     }
@@ -164,12 +176,20 @@ fun TimetablePage(
 
 @Composable
 private fun WeekLabelDisplay(
-    weekLabelData: WeekLabelData?,
-    viewModel: TimetableViewModel,
+    start: LocalDateTime?,
+    end: LocalDateTime?,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
     initialPage: Int,
     pagerState: androidx.compose.foundation.pager.PagerState
 ) {
-    val weekLabel = weekLabelData?.let { formatWeekLabel(it) } ?: stringResource(Res.string.this_week)
+    // The dates come from the store, which got them from the same calendar arithmetic the
+    // repository uses. The label is a pure function of them.
+    val weekLabel = if (start != null && end != null) {
+        formatWeekLabel(start, end)
+    } else {
+        stringResource(Res.string.this_week)
+    }
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     WeekNavigationBar(
@@ -189,23 +209,27 @@ private fun WeekLabelDisplay(
                 pagerState.animateScrollToPage(initialPage)
             }
         },
-        onRefresh = {
-            val offset = pagerState.currentPage - initialPage
-            viewModel.refreshLectures(offset)
-        },
-        isRefreshing = viewModel.isWeekRefreshing(pagerState.currentPage - initialPage),
+        onRefresh = onRefresh,
+        isRefreshing = isRefreshing,
         modifier = Modifier.padding(8.dp)
     )
 }
 
+/** "17 - 21 Aug", or "29 Dec - 02 Jan" when the week straddles a month. */
 @Composable
-private fun formatWeekLabel(data: WeekLabelData): String {
-    val mondayMonthStr = stringResource(getMonthResource(data.mondayMonth))
-    val fridayMonthStr = stringResource(getMonthResource(data.fridayMonth))
-    return if (data.mondayMonth == data.fridayMonth) {
-        "${data.mondayDay.toString().padStart(2, '0')} - ${data.fridayDay.toString().padStart(2, '0')} $mondayMonthStr"
+private fun formatWeekLabel(start: LocalDateTime, end: LocalDateTime): String {
+    // The bar shows the working week, so it ends on Friday rather than on the range's Sunday.
+    val friday = start.date.plus(4, DateTimeUnit.DAY)
+    val startMonth = stringResource(getMonthResource(start.month))
+    val endMonth = stringResource(getMonthResource(friday.month))
+
+    val startDay = start.day.toString().padStart(2, '0')
+    val endDay = friday.day.toString().padStart(2, '0')
+
+    return if (start.month == friday.month) {
+        "$startDay - $endDay $startMonth"
     } else {
-        "${data.mondayDay.toString().padStart(2, '0')} $mondayMonthStr - ${data.fridayDay.toString().padStart(2, '0')} $fridayMonthStr"
+        "$startDay $startMonth - $endDay $endMonth"
     }
 }
 

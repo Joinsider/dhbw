@@ -11,22 +11,15 @@ import de.fampopprol.dhbwhorb.data.repository.TimetableRepositoryImpl
 import de.fampopprol.dhbwhorb.data.storage.credentials.FakeSecureStorage
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureEventEntity
 import de.fampopprol.dhbwhorb.testutil.MockAppDatabase
-import de.fampopprol.dhbwhorb.testutil.testKoin
-import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsViewModel
 import io.ktor.client.HttpClient
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.*
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class LazyLoadingTest {
-
-    private val koin = testKoin()
+class CachedTimetableAccessTest {
 
     /**
      * The widget refreshes from a background worker, where there may be no session and no
@@ -84,34 +77,5 @@ class LazyLoadingTest {
 
         assertTrue(result is Outcome.Ok, "Reading the cache must succeed even with nothing in it")
         assertEquals(0, fetchCount, "Reading the cache must not trigger a Dualis request")
-    }
-
-    @Test
-    fun documentsViewModel_withoutSession_endsInLoginRequired() = runTest {
-        // backgroundScope, not `this`: the ViewModel's stateIn job never completes, so a test-scope
-        // child would keep runTest waiting forever.
-        val viewModel = DocumentsViewModel(
-            listDocuments = koin.get(),
-            downloadDocument = koin.get(),
-            sessionRepository = koin.get(),
-            coroutineScope = backgroundScope
-        )
-
-        // The state is a plain StateFlow now, so its value is current whether or not anyone
-        // collects it; the collector only keeps the shape of this test unchanged.
-        backgroundScope.launch { viewModel.uiState.collect { } }
-        runCurrent()
-
-        // init { loadDocuments() } runs straight through. Without a stored session it stops at
-        // "login required".
-        testScheduler.advanceUntilIdle()
-        testScheduler.runCurrent()
-
-        assertFalse(viewModel.uiState.value.isLoading, "Loading has to finish")
-        assertTrue(
-            viewModel.uiState.value.requiresLogin,
-            "Without a session the user must be asked to log in, not shown an error"
-        )
-        assertNull(viewModel.uiState.value.error, "A missing session is not an error condition")
     }
 }

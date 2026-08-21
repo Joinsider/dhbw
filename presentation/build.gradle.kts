@@ -4,8 +4,8 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kover)
-    alias(libs.plugins.composeMultiplatform)
-    alias(libs.plugins.composeCompiler)
+    // No Compose plugins: the stores expose StateFlow, so this module carries no Compose
+    // runtime and can be exported into Shared.framework for Swift.
 }
 
 kotlin {
@@ -31,11 +31,6 @@ kotlin {
             api(projects.domain)
             api(projects.data)
             api(projects.services)
-            // Temporary: the ViewModels still hold state in Compose's `mutableStateOf`.
-            // P4 replaces that with StateFlow, after which this dependency is removed and
-            // the module becomes usable from Swift.
-            implementation(compose.runtime)
-            api(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.napier)
         }
 

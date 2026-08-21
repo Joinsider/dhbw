@@ -32,19 +32,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.ui.documents.components.DocumentCard
-import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsViewModel
+import de.fampopprol.dhbwhorb.presentation.documents.DocumentsEffect
+import de.fampopprol.dhbwhorb.presentation.documents.DocumentsIntent
+import de.fampopprol.dhbwhorb.presentation.documents.DocumentsStore
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
 import de.fampopprol.dhbwhorb.util.isMobilePlatform
 import org.koin.compose.koinInject
 import de.fampopprol.dhbwhorb.ui.components.DocumentCardSkeleton
-import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService
-import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-
-import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsUiState
-import kotlinx.coroutines.flow.MutableStateFlow
+import de.fampopprol.dhbwhorb.ui.store.HandleEffects
+import de.fampopprol.dhbwhorb.ui.store.collectState
+import de.fampopprol.dhbwhorb.util.openFile
+import de.fampopprol.dhbwhorb.util.saveFileWithDialog
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -54,16 +53,25 @@ fun DocumentsPage(
     onNavigateToSettings: () -> Unit,
     isLoggedIn: Boolean,
     modifier: Modifier = Modifier,
-    viewModel: DocumentsViewModel = koinInject()
+    store: DocumentsStore = koinInject()
 ) {
 
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by store.collectState()
 
-    // If we were previously blocked due to missing login and the app is now logged in, try again once
-    LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn && uiState.requiresLogin) {
-            viewModel.loadDocuments()
+    // Opening and saving a file are platform calls, so the store asks for them by effect instead
+    // of making them itself — which is what keeps :presentation free of platform APIs.
+    store.HandleEffects { effect ->
+        when (effect) {
+            is DocumentsEffect.OpenFile -> openFile(effect.bytes, effect.fileName)
+            is DocumentsEffect.SaveFile -> saveFileWithDialog(effect.bytes, effect.fileName)
+            is DocumentsEffect.DownloadFailed -> Unit // already reflected in the state
         }
+    }
+
+    // The store outlives the composition, so the first load runs once; a login that arrives later
+    // retries the load that stopped at "login required".
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) store.dispatch(DocumentsIntent.EnsureLoaded)
     }
 
     Scaffold(
@@ -114,7 +122,7 @@ fun DocumentsPage(
                 ) {
                     OutlinedTextField(
                         value = uiState.searchQuery,
-                        onValueChange = { viewModel.onSearchQueryChange(it) },
+                        onValueChange = { store.dispatch(DocumentsIntent.SearchChanged(it)) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 16.dp, bottom = 8.dp),
@@ -127,7 +135,7 @@ fun DocumentsPage(
                         },
                         trailingIcon = {
                             if (uiState.searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
+                                IconButton(onClick = { store.dispatch(DocumentsIntent.SearchChanged("")) }) {
                                     Icon(
                                         imageVector = Icons.Default.Clear,
                                         contentDescription = "Clear Search"
@@ -152,7 +160,7 @@ fun DocumentsPage(
                     } else {
                         PullToRefreshBox(
                             isRefreshing = uiState.isRefreshing,
-                            onRefresh = { viewModel.refreshDocuments() },
+                            onRefresh = { store.dispatch(DocumentsIntent.Refresh) },
                         ) {
                             if (uiState.documents.isEmpty() && uiState.searchQuery.isNotEmpty() && !uiState.isLoading) {
                                 Box(
@@ -175,22 +183,15 @@ fun DocumentsPage(
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     items(uiState.documents) { document ->
-                                        val documentKey =
-                                            "${document.title}|${document.date}|${document.time}"
                                         DocumentCard(
                                             document = document,
                                             onDownloadClick = {
-                                                viewModel.downloadAndOpenDocument(
-                                                    document
-                                                )
+                                                store.dispatch(DocumentsIntent.Open(document))
                                             },
                                             onSaveToFiles = { doc ->
-                                                viewModel.saveDocumentToFiles(
-                                                    doc
-                                                )
+                                                store.dispatch(DocumentsIntent.Save(doc))
                                             },
-                                            isDownloading = uiState.isDownloading[documentKey]
-                                                ?: false
+                                            isDownloading = uiState.isDownloading(document)
                                         )
                                     }
                                 }

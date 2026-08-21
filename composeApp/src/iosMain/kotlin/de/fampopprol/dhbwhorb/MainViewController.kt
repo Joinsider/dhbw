@@ -9,7 +9,6 @@ package de.fampopprol.dhbwhorb
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.window.ComposeUIViewController
 import de.fampopprol.dhbwhorb.data.storage.database.AppDatabase
-import de.fampopprol.dhbwhorb.presentation.di.presentationModule
 import de.fampopprol.dhbwhorb.services.widget.WidgetDataWriter
 import de.fampopprol.dhbwhorb.services.widget.WidgetTimetableUseCase
 import de.fampopprol.dhbwhorb.shared.initKoin
@@ -53,7 +52,7 @@ private fun startKoinIfNeeded(): Koin =
     KoinPlatform.getKoinOrNull() ?: run {
         Napier.base(DebugAntilog())
         Napier.d("Starting dependency graph", tag = TAG)
-        initKoin(extraModules = listOf(presentationModule, iosWidgetModule)).koin
+        initKoin(extraModules = listOf(iosWidgetModule)).koin
     }
 
 /**

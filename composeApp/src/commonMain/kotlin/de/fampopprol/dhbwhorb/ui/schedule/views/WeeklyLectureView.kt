@@ -28,7 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.no_lectures_this_week
-import de.fampopprol.dhbwhorb.ui.schedule.models.LectureModel
+import de.fampopprol.dhbwhorb.domain.model.Lecture
 import org.jetbrains.compose.resources.stringResource
 import de.fampopprol.dhbwhorb.ui.schedule.modules.week.DayColumn
 import de.fampopprol.dhbwhorb.ui.schedule.modules.week.TimelineView
@@ -38,8 +38,8 @@ import de.fampopprol.dhbwhorb.resources.loading_week_from_dualis
 
 @Composable
 fun WeeklyLecturesView(
-    lectures: List<LectureModel> = emptyList(),
-    onLectureClick: (LectureModel) -> Unit = {},
+    lectures: List<Lecture> = emptyList(),
+    onLectureClick: (Lecture) -> Unit = {},
     isRefreshing: Boolean = false,
     modifier: Modifier = Modifier
 ) {
