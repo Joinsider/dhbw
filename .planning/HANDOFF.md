@@ -5,10 +5,12 @@
 > Arbeitsverzeichnis sauber · nichts gepusht
 > Nächste Phase: **P8 — iOS-Plattformdienste nativ**
 
-Alles Abgeschlossene liegt auf `v3`. P8 zweigt von dort ab:
+Alles Abgeschlossene liegt auf `v3`. **Der Branch `phase/p8-ios-services` steht schon** und zeigt
+auf denselben Stand — das Arbeitsverzeichnis liegt bereits darauf, es ist nichts einzurichten:
 
 ```bash
-git checkout -b phase/p8-ios-services v3
+git branch --show-current   # phase/p8-ios-services
+git log --oneline -1        # merge: native SwiftUI interface into v3
 ```
 
 ---
