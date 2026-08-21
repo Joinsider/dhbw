@@ -1,20 +1,14 @@
 # Handoff — v3-Umbau
 
-> Stand: 2026-08-21 · Phasen P-1, P0, P1, P2, P3, P4, P5 abgeschlossen
-> `v3` steht bei `1330f4c` (P4 gemerged) · **P5 liegt fertig auf `phase/p5-navigation` (`0d9793f`) und ist noch nicht gemerged**
+> Stand: 2026-08-21 · Phasen P-1, P0, P1, P2, P3, P4, P5 abgeschlossen und auf `v3` gemerged
+> `v3` steht bei `555abf0` · Arbeitsverzeichnis sauber · nichts gepusht
 > Nächste Phase: **P6 — Room-Migrationen**
 
----
-
-## 0. Das Allererste
-
-P5 ist fertig, geprüft und committet, aber noch nicht auf `v3`. Bevor irgendetwas anderes passiert:
+Alles Abgeschlossene liegt auf `v3`. P6 zweigt von dort ab:
 
 ```bash
-git checkout v3 && git merge --no-ff phase/p5-navigation -m "merge: P5 navigation into v3"
+git checkout -b phase/p6-migrations v3
 ```
-
-Danach ist `v3` der aktuelle Stand und P6 kann von dort abzweigen.
 
 ---
 
