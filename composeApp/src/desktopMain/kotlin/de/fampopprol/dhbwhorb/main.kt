@@ -9,7 +9,6 @@ package de.fampopprol.dhbwhorb
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
-import de.fampopprol.dhbwhorb.presentation.di.presentationModule
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
 import de.fampopprol.dhbwhorb.shared.initKoin
 import io.github.aakira.napier.DebugAntilog
@@ -27,7 +26,7 @@ private const val TAG = "Main"
 fun main() {
     Napier.base(DebugAntilog())
 
-    val koin = initKoin(extraModules = listOf(presentationModule)).koin
+    val koin = initKoin().koin
 
     val notificationPreferences: NotificationPreferencesInteractor = koin.get()
     val lectureMonitorScheduler: LectureMonitorScheduler = koin.get()

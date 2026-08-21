@@ -113,9 +113,17 @@ actual class NotificationDispatcher {
      * Check if notification permission is currently granted.
      */
     actual suspend fun hasPermission(): Boolean {
+        // A permission probe must never take the app down. Without a context we cannot know, and
+        // "not granted" is both the safe answer and the one the settings screen can render —
+        // this used to throw, which crashed the app on opening Settings.
+        val ctx = getContext() ?: run {
+            Napier.w("hasPermission asked before initialize(); reporting no permission", tag = TAG)
+            return false
+        }
+
         val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ActivityCompat.checkSelfPermission(
-                context,
+                ctx,
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
         } else {

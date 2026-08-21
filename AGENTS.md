@@ -16,8 +16,9 @@ boundaries do not change package names, so imports are identical across the spli
                  Room database + DAOs, SecureStorage, prefs,
                  repository implementations                      -> :domain
 :services        Notifications, widget use cases, FileViewer     -> :data
-:presentation    ViewModels                                      -> :services
-:shared          Umbrella; exports the four modules above as
+:presentation    MVI stores: State / Intent / Msg / Effect,
+                 reducers                                       -> :services
+:shared          Umbrella; exports the five modules above as
                  `Shared.framework` for Apple targets — no Compose
 :composeApp      Compose UI, navigation, platform entry points,
                  Android Glance widget                           -> all of the above
@@ -28,8 +29,9 @@ Everything above `:data` talks to the six repository interfaces in `:domain`
 `DocumentRepository`, `PreferencesRepository`) and to the use cases built on them. The
 `DualisXService` classes are `:data` internals — nothing outside `:data` should resolve one.
 
-`:presentation` is deliberately NOT part of `Shared.framework`: its ViewModels still hold state in
-Compose's `mutableStateOf`. It joins once they expose `StateFlow` instead.
+`:presentation` is part of `Shared.framework` since P4: the stores expose `StateFlow` and the
+module has no Compose plugin or dependency at all. Adding one would put the Compose runtime back
+into the framework and break the Swift build in P7 — the check below is what catches that.
 
 Verify the framework stays Compose-free after changes:
 
@@ -38,10 +40,14 @@ Verify the framework stays Compose-free after changes:
 nm -gU shared/build/bin/iosSimulatorArm64/debugFramework/Shared.framework/Shared | grep -c androidx.compose   # must be 0
 ```
 
-Two service locators exist as bridges and are meant to disappear once DI is in place:
-`AndroidAppContext` (`:core:common`) hands the Android Context to `:data`, and
-`WidgetRefreshTrigger` (`:services`) lets background work request a Glance refresh that only
-`:composeApp` can perform.
+Three service locators exist as bridges and are meant to disappear once the classes behind them
+become interfaces with per-platform implementations: `AndroidAppContext` (`:core:common`) hands the
+Android Context to `:data`, `WidgetRefreshTrigger` (`:services`) lets background work request a
+Glance refresh that only `:composeApp` can perform, and `NotificationDispatcher` (`:services`)
+holds its Android Context statically because `expect class` forbids a platform-specific
+constructor parameter. All three are initialised from `DualisApplication.onCreate()`; forgetting
+one is not a compile error, and dropping the dispatcher's call in P2 crashed the settings screen
+until P4.
 
 Platform entry points: `composeApp/androidMain/MainActivity.kt`, `composeApp/desktopMain/main.kt`,
 `composeApp/iosMain/MainViewController.kt`.
@@ -110,15 +116,40 @@ resolve themselves; `Application.onCreate()` always runs first, so the graph is 
 `KoinGraphTest` verifies every module and builds the real graph, so a missing binding fails in CI
 rather than when a user opens the screen.
 
-### ViewModel State
-ViewModels use `mutableStateOf` (not StateFlow/LiveData) — this is what still keeps `:presentation`
-out of `Shared.framework`:
+### MVI stores
+One store per feature in `:presentation`: `AppStore`, `AuthStore`, `TimetableStore`, `GradesStore`,
+`DocumentsStore`, `SettingsStore`. Each is `State` / `Intent` / `Msg` / `Effect` over `BaseStore`.
+
 ```kotlin
-var uiState by mutableStateOf(GradesUiState())
-    private set
+interface Store<S : Any, I : Any, E : Any> {
+    val state: StateFlow<S>      // always has a value
+    val effects: Flow<E>         // one-shot, never replayed
+    fun dispatch(intent: I)
+    fun close()
+}
 ```
-They depend on use cases, not on services, and their state carries `error: AppError?` rather than
-a pre-formatted string.
+
+Two rules make the difference:
+
+* **The reducer is a top-level function** — `reduceTimetable(state, msg)`, `reduceGrades(...)` —
+  not a method. It cannot reach a repository, a scope or a clock, so its purity is structural.
+  Its tests call it directly: no `runTest`, no dispatcher, no fakes.
+* **The effect handler cannot touch the state.** `EffectScope` offers exactly `emit(msg)` and
+  `send(effect)`. There is no window between reading state and writing it, which is why the old
+  race conditions cannot be expressed any more.
+
+`dedupeKey(intent)` is where "refresh while a refresh runs" is decided — a key, not a boolean two
+coroutines can both read as false.
+
+**A screen re-enters the composition on every tab switch**, so pages dispatch `EnsureLoaded`, not
+`Load`. `Load` is the retry action and always fetches. Getting this wrong is invisible in tests and
+shows up only as network traffic when walking the tabs.
+
+Stores are Koin singles on `appCoroutineScope`, so switching tabs costs nothing. A navigation-scoped
+lifetime arrives with P5, which brings the navigation graph that would define such a scope.
+
+Compose sees a store through two helpers in `composeApp/.../ui/store/StoreCompose.kt`:
+`store.collectState()` and `store.HandleEffects { … }`. Nothing else about a store is Compose-aware.
 
 ### Room Database
 Schema version 4, `exportSchema = true`, schemas in `data/schemas/`. Uses `fallbackToDestructiveMigration(dropAllTables = true)` — **no manual migrations**. KSP processors declared per target in `dependencies {}`:
@@ -182,6 +213,8 @@ Files must include SPDX headers:
 | `…/data/dualis/remote/services/DualisPageGateway.kt` | Authenticated page fetch with one re-auth retry |
 | `…/data/dualis/remote/session/ReAuthenticator.kt` | Single-flight re-login |
 | `…/core/error/Outcome.kt`, `…/core/error/AppError.kt` | The error channel |
+| `presentation/…/presentation/store/BaseStore.kt` | The store contract every feature inherits |
+| `composeApp/…/ui/store/StoreCompose.kt` | The only Compose-aware part of the store plumbing |
 | `…/data/storage/database/AppDatabase.kt` | Room DB definition; `clearAllData()` for logout |
 | `data/schemas/` | Room schema exports (auto-generated, do not edit) |
 | `gradle/libs.versions.toml` | All dependency versions and plugin aliases |

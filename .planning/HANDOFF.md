@@ -1,7 +1,7 @@
 # Handoff — v3-Umbau
 
-> Stand: 2026-08-21 · Branch `phase/p3-domain` · Phasen P-1, P0, P1, P2, P3 abgeschlossen
-> Nächste Phase: **P4 — MVI-Stores**
+> Stand: 2026-08-21 · Branch `phase/p4-stores` · Phasen P-1, P0, P1, P2, P3, P4 abgeschlossen
+> Nächste Phase: **P5 — Navigation** (oder P6, beide sind unabhängig)
 
 ---
 
@@ -29,10 +29,10 @@ Navigation-Library und echten Room-Migrationen.
 * Der Nutzer schreibt Deutsch. Code, Kommentare, Commit-Messages und Testnamen sind Englisch.
 
 ```bash
-git checkout -b phase/p4-stores v3
+git checkout -b phase/p5-navigation v3
 # … arbeiten, Gate grün bekommen …
 git commit
-git checkout v3 && git merge --no-ff phase/p4-stores -m "merge: P4 … into v3"
+git checkout v3 && git merge --no-ff phase/p5-navigation -m "merge: P5 … into v3"
 ```
 
 ---
@@ -73,8 +73,9 @@ Eine Phase ist erst fertig, wenn beides grün ist:
 ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew :composeApp:testDebugUnitTest :composeApp:desktopTest --rerun-tasks
 ```
 
-**Sollwerte nach P3:** `testDebugUnitTest` 215 Tests, `desktopTest` 330 Tests, 0 Fehler,
-0 bzw. 4 dokumentiert übersprungen (die vier `TimetablePageTest`, die P4 braucht).
+**Sollwerte nach P4:** `testDebugUnitTest` 289 Tests, `desktopTest` 380 Tests, 0 Fehler,
+**0 übersprungen**. Es gibt keinen `@Ignore` mehr im Projekt — wenn einer auftaucht, gehört ein
+Grund und eine Phase dazu.
 
 Zahlen zählen (Gradle meldet sie nicht immer):
 
@@ -107,8 +108,15 @@ cd iosApp && ANDROID_HOME=$HOME/Library/Android/sdk xcodebuild -project iosApp.x
 
 **Wichtigste Lektion aus P2: grüner Build ≠ funktionierende App.** Eine fehlende Koin-Bindung ist
 kein Compile-Fehler, und der iOS-Start-Reihenfolgen-Bug hat alle Tests bestanden und ist trotzdem
-beim ersten Frame abgestürzt. Nach jeder Phase, die Verdrahtung oder Lebenszyklus anfasst, beide
-Apps wirklich starten:
+beim ersten Frame abgestürzt.
+
+**P4 hat das bestätigt und verschärft: starten reicht nicht, man muss durchklicken.** Zwei Funde,
+die ein grünes Gate und ein erfolgreicher Start beide durchgelassen haben — der Absturz beim
+Öffnen der Einstellungen (seit P2!), und das Nachladen bei jedem Tab-Wechsel. Also nach jeder
+Phase **jeden Screen** einmal öffnen, und beim Stundenplan/Noten/Dokumente-Durchlauf zusätzlich
+`adb logcat -d --pid=… | grep -c "Executing GET request"` prüfen.
+
+Beide Apps wirklich starten:
 
 ```bash
 # Android
@@ -141,7 +149,7 @@ Login auf dem Gerät braucht, muss einen anderen Weg finden; sonst über Tests a
 :data            Ktor, Parser, Dualis-Services, Gateway, ReAuthenticator, Room + DAOs,
                  SecureStorage, Prefs, Repository-Impls, dataModule
 :services        Notifications, Widget-UseCases, FileViewer
-:presentation    ViewModels (noch mit Compose-Runtime, siehe unten)
+:presentation    MVI-Stores ← keine Compose-Runtime, im Shared.framework enthalten
 :shared          initKoin() + Umbrella → Shared.framework für Apple
 :composeApp      Compose-UI, Entry Points, Glance-Widget
 ```
@@ -158,6 +166,9 @@ Wichtige Einstiegspunkte:
 * `data/…/data/di/DataModule.kt` + `DataPlatformModule.kt` (expect/actual je Plattform)
 * `services/…/services/di/ServicesModule.kt` + `ServicesPlatformModule.kt`
 * `presentation/…/presentation/di/PresentationModule.kt`
+* `presentation/…/presentation/store/` — `Store`, `BaseStore`, `EffectScope`
+* `presentation/…/presentation/<feature>/` — je ein Contract (State/Intent/Msg/Effect) und Store
+* `composeApp/…/ui/store/StoreCompose.kt` — `collectState()` und `HandleEffects { }`
 * `data/…/data/repository/` — die sechs Repository-Implementierungen
 * `data/…/dualis/remote/services/DualisPageGateway.kt` — jeder authentifizierte Seitenabruf
 * `data/…/dualis/remote/session/ReAuthenticator.kt` — Single-Flight-Re-Login
@@ -174,13 +185,14 @@ Alle sind im Code kommentiert und im Plan vermerkt — nichts davon ist vergesse
 
 | Punkt | Ort | Fällig |
 |---|---|---|
-| `:presentation` ist **nicht** in `Shared.framework`, weil die ViewModels über `mutableStateOf` an der Compose-Runtime hängen (ein Versuch ergab 19.504 Compose-Symbole). | `PresentationModule.kt`, `shared/build.gradle.kts` | **P4** |
-| `TimetablePageTest` — 4 Tests `@Ignore`t, brauchen injizierbaren State. | `TimetablePageTest.kt` | **P4** |
-| `GradesViewModel` hält Ladezustände noch als Felder eines `mutableStateOf`-States statt als Store-State. Die Doppelhaltung aus `_isLoading`/`_data`/`_isRefreshing` ist in P3 entfallen. | `GradesViewModel.kt` | P4 |
-| `useMaterialYou` ist auf Desktop wirkungslos: `Theme.desktop.kt` ignoriert das Flag und erzeugt immer ein Seed-Schema. Die Einstellung existiert in der UI, tut dort aber nichts. | `Theme.desktop.kt` | **P5** |
+| Die Seiten holen ihren Store noch selbst per `koinInject()` und die Navigation ist ein `when` über `AppScreen`. Typisierte Routen, echter Back-Stack und Deep Links stehen aus. | `App.kt`, alle Seiten | **P5** |
+| `EnsureLoaded` vs. `Load` ist ein Behelf: er existiert, weil ein Screen bei jedem Tab-Wechsel die Composition neu betritt. Mit einem Navigations-Scope entscheidet die Store-Lebensdauer darüber, und der Intent entfällt. | `GradesStore`, `DocumentsStore` | P5 |
+| Store-Lebensdauer ist Applikation, nicht Navigations-Scope. Bewusst so: ohne Navigationsgraph gibt es keinen solchen Scope, und ein Halter pro Screen würde genau das Nachladen zurückbringen, das P4 entfernt hat. | `PresentationModule.kt` | P5 |
+| `useMaterialYou` ist auf Desktop wirkungslos: `Theme.desktop.kt` ignoriert das Flag und erzeugt immer ein Seed-Schema. | `Theme.desktop.kt` | **P5** |
 | `fallbackToDestructiveMigration(dropAllTables = true)` in allen vier `DatabaseFactory.*.kt` — jedes Schema-Update löscht Nutzerdaten. Dazu: iOS-DB liegt in `NSDocumentDirectory`, wo die Widget-Extension nicht lesen kann. | `data/src/*/…/DatabaseFactory.*.kt` | **P6** |
-| Tests liegen noch alle in `:composeApp`, nicht in ihren Modulen. Bewusst so: die Gates bleiben unverändert, und der Umzug braucht pro Modul eigene Test-Abhängigkeiten. | `composeApp/src/commonTest` | P4 |
-| `PreferencesRepository` existiert, aber `App.kt` und `SettingsPage` lesen die Einstellungen weiterhin direkt über `ThemePreferences` / `NotificationPreferencesInteractor`. Das Interface ist bewusst schon da, damit der `SettingsStore` es benutzen kann. | `App.kt`, `SettingsPage.kt` | P4 |
+| Die Fakes für die sechs Repositories liegen in `composeApp/commonTest/testutil/fakes/`, nicht in einem `:core:testing`. Bewusst so, solange alle Tests in `:composeApp` liegen — beides zusammen umziehen. | `testutil/fakes/` | P9 |
+| Tests liegen noch alle in `:composeApp`, nicht in ihren Modulen. Die Gates bleiben dadurch unverändert; der Umzug braucht pro Modul eigene Test-Abhängigkeiten. | `composeApp/src/commonTest` | P9 |
+| `NotificationDispatcher` hält seinen Android-Context statisch, weil `expect class` keinen plattformspezifischen Konstruktorparameter erlaubt. Wie bei `SecureStorage` in P2 ist die Lösung ein Interface mit je einer Implementierung pro Plattform. | `NotificationDispatcher.android.kt` | P8/P9 |
 | Der Widget-UseCase liefert bei einem Lesefehler des Caches eine leere Liste statt eines Fehlers — ein Widget hat keine Fehlerdarstellung. Bewusst so, im Code begründet. | `WidgetTimetableUseCase.kt` | — |
 | 48 × `catch (e: Exception)` übrig (von 69). Drei Sorten, alle bewusst: Parser (schlucken eine Zeile, nicht die Seite), die Klassifikationsstellen selbst, und die Plattformschicht. Im Dualis-Datenpfad ist keines mehr. | `:data`, `:services`, `:composeApp` | — |
 
@@ -190,25 +202,32 @@ vor dem Umbau, keine Regression, und in P8 eingeplant.
 
 ---
 
-## 7. Nächster Schritt: P4
+## 7. Nächster Schritt: P5 (oder P6)
 
-Der Plan beschreibt P4 in §2. Kurzfassung der Reihenfolge, die ich wählen würde:
+P5 und P6 sind laut §3 des Plans unabhängig voneinander. P5 ist die naheliegende Fortsetzung, weil
+P4 die Seiten schon zu `State → UI` plus `dispatch(Intent)` gemacht hat; es fehlt nur noch die
+Navigation selbst.
 
-1. `Store`/`BaseStore`/`EffectScope` aus §1.3 in `:presentation` — der Vertrag muss stehen, bevor
-   die sechs Stores verteilt werden, sonst erfindet jeder seinen eigenen.
-2. Pro Feature `State`/`Intent`/`Msg`/`Effect`/`Store`. Die Reducer sind rein: ein Test pro
-   Intent → Msg → State-Übergang, ohne `runTest`.
-3. Effect-Handler gegen Fake-Repositories. Die Repository-Interfaces aus P3 sind genau dafür da —
-   ein Fake ist eine Klasse mit vier Methoden, kein Mock-Framework nötig.
-4. `mutableStateOf` verschwindet aus `:presentation`. Erst danach kann `:presentation` in
-   `shared/build.gradle.kts` aufgenommen werden — und **erst dann** ist die Prüfung
-   „`nm -gU … | grep -c androidx.compose` ist 0" aussagekräftig für die Stores.
-5. Die vier `@Ignore`-Tests in `TimetablePageTest` entfernen: mit injizierbarem Store-State gibt
-   es nichts mehr, worauf sie warten müssten.
+**Vor P5 zu klären** (steht als offener Punkt 1 in §3): ist Navigation 3 inzwischen stabil? Wenn
+nein → `androidx.navigation:navigation-compose` in der Multiplatform-Variante. Voyager ist die
+Rückfallebene, falls die androidx-Variante auf Desktop klemmt.
 
-Was P3 dafür schon vorbereitet hat: die Ladezustände sind Felder eines Zustands statt paralleler
-Flows, die Fehler sind `AppError` statt Strings, und der Stundenplan liefert mit `TimetableWeek`
-bereits `isPartial`/`fromCache` — die Unterscheidungen, die der `TimetableStore` braucht.
+Reihenfolge, die ich wählen würde:
+
+1. Bibliothek entscheiden und einbinden, typisierte Routen statt `AppScreen`-Enum.
+2. Den Navigations-Scope aufsetzen und die Stores dorthin verschieben. **Erst dann** `EnsureLoaded`
+   entfernen — vorher lädt jeder Tab-Wechsel neu, und das ist genau das, was P4 abgestellt hat.
+   Der Beweis dafür ist nicht ein Test, sondern `adb logcat | grep "Executing GET request"` beim
+   Durchklicken: das Ergebnis muss 0 sein.
+3. Back-Stack und Deep Links (`dhbw://timetable?week=…`, `dhbw://grades/{semesterId}`).
+4. `Theme.desktop.kt` — `useMaterialYou` wird dort ignoriert.
+
+Was P4 dafür schon bereitgestellt hat: `AppStore` hält Session-Status und Route, `AppScreen` liegt
+in `:presentation`, und jede Seite ist bereits eine Funktion ihres Store-States. Die Navigation
+tauscht also das `when` in `App.kt` gegen einen Graphen, sonst nichts.
+
+**P6** braucht keine Vorarbeit aus P5 und ist unabhängig planbar. Offener Punkt 2 in §3 gehört
+davor beantwortet: iOS-DB-Umzug kopieren oder einmalig neu synchronisieren?
 
 ## 8. Zur Parallelisierung
 
@@ -219,7 +238,7 @@ Der Nutzer hat nach Subagents und Worktrees gefragt. Meine Einschätzung nach dr
   angefasst.
 * **Innerhalb einer Phase über disjunkte Dateimengen schon.** P3 (5 Repositories), P4 (6 Stores),
   P7 (5 SwiftUI-Screens) sind echte Fan-outs — jeder Agent schreibt eigene, neue Dateien.
-* Voraussetzung ist, dass die gemeinsamen Verträge **vorher** stehen: für P4 also `Store`/`BaseStore`
-  und `EffectScope`, bevor die sechs Stores verteilt werden. Sonst erfindet jeder Agent seine
-  eigene Store-Basis. In P3 war es `Outcome`/`AppError` plus die Repository-Interfaces — die habe
-  ich zuerst geschrieben, und das hat sich getragen.
+* Voraussetzung ist, dass die gemeinsamen Verträge **vorher** stehen. In P3 waren das
+  `Outcome`/`AppError` plus die Repository-Interfaces, in P4 `Store`/`BaseStore`/`EffectScope` —
+  beide Male zuerst geschrieben, beide Male hat es getragen. Für P7 (fünf SwiftUI-Screens) wäre es
+  entsprechend die Swift-seitige Store-Anbindung.

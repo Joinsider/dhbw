@@ -165,6 +165,11 @@ class KoinGraphTest {
         )
         val presentationExtraTypes = servicesExtraTypes + listOf(
             de.fampopprol.dhbwhorb.domain.repository.SessionRepository::class,
+            de.fampopprol.dhbwhorb.domain.repository.PreferencesRepository::class,
+            de.fampopprol.dhbwhorb.domain.usecase.LoginWithCredentials::class,
+            de.fampopprol.dhbwhorb.domain.usecase.Logout::class,
+            // The stores' lifetime, provided by coreModule.
+            kotlinx.coroutines.CoroutineScope::class,
             de.fampopprol.dhbwhorb.domain.usecase.GetWeekTimetable::class,
             de.fampopprol.dhbwhorb.domain.usecase.AwaitFullWeekTimetable::class,
             de.fampopprol.dhbwhorb.domain.usecase.RefreshTimetable::class,

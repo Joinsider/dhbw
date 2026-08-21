@@ -51,12 +51,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import de.fampopprol.dhbwhorb.core.error.AppError
-import de.fampopprol.dhbwhorb.core.error.Outcome
-import de.fampopprol.dhbwhorb.domain.usecase.LoginWithCredentials
+import de.fampopprol.dhbwhorb.presentation.auth.AuthIntent
+import de.fampopprol.dhbwhorb.presentation.auth.AuthStore
+import de.fampopprol.dhbwhorb.presentation.auth.PasswordError
+import de.fampopprol.dhbwhorb.presentation.auth.UsernameError
 import de.fampopprol.dhbwhorb.ui.error.toUserMessage
-import de.fampopprol.dhbwhorb.data.storage.credentials.CredentialsStorageProvider
+import de.fampopprol.dhbwhorb.ui.store.collectState
+import org.koin.compose.koinInject
 import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.cancel
 import de.fampopprol.dhbwhorb.resources.enter_password
@@ -68,7 +69,6 @@ import de.fampopprol.dhbwhorb.resources.password_cannot_be_empty
 import de.fampopprol.dhbwhorb.resources.username
 import de.fampopprol.dhbwhorb.resources.username_cannot_be_empty
 import de.fampopprol.dhbwhorb.resources.username_must_be_valid_email
-import de.fampopprol.dhbwhorb.ui.auth.viewModel.LoginFormViewModel
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -77,63 +77,23 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 @Preview
 @Composable
 fun LoginForm(
-    login: LoginWithCredentials? = null,
-    onLoginSuccess: () -> Unit = {},
-    viewModel: LoginFormViewModel = viewModel { LoginFormViewModel() }
+    store: AuthStore = koinInject()
 ) {
-    val uiState = viewModel.uiState
-    val coroutineScope = rememberCoroutineScope()
+    val state by store.collectState()
     val focusManager = LocalFocusManager.current
     val usernameFocusRequester = remember { FocusRequester() }
     val passwordFocusRequester = remember { FocusRequester() }
 
-    var isLoading by remember { mutableStateOf(false) }
-    var loginError by remember { mutableStateOf<AppError?>(null) }
     var isUsernameFocused by remember { mutableStateOf(false) }
     var isPasswordFocused by remember { mutableStateOf(false) }
 
-    val usernameCannotBeEmpty = stringResource(Res.string.username_cannot_be_empty)
-    val usernameInvalidFormat = stringResource(Res.string.username_must_be_valid_email)
-    val passwordCannotBeEmpty = stringResource(Res.string.password_cannot_be_empty)
-    val loginSuccessfulText = stringResource(Res.string.login_successful)
-    val usernameText = stringResource(Res.string.username)
-
     val hapticFeedback = LocalHapticFeedback.current
 
-    // Extract login logic into a function that can be reused
+    // Validation, the request and the result all happen in the store; this only asks for it.
     val performLogin: () -> Unit = {
-        // Clear focus to ensure UI updates properly
         focusManager.clearFocus()
-
         hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-        if (viewModel.validateFields(
-                usernameCannotBeEmpty = usernameCannotBeEmpty,
-                usernameInvalidFormat = usernameInvalidFormat,
-                passwordCannotBeEmpty = passwordCannotBeEmpty
-            )
-        ) {
-            // Null only in previews and in the form's own UI tests, which exercise validation
-            // and never a real login.
-            if (login == null) {
-                onLoginSuccess()
-            } else {
-                isLoading = true
-                loginError = null
-
-                coroutineScope.launch {
-                    val result = login(username = uiState.username, password = uiState.password)
-                    isLoading = false
-
-                    when (result) {
-                        is Outcome.Ok -> {
-                            println("$loginSuccessfulText! $usernameText: ${uiState.username}")
-                            onLoginSuccess()
-                        }
-                        is Outcome.Err -> loginError = result.error
-                    }
-                }
-            }
-        }
+        store.dispatch(AuthIntent.Submitted)
     }
 
     Column(
@@ -157,12 +117,12 @@ fun LoginForm(
                 .onFocusChanged { focusState ->
                     isUsernameFocused = focusState.isFocused
                 },
-            value = uiState.username,
-            onValueChange = { viewModel.onUsernameChange(it) },
+            value = state.username,
+            onValueChange = { store.dispatch(AuthIntent.UsernameChanged(it)) },
             label = { Text(stringResource(Res.string.username)) },
             singleLine = true,
             placeholder = { Text(stringResource(Res.string.enter_username)) },
-            isError = uiState.usernameError != null,
+            isError = state.usernameError != null,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Email,
                 imeAction = ImeAction.Next
@@ -177,9 +137,9 @@ fun LoginForm(
                 )
             },
             trailingIcon = {
-                if (isUsernameFocused && uiState.username.isNotEmpty()) {
+                if (isUsernameFocused && state.username.isNotEmpty()) {
                     IconButton(
-                        onClick = { viewModel.onUsernameChange("") }) {
+                        onClick = { store.dispatch(AuthIntent.UsernameChanged("")) }) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = stringResource(Res.string.cancel)
@@ -188,9 +148,9 @@ fun LoginForm(
                 }
             },
             supportingText = {
-                uiState.usernameError?.let {
+                state.usernameError?.let {
                     Text(
-                        text = it, color = MaterialTheme.colorScheme.error
+                        text = it.toMessage(), color = MaterialTheme.colorScheme.error
                     )
                 }
             })
@@ -222,13 +182,13 @@ fun LoginForm(
                 .onFocusChanged { focusState ->
                     isPasswordFocused = focusState.isFocused
                 },
-            value = uiState.password,
-            onValueChange = { viewModel.onPasswordChange(it) },
+            value = state.password,
+            onValueChange = { store.dispatch(AuthIntent.PasswordChanged(it)) },
             label = { Text(stringResource(Res.string.password)) },
             placeholder = { Text(stringResource(Res.string.enter_password)) },
-            isError = uiState.passwordError != null,
+            isError = state.passwordError != null,
             singleLine = true,
-            visualTransformation = if (uiState.isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            visualTransformation = if (state.isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password,
                 imeAction = ImeAction.Done
@@ -243,20 +203,20 @@ fun LoginForm(
                 )
             },
             trailingIcon = {
-                if (isPasswordFocused && uiState.password.isNotEmpty()) {
+                if (isPasswordFocused && state.password.isNotEmpty()) {
                     IconButton(
-                        onClick = { viewModel.onTogglePasswordVisibility() }) {
+                        onClick = { store.dispatch(AuthIntent.PasswordVisibilityToggled) }) {
                         Icon(
-                            imageVector = if (uiState.isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (uiState.isPasswordVisible) "Hide password" else "Show password"
+                            imageVector = if (state.isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = if (state.isPasswordVisible) "Hide password" else "Show password"
                         )
                     }
                 }
             },
             supportingText = {
-                uiState.passwordError?.let { errorText ->
+                state.passwordError?.let { error ->
                     Text(
-                        text = errorText, color = MaterialTheme.colorScheme.error
+                        text = error.toMessage(), color = MaterialTheme.colorScheme.error
                     )
                 }
             })
@@ -264,7 +224,7 @@ fun LoginForm(
         Spacer(modifier = Modifier.height(8.dp))
 
         // Show login error if any
-        loginError?.let { error ->
+        state.loginError?.let { error ->
             Text(
                 text = error.toUserMessage(),
                 color = MaterialTheme.colorScheme.error,
@@ -280,13 +240,13 @@ fun LoginForm(
                 .padding(8.dp)
                 .height(48.dp)
                 .width(150.dp),
-            enabled = !isLoading,
+            enabled = !state.isSubmitting,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             )
         ) {
-            if (isLoading) {
+            if (state.isSubmitting) {
                 LoadingIndicator(
                     modifier = Modifier.width(24.dp).height(24.dp),
                     color = MaterialTheme.colorScheme.onPrimary
@@ -298,3 +258,14 @@ fun LoginForm(
     }
 }
 
+/** The field errors are enums in the store; the words belong here. */
+@Composable
+private fun UsernameError.toMessage(): String = when (this) {
+    UsernameError.Empty -> stringResource(Res.string.username_cannot_be_empty)
+    UsernameError.NotADhbwAddress -> stringResource(Res.string.username_must_be_valid_email)
+}
+
+@Composable
+private fun PasswordError.toMessage(): String = when (this) {
+    PasswordError.Empty -> stringResource(Res.string.password_cannot_be_empty)
+}

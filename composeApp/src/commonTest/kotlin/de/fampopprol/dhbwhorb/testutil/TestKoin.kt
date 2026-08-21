@@ -47,9 +47,12 @@ import de.fampopprol.dhbwhorb.domain.usecase.LoginWithCredentials
 import de.fampopprol.dhbwhorb.domain.usecase.Logout
 import de.fampopprol.dhbwhorb.domain.usecase.RefreshTimetable
 import de.fampopprol.dhbwhorb.domain.usecase.RestoreSession
-import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsViewModel
-import de.fampopprol.dhbwhorb.ui.grades.viewModels.GradesViewModel
-import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
+import de.fampopprol.dhbwhorb.presentation.app.AppStore
+import de.fampopprol.dhbwhorb.presentation.auth.AuthStore
+import de.fampopprol.dhbwhorb.presentation.documents.DocumentsStore
+import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
+import de.fampopprol.dhbwhorb.presentation.settings.SettingsStore
+import de.fampopprol.dhbwhorb.presentation.timetable.TimetableStore
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -153,22 +156,27 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
     factory { ListDocuments(repository = get()) }
     factory { DownloadDocument(repository = get()) }
 
+    single { AppStore(sessionRepository = get(), logout = get(), scope = get()) }
+    single { AuthStore(loginWithCredentials = get(), scope = get()) }
     single {
-        TimetableViewModel(
-            getWeekTimetable = get(), awaitFullWeekTimetable = get(), refreshTimetable = get()
+        TimetableStore(
+            getWeekTimetable = get(), awaitFullWeekTimetable = get(), refreshTimetable = get(),
+            scope = get()
         )
     }
     single {
-        GradesViewModel(
+        GradesStore(
             getSemesters = get(), getGradesForSemester = get(), getAllGrades = get(),
-            computeGpa = get(), sessionRepository = get()
+            computeGpa = get(), sessionRepository = get(), scope = get()
         )
     }
     single {
-        DocumentsViewModel(
-            listDocuments = get(), downloadDocument = get(), sessionRepository = get()
+        DocumentsStore(
+            listDocuments = get(), downloadDocument = get(), sessionRepository = get(),
+            scope = get()
         )
     }
+    single { SettingsStore(preferences = get(), scope = get()) }
 }
 
 /**

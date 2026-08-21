@@ -26,9 +26,7 @@ kotlin {
             export(projects.domain)
             export(projects.data)
             export(projects.services)
-            // :presentation is deliberately absent: its ViewModels still hold state in Compose's
-            // mutableStateOf, so exporting it would drag the Compose runtime into the framework.
-            // It joins in P4, once the stores expose StateFlow and the Compose dependency is gone.
+            export(projects.presentation)
         }
     }
 
@@ -45,6 +43,7 @@ kotlin {
             api(projects.domain)
             api(projects.data)
             api(projects.services)
+            api(projects.presentation)
         }
 
         commonTest.dependencies {

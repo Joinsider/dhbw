@@ -6,44 +6,65 @@
 
 package de.fampopprol.dhbwhorb.presentation.di
 
-import de.fampopprol.dhbwhorb.ui.auth.viewModel.LoginFormViewModel
-import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsViewModel
-import de.fampopprol.dhbwhorb.ui.grades.viewModels.GradesViewModel
-import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
+import de.fampopprol.dhbwhorb.presentation.app.AppStore
+import de.fampopprol.dhbwhorb.presentation.auth.AuthStore
+import de.fampopprol.dhbwhorb.presentation.documents.DocumentsStore
+import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
+import de.fampopprol.dhbwhorb.presentation.settings.SettingsStore
+import de.fampopprol.dhbwhorb.presentation.timetable.TimetableStore
 import org.koin.dsl.module
 
 /**
- * ViewModels are singles, not factories: they cache loaded weeks and semesters, and recreating one
- * on every navigation is exactly the reload-on-tab-switch behaviour this refactor removes.
- * Their lifetime is the application's, like the services they wrap.
+ * Stores are singles, on the application's coroutine scope.
+ *
+ * That is what makes switching tabs cost nothing: the store keeps the weeks and semesters it has
+ * already loaded, so returning to a screen shows them without a request. The previous ViewModels
+ * were singles for the same reason.
+ *
+ * A shorter, navigation-scoped lifetime arrives with P5, which brings the navigation graph that
+ * would define such a scope. Introducing a per-screen holder now would reintroduce exactly the
+ * reload-on-tab-switch this phase removes.
  */
 val presentationModule = module {
 
     single {
-        TimetableViewModel(
+        AppStore(sessionRepository = get(), logout = get(), scope = get())
+    }
+
+    single {
+        AuthStore(loginWithCredentials = get(), scope = get())
+    }
+
+    single {
+        TimetableStore(
             getWeekTimetable = get(),
             awaitFullWeekTimetable = get(),
-            refreshTimetable = get()
+            refreshTimetable = get(),
+            scope = get()
         )
     }
 
     single {
-        GradesViewModel(
+        GradesStore(
             getSemesters = get(),
             getGradesForSemester = get(),
             getAllGrades = get(),
             computeGpa = get(),
-            sessionRepository = get()
+            sessionRepository = get(),
+            scope = get()
         )
     }
 
     single {
-        DocumentsViewModel(
+        DocumentsStore(
             listDocuments = get(),
             downloadDocument = get(),
-            sessionRepository = get()
+            sessionRepository = get(),
+            scope = get()
         )
     }
 
-    factory { LoginFormViewModel() }
+    single {
+        SettingsStore(preferences = get(), scope = get())
+    }
 }

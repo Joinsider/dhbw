@@ -14,20 +14,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.ui.components.EventSkeleton
-import de.fampopprol.dhbwhorb.ui.schedule.models.LectureModel
+import de.fampopprol.dhbwhorb.domain.model.Lecture
 import kotlinx.datetime.DayOfWeek
 
 
 @Composable
 fun DayColumn(
     dayOfWeek: DayOfWeek,
-    lectures: List<LectureModel>,
+    lectures: List<Lecture>,
     startHour: Int = 8,
     endHour: Int = 18,
     hourHeight: Float = 80f,
     modifier: Modifier = Modifier,
     width: Dp,
-    onLectureClick: (LectureModel) -> Unit = {},
+    onLectureClick: (Lecture) -> Unit = {},
     isSkeleton: Boolean = false
 ) {
     Column(

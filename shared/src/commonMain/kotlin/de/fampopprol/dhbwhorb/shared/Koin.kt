@@ -10,6 +10,7 @@ import de.fampopprol.dhbwhorb.core.di.coreModule
 import de.fampopprol.dhbwhorb.data.di.dataModule
 import de.fampopprol.dhbwhorb.data.di.dataPlatformModule
 import de.fampopprol.dhbwhorb.services.di.servicesModule
+import de.fampopprol.dhbwhorb.presentation.di.presentationModule
 import de.fampopprol.dhbwhorb.services.di.servicesPlatformModule
 import org.koin.core.KoinApplication
 import org.koin.core.context.startKoin
@@ -22,12 +23,12 @@ import org.koin.core.module.Module
  * the same services by hand — and had drifted apart, which is why iOS ran without an HTTP timeout
  * and without a registered notification manager. Every entry point now calls this instead.
  *
- * Deliberately assembles only core, data and services. `presentationModule` is contributed by the
- * caller instead: depending on it here would link the Compose runtime into `Shared.framework` and
- * undo the Compose-free property. From P4 the stores are Compose-free and can move in.
+ * `presentationModule` is part of it since P4: the stores expose `StateFlow` and carry no Compose
+ * runtime, so including them here keeps `Shared.framework` Compose-free while giving Swift the
+ * same graph the Compose UI gets.
  *
- * @param extraModules what the entry point contributes — `presentationModule`, and on Android the
- *   Glance-based widget refresher. Tests pass overrides here.
+ * @param extraModules what a platform contributes on top — on Android the Glance-based widget
+ *   refresher, on iOS the widget writer. Tests pass overrides here.
  */
 fun initKoin(
     extraModules: List<Module> = emptyList(),
@@ -40,6 +41,7 @@ fun initKoin(
         dataPlatformModule(),
         servicesModule,
         servicesPlatformModule(),
+        presentationModule,
         *extraModules.toTypedArray()
     )
 }

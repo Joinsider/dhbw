@@ -367,7 +367,7 @@ Parser-Fixtures aus P0 laufen unverändert gegen die neuen Repository-Impls.
 iOS-Build grün, beide Apps gestartet und mit echter Sitzung durch Stundenplan, Noten und
 Dokumente geprüft.
 
-### P4 — MVI-Stores · Größe L
+### P4 — MVI-Stores · Größe L · **abgeschlossen**
 
 Pro Feature ein Store in `:presentation`, jeweils `<Feature>State/Intent/Msg/Effect/Store`.
 
@@ -392,6 +392,50 @@ Pro Feature ein Store in `:presentation`, jeweils `<Feature>State/Intent/Msg/Eff
 **Fertig wenn:** jeder Reducer ist pur (Test läuft ohne `runTest`); Tab-Wechsel löst keinen
 Reload aus, weil der Store nicht mehr im `remember` der Page hängt.
 
+**Was tatsächlich passiert ist** (`phase/p4-stores`):
+
+* Der Vertrag aus §1.3 steht in `:presentation/store`. Zwei Abweichungen, beide bewusst:
+  `BaseStore` bekam ein `dedupeKey(intent)` — ohne das müsste jeder Store „läuft schon" mit einem
+  Boolean im State lösen, und genau das ist die Form, die zwei Coroutinen beide als `false` lesen
+  können. Und der **Reducer ist eine Top-Level-Funktion**, keine Methode: `reduceTimetable(state,
+  msg)` kann kein Repository, keinen Scope und keine Uhr erreichen, die Reinheit ist damit
+  strukturell statt versprochen. Die Reducer-Tests rufen sie direkt auf — ohne `runTest`, ohne
+  Dispatcher, ohne Fake.
+* Sechs Stores wie geplant. `mutableStateOf` ist aus `:presentation` verschwunden, die
+  Compose-Plugins sind aus `presentation/build.gradle.kts` entfernt, und `:presentation` ist in
+  `Shared.framework` exportiert: **0 Compose-Symbole, 24 Store-Typen im Swift-Header.** Damit ist
+  die Voraussetzung für P7 erfüllt.
+* `LectureModel` ist entfallen — es war eine Kopie von `domain.model.Lecture` mit anderen
+  Feldnamen. Die UI arbeitet direkt auf dem Domänenmodell, was auch P7 zugutekommt.
+* Die Validierung im `AuthStore` liefert Enums (`UsernameError`, `PasswordError`) statt Strings.
+  `LoginFormViewModel.validateFields()` bekam drei lokalisierte Meldungen als Parameter, war also
+  nur aus einer Composable heraus aufrufbar und nur gegen englischen Text testbar.
+* `WeekLabelData` ist entfallen: das Label wird aus `TimetableWeek.start`/`end` abgeleitet, die der
+  Store vom Repository bekommt — statt aus einer zweiten, eigenen Datumsrechnung gegen die Uhr.
+* **Nicht im Plan und beim Durchklicken gefunden:** `EnsureLoaded`. Ein Screen betritt bei jedem
+  Tab-Wechsel die Composition neu, also feuerte sein `LaunchedEffect` erneut `Load` — der Store
+  überlebte den Wechsel, die Seite lud trotzdem nach. Das Abnahmekriterium war also mit
+  „Store ist ein Single" allein *nicht* erfüllt. `EnsureLoaded` lädt nur, wenn noch nichts geladen
+  wurde; `Load` bleibt die Retry-Aktion. Dafür brauchte es `hasLoaded` in `WeekState`,
+  `GradesState` und `DocumentsState` — ohne das ist eine leere Woche (Semesterferien) nicht von
+  einer ungeladenen zu unterscheiden. **Nachgemessen auf dem Gerät: 0 Requests bei einem kompletten
+  Tab-Durchlauf.**
+* **P2-Regression gefunden und behoben:** P2 hat `NotificationDispatcher.initialize(this)` aus
+  `MainActivity` entfernt und nicht ersetzt. Seitdem stürzte die App auf Android beim Öffnen der
+  Einstellungen ab (`IllegalStateException: NotificationDispatcher not initialized`). Kein Test
+  konnte das sehen: die Compose-UI-Tests laufen auf Desktop, und P2/P3 haben die App zwar
+  gestartet, aber die Einstellungen nie geöffnet. Behoben an beiden Enden — Aufruf zurück in
+  `DualisApplication.onCreate()`, und `hasPermission()` meldet ohne Context „keine Berechtigung"
+  statt zu werfen; eine Berechtigungsabfrage darf die App nicht abschießen.
+* Die vier `@Ignore`-Tests in `TimetablePageTest` sind aktiv. Der Seite einen Store zu übergeben
+  ist alles, was ihnen gefehlt hat. Die Navigations-Assertions laufen über Test-Tags, nicht über
+  die Labels — die kommen aus String-Ressourcen, und diese JVM läuft auf `de_DE`.
+
+**Gate bei Abschluss:** `testDebugUnitTest` 289 Tests, `desktopTest` 380 Tests, 0 Fehler,
+**0 übersprungen** (erstmals im Umbau). Framework Compose-frei (0), iOS-Build grün, beide Apps
+gestartet und durchgeklickt: Stundenplan, Noten, Dokumente, Einstellungen inklusive Theme-Wechsel
+über einen Neustart hinweg.
+
 ### P5 — Compose-UI auf Stores + echte Navigation (Android/Desktop) · Größe M
 
 Weil iOS ab P7 nativ navigiert, betrifft die Navigations-Library nur noch Android und Desktop —
@@ -404,8 +448,12 @@ das senkt das Risiko der Bibliothekswahl deutlich.
 * Typisierte Routen statt `enum AppScreen` + `when`; echter Back-Stack; State-Erhalt beim Tab-Wechsel;
   Deep Links für `dhbw://timetable?week=…` und `dhbw://grades/{semesterId}`.
 * Screens werden zu reinen Funktionen von `State` → UI plus `dispatch(Intent)`. Keine Service-Parameter,
-  keine `remember`-Konstruktion von Abhängigkeiten mehr.
+  keine `remember`-Konstruktion von Abhängigkeiten mehr. (P4 hat das für alle vier Seiten schon
+  getan; offen bleibt nur, dass sie ihren Store noch selbst per `koinInject()` holen.)
 * `DisposableEffect { onDispose { viewModel.cleanup() } }` in `GradesPage`/`DocumentsPage` entfällt.
+  (In P4 bereits entfallen, weil es keine ViewModels mehr gibt.)
+* Der `EnsureLoaded`/`Load`-Trick aus P4 wird überflüssig, sobald der Navigations-Scope existiert:
+  dann entscheidet die Store-Lebensdauer über das Nachladen, nicht ein Intent.
 
 **Fertig wenn:** Zurück-Geste auf Android verhält sich erwartbar; Wechsel Timetable → Grades → Timetable
 löst keinen Netzwerk-Request aus; Deep Link öffnet den richtigen Screen bei kaltem Start.

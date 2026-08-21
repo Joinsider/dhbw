@@ -1,0 +1,49 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+package de.fampopprol.dhbwhorb.presentation.settings
+
+import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
+
+/**
+ * Theme and notification settings.
+ *
+ * The seed colour travels as an ARGB `Long`, not as a Compose `Color`: this state has to survive
+ * the move into `Shared.framework`, where Compose does not exist.
+ */
+data class SettingsState(
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val materialYouEnabled: Boolean = true,
+    val seedColor: Long = DEFAULT_SEED_COLOR,
+    val notificationsEnabled: Boolean = false,
+    val lectureAlertsEnabled: Boolean = false
+) {
+    companion object {
+        /** Purple40, the value `ThemePreferences` falls back to. */
+        const val DEFAULT_SEED_COLOR: Long = 4284932260
+    }
+}
+
+sealed interface SettingsIntent {
+    data object Load : SettingsIntent
+    data class ThemeModeChanged(val mode: ThemeMode) : SettingsIntent
+    data class MaterialYouChanged(val enabled: Boolean) : SettingsIntent
+    data class SeedColorChanged(val argb: Long) : SettingsIntent
+    data class NotificationsChanged(val enabled: Boolean) : SettingsIntent
+    data class LectureAlertsChanged(val enabled: Boolean) : SettingsIntent
+}
+
+sealed interface SettingsMsg {
+    data class Loaded(val settings: SettingsState) : SettingsMsg
+    data class ThemeModeChanged(val mode: ThemeMode) : SettingsMsg
+    data class MaterialYouChanged(val enabled: Boolean) : SettingsMsg
+    data class SeedColorChanged(val argb: Long) : SettingsMsg
+    data class NotificationsChanged(val enabled: Boolean) : SettingsMsg
+    data class LectureAlertsChanged(val enabled: Boolean) : SettingsMsg
+}
+
+/** Nothing here is one-shot: every setting is state the whole app reads. */
+sealed interface SettingsEffect
