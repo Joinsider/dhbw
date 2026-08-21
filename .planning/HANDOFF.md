@@ -1,15 +1,13 @@
 # Handoff — v3-Umbau
 
-> Stand: 2026-08-21 · Phasen P-1 bis P6 abgeschlossen und auf `v3` gemerged, dazu zwei Fixes
+> Stand: 2026-08-21 · Phasen P-1 bis P7 abgeschlossen und auf `v3` gemerged, dazu zwei Fixes
 > außerhalb der Phasenkette: Desktop-TLS und die Trennung von Geheimnissen und Einstellungen
-> **P7 liegt fertig auf `phase/p7-swiftui` und wartet auf Freigabe — noch nicht gemerged.**
 > Arbeitsverzeichnis sauber · nichts gepusht
 > Nächste Phase: **P8 — iOS-Plattformdienste nativ**
 
-Alles Abgeschlossene liegt auf `v3`; P7 liegt daneben. Nach der Freigabe:
+Alles Abgeschlossene liegt auf `v3`. P8 zweigt von dort ab:
 
 ```bash
-git checkout v3 && git merge --no-ff phase/p7-swiftui -m "merge: native SwiftUI interface into v3"
 git checkout -b phase/p8-ios-services v3
 ```
 
@@ -95,6 +93,13 @@ until [ "$($ADB shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do slee
 
   Dann im Feld lange drücken (`touch_path` mit zwei Punkten auf derselben Stelle, ~1200 ms) und
   „Einsetzen" antippen. Das Passwort `demo123` hat keine Sonderzeichen und lässt sich tippen.
+
+* **Vorsicht beim langen Drücken im E-Mail-Feld: der Simulator hat ein echtes DHBW-Konto im
+  Schlüsselbund.** Statt des Einsetzen-Menüs kann iOS-Passwort-Autofill aufgehen — und das
+  füllt *und sendet* den Login mit dem echten Konto des Nutzers. In P7 ist genau das passiert:
+  die App hat danach echte Dualis-Requests gemacht und in der Vorschau lag ein persönliches
+  Dokument. Erst den Screenshot ansehen, ob wirklich „Einsetzen" dasteht, und wenn das Konto
+  angemeldet ist, es dem Nutzer sagen statt es unbemerkt weiterzubenutzen.
 * **Desktop-TLS ist behoben, aber wissenswert:** Dualis kettet auf HARICAs 2021-Root, den kein
   JDK-`cacerts` kennt (auch Temurin 17 in der CI nicht). Die Desktop-App kam deshalb überhaupt
   nicht an Dualis heran. `DesktopTrustStore.kt` bündelt die zwei Roots; Details in
@@ -120,7 +125,7 @@ ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew \
   :composeApp:testDebugUnitTest :composeApp:desktopTest --rerun-tasks
 ```
 
-**Sollwerte nach P7 (unverändert gegenüber P6):** `testDebugUnitTest` **293**, `desktopTest` **400**, 0 Fehler,
+**Sollwerte nach P7:** `testDebugUnitTest` **297**, `desktopTest` **403**, 0 Fehler,
 **0 übersprungen**. Es gibt seit P4 keinen einzigen `@Ignore` mehr im Projekt — wenn einer
 auftaucht, gehören ein Grund und eine Phase dazu.
 
@@ -276,6 +281,9 @@ Package-Namen. Eine Datei zwischen Modulen zu verschieben erfordert deshalb kein
 | Store ↔ Compose | `composeApp/…/ui/store/StoreCompose.kt` — `collectState()`, `HandleEffects { }` |
 | Store ↔ Swift | `shared/src/iosMain/…/ios/` (`SharedApp`, `StoreBridges`, `FlowObserver`) und `iosApp/iosApp/Bridge/StoreBox.swift` |
 | SwiftUI-Screens | `iosApp/iosApp/RootView.swift` + `iosApp/iosApp/Screens/` |
+| iOS-Farben, Karten | `iosApp/iosApp/Design/Theme.swift` — `Color.brand` und `.tint()` an der Wurzel sind der iOS-Ersatz für die Material-You-Seed-Farbe |
+| Wochenraster (iOS) | `iosApp/iosApp/Screens/TimetableGrid.swift` — Spurenlayout für parallele Vorlesungen |
+| Semester-Reihenfolge | `domain/…/model/SemesterOrder.kt` — sortiert und gruppiert wird einmal im `GradesStore`, beide UIs lesen `GradesState.sections` |
 | iOS-Texte | `iosApp/iosApp/Localizable.xcstrings` (en/de) — getrennt von den Compose-Ressourcen |
 | Navigation | `composeApp/…/ui/navigation/Routes.kt`, `DhbwNavHost.kt` |
 | Test-Graph | `composeApp/src/commonTest/…/testutil/TestKoin.kt` — `WithTestKoin { }`, `testKoin()` |
@@ -300,6 +308,8 @@ Alle sind im Code kommentiert und im Plan vermerkt — nichts davon ist vergesse
 | Die Stores sind Applikations-Singles, nicht im Navigations-Scope. Bewusst so: ein Halter je Navigationseintrag würde bei jedem Tab-Wechsel neu laden — genau das, was P4 abgestellt hat. Deshalb bleibt auch `EnsureLoaded` neben `Load` bestehen. | `PresentationModule.kt`, `GradesStore`, `DocumentsStore` | — |
 | Läuft die Sitzung ab, während man eingeloggt im Graphen steht, zeigt die Seite „bitte anmelden" statt zur Login-Wurzel zurückzukehren. Ehrlich, aber nicht schön. | `GradesPage`, `DocumentsPage` | P9 |
 | **Im Demo-Modus gibt es keine Noten.** `DualisGradeService` hat als einziger Dienst keinen Demo-Zweig, der Abruf endet in `AppError.SessionExpired`. Gilt auf allen Plattformen, stammt aus der Zeit vor dem Umbau — beim Durchklicken von P7 aufgefallen. | `DualisGradeService.kt` | offen |
+| **Prüfungen werden farblich unterschieden, aber fast nie erkannt.** Der Block wird bernsteinfarben, wenn `Lecture.isTest` gesetzt ist — und das setzt `TimetableParser` nur bei `background-color:#FF6666` in der Dualis-Zelle. Einträge, die bloß „Mündliche Prüfung" heißen, tragen die Markierung nicht. Offene Entscheidung des Nutzers: zusätzlich am Titel erkennen (Heuristik im Parser, wirkt auf allen Plattformen) oder erst prüfen, ob die Farbmarkierung heute woanders steht — dafür braucht es das rohe HTML einer Woche mit echter Prüfung. | `TimetableParser.kt:79` | offen, wartet auf den Nutzer |
+| **Zwei Dinge aus P7 sind nur durch Tests belegt, nicht am Gerät:** die Semester-Reihenfolge (`SemesterOrderTest`) und das Sichern eines Dokuments in „Dateien". Beides braucht ein Konto mit echten Daten — im Demo-Modus gibt es weder Noten noch Downloads. | `GradesScreen.swift`, `DocumentsScreen.swift` | beim nächsten Gerätetest |
 | **VoiceOver auf iOS ist statisch geprüft, nicht durchlaufen.** Jedes Bedienelement trägt ein `Text`-Label, Listenzeilen sind zu einem Element zusammengefasst, Symbole haben `accessibilityLabel` — aber niemand ist mit eingeschaltetem VoiceOver durchgegangen. | `iosApp/iosApp/Screens/` | **P8** |
 | **„Tab-Wechsel macht 0 Requests" ist auf iOS ungeprüft.** Im Demo-Modus kann es keine Requests geben, und für eine echte Sitzung fehlt auf dem Simulator ein Konto. Auf Android ist es gemessen. | — | wenn ein Konto verfügbar ist |
 | Der iOS-`LectureMonitorScheduler` ist ein reiner Log-Stub — auf iOS gibt es **kein** Background-Monitoring, obwohl die Einstellung es anbietet. Feature-Lücke von vor dem Umbau, keine Regression. | `LectureMonitorScheduler.ios.kt` | **P8** |

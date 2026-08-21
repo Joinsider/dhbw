@@ -639,6 +639,39 @@ der P1-Baseline messbar kleiner; VoiceOver-Durchlauf je Screen ohne unbeschrifte
   anders als der Vorlesungs- und der Dokumentendienst — keinen Demo-Zweig, also endet der Abruf in
   `AppError.SessionExpired`. Das gilt auf allen Plattformen und stammt aus der Zeit vor dem Umbau.
 
+**Nachtrag aus der Rückmeldung des Nutzers** (dieselbe Phase, drei weitere Commits):
+
+* **Die Semesterauswahl ist raus — auf allen Plattformen.** Sie teilte dieselben Noten in einen
+  zweiten Modus mit eigenem Schnitt, eigenen Ladeflags und eigener Art, falsch zu sein.
+  `GradesState` verliert fünf Felder, der Store zwei Abhängigkeiten, und `Route.Grades` seinen
+  Parameter. Sichtbar falsch war die Reihenfolge: sortiert wurde nach Semester*namen*, also
+  WiSe 2024/25, WiSe 2025/26, SoSe 2025. `SemesterOrder` (`:domain`) liest Jahr und führendes
+  W oder S — auch aus der alten Schreibweise „WS 2025/26" — und sortiert danach. Sortiert und
+  gruppiert wird einmal im Store (`GradesState.sections`), damit die beiden UIs nicht wieder
+  auseinanderlaufen können. Gate danach 297 / 403.
+* **Zwei Stundenplan-Ansichten statt einer.** Das Wochenraster ist die Android-Ansicht in
+  SwiftUI — Mo–Fr quer, Stunden runter, ein Block je Vorlesung in Höhe seiner Dauer. Die Liste
+  bleibt; der Wechsel steckt in der Toolbar und wird gemerkt (`@AppStorage`, nicht im
+  `SettingsStore`: keine andere Plattform hat diese Wahl). Dazu Pfeilknöpfe für die Wochen, weil
+  die Wischgeste unsichtbar ist und im Raster mit den Spalten konkurriert.
+* **Der Pager ist eine `TabView`.** Mit `ScrollView` + `.scrollPosition` und lazy gebauten Seiten
+  konnte jedes Neu-Layout den Offset zwischen zwei Seiten stehenlassen; die App öffnete auf einer
+  Woche fünf Wochen in der Zukunft. Eine `TabView`-Auswahl *ist* die Seite.
+* **Ein Gesicht.** `Design/Theme.swift` hält das Rot aus dem App-Icon, `.tint(.brand)` an der
+  Wurzel färbt jedes System-Bedienelement. Das ist auf iOS das Gegenstück zur Material-You-Seed-
+  Farbe — eine Zeile statt eines zweiten Theme-Systems. Der Login-Screen ist kein `Form` mehr.
+* **Drei Fehler im Raster, alle aus einem Screenshot des Nutzers:** parallele Vorlesungen lagen
+  übereinander (jetzt Spurenlayout wie in jedem Kalender), ein Block wirkte heller als die
+  anderen (die Blöcke waren durchscheinend, und die Einfärbung der Heute-Spalte schien durch —
+  jetzt deckend), und Prüfungen hatten keine eigene Farbe. Die haben sie jetzt, nur greift
+  `Lecture.isTest` fast nie: der Parser setzt es nur bei `background-color:#FF6666`.
+* **Dokumente lassen sich sichern.** Zeilenmenü und Wischgeste bieten „In Dateien sichern" über
+  die System-Auswahl, dazu weiterhin Teilen. Der Store unterschied `Open` und `Save` schon; es
+  fehlte nur ein Ziel für `Save`.
+* **Beim Prüfen ist der echte Dualis-Account des Nutzers angemeldet worden** — langes Drücken im
+  E-Mail-Feld öffnete iOS-Passwort-Autofill statt des Einsetzen-Menüs, samt Absenden. Steht als
+  Fallstrick im Handoff (§3).
+
 ### P8 — iOS-Plattformdienste nativ · Größe L
 
 * **BGTaskScheduler:** `LectureMonitorScheduler.ios.kt` ist heute ein reiner Log-Stub —
