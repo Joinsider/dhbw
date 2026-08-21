@@ -592,12 +592,19 @@ P5 und P6 sind unabhängig voneinander und parallelisierbar. P7 setzt P4 **und**
 **Offene Punkte, die vor der jeweiligen Phase zu klären sind**
 
 1. *P5:* Ist Navigation 3 zum Umsetzungszeitpunkt stabil? Falls nein → `navigation-compose` Multiplatform.
+   → **Beantwortet in P5:** Navigation 3 stand bei `1.2.0-alpha07` und ohne Multiplatform-Variante,
+   also `org.jetbrains.androidx.navigation:navigation-compose` 2.9.2.
 2. *P6:* Soll der iOS-DB-Umzug bestehende Daten kopieren oder einmalig neu synchronisieren?
-   Kopieren ist sauberer, Neu-Sync ist deutlich weniger Code.
+   → **Vom Nutzer entschieden (2026-08-21): neu synchronisieren.** Die Datenbank ist ein
+   Dualis-Cache, kein Primärspeicher — es geht nichts verloren, was nicht wiederbeschaffbar wäre.
+   Konkret heißt das für P6: die alte Datei am alten Ort wird gelöscht, die neue in der App-Group
+   leer angelegt, und der nächste Abruf füllt sie. Kein Kopierpfad, keine Zwei-Orte-Logik. Der
+   Nutzer sieht beim ersten Start nach dem Update einen kurzen Ladevorgang statt sofortiger Daten.
 3. *P7:* Bleibt macOS bei Compose-Desktop, oder bekommt es später dasselbe SwiftUI-Interface?
    Der Plan geht von „bleibt Compose-Desktop" aus.
 4. *P8:* App-Group und Keychain-Access-Group erfordern Anpassungen im Apple-Developer-Portal
-   (Entitlements, Provisioning) — muss vor P8 bereitstehen.
+   (Entitlements, Provisioning). **Die App-Group wird schon in P6 gebraucht**, nicht erst in P8 —
+   ohne sie lässt sich der DB-Umzug zwar bauen, aber nicht verifizieren.
 
 **Was der Umbau nicht löst:** Dualis bleibt HTML-Scraping ohne stabilen Vertrag. P0 macht Brüche
 sichtbar statt sie zu verhindern. Ein Portal-Redesign bricht die App weiterhin — die Fixtures
