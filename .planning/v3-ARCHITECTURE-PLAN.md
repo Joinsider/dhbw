@@ -562,7 +562,7 @@ Vorlesungen, 17 Dozenten auf Schema 4 — nach dem Update dieselben Zahlen, und 
 zeigen ihre echten Daten. Ein Tab-Durchlauf macht weiterhin **0 Requests**. Auf iOS liegt die
 Datenbank nach dem Start im App-Group-Container, `Documents` ist leer.
 
-### P7 — Natives SwiftUI-Interface · Größe XL
+### P7 — Natives SwiftUI-Interface · Größe XL · **abgeschlossen**
 
 * Neues Xcode-Target-Layout: `iosApp` bindet `Shared.framework` statt `ComposeApp`.
   `ComposeView`/`MainViewController` und der iOS-Compose-Pfad entfallen am Ende der Phase.
@@ -591,6 +591,53 @@ Datenbank nach dem Start im App-Group-Container, `Documents` ist leer.
 
 **Fertig wenn:** alle fünf Screens laufen ohne Compose auf dem Gerät; Framework-Größe gegenüber
 der P1-Baseline messbar kleiner; VoiceOver-Durchlauf je Screen ohne unbeschriftete Elemente.
+
+**Was tatsächlich passiert ist** (`phase/p7-swiftui`):
+
+* **Kein SKIE.** Der Plan setzte es für Flow-Bridging und erschöpfende Swift-Enums voraus. SKIE
+  liefert einen Compiler-Plugin je exakter Kotlin-Version, und die neueste Version (0.10.4) hört
+  bei Kotlin 2.2.0 auf — das Projekt steht auf 2.3.20. Die Alternative wäre gewesen, Kotlin
+  zurückzupinnen, was Compose 1.10.3 nicht mitmacht. Beides von Hand ersetzt: `FlowObserver`
+  sammelt die Flows in Kotlin auf `Dispatchers.Main` und ruft einen Swift-Closure; `AppError`,
+  `Intent` und `Effect` erreichen Swift als Klassen, die mit `is` unterschieden werden. Der
+  einzige echte Verlust ist die Erschöpfungsprüfung — deshalb hat `AppError.userMessage` einen
+  `default`-Zweig mit einer Begründung statt eines Absturzes. Wieder aufgreifen, sobald SKIE
+  nachzieht.
+* **Sechs Brücken statt einer generischen.** Kotlins Objective-C-Export löscht die Typargumente
+  einer generischen Oberklasse; ein `StoreBridge<S, I, E>` wäre auf der Swift-Seite als
+  `dispatch(intent: Any)` angekommen. Ausgeschrieben prüft der Compiler beide Seiten — ein
+  Screen kann keinen fremden Intent dispatchen. Die Swift-Seite bleibt generisch: ein Protokoll,
+  dessen sechs Konformitäten leer sind, plus `StoreBox<Bridge>`.
+* **Zuerst die Brücke, dann die Screens** — wie in P3 und P4. Sie stand, bevor die erste `View`
+  geschrieben war, und hat für alle fünf Screens unverändert getragen.
+* **Der Demo-Login auf dem Simulator ist doch eintippbar** — über die Zwischenablage. Der
+  Handoff hielt ihn für unerreichbar, weil die Tastatur `@` auf `"` abbildet
+  (`demo"hb.dhbwßstuttgart.de`). `xcrun simctl pbcopy <udid>` plus Lange-Drücken → „Einsetzen"
+  füllt das Feld korrekt; das Passwort hat keine Sonderzeichen. Damit ist alles hinter dem Login
+  auf iOS von Hand prüfbar, und die wichtigste offene Frage der Verifikation aus dem Handoff
+  ist beantwortet.
+* **Zwei Funde beim Durchklicken, beide nicht vom Gate gesehen** (§4.4 wieder): Die Noten zeigten
+  unter dem Fehler „Keine Ergebnisse — überprüfe die Schreibweise", obwohl gar nicht gesucht
+  wurde; und ein fehlgeschlagener Download setzt `DocumentsState.error`, was die ganze
+  Dokumentenliste durch die Fehlermeldung ersetzte. Beides in den Screens behoben.
+* **Der iOS-Compose-Pfad ist weg.** `:composeApp` hat keine iOS-Targets mehr, `MainViewController.kt`,
+  `Theme.ios.kt`, `NotificationPermission.ios.kt` und `ThemeIosTest.kt` sind gelöscht, `ContentView.swift`
+  ebenfalls. Die Widget-Benachrichtigung, die dort hing, sitzt jetzt in `RootView`.
+* **Größe:** `ComposeApp.framework` (Debug, statisch) 379 MB → `Shared.framework` 80 MB, also
+  79 % weniger; die gebaute `DHBW-Horb.app` wiegt 44 MB. Die Zahlen sind Debug-Artefakte und
+  taugen nur als Vergleich zueinander, aber „messbar kleiner" ist damit eindeutig.
+* **Nicht portiert, wie geplant:** Material You und die Seed-Farbe. Auf iOS gilt HIG; die
+  Einstellungen bleiben im Store für Android und Desktop. Auch `AuthState.isPasswordVisible`
+  bleibt ungenutzt — `SecureField` bringt seine eigene Anzeigen-Umschaltung mit.
+* **Offen geblieben:** der VoiceOver-Durchlauf ist statisch geprüft (jedes Bedienelement trägt ein
+  `Text`-Label, Zeilen sind zu einem Element zusammengefasst, Symbole haben
+  `accessibilityLabel`), aber nicht mit eingeschaltetem VoiceOver durchlaufen — das braucht ein
+  Gerät oder einen Menschen am Simulator. Ebenso ungeprüft: dass ein Tab-Wechsel keine Requests
+  auslöst. Im Demo-Modus kann es keine geben, und für eine echte Sitzung fehlt auf dem Simulator
+  ein Konto.
+* **Nebenbefund, keine Regression:** Im Demo-Modus gibt es keine Noten. `DualisGradeService` hat —
+  anders als der Vorlesungs- und der Dokumentendienst — keinen Demo-Zweig, also endet der Abruf in
+  `AppError.SessionExpired`. Das gilt auf allen Plattformen und stammt aus der Zeit vor dem Umbau.
 
 ### P8 — iOS-Plattformdienste nativ · Größe L
 
