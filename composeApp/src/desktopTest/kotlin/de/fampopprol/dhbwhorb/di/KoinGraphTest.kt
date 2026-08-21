@@ -105,6 +105,7 @@ class KoinGraphTest {
             assertNotNull(koin.get<WidgetTimetableUseCase>())
             assertNotNull(koin.get<NotificationPreferencesInteractor>())
             assertNotNull(koin.get<ThemePreferences>())
+            assertNotNull(koin.get<de.fampopprol.dhbwhorb.data.storage.settings.SettingsStorage>())
 
             // The repository interfaces are what everything above :data now depends on, so a
             // missing binding here would break every screen at once.
@@ -151,6 +152,7 @@ class KoinGraphTest {
         // Provided by dataPlatformModule(), which verify() checks separately.
         val dataPlatformTypes = inlineTypes + listOf(
             de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorageInterface::class,
+            de.fampopprol.dhbwhorb.data.storage.settings.PlatformSettings::class,
             de.fampopprol.dhbwhorb.data.storage.database.AppDatabase::class
         )
         val servicesExtraTypes = dataPlatformTypes + listOf(
