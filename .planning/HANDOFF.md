@@ -1,13 +1,13 @@
 # Handoff — v3-Umbau
 
-> Stand: 2026-08-21 · Phasen P-1, P0, P1, P2, P3, P4, P5 abgeschlossen und auf `v3` gemerged
-> `v3` steht bei `555abf0` · Arbeitsverzeichnis sauber · nichts gepusht
-> Nächste Phase: **P6 — Room-Migrationen**
+> Stand: 2026-08-21 · Phasen P-1 bis P6 abgeschlossen und auf `v3` gemerged
+> Arbeitsverzeichnis sauber · nichts gepusht
+> Nächste Phase: **P7 — Natives SwiftUI-Interface**
 
-Alles Abgeschlossene liegt auf `v3`. P6 zweigt von dort ab:
+Alles Abgeschlossene liegt auf `v3`. P7 zweigt von dort ab:
 
 ```bash
-git checkout -b phase/p6-migrations v3
+git checkout -b phase/p7-swiftui v3
 ```
 
 ---
@@ -36,11 +36,11 @@ Navigation-Library und echten Room-Migrationen.
 * Der Nutzer schreibt Deutsch. Code, Kommentare, Commit-Messages und Testnamen sind Englisch.
 
 ```bash
-git checkout -b phase/p6-migrations v3
+git checkout -b phase/p7-swiftui v3
 # … arbeiten, Gate grün bekommen …
 git commit
 # anhalten, berichten, auf Freigabe warten
-git checkout v3 && git merge --no-ff phase/p6-migrations -m "merge: P6 … into v3"
+git checkout v3 && git merge --no-ff phase/p7-swiftui -m "merge: P7 … into v3"
 ```
 
 Commit-Messages: erklären **warum**, nicht was. Die bisherigen Phasen-Commits sind das Muster —
@@ -85,6 +85,10 @@ until [ "$($ADB shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do slee
 * **Texteingabe im iOS-Simulator ist für Sonderzeichen unbrauchbar** — er mappt auf die deutsche
   Mac-Tastatur, aus `@` wird `"`. Der Demo-Login (`demo@hb.dhbw-stuttgart.de` / `demo123`) lässt
   sich so nicht eintippen. Screens hinter dem Login dort über Tests abdecken.
+* Die **Desktop-App kommt in dieser Umgebung nicht durch TLS** zu Dualis („PKIX path building
+  failed" beim Login). Das ist die Umgebung, nicht die App — der Datenpfad funktioniert, die
+  Datenbank wird angelegt. Wer Desktop durchklicken will, braucht einen Trust Store, der die Kette
+  kennt.
 * Auf dem **Android-Emulator ist eine echte Sitzung gespeichert.** Die App startet dort eingeloggt
   und mit echten Daten — praktisch zum Durchklicken, aber Vorsicht: das sind reale Dualis-Requests.
 
@@ -101,7 +105,7 @@ ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew \
   :composeApp:testDebugUnitTest :composeApp:desktopTest --rerun-tasks
 ```
 
-**Sollwerte nach P5:** `testDebugUnitTest` **288**, `desktopTest` **386**, 0 Fehler,
+**Sollwerte nach P6:** `testDebugUnitTest` **288**, `desktopTest` **391**, 0 Fehler,
 **0 übersprungen**. Es gibt seit P4 keinen einzigen `@Ignore` mehr im Projekt — wenn einer
 auftaucht, gehören ein Grund und eine Phase dazu.
 
@@ -149,6 +153,14 @@ Seit P4 ist `:presentation` Teil des Frameworks. Eine Compose-Abhängigkeit dort
 kompiliert problemlos und bricht erst P7 — diese Prüfung ist das, was es merkt.
 
 ### 4.3 iOS-Build (braucht keine Signatur)
+
+**Achtung, seit P6:** `CODE_SIGNING_ALLOWED=NO` bettet **keine Entitlements** ein. Die App startet,
+aber App Group und Keychain-Access-Group fehlen — der Container-Lookup scheitert mit „client is not
+entitled", und die Datenbank landet im Fallback-Pfad statt im geteilten Container. Wer etwas prüft,
+das an einem Entitlement hängt (Datenbankort, Widget, Keychain), baut ohne den Schalter:
+`xcodebuild … -derivedDataPath /tmp/dhbwsigned build` — der Simulator signiert dann selbst
+(„Sign to Run Locally") und übernimmt die Entitlements aus der `.entitlements`-Datei. Ein
+Apple-Developer-Portal-Eintrag ist dafür **nicht** nötig; für echte Geräte schon.
 
 ```bash
 cd iosApp && ANDROID_HOME=$HOME/Library/Android/sdk xcodebuild \
@@ -243,6 +255,9 @@ Package-Namen. Eine Datei zwischen Modulen zu verschieben erfordert deshalb kein
 | Repository-Fakes | `composeApp/src/commonTest/…/testutil/fakes/FakeRepositories.kt` |
 | Store-Test-Helfer | `composeApp/src/commonTest/…/presentation/StoreTestSupport.kt` |
 | Graph-Prüfung | `composeApp/src/desktopTest/…/di/KoinGraphTest.kt` — bei neuen Bindungen mitpflegen |
+| Schema-Version, Migrationen | `data/…/database/AppDatabaseMigrations.kt` — `APP_DATABASE_VERSION` ist die einzige Quelle |
+| Öffnungspolitik der DB | `data/…/database/DatabaseFactory.kt` — `createRoomDatabase()`; die vier Actuals wählen nur den Pfad |
+| Migrations-Gate | `composeApp/src/desktopTest/…/data/database/AppDatabaseMigrationTest.kt` |
 
 ---
 
@@ -252,71 +267,58 @@ Alle sind im Code kommentiert und im Plan vermerkt — nichts davon ist vergesse
 
 | Punkt | Ort | Fällig |
 |---|---|---|
-| `fallbackToDestructiveMigration(dropAllTables = true)` in allen vier `DatabaseFactory.*.kt` — jedes Schema-Update löscht Nutzerdaten. Dazu: die iOS-DB liegt in `NSDocumentDirectory`, wo die Widget-Extension nicht lesen kann. | `data/src/*/…/DatabaseFactory.*.kt` | **P6** |
+| Auf einem **echten** iOS-Gerät ist die App Group `group.de.fampopprol.dhbwhorb` erst nutzbar, wenn sie im Apple-Developer-Portal registriert ist. Fehlt sie, protokolliert die App „App group … unavailable" und legt die DB im Dokumentverzeichnis ab — das Widget bliebe blind. Auf dem Simulator ist das kein Thema. | `DatabaseFactory.ios.kt` | **P7/P8** (nur Portal, kein Code) |
 | Die Stores sind Applikations-Singles, nicht im Navigations-Scope. Bewusst so: ein Halter je Navigationseintrag würde bei jedem Tab-Wechsel neu laden — genau das, was P4 abgestellt hat. Deshalb bleibt auch `EnsureLoaded` neben `Load` bestehen. | `PresentationModule.kt`, `GradesStore`, `DocumentsStore` | — |
 | Läuft die Sitzung ab, während man eingeloggt im Graphen steht, zeigt die Seite „bitte anmelden" statt zur Login-Wurzel zurückzukehren. Ehrlich, aber nicht schön. | `GradesPage`, `DocumentsPage` | P9 |
 | Der iOS-`LectureMonitorScheduler` ist ein reiner Log-Stub — auf iOS gibt es **kein** Background-Monitoring, obwohl die Einstellung es anbietet. Feature-Lücke von vor dem Umbau, keine Regression. | `LectureMonitorScheduler.ios.kt` | **P8** |
 | `NotificationDispatcher` hält seinen Android-Context statisch, weil `expect class` keinen plattformspezifischen Konstruktorparameter erlaubt. Wie bei `SecureStorage` in P2 ist die Lösung ein Interface mit je einer Implementierung pro Plattform. Bis dahin: `DualisApplication.onCreate()` **muss** `initialize()` rufen — das zu vergessen hat die App von P2 bis P4 beim Öffnen der Einstellungen abstürzen lassen. | `NotificationDispatcher.android.kt` | P8/P9 |
 | Die Repository-Fakes liegen in `composeApp/commonTest/testutil/fakes/`, nicht in einem `:core:testing`. Bewusst so, solange alle Tests in `:composeApp` liegen — beides zusammen umziehen. | `testutil/fakes/` | P9 |
 | Tests liegen alle in `:composeApp`, nicht in ihren Modulen. Die Gates bleiben dadurch unverändert; der Umzug braucht pro Modul eigene Test-Abhängigkeiten. | `composeApp/src/commonTest` | P9 |
+| `composeApp/commonTest/…/data/database/DatabaseFactoryTest.kt` besteht aus vier Tests, die nur prüfen, dass `::createRoomDatabase` nicht null ist. Sie testen nichts. Seit P6 gibt es mit `AppDatabaseMigrationTest` echte Abdeckung derselben Stelle. | `DatabaseFactoryTest.kt` | P9 |
 | Der Widget-UseCase liefert bei einem Lesefehler des Caches eine leere Liste statt eines Fehlers — ein Widget hat keine Fehlerdarstellung. Bewusst so, im Code begründet. | `WidgetTimetableUseCase.kt` | — |
 | 48 × `catch (e: Exception)` übrig (von ursprünglich 69). Drei Sorten, alle bewusst: die Parser (schlucken eine kaputte Zeile, nicht die Seite), die Klassifikationsstellen selbst (`toAppError`, DB-Zugriffe in den Repositories), und die Plattformschicht (FileViewer, Dispatcher, Scheduler, DNS, SecureStorage). Im Dualis-Datenpfad ist keines mehr. | `:data`, `:services`, `:composeApp` | — |
 
 ---
 
-## 7. Nächster Schritt: P6 — Room-Migrationen
+## 7. Nächster Schritt: P7 — Natives SwiftUI-Interface
 
-Der Plan beschreibt P6 in §2. **Die offene Frage ist beantwortet:**
+Der Plan beschreibt P7 in §2. Es ist die größte Phase des Umbaus (Größe XL) und die erste, in der
+sich Parallelisierung wirklich lohnt — fünf Screens über disjunkte Dateien.
 
-> **Entscheidung des Nutzers (2026-08-21): der iOS-DB-Umzug synchronisiert neu, er kopiert nicht.**
-> Die Datenbank ist ein Dualis-Cache und kein Primärspeicher — es geht nichts verloren, was sich
-> nicht wiederbeschaffen ließe. Konkret: alte Datei am alten Ort löschen, neue in der App-Group
-> leer anlegen, der nächste Abruf füllt sie. Kein Kopierpfad, keine Zwei-Orte-Logik. Der Nutzer
-> sieht beim ersten Start nach dem Update einen kurzen Ladevorgang statt sofortiger Daten.
+**Reihenfolge, die ich wählen würde:**
 
-**Was noch bereitstehen muss, bevor der iOS-Teil verifizierbar ist:** die **App-Group** im
-Apple-Developer-Portal (Entitlements, Provisioning). Der Plan hatte sie für P8 notiert, sie wird
-aber schon hier gebraucht. Ohne sie lässt sich der Umzug bauen, aber nicht auf dem Simulator
-prüfen — dann den iOS-Teil vorbereiten, klar als unverifiziert kennzeichnen und den Rest liefern.
+1. **Erst die Brücke, dann die Screens.** Der `StoreBox`-Wrapper aus dem Plan ist der gemeinsame
+   Vertrag; ohne ihn schreibt jeder Screen seine eigene Anbindung, und dann driften sie. In P3
+   waren es `Outcome`/`AppError`, in P4 `Store`/`BaseStore` — beide Male zuerst geschrieben, beide
+   Male hat es getragen (siehe §8 und §9).
+2. **Target-Layout umstellen:** `iosApp` bindet `Shared.framework` statt `ComposeApp`. Prüfen, was
+   an `ComposeView`/`MainViewController` noch hängt, bevor es entfällt.
+3. Dann die fünf Screens. Login zuerst — daran hängt alles andere.
 
-Ausgangslage: Schema-Version **4**, `exportSchema = true`, Export unter
-`data/schemas/de.fampopprol.dhbwhorb.data.storage.database.AppDatabase/4.json`. Die drei anderen
-Ordner unter `data/schemas/` sind Altlasten aus der Zeit vor dem Rename (`de.joinside.dhbw.*`) und
-gehören nicht zur aktuellen Datenbank.
+**Zwei Dinge, die aus P6 hier ankommen:**
 
-Reihenfolge, die ich wählen würde:
+* Die Datenbank liegt im App-Group-Container. Das Widget kann sie jetzt lesen; der JSON-Umweg über
+  `NSUserDefaults` (`WidgetDataWriter`) ist damit ablösbar — im Plan ist das P8, aber die
+  Voraussetzung steht.
+* **Zum Bauen für alles, was an einem Entitlement hängt, den `CODE_SIGNING_ALLOWED=NO`-Schalter
+  weglassen.** Siehe §4.3 — sonst prüft man stillschweigend den Fallback-Pfad.
 
-1. `fallbackToDestructiveMigration` aus allen vier `DatabaseFactory.*.kt` entfernen und durch
-   echte `Migration`-Objekte ersetzen. Ohne eine Schema-Änderung in dieser Phase ist die
-   Migrationsliste zunächst leer — das ist in Ordnung, entscheidend ist, dass ein künftiges Update
-   nicht mehr stillschweigend löscht.
-2. Migrationstests. `androidx.room:room-testing` gibt es in derselben Version wie den Rest
-   (2.8.4, steht als `room` in `libs.versions.toml`) und bringt `MigrationTestHelper` mit; die
-   exportierten Schemas sind genau dafür da. Mindestens: 4 → 5 mit echten Daten, und der Nachweis,
-   dass eine Datenbank auf Version 4 nach dem Update noch ihre Zeilen hat.
-3. Die iOS-Datenbank aus `NSDocumentDirectory` in den App-Group-Container verschieben
-   (`NSFileManager.containerURLForSecurityApplicationGroupIdentifier`), damit die Widget-Extension
-   sie lesen kann. Neu-Sync statt Kopieren, siehe Entscheidung oben.
-4. Prüfen, ob macOS denselben Umzug braucht — `DatabaseFactory.macos.kt` hat dasselbe Muster.
-
-**Womit man in P6 rechnen sollte:** Der Umzug ändert nichts, was ein Test sieht. Das ist genau die
-Sorte Phase, in der die Regel aus §4.4 zählt — nach dem Umzug die App auf beiden Plattformen
-starten, Daten prüfen, und auf iOS zusätzlich das Widget.
-
-P6 ist Voraussetzung für **P7** (natives SwiftUI), weil das Widget dort auf dieselbe Datenbank
-zugreift. P5 und P6 waren laut §3 unabhängig; ab hier ist die Kette wieder linear.
+**Womit man rechnen sollte:** Der iOS-Simulator kann keine Sonderzeichen tippen (§3), der
+Demo-Login also nicht. Alles hinter dem Login braucht auf iOS entweder Tests oder eine im Keychain
+vorbereitete Sitzung. Das ist bei einer Phase, die fünf Screens neu baut, die wichtigste offene
+Frage der Verifikation — sie früh klären, nicht am Ende.
 
 ---
 
 ## 8. Zur Parallelisierung
 
-Der Nutzer hat nach Subagents und Worktrees gefragt. Einschätzung nach sechs Phasen:
+Der Nutzer hat nach Subagents und Worktrees gefragt. Einschätzung nach sieben Phasen:
 
 * **Über Phasen hinweg lohnt es sich nicht.** Die Kette ist bindend, und jede Phase schreibt
   dieselben zentralen Dateien um. P3 hat fast jede Datei im Datenpfad angefasst, P4 die gesamte
   Präsentationsschicht.
 * **Innerhalb einer Phase über disjunkte Dateimengen schon.** P7 (fünf SwiftUI-Screens) ist der
-  nächste echte Fan-out. P6 ist dafür zu klein und zu verzahnt.
+  nächste echte Fan-out. P6 war dafür zu klein und zu verzahnt.
 * Voraussetzung ist, dass die gemeinsamen Verträge **vorher** stehen. In P3 waren das
   `Outcome`/`AppError` plus die Repository-Interfaces, in P4 `Store`/`BaseStore`/`EffectScope` —
   beide Male zuerst geschrieben, beide Male hat es getragen. Für P7 wäre es entsprechend die
@@ -339,3 +341,15 @@ Kurz, weil es sich wiederholt hat:
 * **Bei Testerwartungen, die dem neuen Verhalten widersprechen, erst prüfen wer recht hat.** In
   P-1 hatten zwei Tests unrecht und einer recht — der eine hat einen echten Bug gefunden. In P4 hat
   ein Reducer-Test eine echte Lücke aufgedeckt (leere Woche ≠ ungeladene Woche).
+* **Einen neuen Wächter kaputtmachen, bevor man ihm glaubt.** Das Migrations-Gate aus P6 war
+  ab dem ersten Lauf grün — das sagt nichts. Erst `APP_DATABASE_VERSION` auf 5 zu setzen (vier von
+  fünf Tests fallen) und `DESTRUCTIBLE_SCHEMA_VERSIONS` zu leeren (der fünfte fällt) hat gezeigt,
+  dass er greift. Kostet zwei Minuten.
+* **Nachsehen, wo generierte Dateien wirklich landen.** Der Room-Schema-Export schrieb seit dem
+  Modulschnitt in ein Verzeichnis namens `$projectDir` (escaptes Dollar in `data/build.gradle.kts`);
+  `data/schemas/` war eingefroren, und niemandem ist es aufgefallen, weil nichts es gelesen hat.
+  Ein Artefakt, das keiner liest, verrottet lautlos.
+* **Ein Schalter, der das Bauen bequem macht, kann die Prüfung entwerten.** `CODE_SIGNING_ALLOWED=NO`
+  im iOS-Gate lässt Entitlements weg; der App-Group-Umzug in P6 lief damit sauber durch und war
+  trotzdem nicht das, was geprüft werden sollte. Bei jedem „ohne X geht es auch": prüft man dann
+  noch dasselbe?

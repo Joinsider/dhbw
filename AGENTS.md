@@ -96,7 +96,11 @@ platform-specific constructor parameter, which is what Android needs for its Con
 - Android → `EncryptedSharedPreferences`, Context injected via `androidContext()`
 - Desktop → `java-keyring`, falling back to `Preferences.userNodeForPackage`
 - Android DB path → `Context.getDatabasePath("grades_database.db")`
-- Desktop DB path → `java.io.tmpdir/dhbw.db`
+- Desktop DB path → per-user data directory (`~/Library/Application Support/…`, `%APPDATA%`,
+  `$XDG_DATA_HOME`); it used to be `java.io.tmpdir`, where the OS may delete it
+- iOS DB path → the app group container `group.de.fampopprol.dhbwhorb`, so the widget extension
+  can read it; falls back to `NSDocumentDirectory` with a logged error if the entitlement is absent
+- macOS DB path → `NSApplicationSupportDirectory` (no widget extension, so no app group)
 
 ### Dependency Injection (Koin)
 One composition root: `initKoin()` in `:shared`, called from `DualisApplication.onCreate()`,
@@ -176,7 +180,27 @@ Compose sees a store through two helpers in `composeApp/.../ui/store/StoreCompos
 `store.collectState()` and `store.HandleEffects { … }`. Nothing else about a store is Compose-aware.
 
 ### Room Database
-Schema version 4, `exportSchema = true`, schemas in `data/schemas/`. Uses `fallbackToDestructiveMigration(dropAllTables = true)` — **no manual migrations**. KSP processors declared per target in `dependencies {}`:
+Schema version 4, `exportSchema = true`, schemas in `data/schemas/`.
+
+`getDatabaseBuilder()` per platform decides **only where the file lives**. How it is opened —
+migrations and the destructive-fallback policy — lives once in `createRoomDatabase()`
+(`data/…/database/DatabaseFactory.kt`), so the four platforms cannot drift apart on it.
+
+Migration rules, all in `data/…/database/AppDatabaseMigrations.kt`:
+- `APP_DATABASE_VERSION` is the single source of the schema version; `@Database` reads it.
+- Raising it obliges you to add the `Migration` to `APP_DATABASE_MIGRATIONS` **and** to commit the
+  schema export Room writes. `AppDatabaseMigrationTest` (desktopTest) fails otherwise — it is the
+  gate, and it does bite: bumping the version without a migration fails four of its five tests.
+- Only the pre-release schemas in `DESTRUCTIBLE_SCHEMA_VERSIONS` (1, 2, 3) may be dropped. Every
+  released build shipped schema 4, so no installation in the wild is affected.
+- There is **no** blanket `fallbackToDestructiveMigration` any more. An unmigratable version gap now
+  fails loudly at open time instead of silently deleting cached grades and timetable.
+
+The export path in `data/build.gradle.kts` is `schemaDirectory("$projectDir/schemas")` — plain
+interpolation, **no** escaped dollar. Escaping it makes the plugin write into a directory literally
+named `$projectDir` while `data/schemas/` quietly freezes, which is what happened from P1 to P6.
+
+KSP processors declared per target in `dependencies {}`:
 ```kotlin
 add("kspAndroid", libs.androidx.room.compiler)
 add("kspDesktop", libs.androidx.room.compiler)
@@ -240,6 +264,7 @@ Files must include SPDX headers:
 | `presentation/…/presentation/store/BaseStore.kt` | The store contract every feature inherits |
 | `composeApp/…/ui/store/StoreCompose.kt` | The only Compose-aware part of the store plumbing |
 | `…/data/storage/database/AppDatabase.kt` | Room DB definition; `clearAllData()` for logout |
+| `…/data/storage/database/AppDatabaseMigrations.kt` | Schema version, migration list, destructive-fallback allowlist |
 | `data/schemas/` | Room schema exports (auto-generated, do not edit) |
 | `gradle/libs.versions.toml` | All dependency versions and plugin aliases |
 
