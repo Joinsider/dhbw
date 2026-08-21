@@ -57,7 +57,7 @@ fun DocumentsPage(
     viewModel: DocumentsViewModel = koinInject()
 ) {
 
-    val uiState by (viewModel.uiState ?: MutableStateFlow(DocumentsUiState())).collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
 
     // If we were previously blocked due to missing login and the app is now logged in, try again once
     LaunchedEffect(isLoggedIn) {
@@ -138,7 +138,7 @@ fun DocumentsPage(
                         singleLine = true
                     )
 
-                    if ((uiState.isLoading || viewModel == null) && uiState.documents.isEmpty()) {
+                    if (uiState.isLoading && uiState.documents.isEmpty()) {
                         // Skeleton UI for Documents
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
@@ -154,14 +154,14 @@ fun DocumentsPage(
                             isRefreshing = uiState.isRefreshing,
                             onRefresh = { viewModel.refreshDocuments() },
                         ) {
-                            if (uiState.documents.isEmpty() && uiState.searchQuery.isNotEmpty() && !uiState.isLoading && viewModel != null) {
+                            if (uiState.documents.isEmpty() && uiState.searchQuery.isNotEmpty() && !uiState.isLoading) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text("No documents found matching your search.")
                                 }
-                            } else if (uiState.documents.isEmpty() && !uiState.isLoading && viewModel != null) {
+                            } else if (uiState.documents.isEmpty() && !uiState.isLoading) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center

@@ -53,14 +53,6 @@ class MockSessionManager(
         return mockIsDemo
     }
 
-    fun isReAuthenticating(): Boolean {
-        return false
-    }
-
-    fun setReAuthenticating(value: Boolean) {
-        // Mock implementation - no-op
-    }
-
     fun logout() {
         mockAuthData = null
         mockIsDemo = false

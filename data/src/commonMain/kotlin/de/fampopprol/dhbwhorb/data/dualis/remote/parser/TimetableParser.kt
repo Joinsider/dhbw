@@ -2,10 +2,12 @@ package de.fampopprol.dhbwhorb.data.dualis.remote.parser
 
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.temp_models.TempLectureModel
 import io.github.aakira.napier.Napier
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.math.abs
 import kotlin.time.ExperimentalTime
 
 /**
@@ -41,7 +43,10 @@ class TimetableParser {
      * @param htmlContent The HTML content of the weekly timetable page
      * @return List of temporary lecture models with basic information and links
      */
-    fun parseWeeklyView(htmlContent: String): List<TempLectureModel> {
+    fun parseWeeklyView(
+        htmlContent: String,
+        weekStart: LocalDate? = null
+    ): List<TempLectureModel> {
         Napier.d("Parsing lectures from weekly view HTML", tag = TAG)
 
         val lectures = mutableListOf<TempLectureModel>()
@@ -62,7 +67,7 @@ class TimetableParser {
 
             // Extract all weekday dates from headers
             // Format: <th class="weekday"><a href="...">Mo 03.11.</a></th>
-            val weekDates = extractWeekDates(htmlContent)
+            val weekDates = extractWeekDates(htmlContent, weekStart)
             Napier.d("Extracted week dates: $weekDates", tag = TAG)
 
             // Pattern to match appointment cells WITH the abbr attribute to determine the day
@@ -99,7 +104,10 @@ class TimetableParser {
      * Returns a map of day name to LocalDateTime.
      */
     @OptIn(ExperimentalTime::class)
-    private fun extractWeekDates(htmlContent: String): Map<String, LocalDateTime> {
+    private fun extractWeekDates(
+        htmlContent: String,
+        weekStart: LocalDate?
+    ): Map<String, LocalDateTime> {
         val weekDates = mutableMapOf<String, LocalDateTime>()
 
         // Pattern: <th class="weekday" ...><a ...>Mo 03.11.</a></th>
@@ -107,8 +115,11 @@ class TimetableParser {
         val headerPattern = """<th\s+class="weekday"[^>]*>\s*<a[^>]*>\s*(Mo|Di|Mi|Do|Fr|Sa|So)\s+(\d{2})\.(\d{2})\.\s*</a>\s*</th>""".toRegex()
         val matches = headerPattern.findAll(htmlContent)
 
-        val now = kotlin.time.Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-        val currentYear = now.year
+        // Dualis writes its weekday headers without a year ("Mo 05.01."), so the year has to come
+        // from the caller: it asked for a specific week and knows which one. Falling back to today
+        // dated every week outside the current year wrongly — and the pager reaches +/- 1000 weeks.
+        val anchor = weekStart
+            ?: kotlin.time.Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
 
         Napier.d("Attempting to extract week dates from HTML (length: ${htmlContent.length})", tag = TAG)
 
@@ -130,7 +141,7 @@ class TimetableParser {
                 else -> dayAbbr
             }
 
-            val dateTime = LocalDateTime(currentYear, Month(month), day, 0, 0)
+            val dateTime = LocalDateTime(yearNearest(anchor, month, day), Month(month), day, 0, 0)
             weekDates[fullDayName] = dateTime
             matchCount++
             Napier.d("Mapped $fullDayName -> $dateTime", tag = TAG)
@@ -159,13 +170,37 @@ class TimetableParser {
                     else -> dayAbbr
                 }
 
-                val dateTime = LocalDateTime(currentYear, Month(month), day, 0, 0)
+                val dateTime = LocalDateTime(yearNearest(anchor, month, day), Month(month), day, 0, 0)
                 weekDates[fullDayName] = dateTime
                 Napier.d("Mapped (alternative) $fullDayName -> $dateTime", tag = TAG)
             }
         }
 
         return weekDates
+    }
+
+    /**
+     * The year that puts day/month closest to [anchor].
+     *
+     * A week can straddle New Year — Mo 29.12. and Fr 02.01. belong to different years — so the
+     * year is decided per day rather than once per week. The anchor's year and its two neighbours
+     * are enough: a header day is never more than a few days away from the week it belongs to.
+     */
+    private fun yearNearest(anchor: LocalDate, month: Int, day: Int): Int {
+        var bestYear = anchor.year
+        var bestDistance = Long.MAX_VALUE
+
+        for (year in (anchor.year - 1)..(anchor.year + 1)) {
+            // 29.02. does not exist in every candidate year.
+            val candidate = runCatching { LocalDate(year, month, day) }.getOrNull() ?: continue
+            val distance = abs(candidate.toEpochDays() - anchor.toEpochDays())
+            if (distance < bestDistance) {
+                bestDistance = distance
+                bestYear = year
+            }
+        }
+
+        return bestYear
     }
 
     /**

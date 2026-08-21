@@ -6,10 +6,11 @@
 
 package de.fampopprol.dhbwhorb.testutil
 
+import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.data.dualis.remote.models.AuthData
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
-import de.fampopprol.dhbwhorb.data.dualis.remote.services.LoginResult
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
+import de.fampopprol.dhbwhorb.domain.model.Session
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -39,16 +40,14 @@ class MockAuthenticationService(
         return sessionManager.isAuthenticated()
     }
 
-    override suspend fun login(username: String, password: String): LoginResult {
-        // Simulate successful login for test purposes
-        val authData = AuthData(
-            sessionId = "test-session",
-            authToken = "test-token",
-            userFullName = null
+    override suspend fun login(username: String, password: String): Outcome<Session> {
+        // Every login succeeds: these tests are about what the UI does with a session, not about
+        // the Dualis handshake, which AuthenticationServiceTest covers against a mock engine.
+        sessionManager.storeAuthData(
+            AuthData(sessionId = "test-session", authToken = "test-token", userFullName = null)
         )
-        sessionManager.storeAuthData(authData)
         sessionManager.storeCredentials(username, password)
-        return LoginResult.Success(authData)
+        return Outcome.Ok(Session(userFullName = null, isDemo = false))
     }
 
     override fun logout() {

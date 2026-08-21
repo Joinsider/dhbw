@@ -22,8 +22,15 @@ import de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorageInterface
 import de.fampopprol.dhbwhorb.data.storage.database.AppDatabase
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemePreferences
-import de.fampopprol.dhbwhorb.services.LectureService
-import de.fampopprol.dhbwhorb.services.LogoutUseCase
+import de.fampopprol.dhbwhorb.domain.repository.AuthRepository
+import de.fampopprol.dhbwhorb.domain.repository.DocumentRepository
+import de.fampopprol.dhbwhorb.domain.repository.GradeRepository
+import de.fampopprol.dhbwhorb.domain.repository.PreferencesRepository
+import de.fampopprol.dhbwhorb.domain.repository.SessionRepository
+import de.fampopprol.dhbwhorb.domain.repository.TimetableRepository
+import de.fampopprol.dhbwhorb.domain.usecase.GetWeekTimetable
+import de.fampopprol.dhbwhorb.domain.usecase.LoginWithCredentials
+import de.fampopprol.dhbwhorb.domain.usecase.Logout
 import de.fampopprol.dhbwhorb.services.notifications.NotificationManager
 import de.fampopprol.dhbwhorb.services.widget.WidgetTimetableUseCase
 import io.ktor.client.HttpClient
@@ -94,12 +101,23 @@ class KoinGraphTest {
             assertNotNull(koin.get<DualisLectureService>())
             assertNotNull(koin.get<DualisGradeService>())
             assertNotNull(koin.get<DualisDocumentService>())
-            assertNotNull(koin.get<LectureService>())
-            assertNotNull(koin.get<LogoutUseCase>())
             assertNotNull(koin.get<NotificationManager>())
             assertNotNull(koin.get<WidgetTimetableUseCase>())
             assertNotNull(koin.get<NotificationPreferencesInteractor>())
             assertNotNull(koin.get<ThemePreferences>())
+
+            // The repository interfaces are what everything above :data now depends on, so a
+            // missing binding here would break every screen at once.
+            assertNotNull(koin.get<AuthRepository>())
+            assertNotNull(koin.get<SessionRepository>())
+            assertNotNull(koin.get<TimetableRepository>())
+            assertNotNull(koin.get<GradeRepository>())
+            assertNotNull(koin.get<DocumentRepository>())
+            assertNotNull(koin.get<PreferencesRepository>())
+
+            assertNotNull(koin.get<LoginWithCredentials>())
+            assertNotNull(koin.get<Logout>())
+            assertNotNull(koin.get<GetWeekTimetable>())
 
             // The one instance that must not be duplicated: authentication and every subsequent
             // request share cookies through it.
@@ -136,6 +154,7 @@ class KoinGraphTest {
             de.fampopprol.dhbwhorb.data.storage.database.AppDatabase::class
         )
         val servicesExtraTypes = dataPlatformTypes + listOf(
+            de.fampopprol.dhbwhorb.domain.repository.TimetableRepository::class,
             de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisLectureService::class,
             de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager::class,
             de.fampopprol.dhbwhorb.data.storage.credentials.CredentialsStorageProvider::class,
@@ -145,11 +164,16 @@ class KoinGraphTest {
             de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher::class
         )
         val presentationExtraTypes = servicesExtraTypes + listOf(
-            de.fampopprol.dhbwhorb.services.LectureService::class,
-            de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisGradeService::class,
-            de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService::class,
-            de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LecturerDao::class,
-            de.fampopprol.dhbwhorb.data.storage.database.dao.grades.GradeDao::class
+            de.fampopprol.dhbwhorb.domain.repository.SessionRepository::class,
+            de.fampopprol.dhbwhorb.domain.usecase.GetWeekTimetable::class,
+            de.fampopprol.dhbwhorb.domain.usecase.AwaitFullWeekTimetable::class,
+            de.fampopprol.dhbwhorb.domain.usecase.RefreshTimetable::class,
+            de.fampopprol.dhbwhorb.domain.usecase.GetSemesters::class,
+            de.fampopprol.dhbwhorb.domain.usecase.GetGradesForSemester::class,
+            de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades::class,
+            de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa::class,
+            de.fampopprol.dhbwhorb.domain.usecase.ListDocuments::class,
+            de.fampopprol.dhbwhorb.domain.usecase.DownloadDocument::class
         )
     }
 }

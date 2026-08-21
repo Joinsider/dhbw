@@ -7,8 +7,8 @@
 package de.fampopprol.dhbwhorb.data.dualis.remote.parser
 
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.fixtures.DualisFixtures
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -135,22 +135,48 @@ class TimetableParserTest {
     }
 
     @Test
-    @Ignore // Known defect, scheduled for P3 — see comment.
-    fun parseWeeklyView_weekInAnotherYear_usesTheYearFromTheHeader() {
-        // extractWeekDates() takes the year from Clock.System.now() because the Dualis header
-        // only carries "Mo 05.01." without a year. The pager allows +/- 1000 weeks, so any week
-        // outside the current calendar year is dated to the wrong year — and a week spanning
-        // New Year gets two different years' worth of days stamped with the same one.
-        //
-        // Fixing this needs the requested week's date range, which the parser does not have
-        // today. It belongs in the repository layer (P3), which knows which week it asked for.
+    fun parseWeeklyView_weekInAnotherYear_takesTheYearFromTheRequestedWeek() {
+        // Dualis' headers carry no year ("Mo 05.01."). Until P3 the parser filled in the current
+        // one from the clock, so every week the pager reached outside this year — it allows
+        // +/- 1000 — came back dated wrongly.
         val januaryWeek = DualisFixtures.Timetable.WEEK_FULL
             .replace("03.11.", "05.01.")
-            .replace("Mo 03.11.", "Mo 05.01.")
+            .replace("04.11.", "06.01.")
+            .replace("05.11.", "07.01.")
+            .replace("06.11.", "08.01.")
+            .replace("07.11.", "09.01.")
 
-        val lectures = parser.parseWeeklyView(januaryWeek)
+        val lectures = parser.parseWeeklyView(januaryWeek, weekStart = LocalDate(2030, 1, 5))
+
         assertTrue(lectures.isNotEmpty())
-        // Would need to assert the year the caller asked for, not the current one.
+        assertTrue(
+            lectures.all { it.startTime.year == 2030 },
+            "Every lecture must be dated in the year of the week that was asked for"
+        )
+    }
+
+    @Test
+    fun parseWeeklyView_weekAcrossNewYear_datesEachDayInItsOwnYear() {
+        // Mon 30.12.2030 to Fri 03.01.2031: one week, two years. Deciding the year once per week
+        // would stamp five days with the same one.
+        val turnOfYearWeek = DualisFixtures.Timetable.WEEK_FULL
+            .replace("03.11.", "30.12.")
+            .replace("04.11.", "31.12.")
+            .replace("05.11.", "01.01.")
+            .replace("06.11.", "02.01.")
+            .replace("07.11.", "03.01.")
+
+        val lectures = parser.parseWeeklyView(turnOfYearWeek, weekStart = LocalDate(2030, 12, 30))
+
+        assertTrue(lectures.isNotEmpty())
+        for (lecture in lectures) {
+            val expectedYear = if (lecture.startTime.month == Month.DECEMBER) 2030 else 2031
+            assertEquals(
+                expectedYear,
+                lecture.startTime.year,
+                "${lecture.startTime} landed in the wrong year"
+            )
+        }
     }
 
     // ── parseIndividualPage ──────────────────────────────────────────────────

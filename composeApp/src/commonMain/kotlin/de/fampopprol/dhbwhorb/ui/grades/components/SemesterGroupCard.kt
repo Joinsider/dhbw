@@ -33,13 +33,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeEntity
+import de.fampopprol.dhbwhorb.domain.model.GradeEntry
 import kotlin.math.round
 
 @Composable
 fun SemesterGroupCard(
     semesterName: String,
-    grades: List<GradeEntity>,
+    grades: List<GradeEntry>,
     semesterGpa: Double?,
     modifier: Modifier = Modifier
 ) {
@@ -116,7 +116,7 @@ fun SemesterGroupCard(
 
 @Composable
 private fun GradeRow(
-    grade: GradeEntity,
+    grade: GradeEntry,
     modifier: Modifier = Modifier
 ) {
     Row(

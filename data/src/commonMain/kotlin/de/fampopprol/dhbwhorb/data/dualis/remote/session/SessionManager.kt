@@ -25,7 +25,6 @@ class SessionManager(private val secureStorage: SecureStorageInterface) {
     }
 
     private var currentAuthData: AuthData? = null
-    private var isReAuthenticating = false
 
     /**
      * Store login credentials securely.
@@ -148,24 +147,11 @@ class SessionManager(private val secureStorage: SecureStorageInterface) {
     }
 
     /**
-     * Check if re-authentication is in progress.
-     */
-    fun isReAuthenticating(): Boolean = isReAuthenticating
-
-    /**
-     * Set re-authentication state.
-     */
-    fun setReAuthenticating(value: Boolean) {
-        isReAuthenticating = value
-    }
-
-    /**
      * Clear all session data and logout.
      */
     fun logout() {
         Napier.d("Logging out and clearing session data", tag = TAG)
         currentAuthData = null
-        isReAuthenticating = false
         secureStorage.remove(KEY_USERNAME)
         secureStorage.remove(KEY_PASSWORD)
         secureStorage.remove(KEY_SESSION_ID)

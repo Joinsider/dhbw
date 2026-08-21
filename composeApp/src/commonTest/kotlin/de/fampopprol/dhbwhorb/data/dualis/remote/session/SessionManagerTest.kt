@@ -219,24 +219,6 @@ class SessionManagerTest {
     }
 
     @Test
-    fun `setReAuthenticating changes re-authentication state`() {
-        // Given
-        val (sessionManager, _) = createSessionManager()
-
-        // When
-        sessionManager.setReAuthenticating(true)
-
-        // Then
-        assertTrue(sessionManager.isReAuthenticating())
-
-        // When
-        sessionManager.setReAuthenticating(false)
-
-        // Then
-        assertFalse(sessionManager.isReAuthenticating())
-    }
-
-    @Test
     fun `getAuthData returns cached data if available`() {
         // Given
         val (sessionManager, _) = createSessionManager()

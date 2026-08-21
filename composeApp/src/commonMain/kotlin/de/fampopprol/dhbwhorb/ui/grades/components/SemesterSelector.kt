@@ -26,29 +26,27 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.resources.Res
+import de.fampopprol.dhbwhorb.domain.model.Semester
 import de.fampopprol.dhbwhorb.resources.all_semesters
-import de.fampopprol.dhbwhorb.ui.grades.viewModels.ALL_SEMESTERS_ID
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SemesterSelector(
-    semesters: Map<String, String>,
-    selectedSemesterId: String?,
-    onSemesterSelected: (String) -> Unit,
+    semesters: List<Semester>,
+    selectedSemester: Semester?,
+    onSemesterSelected: (Semester) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val semesterList = semesters.entries.toList()
     val hapticFeedback = LocalHapticFeedback.current
     var expanded by remember { mutableStateOf(false) }
 
-    // Add "All Semesters" option at the end
-    val allSemestersOption = Pair(stringResource(Res.string.all_semesters), ALL_SEMESTERS_ID)
-    val allOptions: List<Pair<String, String>> =
-        semesterList.map { Pair(it.key, it.value) } + allSemestersOption
+    // The combined view is a semester like any other, appended at the end. Its name is the only
+    // part that has to come from resources, so it is filled in here rather than in the model.
+    val allSemesters = Semester.All.copy(name = stringResource(Res.string.all_semesters))
+    val options: List<Semester> = semesters + allSemesters
 
-    // Find the currently selected semester name
-    val selectedSemesterName = allOptions.find { it.second == selectedSemesterId }?.first ?: ""
+    val selectedSemesterName = options.find { it.id == selectedSemester?.id }?.name ?: ""
 
     Box(modifier = modifier.fillMaxWidth()) {
         ExposedDropdownMenuBox(
@@ -63,7 +61,7 @@ fun SemesterSelector(
                 trailingIcon = {
                     ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                 },
-                leadingIcon = if (selectedSemesterId == ALL_SEMESTERS_ID) {
+                leadingIcon = if (selectedSemester != null && Semester.isAll(selectedSemester)) {
                     {
                         Icon(
                             imageVector = Icons.Default.BarChart,
@@ -82,13 +80,13 @@ fun SemesterSelector(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
-                allOptions.forEach { (name, id) ->
+                options.forEach { semester ->
                     DropdownMenuItem(
                         text = {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                if (id == ALL_SEMESTERS_ID) {
+                                if (Semester.isAll(semester)) {
                                     Icon(
                                         imageVector = Icons.Default.BarChart,
                                         contentDescription = null,
@@ -96,11 +94,11 @@ fun SemesterSelector(
                                         tint = MaterialTheme.colorScheme.primary
                                     )
                                 }
-                                Text(name)
+                                Text(semester.name)
                             }
                         },
                         onClick = {
-                            onSemesterSelected(id)
+                            onSemesterSelected(semester)
                             expanded = false
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
                         },

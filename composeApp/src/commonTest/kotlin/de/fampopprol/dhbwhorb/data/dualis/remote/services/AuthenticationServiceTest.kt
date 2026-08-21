@@ -6,6 +6,8 @@
 
 package de.fampopprol.dhbwhorb.data.dualis.remote.services
 
+import de.fampopprol.dhbwhorb.core.error.AppError
+import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
 import de.fampopprol.dhbwhorb.data.storage.credentials.FakeSecureStorage
 import io.github.aakira.napier.DebugAntilog
@@ -18,15 +20,21 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headers
 import io.ktor.utils.io.ByteReadChannel
+import kotlinx.io.IOException
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * Tests for AuthenticationService functionality.
- * These tests verify login, logout, and authentication state management.
+ * Login against a mock engine.
+ *
+ * Every failing case asserts *which* [AppError] comes back, not just that something failed:
+ * telling "wrong password" from "no connection" from "Dualis answered with something new" is the
+ * whole point of the classified error channel.
  */
 class AuthenticationServiceTest {
 
@@ -50,7 +58,7 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    fun login_withDemoCredentials_returnsSuccess() = runTest {
+    fun login_withDemoCredentials_succeedsWithoutTouchingTheNetwork() = runTest {
         // Given
         val mockClient = HttpClient(MockEngine {
             // This should never be called for demo credentials
@@ -66,12 +74,13 @@ class AuthenticationServiceTest {
         val result = service.login(username, password)
 
         // Then
-        assertTrue(result is LoginResult.Success, "Demo credentials should return Success")
+        val session = assertIs<Outcome.Ok<*>>(result, "Demo credentials must log in").value
+        assertTrue((session as de.fampopprol.dhbwhorb.domain.model.Session).isDemo)
         service.close()
     }
 
     @Test
-    fun login_withInvalidCredentials_returnsFailure() = runTest {
+    fun login_withInvalidCredentials_reportsInvalidCredentials() = runTest {
         // Given
         val mockEngine = MockEngine {
             respond(
@@ -97,12 +106,12 @@ class AuthenticationServiceTest {
         val result = service.login(username, password)
 
         // Then
-        assertTrue(result is LoginResult.Failure, "Invalid credentials should return Failure")
+        assertEquals(Outcome.Err(AppError.InvalidCredentials), result)
         service.close()
     }
 
     @Test
-    fun login_withHttpError_returnsFailure() = runTest {
+    fun login_withServerError_reportsTheStatusCode() = runTest {
         // Given
         val mockEngine = MockEngine {
             respond(
@@ -122,15 +131,15 @@ class AuthenticationServiceTest {
         val result = service.login(username, password)
 
         // Then
-        assertTrue(result is LoginResult.Failure, "HTTP error should return Failure")
+        assertEquals(Outcome.Err(AppError.Http(500)), result)
         service.close()
     }
 
     @Test
-    fun login_withNetworkException_returnsFailure() = runTest {
+    fun login_withoutAConnection_reportsOffline() = runTest {
         // Given
         val mockEngine = MockEngine {
-            throw Exception("Network error")
+            throw IOException("Network is unreachable")
         }
 
         val service = createAuthenticationServiceWithMockEngine(mockEngine)
@@ -141,12 +150,16 @@ class AuthenticationServiceTest {
         val result = service.login(username, password)
 
         // Then
-        assertTrue(result is LoginResult.Failure, "Network exception should return Failure")
+        assertEquals(
+            Outcome.Err(AppError.Offline),
+            result,
+            "A transport failure is 'you are offline', not an unknown error"
+        )
         service.close()
     }
 
     @Test
-    fun login_withNoRedirectHeader_returnsFailure() = runTest {
+    fun login_withoutARedirectHeader_reportsAParseFailure() = runTest {
         // Given
         val mockEngine = MockEngine {
             respond(
@@ -172,7 +185,8 @@ class AuthenticationServiceTest {
         val result = service.login(username, password)
 
         // Then
-        assertTrue(result is LoginResult.Failure, "No redirect header should return Failure")
+        // A 200 that is neither the login form nor a redirect means Dualis changed its handshake.
+        assertIs<AppError.Parse>(assertIs<Outcome.Err>(result).error)
         service.close()
     }
 

@@ -1,7 +1,7 @@
 # Handoff — v3-Umbau
 
-> Stand: 2026-08-21 · Branch `v3` bei `cb85c59` · Phasen P-1, P0, P1, P2 abgeschlossen
-> Nächste Phase: **P3 — Domain, Repositories, Fehlermodell**
+> Stand: 2026-08-21 · Branch `phase/p3-domain` · Phasen P-1, P0, P1, P2, P3 abgeschlossen
+> Nächste Phase: **P4 — MVI-Stores**
 
 ---
 
@@ -29,10 +29,10 @@ Navigation-Library und echten Room-Migrationen.
 * Der Nutzer schreibt Deutsch. Code, Kommentare, Commit-Messages und Testnamen sind Englisch.
 
 ```bash
-git checkout -b phase/p3-domain v3
+git checkout -b phase/p4-stores v3
 # … arbeiten, Gate grün bekommen …
 git commit
-git checkout v3 && git merge --no-ff phase/p3-domain -m "merge: P3 … into v3"
+git checkout v3 && git merge --no-ff phase/p4-stores -m "merge: P4 … into v3"
 ```
 
 ---
@@ -73,8 +73,8 @@ Eine Phase ist erst fertig, wenn beides grün ist:
 ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew :composeApp:testDebugUnitTest :composeApp:desktopTest --rerun-tasks
 ```
 
-**Sollwerte bei `cb85c59`:** `testDebugUnitTest` 211 Tests, `desktopTest` 326 Tests, 0 Fehler,
-1 bzw. 5 dokumentiert übersprungen. Coverage 37,5 %.
+**Sollwerte nach P3:** `testDebugUnitTest` 215 Tests, `desktopTest` 330 Tests, 0 Fehler,
+0 bzw. 4 dokumentiert übersprungen (die vier `TimetablePageTest`, die P4 braucht).
 
 Zahlen zählen (Gradle meldet sie nicht immer):
 
@@ -135,14 +135,20 @@ Login auf dem Gerät braucht, muss einen anderen Weg finden; sonst über Tests a
 ## 5. Wo was liegt
 
 ```
-:core:common     Platform-Erkennung, appCoroutineScope, coreModule
-:domain          Dualis-Modelle, TimeHelper                      ← keine Frameworks
-:data            Ktor, Parser, Dualis-Services, Room + DAOs, SecureStorage, Prefs, dataModule
-:services        LectureService, LogoutUseCase, Notifications, Widget-UseCases, FileViewer
+:core:common     Outcome/AppError, Platform-Erkennung, appCoroutineScope, coreModule
+:domain          Dualis- und Domänenmodelle, Repository-Interfaces, UseCases, TimeHelper
+                 ← keine Frameworks
+:data            Ktor, Parser, Dualis-Services, Gateway, ReAuthenticator, Room + DAOs,
+                 SecureStorage, Prefs, Repository-Impls, dataModule
+:services        Notifications, Widget-UseCases, FileViewer
 :presentation    ViewModels (noch mit Compose-Runtime, siehe unten)
 :shared          initKoin() + Umbrella → Shared.framework für Apple
 :composeApp      Compose-UI, Entry Points, Glance-Widget
 ```
+
+**Alles oberhalb von `:data` spricht nur mit den Repository-Interfaces und UseCases aus
+`:domain`.** Die `DualisXService`-Klassen sind `:data`-Interna; wer außerhalb von `:data` einen
+davon aus Koin holt, umgeht die Schicht.
 
 Der Package-Root ist in **jedem** Modul `de.fampopprol.dhbwhorb` — Modulgrenzen ändern keine
 Package-Namen. Verschieben zwischen Modulen erfordert deshalb keine Import-Anpassung.
@@ -152,6 +158,11 @@ Wichtige Einstiegspunkte:
 * `data/…/data/di/DataModule.kt` + `DataPlatformModule.kt` (expect/actual je Plattform)
 * `services/…/services/di/ServicesModule.kt` + `ServicesPlatformModule.kt`
 * `presentation/…/presentation/di/PresentationModule.kt`
+* `data/…/data/repository/` — die sechs Repository-Implementierungen
+* `data/…/dualis/remote/services/DualisPageGateway.kt` — jeder authentifizierte Seitenabruf
+* `data/…/dualis/remote/session/ReAuthenticator.kt` — Single-Flight-Re-Login
+* `core/common/…/core/error/` — `Outcome` und `AppError`
+* `composeApp/…/ui/error/AppErrorMessage.kt` — die einzige Stelle, an der ein Fehler Text wird
 * `composeApp/…/testutil/TestKoin.kt` — `WithTestKoin { }` für Compose-Tests, `testKoin()` sonst
 * `composeApp/src/desktopTest/…/di/KoinGraphTest.kt` — Graph-Prüfung, bei neuen Bindungen mitpflegen
 
@@ -163,15 +174,15 @@ Alle sind im Code kommentiert und im Plan vermerkt — nichts davon ist vergesse
 
 | Punkt | Ort | Fällig |
 |---|---|---|
-| `extractWeekDates()` nimmt das Jahr aus `Clock.System.now()`. Der Pager erlaubt ±1000 Wochen, also bekommt jede Woche außerhalb des laufenden Jahres das falsche Datum. Korrektur braucht den angefragten Zeitraum, den der Parser nicht kennt. | `@Ignore`-Test in `TimetableParserTest.kt:138` | **P3** |
-| `SessionManager.isReAuthenticating` ist ein ungeschütztes Boolean, an drei Stellen abgefragt. Parallele 401-Antworten lösen mehrere Re-Logins aus. | `AuthenticationService`, `DualisGradeService`, `DualisDocumentService` | **P3** |
-| 69 × `catch (e: Exception)` (data 30, services 22, presentation 10, composeApp 7), nur 4 Dateien nutzen `Result`. Die UI kann offline / Session abgelaufen / Parse-Fehler nicht unterscheiden. | überall | **P3** |
 | `:presentation` ist **nicht** in `Shared.framework`, weil die ViewModels über `mutableStateOf` an der Compose-Runtime hängen (ein Versuch ergab 19.504 Compose-Symbole). | `PresentationModule.kt`, `shared/build.gradle.kts` | **P4** |
 | `TimetablePageTest` — 4 Tests `@Ignore`t, brauchen injizierbaren State. | `TimetablePageTest.kt` | **P4** |
+| `GradesViewModel` hält Ladezustände noch als Felder eines `mutableStateOf`-States statt als Store-State. Die Doppelhaltung aus `_isLoading`/`_data`/`_isRefreshing` ist in P3 entfallen. | `GradesViewModel.kt` | P4 |
 | `useMaterialYou` ist auf Desktop wirkungslos: `Theme.desktop.kt` ignoriert das Flag und erzeugt immer ein Seed-Schema. Die Einstellung existiert in der UI, tut dort aber nichts. | `Theme.desktop.kt` | **P5** |
 | `fallbackToDestructiveMigration(dropAllTables = true)` in allen vier `DatabaseFactory.*.kt` — jedes Schema-Update löscht Nutzerdaten. Dazu: iOS-DB liegt in `NSDocumentDirectory`, wo die Widget-Extension nicht lesen kann. | `data/src/*/…/DatabaseFactory.*.kt` | **P6** |
-| Tests liegen noch alle in `:composeApp`, nicht in ihren Modulen. Bewusst so: die Gates bleiben unverändert, und der Umzug braucht pro Modul eigene Test-Abhängigkeiten. | `composeApp/src/commonTest` | P3/P4 |
-| `services/notifications/IntegrationExample.kt` — 213 Zeilen Beispielcode mit eigenem `CoroutineScope`, wird von nichts benutzt. | `:services` | P9 |
+| Tests liegen noch alle in `:composeApp`, nicht in ihren Modulen. Bewusst so: die Gates bleiben unverändert, und der Umzug braucht pro Modul eigene Test-Abhängigkeiten. | `composeApp/src/commonTest` | P4 |
+| `PreferencesRepository` existiert, aber `App.kt` und `SettingsPage` lesen die Einstellungen weiterhin direkt über `ThemePreferences` / `NotificationPreferencesInteractor`. Das Interface ist bewusst schon da, damit der `SettingsStore` es benutzen kann. | `App.kt`, `SettingsPage.kt` | P4 |
+| Der Widget-UseCase liefert bei einem Lesefehler des Caches eine leere Liste statt eines Fehlers — ein Widget hat keine Fehlerdarstellung. Bewusst so, im Code begründet. | `WidgetTimetableUseCase.kt` | — |
+| 48 × `catch (e: Exception)` übrig (von 69). Drei Sorten, alle bewusst: Parser (schlucken eine Zeile, nicht die Seite), die Klassifikationsstellen selbst, und die Plattformschicht. Im Dualis-Datenpfad ist keines mehr. | `:data`, `:services`, `:composeApp` | — |
 
 Der iOS-`LectureMonitorScheduler` ist weiterhin ein reiner Log-Stub — auf iOS gibt es **kein**
 Background-Monitoring, obwohl die Einstellung es anbietet. Das ist eine Feature-Lücke aus der Zeit
@@ -179,38 +190,36 @@ vor dem Umbau, keine Regression, und in P8 eingeplant.
 
 ---
 
-## 7. Nächster Schritt: P3
+## 7. Nächster Schritt: P4
 
-Der Plan beschreibt P3 in §2. Kurzfassung der Reihenfolge, die ich wählen würde:
+Der Plan beschreibt P4 in §2. Kurzfassung der Reihenfolge, die ich wählen würde:
 
-1. `Outcome<T>` / `AppError` in `:core:common` (Definition steht in §1.4 des Plans). Eigene Sealed
-   Hierarchie statt `kotlin.Result`, weil SKIE daraus in P7 echte Swift-Enums macht.
-2. Repository-Interfaces in `:domain`, Implementierungen in `:data` — sie kapseln die vorhandenen
-   `DualisXService`-Klassen plus DAO-Zugriff.
-3. `LectureService` aufteilen: Cache-First-Orchestrierung → `TimetableRepositoryImpl`,
-   Widget-Zugriff → eigener UseCase. Die Doppelrolle „Service ist gleichzeitig
-   `WidgetLectureRepository`" entfällt.
-4. UseCases mit je einer Aufgabe (Liste im Plan).
-5. Jeden `catch (e: Exception)` in ein konkretes `AppError` überführen. **Nicht pauschal** — bei
-   jedem einzeln entscheiden, welcher Fall es ist. Das ist der eigentliche Wert der Phase.
-6. Re-Auth-Single-Flight mit `Mutex` + `Deferred`-Dedupe.
-7. Den Jahres-Defekt aus P0 beheben und den `@Ignore` entfernen.
+1. `Store`/`BaseStore`/`EffectScope` aus §1.3 in `:presentation` — der Vertrag muss stehen, bevor
+   die sechs Stores verteilt werden, sonst erfindet jeder seinen eigenen.
+2. Pro Feature `State`/`Intent`/`Msg`/`Effect`/`Store`. Die Reducer sind rein: ein Test pro
+   Intent → Msg → State-Übergang, ohne `runTest`.
+3. Effect-Handler gegen Fake-Repositories. Die Repository-Interfaces aus P3 sind genau dafür da —
+   ein Fake ist eine Klasse mit vier Methoden, kein Mock-Framework nötig.
+4. `mutableStateOf` verschwindet aus `:presentation`. Erst danach kann `:presentation` in
+   `shared/build.gradle.kts` aufgenommen werden — und **erst dann** ist die Prüfung
+   „`nm -gU … | grep -c androidx.compose` ist 0" aussagekräftig für die Stores.
+5. Die vier `@Ignore`-Tests in `TimetablePageTest` entfernen: mit injizierbarem Store-State gibt
+   es nichts mehr, worauf sie warten müssten.
 
-Beim Anfassen der Fehlerbehandlung gilt: wenn ein bestehender Test eine Erwartung hat, die dem
-neuen Verhalten widerspricht, erst prüfen **wer recht hat**. In P-1 hatten zwei Tests unrecht
-(gültige DHBW-Adresse als Negativbeispiel, Desktop-Farbschema) und einer recht (Logout-Button im
-ausgeloggten Zustand sichtbar — das war ein echter Bug).
-
----
+Was P3 dafür schon vorbereitet hat: die Ladezustände sind Felder eines Zustands statt paralleler
+Flows, die Fehler sind `AppError` statt Strings, und der Stundenplan liefert mit `TimetableWeek`
+bereits `isPartial`/`fromCache` — die Unterscheidungen, die der `TimetableStore` braucht.
 
 ## 8. Zur Parallelisierung
 
 Der Nutzer hat nach Subagents und Worktrees gefragt. Meine Einschätzung nach drei Phasen:
 
 * **Über Phasen hinweg lohnt es sich nicht.** Die Kette ist bis P4 linear, und jede Phase schreibt
-  dieselben zentralen Dateien um.
+  dieselben zentralen Dateien um. P3 hat das bestätigt: fast jede Datei im Datenpfad wurde
+  angefasst.
 * **Innerhalb einer Phase über disjunkte Dateimengen schon.** P3 (5 Repositories), P4 (6 Stores),
   P7 (5 SwiftUI-Screens) sind echte Fan-outs — jeder Agent schreibt eigene, neue Dateien.
-* Voraussetzung ist, dass die gemeinsamen Verträge **vorher** stehen: für P3 also `Outcome`/`AppError`
-  und die Repository-Interfaces, bevor die Implementierungen verteilt werden. Sonst erfindet jeder
-  Agent seine eigene Fehlerbehandlung.
+* Voraussetzung ist, dass die gemeinsamen Verträge **vorher** stehen: für P4 also `Store`/`BaseStore`
+  und `EffectScope`, bevor die sechs Stores verteilt werden. Sonst erfindet jeder Agent seine
+  eigene Store-Basis. In P3 war es `Outcome`/`AppError` plus die Repository-Interfaces — die habe
+  ich zuerst geschrieben, und das hat sich getragen.

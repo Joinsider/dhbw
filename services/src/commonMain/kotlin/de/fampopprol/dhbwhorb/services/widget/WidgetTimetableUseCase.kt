@@ -3,8 +3,10 @@
 
 package de.fampopprol.dhbwhorb.services.widget
 
+import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.data.helpers.TimeHelper
-import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureEventEntity
+import de.fampopprol.dhbwhorb.domain.model.Lecture
+import de.fampopprol.dhbwhorb.domain.repository.TimetableRepository
 import de.fampopprol.dhbwhorb.services.widget.models.WidgetClassState
 import de.fampopprol.dhbwhorb.services.widget.models.WidgetDayState
 import de.fampopprol.dhbwhorb.services.widget.models.WidgetUpNextState
@@ -17,14 +19,16 @@ import kotlinx.datetime.plus
 /**
  * Use case that computes all widget view-states from the timetable data.
  *
- * All public methods are pure data transformations on top of
- * [WidgetLectureRepository]; no Compose or platform-specific code lives here.
+ * All public methods are pure data transformations on top of the local timetable cache; no
+ * Compose and no platform-specific code lives here.
  *
- * @param repository Data source – typically [de.fampopprol.dhbwhorb.services.LectureService].
- * @param clock      Returns the current [LocalDateTime]. Injected for deterministic testing.
+ * Reads go through [TimetableRepository.getCachedLectures], which never touches the network: the
+ * widget refreshes from a background worker where there may be neither a session nor connectivity.
+ *
+ * @param clock Returns the current [LocalDateTime]. Injected for deterministic testing.
  */
 class WidgetTimetableUseCase(
-    private val repository: WidgetLectureRepository,
+    private val repository: TimetableRepository,
     private val clock: () -> LocalDateTime = { TimeHelper.now() },
 ) {
     companion object {
@@ -49,22 +53,22 @@ class WidgetTimetableUseCase(
         Napier.d("getUpNextState called, now=$now", tag = TAG)
 
         val todayClasses = fetchClassesForDate(now.date)
-            .filter { it.endTime > now }
-            .sortedBy { it.startTime }
+            .filter { it.end > now }
+            .sortedBy { it.start }
 
         if (todayClasses.isEmpty()) {
             Napier.d("No remaining classes today", tag = TAG)
             return WidgetUpNextState.NoMoreClassesToday
         }
 
-        val running = todayClasses.firstOrNull { it.startTime <= now }
+        val running = todayClasses.firstOrNull { it.start <= now }
         if (running != null) {
-            Napier.d("Currently running: ${running.shortSubjectName}", tag = TAG)
+            Napier.d("Currently running: ${running.shortName}", tag = TAG)
             return WidgetUpNextState.CurrentlyRunning(running.toWidgetClassState(now))
         }
 
         val next = todayClasses.first()
-        Napier.d("Next class: ${next.shortSubjectName} at ${next.startTime}", tag = TAG)
+        Napier.d("Next class: ${next.shortName} at ${next.start}", tag = TAG)
         return WidgetUpNextState.ComingUp(next.toWidgetClassState(now))
     }
 
@@ -127,7 +131,7 @@ class WidgetTimetableUseCase(
                 // If the candidate day is today, check if all classes have ended.
                 // If so, skip today and look for the next day with lectures.
                 if (candidate == now.date) {
-                    val allClassesEnded = classes.all { it.endTime <= now }
+                    val allClassesEnded = classes.all { it.end <= now }
                     if (allClassesEnded) {
                         Napier.d("All classes for today ($candidate) are over, skipping to next day", tag = TAG)
                         candidate = candidate.plus(1, DateTimeUnit.DAY)
@@ -139,7 +143,7 @@ class WidgetTimetableUseCase(
                 return WidgetDayState(
                     date = candidate,
                     classes = classes
-                        .sortedBy { it.startTime }
+                        .sortedBy { it.start }
                         .map { it.toWidgetClassState(now) },
                 )
             }
@@ -150,26 +154,38 @@ class WidgetTimetableUseCase(
         return null
     }
 
-    /** Fetches all lectures for a given calendar day (00:00 – 23:59:59). */
-    private suspend fun fetchClassesForDate(date: LocalDate): List<LectureEventEntity> {
+    /**
+     * All lectures on [date] (00:00 – 23:59:59).
+     *
+     * A cache that cannot be read yields an empty day: the widget has no way to render an error,
+     * and a stale-looking empty slot is better than a crashed widget. It is logged so the cause
+     * is not lost.
+     */
+    private suspend fun fetchClassesForDate(date: LocalDate): List<Lecture> {
         val start = LocalDateTime(date.year, date.month, date.day, 0, 0, 0)
         val end = LocalDateTime(date.year, date.month, date.day, 23, 59, 59)
-        return repository.getLecturesForDateRange(start, end)
-            .distinctBy { Triple(it.startTime, it.endTime, it.shortSubjectName) }
+
+        return when (val outcome = repository.getCachedLectures(start, end)) {
+            is Outcome.Ok -> outcome.value.distinctBy { Triple(it.start, it.end, it.shortName) }
+            is Outcome.Err -> {
+                Napier.w("Widget could not read the timetable cache: ${outcome.error}", tag = TAG)
+                emptyList()
+            }
+        }
     }
 
-    /** Maps a [LectureEventEntity] to the platform-agnostic [WidgetClassState]. */
-    private fun LectureEventEntity.toWidgetClassState(now: LocalDateTime): WidgetClassState =
+    /** Maps a [Lecture] to the platform-agnostic [WidgetClassState]. */
+    private fun Lecture.toWidgetClassState(now: LocalDateTime): WidgetClassState =
         WidgetClassState(
-            name = fullSubjectName ?: shortSubjectName,
-            shortName = shortSubjectName,
-            formattedStartTime = startTime.formatHHmm(),
-            formattedEndTime = endTime.formatHHmm(),
+            name = displayName,
+            shortName = shortName,
+            formattedStartTime = start.formatHHmm(),
+            formattedEndTime = end.formatHHmm(),
             location = location,
             isTest = isTest,
-            isOngoing = startTime <= now && endTime > now,
-            startTime = startTime,
-            endTime = endTime,
+            isOngoing = start <= now && end > now,
+            startTime = start,
+            endTime = end,
         )
 
     private fun LocalDateTime.formatHHmm(): String =

@@ -29,11 +29,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
-import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
-import de.fampopprol.dhbwhorb.data.storage.credentials.CredentialsStorageProvider
-import de.fampopprol.dhbwhorb.services.LogoutUseCase
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
+import de.fampopprol.dhbwhorb.domain.repository.SessionRepository
+import de.fampopprol.dhbwhorb.domain.usecase.LoginWithCredentials
+import de.fampopprol.dhbwhorb.domain.usecase.Logout
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemePreferences
 import de.fampopprol.dhbwhorb.ui.pages.DocumentsPage
@@ -66,10 +65,9 @@ enum class AppScreen {
 fun App() {
     val themePreferences: ThemePreferences = koinInject()
     val notificationPreferences: NotificationPreferencesInteractor = koinInject()
-    val sessionManager: SessionManager = koinInject()
-    val authenticationService: AuthenticationService = koinInject()
-    val credentialsProvider: CredentialsStorageProvider = koinInject()
-    val logout: LogoutUseCase = koinInject()
+    val sessionRepository: SessionRepository = koinInject()
+    val loginWithCredentials: LoginWithCredentials = koinInject()
+    val logout: Logout = koinInject()
 
     var themeMode by remember { mutableStateOf(themePreferences.getThemeMode()) }
     var materialYouEnabled by remember { mutableStateOf(themePreferences.getMaterialYouEnabled()) }
@@ -85,7 +83,7 @@ fun App() {
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 
-    var isLoggedIn by remember { mutableStateOf(sessionManager.isAuthenticated()) }
+    var isLoggedIn by remember { mutableStateOf(sessionRepository.isLoggedIn()) }
     var currentScreen by remember {
         mutableStateOf(if (isLoggedIn) AppScreen.TIMETABLE else AppScreen.LOGIN)
     }
@@ -93,7 +91,7 @@ fun App() {
     // A stored session can be present but stale; re-checking once on start keeps the first screen
     // honest without blocking the UI on a network round-trip.
     LaunchedEffect(Unit) {
-        val authenticated = authenticationService.isAuthenticated()
+        val authenticated = sessionRepository.isLoggedIn()
         if (authenticated != isLoggedIn) {
             isLoggedIn = authenticated
             currentScreen = if (authenticated) AppScreen.TIMETABLE else AppScreen.LOGIN
@@ -137,8 +135,7 @@ fun App() {
                                 isLoggedIn = true
                                 currentScreen = AppScreen.TIMETABLE
                             },
-                            authenticationService = authenticationService,
-                            credentialsProvider = credentialsProvider
+                            login = loginWithCredentials
                         )
                     }
 
