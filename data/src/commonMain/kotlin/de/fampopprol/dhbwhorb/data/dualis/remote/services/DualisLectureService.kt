@@ -1,16 +1,24 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 package de.fampopprol.dhbwhorb.data.dualis.remote.services
 
+import de.fampopprol.dhbwhorb.core.error.AppError
+import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.data.dualis.demo.DemoDataProvider
 import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.HtmlParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.TimetableParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.temp_models.TempLectureModel
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
-import de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LectureLecturerCrossRefDao
 import de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LectureEventDao
+import de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LectureLecturerCrossRefDao
 import de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LecturerDao
-import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureLecturerCrossRef
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureEventEntity
+import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureLecturerCrossRef
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LecturerEntity
 import io.github.aakira.napier.Napier
 import kotlinx.datetime.LocalDate
@@ -22,642 +30,256 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
- * Service for fetching and processing lecture/timetable data from Dualis.
+ * Fetches the timetable from Dualis and turns it into lecture entities.
  *
- * Flow: Service -> API Client -> Service -> Parser -> Service -> DB
+ * Two levels of detail: the weekly grid alone (the *skeleton*, one request) and the grid plus one
+ * request per lecture for its full name, lecturers and rooms. The skeleton exists so a week with
+ * a cold cache shows something immediately.
  *
- * This service:
- * 1. Checks session/authentication state
- * 2. Fetches HTML using DualisApiClient
- * 3. Validates HTML (checks for errors, redirects)
- * 4. Passes HTML to TimetableParser
- * 5. Enriches parsed data with additional fetches if needed
- * 6. Saves to database
+ * Which of the two to use, and when to persist, is decided one layer up in
+ * [de.fampopprol.dhbwhorb.data.repository.TimetableRepositoryImpl].
  */
 open class DualisLectureService(
     private val apiClient: DualisApiClient,
     private val sessionManager: SessionManager,
-    private val authenticationService: AuthenticationService,
+    private val gateway: DualisPageGateway,
     private val lectureEventDao: LectureEventDao,
     private val lecturerDao: LecturerDao,
-    private val lectureLecturerCrossRefDao: LectureLecturerCrossRefDao
+    private val lectureLecturerCrossRefDao: LectureLecturerCrossRefDao,
+    private val timetableParser: TimetableParser = TimetableParser(),
+    private val htmlParser: HtmlParser = HtmlParser()
 ) {
-    private val timetableParser by lazy { TimetableParser() }
-    private val htmlParser by lazy { HtmlParser() }
-
     companion object {
         private const val TAG = "DualisLectureService"
         private const val BASE_URL = "https://dualis.dhbw.de/scripts/mgrqispi.dll"
-        private const val MAX_RETRY_ATTEMPTS = 2
+        private const val SOURCE = "timetable"
     }
 
     /**
-     * Fetch weekly lectures for the current week.
+     * The full week containing [date], enriched from each lecture's own page.
+     *
+     * Nothing is written to the database here — [saveLecturesToDatabase] does that, so the caller
+     * can compare old and new before replacing anything.
      */
-    @OptIn(ExperimentalTime::class)
-    open suspend fun getWeeklyLecturesForCurrentWeek(): Result<List<LectureEventEntity>> {
-        Napier.d("Fetching weekly lectures for current week", tag = TAG)
+    open suspend fun getWeeklyLecturesForDate(date: LocalDate): Outcome<List<LectureEventEntity>> {
+        if (sessionManager.isDemoMode()) return demoWeek(date, persist = true)
 
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-        val currentDate = now.date
-
-        return getWeeklyLecturesForDate(currentDate)
-    }
-
-    /**
-     * Fetch weekly lectures for a specific date.
-     * The Dualis API will return the week containing this date.
-     */
-    open suspend fun getWeeklyLecturesForDate(date: LocalDate): Result<List<LectureEventEntity>> {
-        return fetchWeeklyLecturesWithRetry(date, 0)
-    }
-
-    /**
-     * Internal method to fetch weekly lectures with retry logic for authentication.
-     */
-    protected open suspend fun fetchWeeklyLecturesWithRetry(
-        date: LocalDate,
-        attemptCount: Int
-    ): Result<List<LectureEventEntity>> {
-        Napier.d("Fetching weekly lectures for date: $date (attempt $attemptCount)", tag = TAG)
-
-        // Check authentication
-        if (!sessionManager.isAuthenticated() && !sessionManager.isDemoMode()) {
-            Napier.w("No active session, need to authenticate first", tag = TAG)
-            val reAuthResult = reAuthenticate()
-            if (reAuthResult.isFailure) {
-                return Result.failure(reAuthResult.exceptionOrNull()!!)
-            }
+        val html = when (val page = fetchTimetablePage(date)) {
+            is Outcome.Ok -> page.value
+            is Outcome.Err -> return page
         }
 
-        // Handle demo mode
-        if (sessionManager.isDemoMode()) {
-            Napier.d("Demo mode active, returning demo lectures", tag = TAG)
-            val demoStartDate = LocalDateTime(date.year, date.month, date.day, 0, 0, 0)
-            val demoLectures = DemoDataProvider.generateDemoLecturesForWeek(demoStartDate)
+        // The requested week's Monday is what tells the parser which year its "Mo 05.01." headers
+        // belong to; without it every week outside the current year came back misdated.
+        val tempLectures = timetableParser.parseWeeklyView(html, weekStart = date)
+        Napier.d("Parsed ${tempLectures.size} lectures from the weekly view", tag = TAG)
 
-            // Save demo lecturers to database if not already present
-            val demoLecturers = DemoDataProvider.generateDemoLecturers()
-            demoLecturers.forEach { lecturer ->
-                try {
-                    val existingLecturer = lecturerDao.getById(lecturer.lecturerId)
-                    if (existingLecturer == null) {
-                        lecturerDao.insert(lecturer)
-                    }
-                } catch (e: Exception) {
-                    Napier.w("Could not check/insert demo lecturer: ${e.message}", tag = TAG)
-                }
-            }
+        return Outcome.Ok(enrichLecturesInMemory(tempLectures))
+    }
 
-            // Save demo lectures to database
-            demoLectures.forEach { lecture ->
-                try {
-                    val existingLecture = lectureEventDao.getById(lecture.lectureId)
-                    if (existingLecture == null) {
-                        lectureEventDao.insert(lecture)
+    /** The week containing [start], as above. */
+    open suspend fun getWeeklyLecturesForWeek(
+        start: LocalDateTime,
+        end: LocalDateTime
+    ): Outcome<List<LectureEventEntity>> = getWeeklyLecturesForDate(start.date)
 
-                        // Create lecturer associations
-                        val lecturerIds = DemoDataProvider.getLecturerIdsForLecture(lecture.lectureId)
-                        lecturerIds.forEach { lecturerId ->
-                            val crossRef = LectureLecturerCrossRef(
-                                lectureId = lecture.lectureId,
-                                lecturerId = lecturerId
-                            )
-                            lectureLecturerCrossRefDao.insert(crossRef)
-                        }
-                    }
-                } catch (e: Exception) {
-                    Napier.w("Could not insert demo lecture: ${e.message}", tag = TAG)
-                }
-            }
+    /**
+     * The weekly grid only — one request, no lecturers and no full course names.
+     *
+     * Never persisted: a skeleton lecture would overwrite the complete one already in the cache.
+     */
+    open suspend fun getWeeklySkeletonForWeek(
+        start: LocalDateTime,
+        end: LocalDateTime
+    ): Outcome<List<LectureEventEntity>> = getWeeklySkeletonForDate(start.date)
 
-            return Result.success(demoLectures)
+    protected open suspend fun getWeeklySkeletonForDate(date: LocalDate): Outcome<List<LectureEventEntity>> {
+        if (sessionManager.isDemoMode()) return demoWeek(date, persist = false)
+
+        val html = when (val page = fetchTimetablePage(date)) {
+            is Outcome.Ok -> page.value
+            is Outcome.Err -> return page
         }
 
+        val tempLectures = timetableParser.parseWeeklyView(html, weekStart = date)
+        return Outcome.Ok(tempLecturesToBasicEntities(tempLectures))
+    }
+
+    private suspend fun fetchTimetablePage(date: LocalDate): Outcome<String> {
+        // Dualis wants the date in German notation and answers with the whole week around it.
+        val dateString = "${date.day.toString().padStart(2, '0')}." +
+            "${date.month.number.toString().padStart(2, '0')}.${date.year}"
+
+        return gateway.fetchPage(
+            source = SOURCE,
+            isValid = { htmlParser.isValidTimetablePage(it) },
+            buildUrl = { auth ->
+                "$BASE_URL?APPNAME=CampusNet&PRGNAME=SCHEDULER" +
+                    "&ARGUMENTS=-N${auth.sessionId},-N000028,-A$dateString,-A,-N1,-N000000000000000"
+            }
+        )
+    }
+
+    /**
+     * Demo data for the week containing [date].
+     *
+     * @param persist demo lectures are seeded into the database once so the widget and the change
+     *   monitor have something to read; the skeleton path skips that.
+     */
+    private suspend fun demoWeek(date: LocalDate, persist: Boolean): Outcome<List<LectureEventEntity>> {
+        Napier.d("Demo mode active, returning demo lectures", tag = TAG)
+        val weekStart = LocalDateTime(date.year, date.month, date.day, 0, 0, 0)
+        val demoLectures = DemoDataProvider.generateDemoLecturesForWeek(weekStart)
+        if (persist) seedDemoData(demoLectures)
+        return Outcome.Ok(demoLectures)
+    }
+
+    private suspend fun seedDemoData(demoLectures: List<LectureEventEntity>) {
         try {
-            // Get auth data for user ID
-            val authData = sessionManager.getAuthData()
-            if (authData == null) {
-                return Result.failure(Exception("No auth data available"))
+            DemoDataProvider.generateDemoLecturers().forEach { lecturer ->
+                if (lecturerDao.getById(lecturer.lecturerId) == null) lecturerDao.insert(lecturer)
             }
 
-            // Format date as DD.MM.YYYY (German format used by Dualis)
-            val dateString = "${date.day.toString().padStart(2, '0')}.${date.month.number.toString().padStart(2, '0')}.${date.year}"
-
-            // Build URL parameters
-            // Note: User ID and course ID would normally be extracted from session
-            // For now using placeholder logic - these should come from auth data or user profile
-            val urlParameters = mapOf(
-                "APPNAME" to "CampusNet",
-                "PRGNAME" to "SCHEDULER",
-                "ARGUMENTS" to "-N${authData.sessionId},-N000028,-A$dateString,-A,-N1,-N000000000000000"
-            )
-
-            // Step 1: Fetch HTML via API client
-            Napier.d("Fetching weekly timetable HTML", tag = TAG)
-            
-            // Clean cookie
-            val rawCookie = authData.cookie
-            val cookie = rawCookie?.substringBefore(";")
-            
-            when (val apiResult = apiClient.get(BASE_URL, urlParameters, cookie)) {
-                is DualisApiClient.ApiResult.Success -> {
-                    val htmlContent = apiResult.htmlContent
-
-                    // Step 2: Validate HTML - check for explicit errors
-                    if (htmlParser.isErrorPage(htmlContent)) {
-                        Napier.w("Received error page, attempting re-authentication", tag = TAG)
-
-                        if (attemptCount >= MAX_RETRY_ATTEMPTS) {
-                            return Result.failure(Exception("Max retry attempts reached"))
-                        }
-
-                        val reAuthResult = reAuthenticate()
-                        if (reAuthResult.isFailure) {
-                            return Result.failure(reAuthResult.exceptionOrNull()!!)
-                        }
-
-                        // Retry the request
-                        return fetchWeeklyLecturesWithRetry(date, attemptCount + 1)
-                    }
-
-                    // Step 2b: Validate that it's actually a timetable page (not session expired)
-                    if (!htmlParser.isValidTimetablePage(htmlContent)) {
-                        Napier.w("Received invalid timetable page (likely session expired), attempting re-authentication", tag = TAG)
-
-                        if (attemptCount >= MAX_RETRY_ATTEMPTS) {
-                            return Result.failure(Exception("Max retry attempts reached - invalid timetable page"))
-                        }
-
-                        val reAuthResult = reAuthenticate()
-                        if (reAuthResult.isFailure) {
-                            return Result.failure(reAuthResult.exceptionOrNull()!!)
-                        }
-
-                        // Retry the request
-                        return fetchWeeklyLecturesWithRetry(date, attemptCount + 1)
-                    }
-
-                    // Step 3: Parse HTML
-                    Napier.d("Parsing weekly timetable HTML", tag = TAG)
-                    val tempLectures = timetableParser.parseWeeklyView(htmlContent)
-                    Napier.d("Parsed ${tempLectures.size} lectures from weekly view", tag = TAG)
-
-                    // Step 4: Enrich with individual page data (but DON'T save to DB yet)
-                    val lectureEntities = enrichLecturesInMemory(tempLectures)
-
-                    Napier.d("Successfully enriched ${lectureEntities.size} lecture entities in memory (not saved to DB yet)", tag = TAG)
-                    return Result.success(lectureEntities)
-                }
-                is DualisApiClient.ApiResult.Failure -> {
-                    Napier.e("Failed to fetch weekly lectures: ${apiResult.message}", tag = TAG)
-                    return Result.failure(Exception(apiResult.message))
+            demoLectures.forEach { lecture ->
+                if (lectureEventDao.getById(lecture.lectureId) != null) return@forEach
+                lectureEventDao.insert(lecture)
+                DemoDataProvider.getLecturerIdsForLecture(lecture.lectureId).forEach { lecturerId ->
+                    lectureLecturerCrossRefDao.insert(
+                        LectureLecturerCrossRef(lectureId = lecture.lectureId, lecturerId = lecturerId)
+                    )
                 }
             }
         } catch (e: Exception) {
-            Napier.e("Error fetching weekly lectures: ${e.message}", e, tag = TAG)
-            return Result.failure(e)
+            // Demo data is already in hand; failing to cache it costs the widget, not the screen.
+            Napier.w("Could not seed demo data: ${e.message}", tag = TAG)
         }
     }
 
     /**
-     * Enrich temp lectures with data from individual pages (in memory only, not saved to DB).
-     * Returns fully enriched lecture entities with lecturers attached.
+     * Fetch each lecture's own page and build the entities, without touching the database.
+     *
+     * A lecture whose detail page cannot be read keeps what the weekly grid gave — a name and a
+     * time slot are more useful than dropping the entry.
      */
     @OptIn(ExperimentalTime::class)
     private suspend fun enrichLecturesInMemory(
         tempLectures: List<TempLectureModel>
     ): List<LectureEventEntity> {
-        Napier.d("Enriching ${tempLectures.size} lectures with detailed information (in memory)", tag = TAG)
-
-        val lectureEntities = mutableListOf<LectureEventEntity>()
         val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
 
-        for (tempLecture in tempLectures) {
-            try {
-                var fullSubjectName: String? = tempLecture.fullSubjectName
-                var lecturers: List<String> = tempLecture.lecturers ?: emptyList()
-                var rooms: List<String> = listOf(tempLecture.location)
+        return tempLectures.map { temp ->
+            var fullSubjectName = temp.fullSubjectName
+            var lecturers = temp.lecturers ?: emptyList()
+            var rooms = listOf(temp.location)
 
-                Napier.d("Processing lecture: ${tempLecture.shortSubjectName}, initial lecturers: $lecturers, has link: ${tempLecture.linkToIndividualPage != null}", tag = TAG)
-
-                // If we have a link to the individual page, fetch additional details
-                if (tempLecture.linkToIndividualPage != null) {
-                    val detailsResult = fetchLectureDetails(tempLecture.linkToIndividualPage)
-                    if (detailsResult != null) {
-                        fullSubjectName = detailsResult.first
-                        lecturers = detailsResult.second
-                        rooms = detailsResult.third
-                        Napier.d("Fetched details - fullName: $fullSubjectName, lecturers: $lecturers", tag = TAG)
-                    } else {
-                        Napier.w("Failed to fetch details for lecture: ${tempLecture.shortSubjectName}", tag = TAG)
-                    }
+            temp.linkToIndividualPage?.let { link ->
+                val details = fetchLectureDetails(link)
+                if (details != null) {
+                    fullSubjectName = details.first
+                    lecturers = details.second
+                    rooms = details.third
+                } else {
+                    Napier.w("No details for ${temp.shortSubjectName}, keeping the grid values", tag = TAG)
                 }
-
-                // Create lecture event entity (with temporary ID 0)
-                val lectureEntity = LectureEventEntity(
-                    lectureId = 0, // Temporary - will be assigned when saved
-                    shortSubjectName = tempLecture.shortSubjectName ?: "Unknown",
-                    fullSubjectName = fullSubjectName,
-                    startTime = tempLecture.startTime,
-                    endTime = tempLecture.endTime,
-                    location = rooms.joinToString(", "),
-                    isTest = tempLecture.isTest,
-                    fetchedAt = now
-                )
-
-                // Set lecturers (transient field)
-                lectureEntity.lecturers = lecturers
-
-                lectureEntities.add(lectureEntity)
-                Napier.d("Enriched lecture: ${lectureEntity.shortSubjectName} with ${lecturers.size} lecturer(s)", tag = TAG)
-            } catch (e: Exception) {
-                Napier.e("Error enriching lecture ${tempLecture.shortSubjectName}: ${e.message}", e, tag = TAG)
             }
-        }
 
-        return lectureEntities
+            LectureEventEntity(
+                lectureId = 0, // assigned on insert
+                shortSubjectName = temp.shortSubjectName ?: "Unknown",
+                fullSubjectName = fullSubjectName,
+                startTime = temp.startTime,
+                endTime = temp.endTime,
+                location = rooms.joinToString(", "),
+                isTest = temp.isTest,
+                fetchedAt = now
+            ).apply { this.lecturers = lecturers }
+        }
     }
 
     /**
-     * Save enriched lectures to database.
-     * This is called AFTER change detection determines that updates are needed.
+     * Replace the stored lectures between [weekStart] and [weekEnd] with [lectures].
+     *
+     * @return the same lectures, carrying the ids the database assigned
      */
     suspend fun saveLecturesToDatabase(
         lectures: List<LectureEventEntity>,
         weekStart: LocalDateTime,
         weekEnd: LocalDateTime
-    ): List<LectureEventEntity> {
-        Napier.d("💾 Saving ${lectures.size} lectures to database", tag = TAG)
-
-        // Delete old lectures for this week
-        try {
-            Napier.d("🗑️  Deleting existing lectures in range: $weekStart to $weekEnd", tag = TAG)
+    ): Outcome<List<LectureEventEntity>> {
+        return try {
+            // Replace rather than merge: a cancelled lecture has to disappear.
             lectureEventDao.deleteInRange(weekStart, weekEnd)
-            Napier.d("✅ Deleted old lectures for the week", tag = TAG)
-        } catch (e: Exception) {
-            Napier.e("❌ Failed to delete old lectures: ${e.message}", tag = TAG, throwable = e)
-        }
 
-        val savedLectures = mutableListOf<LectureEventEntity>()
-
-        for (lecture in lectures) {
-            try {
-                // Save lecture to database
+            val saved = lectures.map { lecture ->
                 val insertedId = lectureEventDao.insert(lecture)
-                val savedEntity = lecture.copy(lectureId = insertedId)
-                savedLectures.add(savedEntity)
 
-                // Create and save lecturer associations
-                val lecturers = lecture.lecturers ?: emptyList()
-                if (lecturers.isNotEmpty()) {
-                    for (lecturerName in lecturers) {
-                        if (lecturerName.isNotBlank()) {
-                            val lecturerId = findOrCreateLecturer(lecturerName)
-                            val crossRef = LectureLecturerCrossRef(
+                lecture.lecturers.orEmpty()
+                    .filter { it.isNotBlank() }
+                    .forEach { lecturerName ->
+                        lectureLecturerCrossRefDao.insert(
+                            LectureLecturerCrossRef(
                                 lectureId = insertedId,
-                                lecturerId = lecturerId
+                                lecturerId = findOrCreateLecturer(lecturerName)
                             )
-                            lectureLecturerCrossRefDao.insert(crossRef)
-                            Napier.d("Created association: lecture $insertedId -> lecturer $lecturerId ($lecturerName)", tag = TAG)
-                        }
+                        )
                     }
-                    Napier.d("Saved lecture: ${savedEntity.shortSubjectName} with ${lecturers.size} lecturer(s)", tag = TAG)
-                } else {
-                    Napier.w("No lecturers found for lecture: ${savedEntity.shortSubjectName}", tag = TAG)
-                }
-            } catch (e: Exception) {
-                Napier.e("Error saving lecture ${lecture.shortSubjectName}: ${e.message}", e, tag = TAG)
+
+                lecture.copy(lectureId = insertedId).apply { lecturers = lecture.lecturers }
             }
-        }
 
-        Napier.d("✅ Successfully saved ${savedLectures.size} lectures to database", tag = TAG)
-        return savedLectures
-    }
-
-    /**
-     * OLD METHOD - Kept for backward compatibility but deprecated.
-     * Enrich temp lectures with data from individual pages and save to database.
-     */
-    @Deprecated("Use enrichLecturesInMemory + saveLecturesToDatabase instead")
-    @OptIn(ExperimentalTime::class)
-    private suspend fun enrichAndSaveLectures(
-        tempLectures: List<TempLectureModel>
-    ): List<LectureEventEntity> {
-        Napier.d("Enriching ${tempLectures.size} lectures with detailed information", tag = TAG)
-
-        // Before inserting new lectures, delete all existing lectures for this week
-        // to avoid duplicates
-        if (tempLectures.isNotEmpty()) {
-            val weekStart = tempLectures.minOf { it.startTime }
-            val weekEnd = tempLectures.maxOf { it.endTime }
-            Napier.d("Deleting existing lectures in range: $weekStart to $weekEnd", tag = TAG)
-            try {
-                lectureEventDao.deleteInRange(weekStart, weekEnd)
-                Napier.d("Deleted old lectures for the week", tag = TAG)
-            } catch (e: Exception) {
-                Napier.w("Failed to delete old lectures: ${e.message}", tag = TAG)
-            }
-        }
-
-        val lectureEntities = mutableListOf<LectureEventEntity>()
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-
-        for (tempLecture in tempLectures) {
-            try {
-                var fullSubjectName: String? = tempLecture.fullSubjectName
-                var lecturers: List<String> = tempLecture.lecturers ?: emptyList()
-                var rooms: List<String> = listOf(tempLecture.location)
-
-                Napier.d("Processing lecture: ${tempLecture.shortSubjectName}, initial lecturers: $lecturers, has link: ${tempLecture.linkToIndividualPage != null}", tag = TAG)
-
-                // If we have a link to the individual page, fetch additional details
-                if (tempLecture.linkToIndividualPage != null) {
-                    val detailsResult = fetchLectureDetails(tempLecture.linkToIndividualPage)
-                    if (detailsResult != null) {
-                        fullSubjectName = detailsResult.first
-                        lecturers = detailsResult.second
-                        rooms = detailsResult.third
-                        Napier.d("Fetched details - fullName: $fullSubjectName, lecturers: $lecturers", tag = TAG)
-                    } else {
-                        Napier.w("Failed to fetch details for lecture: ${tempLecture.shortSubjectName}", tag = TAG)
-                    }
-                }
-
-                // Create lecture event entity
-                val lectureEntity = LectureEventEntity(
-                    lectureId = 0, // Auto-generated
-                    shortSubjectName = tempLecture.shortSubjectName ?: "Unknown",
-                    fullSubjectName = fullSubjectName,
-                    startTime = tempLecture.startTime,
-                    endTime = tempLecture.endTime,
-                    location = rooms.joinToString(", "),
-                    isTest = tempLecture.isTest,
-                    fetchedAt = now
-                )
-
-                // Save to database
-                val insertedId = lectureEventDao.insert(lectureEntity)
-                val savedEntity = lectureEntity.copy(lectureId = insertedId)
-                lectureEntities.add(savedEntity)
-
-                // Create and save lecturer associations
-                if (lecturers.isNotEmpty()) {
-                    for (lecturerName in lecturers) {
-                        if (lecturerName.isNotBlank()) {
-                            val lecturerId = findOrCreateLecturer(lecturerName)
-                            val crossRef = LectureLecturerCrossRef(
-                                lectureId = insertedId,
-                                lecturerId = lecturerId
-                            )
-                            lectureLecturerCrossRefDao.insert(crossRef)
-                            Napier.d("Created association: lecture ${insertedId} -> lecturer ${lecturerId} (${lecturerName})", tag = TAG)
-                        }
-                    }
-                    Napier.d("Saved lecture: ${savedEntity.shortSubjectName} with ${lecturers.size} lecturer(s)", tag = TAG)
-                } else {
-                    Napier.w("No lecturers found for lecture: ${savedEntity.shortSubjectName}", tag = TAG)
-                }
-            } catch (e: Exception) {
-                Napier.e("Error enriching lecture ${tempLecture.shortSubjectName}: ${e.message}", e, tag = TAG)
-            }
-        }
-
-        return lectureEntities
-    }
-
-    /**
-     * Fetch and parse individual lecture page details.
-     * Follows the same pattern: Service -> API Client -> Service -> Parser
-     */
-    private suspend fun fetchLectureDetails(url: String, attemptCount: Int = 0): Triple<String, List<String>, List<String>>? {
-        Napier.d("Fetching lecture details from: $url (attempt $attemptCount)", tag = TAG)
-
-        try {
-            // Parse URL to extract query parameters
-            val urlParameters = parseUrlParameters(url)
-            val baseUrl = url.substringBefore("?")
-
-            Napier.d("Parsed URL - base: $baseUrl, params: $urlParameters", tag = TAG)
-
-            // Get cookie for request
-            val authData = sessionManager.getAuthData()
-            val rawCookie = authData?.cookie
-            val cookie = rawCookie?.substringBefore(";")
-
-            // Fetch via API client
-            when (val apiResult = apiClient.get(baseUrl, urlParameters, cookie)) {
-                is DualisApiClient.ApiResult.Success -> {
-                    val htmlContent = apiResult.htmlContent
-                    Napier.d("Received HTML content (${htmlContent.length} chars)", tag = TAG)
-
-                    // Check for errors (likely session expired)
-                    if (htmlParser.isErrorPage(htmlContent)) {
-                        Napier.w("Individual page returned error, attempting re-authentication", tag = TAG)
-                        
-                        if (attemptCount >= MAX_RETRY_ATTEMPTS) {
-                            Napier.e("Max retry attempts reached for lecture details", tag = TAG)
-                            return null
-                        }
-
-                        val reAuthResult = reAuthenticate()
-                        if (reAuthResult.isFailure) {
-                            Napier.e("Re-authentication failed for lecture details", tag = TAG)
-                            return null
-                        }
-
-                        // Retry the request
-                        return fetchLectureDetails(url, attemptCount + 1)
-                    }
-
-                    // Parse via parser
-                    val result = timetableParser.parseIndividualPage(htmlContent)
-                    if (result != null) {
-                        Napier.d("Successfully parsed individual page: ${result.first} with ${result.second.size} lecturer(s): ${result.second} and rooms: ${result.third}", tag = TAG)
-                    } else {
-                        Napier.w("Parser returned null for individual page", tag = TAG)
-                    }
-                    return result
-                }
-                is DualisApiClient.ApiResult.Failure -> {
-                    Napier.w("Failed to fetch lecture details: ${apiResult.message}", tag = TAG)
-                    return null
-                }
-            }
+            Napier.d("Saved ${saved.size} lectures for $weekStart..$weekEnd", tag = TAG)
+            Outcome.Ok(saved)
         } catch (e: Exception) {
-            Napier.e("Error fetching lecture details: ${e.message}", e, tag = TAG)
-            return null
+            Napier.e("Could not save lectures: ${e.message}", e, tag = TAG)
+            Outcome.Err(AppError.Storage("saving the timetable: ${e.message}"))
         }
     }
 
     /**
-     * Find an existing lecturer by name or create a new one.
+     * A lecture's own page: full name, lecturers, rooms.
+     *
+     * Returns null instead of an [Outcome] on purpose — a missing detail page degrades one entry
+     * rather than failing the week, and the caller has nothing else to decide.
      */
+    private suspend fun fetchLectureDetails(url: String): Triple<String, List<String>, List<String>>? {
+        val urlParameters = parseUrlParameters(url)
+        val baseUrl = url.substringBefore("?")
+        val cookie = sessionManager.getAuthData()?.cookie?.substringBefore(";")
+
+        return when (val response = apiClient.get(baseUrl, urlParameters, cookie)) {
+            is Outcome.Ok -> {
+                if (htmlParser.isErrorPage(response.value)) {
+                    // The week request that got us here already ran through the re-authenticating
+                    // gateway, so a rejection now is not something another login would fix.
+                    Napier.w("Detail page for $baseUrl came back as an error page", tag = TAG)
+                    null
+                } else {
+                    timetableParser.parseIndividualPage(response.value)
+                }
+            }
+            is Outcome.Err -> {
+                Napier.w("Could not fetch lecture details: ${response.error}", tag = TAG)
+                null
+            }
+        }
+    }
+
     private suspend fun findOrCreateLecturer(lecturerName: String): Long {
-        // Search for existing lecturer
-        val existingLecturers = lecturerDao.searchByName(lecturerName)
-
-        if (existingLecturers.isNotEmpty()) {
-            Napier.d("Found existing lecturer: $lecturerName", tag = TAG)
-            return existingLecturers.first().lecturerId
-        }
-
-        // Create new lecturer
-        val newLecturer = LecturerEntity(
-            lecturerId = 0, // Auto-generated
-            lecturerName = lecturerName
-        )
-
-        val insertedId = lecturerDao.insert(newLecturer)
-        Napier.d("Created new lecturer: $lecturerName with ID: $insertedId", tag = TAG)
-
-        return insertedId
+        lecturerDao.searchByName(lecturerName).firstOrNull()?.let { return it.lecturerId }
+        return lecturerDao.insert(LecturerEntity(lecturerId = 0, lecturerName = lecturerName))
     }
 
-    /**
-     * Attempt to re-authenticate using stored credentials.
-     */
-    private suspend fun reAuthenticate(): Result<Unit> {
-        if (sessionManager.isReAuthenticating()) {
-            return Result.failure(Exception("Re-authentication already in progress"))
-        }
-
-        sessionManager.setReAuthenticating(true)
-        try {
-            Napier.d("Attempting re-authentication", tag = TAG)
-
-            // Clear cached auth data to force fresh login
-            sessionManager.clearAuthData()
-
-            val credentials = sessionManager.getStoredCredentials()
-
-            if (credentials == null) {
-                return Result.failure(Exception("No stored credentials available"))
-            }
-
-            val (username, password) = credentials
-            val loginResult = authenticationService.login(username, password)
-
-            return when (loginResult) {
-                is LoginResult.Success -> {
-                    Napier.d("Re-authentication successful", tag = TAG)
-                    Result.success(Unit)
-                }
-                is LoginResult.Failure -> {
-                    Napier.e("Re-authentication failed: ${loginResult.message}", tag = TAG)
-                    Result.failure(Exception(loginResult.message))
-                }
-            }
-        } finally {
-            sessionManager.setReAuthenticating(false)
-        }
-    }
-
-    /**
-     * Parse URL parameters from a full URL string.
-     * Handles HTML-encoded URLs (replaces &amp; with &).
-     */
+    /** Dualis links carry their parameters HTML-encoded, so `&amp;` has to be undone first. */
     private fun parseUrlParameters(url: String): Map<String, String> {
-        val parameters = mutableMapOf<String, String>()
+        val queryString = url.replace("&amp;", "&").substringAfter("?", "")
+        if (queryString.isEmpty()) return emptyMap()
 
-        // Decode HTML entities first (e.g., &amp; -> &)
-        val decodedUrl = url.replace("&amp;", "&")
-
-        val queryString = decodedUrl.substringAfter("?", "")
-        if (queryString.isEmpty()) {
-            return parameters
-        }
-
-        queryString.split("&").forEach { param ->
-            val parts = param.split("=", limit = 2)
-            if (parts.size == 2) {
-                parameters[parts[0]] = parts[1]
+        return queryString.split("&")
+            .mapNotNull { param ->
+                val parts = param.split("=", limit = 2)
+                if (parts.size == 2) parts[0] to parts[1] else null
             }
-        }
-
-        return parameters
-    }
-
-    /**
-     * Fetch lectures for a specific week range.
-     */
-    open suspend fun getWeeklyLecturesForWeek(start: LocalDateTime, end: LocalDateTime): Result<List<LectureEventEntity>> {
-        Napier.d("Fetching weekly lectures for week: $start to $end", tag = TAG)
-
-        // Use the start date to fetch the week
-        return getWeeklyLecturesForDate(start.date)
-    }
-
-    /**
-     * Fetch only the weekly skeleton (overview) without hitting individual lecture pages.
-     * Returns basic LectureEventEntity list (no lecturers, rooms from weekly grid, maybe short/full as available).
-     * Nothing is saved to the database here.
-     */
-    open suspend fun getWeeklySkeletonForWeek(start: LocalDateTime, end: LocalDateTime): Result<List<LectureEventEntity>> {
-        return getWeeklySkeletonForDate(start.date)
-    }
-
-    protected open suspend fun getWeeklySkeletonForDate(date: LocalDate): Result<List<LectureEventEntity>> {
-        Napier.d("Fetching weekly skeleton for date: $date", tag = TAG)
-
-        // Check authentication
-        if (!sessionManager.isAuthenticated() && !sessionManager.isDemoMode()) {
-            Napier.w("No active session, need to authenticate first", tag = TAG)
-            val reAuthResult = reAuthenticate()
-            if (reAuthResult.isFailure) {
-                return Result.failure(reAuthResult.exceptionOrNull()!!)
-            }
-        }
-
-        // Handle demo mode similar to full flow: just return demo lectures as already basic
-        if (sessionManager.isDemoMode()) {
-            Napier.d("Demo mode active, returning demo lectures as skeleton", tag = TAG)
-            val demoStartDate = LocalDateTime(date.year, date.month, date.day, 0, 0, 0)
-            val demoLectures = DemoDataProvider.generateDemoLecturesForWeek(demoStartDate)
-            return Result.success(demoLectures)
-        }
-
-        try {
-            val authData = sessionManager.getAuthData() ?: return Result.failure(Exception("No auth data available"))
-            val dateString = "${date.day.toString().padStart(2, '0')}.${date.month.number.toString().padStart(2, '0')}.${date.year}"
-            val urlParameters = mapOf(
-                "APPNAME" to "CampusNet",
-                "PRGNAME" to "SCHEDULER",
-                "ARGUMENTS" to "-N${authData.sessionId},-N000028,-A$dateString,-A,-N1,-N000000000000000"
-            )
-
-            // Clean cookie
-            val rawCookie = authData.cookie
-            val cookie = rawCookie?.substringBefore(";")
-
-            when (val apiResult = apiClient.get(BASE_URL, urlParameters, cookie)) {
-                is DualisApiClient.ApiResult.Success -> {
-                    val htmlContent = apiResult.htmlContent
-
-                    if (htmlParser.isErrorPage(htmlContent) || !htmlParser.isValidTimetablePage(htmlContent)) {
-                        Napier.w("Invalid/expired timetable page when fetching skeleton, try re-auth", tag = TAG)
-                        val reAuthResult = reAuthenticate()
-                        if (reAuthResult.isFailure) {
-                            return Result.failure(reAuthResult.exceptionOrNull()!!)
-                        }
-                        // Retry once after re-auth
-                        return getWeeklySkeletonForDate(date)
-                    }
-
-                    // Parse only weekly view
-                    val tempLectures = timetableParser.parseWeeklyView(htmlContent)
-                    val basicEntities = tempLecturesToBasicEntities(tempLectures)
-                    Napier.d("Skeleton contains ${basicEntities.size} items", tag = TAG)
-                    return Result.success(basicEntities)
-                }
-                is DualisApiClient.ApiResult.Failure -> {
-                    return Result.failure(Exception(apiResult.message))
-                }
-            }
-        } catch (e: Exception) {
-            Napier.e("Error fetching weekly skeleton: ${e.message}", e, tag = TAG)
-            return Result.failure(e)
-        }
+            .toMap()
     }
 
     @OptIn(ExperimentalTime::class)

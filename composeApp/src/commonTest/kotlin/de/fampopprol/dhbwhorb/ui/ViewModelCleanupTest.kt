@@ -26,9 +26,9 @@ class ViewModelCleanupTest {
         val job = Job()
         val scope = CoroutineScope(job)
         val viewModel = TimetableViewModel(
-            lectureService = koin.get(),
-            lecturerDao = koin.get(),
-            lectureLecturerCrossRefDao = koin.get(),
+            getWeekTimetable = koin.get(),
+            awaitFullWeekTimetable = koin.get(),
+            refreshTimetable = koin.get(),
             coroutineScope = scope
         )
         
@@ -44,9 +44,9 @@ class ViewModelCleanupTest {
         
         var operationCancelled = false
         val viewModel = TimetableViewModel(
-            lectureService = koin.get(),
-            lecturerDao = koin.get(),
-            lectureLecturerCrossRefDao = koin.get(),
+            getWeekTimetable = koin.get(),
+            awaitFullWeekTimetable = koin.get(),
+            refreshTimetable = koin.get(),
             coroutineScope = scope
         )
         
@@ -76,9 +76,9 @@ class ViewModelCleanupTest {
         val scope = CoroutineScope(Job() + dispatcher)
         
         val viewModel = TimetableViewModel(
-            lectureService = koin.get(),
-            lecturerDao = koin.get(),
-            lectureLecturerCrossRefDao = koin.get(),
+            getWeekTimetable = koin.get(),
+            awaitFullWeekTimetable = koin.get(),
+            refreshTimetable = koin.get(),
             coroutineScope = scope
         )
         
@@ -100,8 +100,11 @@ class ViewModelCleanupTest {
         val job = Job()
         val scope = CoroutineScope(job)
         val viewModel = GradesViewModel(
-            gradeService = koin.get(),
-            gradeDao = koin.get(),
+            getSemesters = koin.get(),
+            getGradesForSemester = koin.get(),
+            getAllGrades = koin.get(),
+            computeGpa = koin.get(),
+            sessionRepository = koin.get(),
             coroutineScope = scope
         )
         
@@ -114,7 +117,9 @@ class ViewModelCleanupTest {
         val job = Job()
         val scope = CoroutineScope(job)
         val viewModel = DocumentsViewModel(
-            dualisDocumentService = koin.get(),
+            listDocuments = koin.get(),
+            downloadDocument = koin.get(),
+            sessionRepository = koin.get(),
             coroutineScope = scope
         )
         

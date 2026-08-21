@@ -2,6 +2,8 @@ package de.fampopprol.dhbwhorb.data.dualis.remote.services
 
 import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
 import de.fampopprol.dhbwhorb.data.dualis.remote.models.AuthData
+import de.fampopprol.dhbwhorb.core.error.Outcome
+import de.fampopprol.dhbwhorb.data.dualis.remote.session.ReAuthenticator
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
 import de.fampopprol.dhbwhorb.data.storage.credentials.FakeSecureStorage
 import de.fampopprol.dhbwhorb.testutil.MockAppDatabase
@@ -19,6 +21,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class DualisLectureServiceSessionExpirationTest {
@@ -177,10 +180,12 @@ class DualisLectureServiceSessionExpirationTest {
         val apiClient = DualisApiClient(httpClient)
         val authService = AuthenticationService(sessionManager, httpClient)
 
+        val reAuthenticator = ReAuthenticator(sessionManager, authService)
+
         val service = DualisLectureService(
             apiClient = apiClient,
             sessionManager = sessionManager,
-            authenticationService = authService,
+            gateway = DualisPageGateway(apiClient, sessionManager, reAuthenticator),
             lectureEventDao = mockDatabase.lectureDao(),
             lecturerDao = mockDatabase.lecturerDao(),
             lectureLecturerCrossRefDao = mockDatabase.lectureLecturerCrossRefDao()
@@ -191,7 +196,7 @@ class DualisLectureServiceSessionExpirationTest {
         val result = service.getWeeklyLecturesForDate(date)
 
         // Then
-        assertTrue(result.isSuccess, "Should successfully fetch lectures after re-authentication. Error: ${result.exceptionOrNull()?.message}")
+        assertIs<Outcome.Ok<*>>(result, "Should fetch lectures after re-authentication, got $result")
         assertEquals(2, callCount, "Should make two calls: first fails, second succeeds after re-auth")
         assertTrue(loginCallCount >= 1, "Should perform at least one re-authentication")
 

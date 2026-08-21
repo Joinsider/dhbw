@@ -13,14 +13,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeEntity
+import de.fampopprol.dhbwhorb.domain.model.GradeEntry
 import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.status_unknown
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun GradeCard(
-    grade: GradeEntity,
+    grade: GradeEntry,
     modifier: Modifier = Modifier
 ) {
     ElevatedCard(

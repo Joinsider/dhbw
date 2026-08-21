@@ -305,7 +305,7 @@ Coverage 33,7 % → 37,5 %. Alle Targets kompilieren, iOS- und Android-Build lau
 Retry-Schleife, `Phase8StabilityTest.app_displaysLoadingIndicator_whenNotInitialized` den
 Initialisierungs-Zwischenzustand. Beides existiert nicht mehr.
 
-### P3 — Domain, Repositories, Fehlermodell · Größe L
+### P3 — Domain, Repositories, Fehlermodell · Größe L · **abgeschlossen**
 
 * `Outcome`/`AppError` aus §1.4 in `:core:common`.
 * Repository-Interfaces in `:domain`: `AuthRepository`, `SessionRepository`, `TimetableRepository`,
@@ -324,6 +324,49 @@ Initialisierungs-Zwischenzustand. Beides existiert nicht mehr.
 **Fertig wenn:** kein UseCase gibt `null` oder `emptyList()` als Fehlerkanal zurück; die
 Parser-Fixtures aus P0 laufen unverändert gegen die neuen Repository-Impls.
 
+**Was tatsächlich passiert ist** (`phase/p3-domain`):
+
+* `Outcome`/`AppError` liegen in `:core:common`. Gegenüber §1.4 sind drei Fälle dazugekommen, weil
+  sie im Code auseinanderfielen: `InvalidCredentials` (Passwort falsch — erneut versuchen hilft
+  nicht) getrennt von `SessionExpired` (Token abgelaufen — Re-Login hilft), `NoCredentials`
+  (nichts gespeichert — Login-Screen statt Fehlermeldung) und `Unsupported` (Download im
+  Demo-Modus).
+* Die sechs Repository-Interfaces liegen in `:domain`, die Implementierungen in `:data`
+  (nicht `:data:di` — der Modulschnitt aus P1 hat kein `:data:di`, und ein eigenes Modul nur für
+  fünf Klassen wäre Aufwand ohne Gegenwert). Dazu Domänenmodelle `Lecture`, `GradeEntry`,
+  `Semester`, `Session`, `TimetableWeek`, damit `:domain` frei von Room-Annotationen bleibt.
+* `DualisPageGateway` ist neu und im Plan nicht vorgesehen gewesen: die drei `DualisXService`
+  trugen je eine eigene Kopie der Schleife „holen, Seite prüfen, neu anmelden, nochmal". Die
+  Kopien waren auseinandergelaufen. Eine Implementierung, eine Klassifikation.
+* `LectureService` ist aufgelöst. Cache-First → `TimetableRepositoryImpl`, Widget-Zugriff →
+  `TimetableRepository.getCachedLectures()`, das nie ins Netz geht. `WidgetLectureRepository` und
+  `DatabaseWidgetRepository` entfallen damit, ebenso die Doppelrolle. `LogoutUseCase` ist in
+  `AuthRepositoryImpl.logout()` plus den `Logout`-UseCase übergegangen.
+* Nebenbei gefunden und behoben: der Staged-Load holte die Woche **zweimal** — er startete einen
+  Hintergrund-Fetch und begann sofort einen zweiten identischen, weil der Cache noch leer war.
+  `TimetableRepositoryImpl` hält pro Woche ein `Deferred`, dem sich der zweite Aufruf anschließt.
+* Re-Auth-Single-Flight sitzt in `ReAuthenticator` (Mutex + `CompletableDeferred`).
+  `SessionManager.isReAuthenticating` ist weg. Vier Tests decken das ab, darunter der Fall, den
+  das Boolean falsch behandelte: drei gleichzeitige Aufrufe ergeben genau einen Login.
+* Der Jahres-Defekt aus P0 ist behoben: `parseWeeklyView(html, weekStart)` bekommt die angefragte
+  Woche und wählt das Jahr **pro Tag** — eine Woche über den Jahreswechsel bekommt sonst fünf
+  Tage mit demselben Jahr. Der `@Ignore` ist raus, zwei echte Tests stehen an seiner Stelle.
+* `catch (e: Exception)`: 69 → 48. Übrig sind drei Sorten, alle bewusst: die Parser (schlucken
+  eine kaputte Zeile, nicht die Seite — die Seitenprüfung fängt echte Brüche), die
+  Klassifikationsstellen selbst (`toAppError`, DB-Zugriffe in den Repositories), und die
+  Plattformschicht (FileViewer, NotificationDispatcher, Scheduler, WidgetSyncWorker, DNS,
+  SecureStorage). Im Dualis-Datenpfad ist keines mehr.
+* Mitgenommen, weil P3 sie ohnehin anfassen musste: `services/notifications/IntegrationExample.kt`
+  (213 Zeilen toter Beispielcode, stand für P9), `HttpClientInitializer` (von nichts benutzt),
+  `AuthenticationService.createSharedHttpClient` (der Client kommt seit P2 aus Koin), zwei
+  ungenutzte private Methoden in `LectureChangeMonitor`, und tote `viewModel == null`-Zweige in
+  `DocumentsPage`/`GradesPage`.
+
+**Gate bei Abschluss:** `testDebugUnitTest` 215 Tests, `desktopTest` 330 Tests, 0 Fehler,
+0 bzw. 4 übersprungen (die vier `TimetablePageTest`, die P4 braucht). Framework Compose-frei (0),
+iOS-Build grün, beide Apps gestartet und mit echter Sitzung durch Stundenplan, Noten und
+Dokumente geprüft.
+
 ### P4 — MVI-Stores · Größe L
 
 Pro Feature ein Store in `:presentation`, jeweils `<Feature>State/Intent/Msg/Effect/Store`.
@@ -331,7 +374,7 @@ Pro Feature ein Store in `:presentation`, jeweils `<Feature>State/Intent/Msg/Eff
 | Store | ersetzt | Besonderheit |
 |---|---|---|
 | `AuthStore` | `LoginFormViewModel` + Login-Zweige in `App.kt` | Demo-Mode als expliziter State |
-| `TimetableStore` | `TimetableViewModel` | Wochen-Paging als `Map<Int, WeekState>`, Single-Flight je Woche |
+| `TimetableStore` | `TimetableViewModel` | Wochen-Paging als `Map<Int, WeekState>`; Single-Flight je Woche liegt seit P3 im Repository |
 | `GradesStore` | `GradesViewModel` | Semesterauswahl + `ALL_SEMESTERS` als Sealed statt Magic-String |
 | `DocumentsStore` | `DocumentsViewModel` | Download-Fortschritt als Effect |
 | `SettingsStore` | Preference-Callbacks in `App.kt` | Theme + Notifications, ein State |

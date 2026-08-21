@@ -8,18 +8,25 @@ Multi-module KMP build. Package root stays `de.fampopprol.dhbwhorb` in every mod
 boundaries do not change package names, so imports are identical across the split.
 
 ```
-:core:common     Platform detection, AndroidAppContext           (no dependencies)
-:domain          Dualis models, TimeHelper                       -> :core:common
+:core:common     Outcome/AppError, platform detection,
+                 appCoroutineScope                               (no dependencies)
+:domain          Dualis models, domain models, repository
+                 interfaces, use cases, TimeHelper               -> :core:common
 :data            Ktor client, HTML parsers, Dualis services,
-                 Room database + DAOs, SecureStorage, prefs      -> :domain
-:services        LectureService, notifications, widget use
-                 cases, FileViewer                               -> :data
+                 Room database + DAOs, SecureStorage, prefs,
+                 repository implementations                      -> :domain
+:services        Notifications, widget use cases, FileViewer     -> :data
 :presentation    ViewModels                                      -> :services
 :shared          Umbrella; exports the four modules above as
                  `Shared.framework` for Apple targets — no Compose
 :composeApp      Compose UI, navigation, platform entry points,
                  Android Glance widget                           -> all of the above
 ```
+
+Everything above `:data` talks to the six repository interfaces in `:domain`
+(`AuthRepository`, `SessionRepository`, `TimetableRepository`, `GradeRepository`,
+`DocumentRepository`, `PreferencesRepository`) and to the use cases built on them. The
+`DualisXService` classes are `:data` internals — nothing outside `:data` should resolve one.
 
 `:presentation` is deliberately NOT part of `Shared.framework`: its ViewModels still hold state in
 Compose's `mutableStateOf`. It joins once they expose `StateFlow` instead.
@@ -45,6 +52,32 @@ Platform entry points: `composeApp/androidMain/MainActivity.kt`, `composeApp/des
 `AuthenticationService` and `DualisApiClient` **must share the same `HttpClient` instance** so
 session cookies persist across all requests. It is a `single` in `dataModule` — declared exactly
 once, so this cannot drift per platform. `KoinGraphTest.graph_actuallyBuilds` asserts the identity.
+
+### Error handling — `Outcome` / `AppError`
+Anything that can fail returns `Outcome<T>` (`Ok` / `Err(AppError)`) from `:core:common`, never
+`null`, `emptyList()` or `kotlin.Result`. `AppError` distinguishes `Offline`, `SessionExpired`,
+`InvalidCredentials`, `NoCredentials`, `Http(code)`, `Parse(source, hint)`, `Storage(hint)`,
+`Unsupported(hint)` and `Unexpected(hint)`; a sealed hierarchy because SKIE turns it into a Swift
+enum in P7.
+
+Exceptions become errors in exactly two places: `Throwable.toAppError()` in
+`data/error/NetworkErrors.kt`, and the `catch` blocks around database access in the repositories.
+A `catch (e: Exception)` anywhere else in the Dualis data path is a bug. The parsers are the
+deliberate exception: they swallow a malformed row and keep the rest, and the page-level
+validation in `DualisPageGateway` catches a real break.
+
+`AppError.toUserMessage()` (`composeApp/.../ui/error/AppErrorMessage.kt`) is the only place an
+error turns into words, so the message is localised instead of being an English exception string.
+
+### Session handling
+`DualisPageGateway` performs every authenticated page fetch: build URL, validate the page,
+re-authenticate once, classify what is left. The three Dualis services used to carry their own
+copy of that loop.
+
+Re-authentication goes through `ReAuthenticator`, which is single-flight: a `Mutex` guards one
+`CompletableDeferred`, so concurrent callers share a single login instead of racing. Never add a
+second login path — `SessionManager` no longer has an `isReAuthenticating` flag, and the reason is
+that it let one caller through and rejected the rest.
 
 ### Expect/Actual
 Used for `getDatabaseBuilder()`, `NotificationDispatcher`, `getPlatform(): PlatformType`, and the
@@ -84,6 +117,8 @@ out of `Shared.framework`:
 var uiState by mutableStateOf(GradesUiState())
     private set
 ```
+They depend on use cases, not on services, and their state carries `error: AppError?` rather than
+a pre-formatted string.
 
 ### Room Database
 Schema version 4, `exportSchema = true`, schemas in `data/schemas/`. Uses `fallbackToDestructiveMigration(dropAllTables = true)` — **no manual migrations**. KSP processors declared per target in `dependencies {}`:
@@ -143,7 +178,10 @@ Files must include SPDX headers:
 | `shared/src/commonMain/kotlin/…/shared/Koin.kt` | `initKoin()` — the single composition root |
 | `…/data/dualis/remote/services/AuthenticationService.kt` | Login + redirect chain + re-auth logic |
 | `…/data/dualis/remote/DualisApiClient.kt` | Raw HTTP GET; no parsing |
-| `…/services/LectureService.kt` | Cache-first fetch strategy (3-day threshold) |
+| `…/data/repository/TimetableRepositoryImpl.kt` | Cache-first strategy (3-day threshold), single-flight per week |
+| `…/data/dualis/remote/services/DualisPageGateway.kt` | Authenticated page fetch with one re-auth retry |
+| `…/data/dualis/remote/session/ReAuthenticator.kt` | Single-flight re-login |
+| `…/core/error/Outcome.kt`, `…/core/error/AppError.kt` | The error channel |
 | `…/data/storage/database/AppDatabase.kt` | Room DB definition; `clearAllData()` for logout |
 | `data/schemas/` | Room schema exports (auto-generated, do not edit) |
 | `gradle/libs.versions.toml` | All dependency versions and plugin aliases |

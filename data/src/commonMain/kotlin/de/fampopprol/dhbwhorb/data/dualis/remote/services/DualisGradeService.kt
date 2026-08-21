@@ -1,283 +1,142 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 package de.fampopprol.dhbwhorb.data.dualis.remote.services
 
-import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
+import de.fampopprol.dhbwhorb.core.error.AppError
+import de.fampopprol.dhbwhorb.core.error.Outcome
+import de.fampopprol.dhbwhorb.core.error.map
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.GradeParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.HtmlParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
-import de.fampopprol.dhbwhorb.data.storage.database.dao.grades.GradeDao
 import de.fampopprol.dhbwhorb.data.storage.database.dao.grades.GradeCacheMetadataDao
+import de.fampopprol.dhbwhorb.data.storage.database.dao.grades.GradeDao
 import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeCacheMetadata
 import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeEntity
+import de.fampopprol.dhbwhorb.domain.model.Semester
 import io.github.aakira.napier.Napier
+import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
+/**
+ * Reads semesters and grades from Dualis and keeps them in the local cache.
+ *
+ * Fetch, validate and re-authenticate are [DualisPageGateway]'s job; what is left here is the URL
+ * for each page, the parsing, and the cache.
+ */
 class DualisGradeService(
-    private val apiClient: DualisApiClient,
+    private val gateway: DualisPageGateway,
     private val sessionManager: SessionManager,
-    private val authenticationService: AuthenticationService,
     private val gradeDao: GradeDao,
-    private val gradeCacheMetadataDao: GradeCacheMetadataDao
+    private val gradeCacheMetadataDao: GradeCacheMetadataDao,
+    private val gradeParser: GradeParser = GradeParser(),
+    private val htmlParser: HtmlParser = HtmlParser()
 ) {
-    private val gradeParser by lazy { GradeParser() }
-    private val htmlParser by lazy { HtmlParser() }
-
     companion object {
         private const val TAG = "DualisGradeService"
         private const val BASE_URL = "https://dualis.dhbw.de/scripts/mgrqispi.dll"
-        private const val MAX_RETRY_ATTEMPTS = 2
-        private const val CACHE_VALIDITY_DURATION_MS = 60 * 60 * 1000L // 1 hour in milliseconds
+
+        /** Grades change rarely; an hour old is fresh enough to skip the network. */
+        private const val CACHE_VALIDITY_DURATION_MS = 60 * 60 * 1000L
+    }
+
+    /** The semesters Dualis lists in its dropdown. */
+    suspend fun getSemesters(): Outcome<List<Semester>> {
+        val html = gateway.fetchPage(
+            source = "semesters",
+            isValid = { htmlParser.isValidGradePage(it) },
+            buildUrl = { auth -> "$BASE_URL?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N${auth.sessionId},-N000307," }
+        )
+
+        return html.map { content ->
+            gradeParser.parseSemesterList(content).map { (name, id) -> Semester(id = id, name = name) }
+        }
     }
 
     /**
-     * Returns true if we can attempt loading: authenticated, demo mode, or credentials available for re-auth.
-     */
-    fun hasCredentialsOrSession(): Boolean {
-        return sessionManager.isAuthenticated() || sessionManager.isDemoMode() || sessionManager.getStoredCredentials() != null
-    }
-
-    suspend fun getSemesters(): Result<Map<String, String>> {
-        return fetchSemestersWithRetry(0)
-    }
-
-    /**
-     * Check if cached grades for a semester are still valid (less than 1 hour old).
-     */
-    @OptIn(ExperimentalTime::class)
-    suspend fun isCacheValid(studentId: String, semesterId: String): Boolean {
-        val metadata = gradeCacheMetadataDao.getMetadata(studentId, semesterId) ?: return false
-        val currentTime = kotlin.time.Clock.System.now().toEpochMilliseconds()
-        val cacheAge = currentTime - metadata.lastUpdatedTimestamp
-        return cacheAge < CACHE_VALIDITY_DURATION_MS
-    }
-
-    /**
-     * Get cached grades for a semester from the database.
-     */
-    suspend fun getCachedGrades(studentId: String, semesterId: String): List<GradeEntity> {
-        return gradeDao.getGradesForSemester(studentId, semesterId)
-    }
-
-    /**
-     * Get grades for a semester. Uses cache if valid, otherwise fetches from network.
-     * @param forceRefresh If true, always fetch from network regardless of cache validity
+     * The grades of one semester, from cache when it is fresh and [forceRefresh] is not set.
      */
     suspend fun getGradesForSemester(
-        semesterId: String,
-        semesterName: String,
+        semester: Semester,
         forceRefresh: Boolean = false
-    ): Result<List<GradeEntity>> {
-        val studentId = sessionManager.getStoredCredentials()?.first ?: "unknown"
+    ): Outcome<List<GradeEntity>> {
+        val studentId = currentStudentId()
 
-        // Check cache validity and return cached data if valid and not forcing refresh
-        if (!forceRefresh && isCacheValid(studentId, semesterId)) {
-            val cachedGrades = getCachedGrades(studentId, semesterId)
-            if (cachedGrades.isNotEmpty()) {
-                Napier.d("Returning cached grades for semester $semesterId (${cachedGrades.size} grades)", tag = TAG)
-                return Result.success(cachedGrades)
+        if (!forceRefresh) {
+            when (val cached = readValidCache(studentId, semester.id)) {
+                is Outcome.Ok -> cached.value?.let { return Outcome.Ok(it) }
+                // A broken cache is not a reason to refuse the screen — fall through to the
+                // network, which is what the user wanted anyway.
+                is Outcome.Err -> Napier.w("Ignoring unusable grade cache: ${cached.error}", tag = TAG)
             }
         }
 
-        // Fetch from network
-        Napier.d("Fetching grades from network for semester $semesterId", tag = TAG)
-        return fetchGradesWithRetry(semesterId, semesterName, 0)
+        Napier.d("Fetching grades from network for semester ${semester.id}", tag = TAG)
+        val html = gateway.fetchPage(
+            source = "grades",
+            isValid = { htmlParser.isValidGradePage(it) },
+            buildUrl = { auth -> "$BASE_URL?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N${auth.sessionId},-N000307,-N${semester.id}" }
+        )
+
+        val grades = when (html) {
+            is Outcome.Ok -> gradeParser.parseGrades(html.value, studentId, semester.id, semester.name)
+            is Outcome.Err -> return html
+        }
+
+        // A failed cache write must not fail the request: the grades are already in hand.
+        cacheGrades(grades, studentId, semester.id)
+        return Outcome.Ok(grades)
     }
 
-    private suspend fun fetchSemestersWithRetry(attemptCount: Int): Result<Map<String, String>> {
-        Napier.d("Fetching semesters (attempt $attemptCount)", tag = TAG)
+    /** The stored username doubles as the student id; it is stable and never leaves the device. */
+    private fun currentStudentId(): String =
+        sessionManager.getStoredCredentials()?.first ?: "unknown"
 
-        if (!sessionManager.isAuthenticated() && !sessionManager.isDemoMode()) {
-            val reAuthResult = reAuthenticate()
-            if (reAuthResult.isFailure) {
-                return Result.failure(reAuthResult.exceptionOrNull()!!)
-            }
-        }
+    /**
+     * @return `Ok(null)` when there is no fresh cache — a normal state, not a failure.
+     */
+    @OptIn(ExperimentalTime::class)
+    private suspend fun readValidCache(studentId: String, semesterId: String): Outcome<List<GradeEntity>?> {
+        return try {
+            val metadata = gradeCacheMetadataDao.getMetadata(studentId, semesterId)
+                ?: return Outcome.Ok(null)
 
-        // Handle demo mode (optional, can add later)
+            val age = Clock.System.now().toEpochMilliseconds() - metadata.lastUpdatedTimestamp
+            if (age >= CACHE_VALIDITY_DURATION_MS) return Outcome.Ok(null)
 
-        try {
-            val authData = sessionManager.getAuthData() ?: return Result.failure(Exception("No auth data"))
-
-            val fullUrl = "$BASE_URL?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N${authData.sessionId},-N000307,"
-            Napier.d("Fetching semesters with URL: $fullUrl", tag = TAG)
-
-            // Clean cookie (remove attributes like ; HttpOnly)
-            val rawCookie = authData.cookie
-            val cookie = rawCookie?.substringBefore(";")
-            if (cookie != null) {
-                 Napier.d("Using cookie: $cookie", tag = TAG)
-            }
-
-            when (val apiResult = apiClient.get(fullUrl, emptyMap(), cookie)) {
-                is DualisApiClient.ApiResult.Success -> {
-                    val htmlContent = apiResult.htmlContent
-
-                    if (htmlParser.isErrorPage(htmlContent) || !htmlParser.isValidGradePage(htmlContent)) {
-                        val title = htmlParser.extractTitle(htmlContent)
-                        val snippet = htmlContent.take(500)
-                        Napier.w("Invalid grade page received. Title: '$title', Snippet: $snippet", tag = TAG)
-                        
-                        if (attemptCount >= MAX_RETRY_ATTEMPTS) {
-                            return Result.failure(Exception("Max retry attempts reached. Page title: $title"))
-                        }
-                        val reAuthResult = reAuthenticate()
-                        if (reAuthResult.isFailure) {
-                            return Result.failure(reAuthResult.exceptionOrNull()!!)
-                        }
-                        return fetchSemestersWithRetry(attemptCount + 1)
-                    }
-
-                    val semesters = gradeParser.parseSemesterList(htmlContent)
-                    return Result.success(semesters)
-                }
-                is DualisApiClient.ApiResult.Failure -> {
-                    return Result.failure(Exception(apiResult.message))
-                }
+            val cached = gradeDao.getGradesForSemester(studentId, semesterId)
+            if (cached.isEmpty()) {
+                Outcome.Ok(null)
+            } else {
+                Napier.d("Serving ${cached.size} cached grades for $semesterId", tag = TAG)
+                Outcome.Ok(cached)
             }
         } catch (e: Exception) {
-            return Result.failure(e)
-        }
-    }
-
-
-    private suspend fun fetchGradesWithRetry(
-        semesterId: String,
-        semesterName: String,
-        attemptCount: Int
-    ): Result<List<GradeEntity>> {
-        Napier.d("Fetching grades for semester $semesterId (attempt $attemptCount)", tag = TAG)
-
-        if (!sessionManager.isAuthenticated() && !sessionManager.isDemoMode()) {
-            val reAuthResult = reAuthenticate()
-            if (reAuthResult.isFailure) {
-                return Result.failure(reAuthResult.exceptionOrNull()!!)
-            }
-        }
-
-        try {
-            val authData = sessionManager.getAuthData() ?: return Result.failure(Exception("No auth data"))
-            // Get student ID (username) from stored credentials as a stable ID
-            val studentId = sessionManager.getStoredCredentials()?.first ?: "unknown"
-
-            if (authData.sessionId.isEmpty()) {
-                Napier.e("Session ID is empty!", tag = TAG)
-                return Result.failure(Exception("Empty session ID"))
-            }
-
-            val fullUrl = "$BASE_URL?APPNAME=CampusNet&PRGNAME=COURSERESULTS&ARGUMENTS=-N${authData.sessionId},-N000307,-N$semesterId"
-            Napier.d("Fetching grades with URL: $fullUrl", tag = TAG)
-
-            // Clean cookie
-            val rawCookie = authData.cookie
-            val cookie = rawCookie?.substringBefore(";")
-
-            when (val apiResult = apiClient.get(fullUrl, emptyMap(), cookie)) {
-                is DualisApiClient.ApiResult.Success -> {
-                    val htmlContent = apiResult.htmlContent
-
-                    if (htmlParser.isErrorPage(htmlContent) || !htmlParser.isValidGradePage(htmlContent)) {
-                         val title = htmlParser.extractTitle(htmlContent)
-                         val snippet = htmlContent.take(500)
-                         Napier.w("Invalid grade page for semester $semesterId. Title: '$title', Snippet: $snippet", tag = TAG)
-
-                        if (attemptCount >= MAX_RETRY_ATTEMPTS) {
-                            return Result.failure(Exception("Max retry attempts reached"))
-                        }
-                        val reAuthResult = reAuthenticate()
-                        if (reAuthResult.isFailure) {
-                            return Result.failure(reAuthResult.exceptionOrNull()!!)
-                        }
-                        return fetchGradesWithRetry(semesterId, semesterName, attemptCount + 1)
-                    }
-
-                    val grades = gradeParser.parseGrades(htmlContent, studentId, semesterId, semesterName)
-                    
-                    // Change detection and saving
-                    saveGradesWithChangeDetection(grades, studentId, semesterId)
-
-                    return Result.success(grades)
-                }
-                is DualisApiClient.ApiResult.Failure -> {
-                    return Result.failure(Exception(apiResult.message))
-                }
-            }
-        } catch (e: Exception) {
-            return Result.failure(e)
+            Outcome.Err(AppError.Storage("reading the grade cache: ${e.message}"))
         }
     }
 
     @OptIn(ExperimentalTime::class)
-    private suspend fun saveGradesWithChangeDetection(
-        newGrades: List<GradeEntity>,
-        studentId: String,
-        semesterId: String
-    ) {
+    private suspend fun cacheGrades(grades: List<GradeEntity>, studentId: String, semesterId: String) {
         try {
-            // Change detection logic
-            val existingGrades = gradeDao.getGradesForSemester(studentId, semesterId)
-            val existingMap = existingGrades.associateBy { it.moduleNumber }
-
-            for (newGrade in newGrades) {
-                val oldGrade = existingMap[newGrade.moduleNumber]
-                if (oldGrade != null) {
-                    // Check if grade changed (e.g. from null to "1,3")
-                    if (oldGrade.grade != newGrade.grade) {
-                        Napier.i("Grade changed for ${newGrade.moduleName}: ${oldGrade.grade} -> ${newGrade.grade}", tag = TAG)
-                        // TODO: Trigger notification
-                    }
-                }
-            }
-
-            // Save to DB (replace logic handled by DAO via DELETE then INSERT or OnConflict.REPLACE)
-            // Since we want to handle deletions (if a module disappears?), we might want to delete old ones first.
-            // GradeDao has deleteGradesForSemester.
-            
+            // Replace rather than merge, so a module that disappeared from Dualis disappears here.
             gradeDao.deleteGradesForSemester(studentId, semesterId)
-            gradeDao.insertAll(newGrades)
-            Napier.d("Saved ${newGrades.size} grades to DB", tag = TAG)
+            gradeDao.insertAll(grades)
 
-            // Save cache metadata
-            val metadata = GradeCacheMetadata(
-                key = "grades_${studentId}_$semesterId",
-                lastUpdatedTimestamp = kotlin.time.Clock.System.now().toEpochMilliseconds(),
-                studentId = studentId,
-                semesterId = semesterId
+            gradeCacheMetadataDao.insert(
+                GradeCacheMetadata(
+                    key = "grades_${studentId}_$semesterId",
+                    lastUpdatedTimestamp = Clock.System.now().toEpochMilliseconds(),
+                    studentId = studentId,
+                    semesterId = semesterId
+                )
             )
-            gradeCacheMetadataDao.insert(metadata)
-            Napier.d("Updated cache metadata for semester $semesterId", tag = TAG)
-
+            Napier.d("Cached ${grades.size} grades for $semesterId", tag = TAG)
         } catch (e: Exception) {
-            Napier.e("Error saving grades: ${e.message}", e, tag = TAG)
-        }
-    }
-
-    private suspend fun reAuthenticate(): Result<Unit> {
-        if (sessionManager.isReAuthenticating()) {
-            return Result.failure(Exception("Re-authentication already in progress"))
-        }
-
-        sessionManager.setReAuthenticating(true)
-        try {
-            Napier.d("Attempting re-authentication", tag = TAG)
-            sessionManager.clearAuthData()
-
-            val credentials = sessionManager.getStoredCredentials()
-                ?: return Result.failure(Exception("No stored credentials available"))
-
-            val (username, password) = credentials
-            val loginResult = authenticationService.login(username, password)
-
-            return when (loginResult) {
-                is LoginResult.Success -> {
-                    Napier.d("Re-authentication successful", tag = TAG)
-                    Result.success(Unit)
-                }
-                is LoginResult.Failure -> {
-                    Napier.e("Re-authentication failed: ${loginResult.message}", tag = TAG)
-                    Result.failure(Exception(loginResult.message))
-                }
-            }
-        } finally {
-            sessionManager.setReAuthenticating(false)
+            Napier.e("Could not cache grades for $semesterId: ${e.message}", e, tag = TAG)
         }
     }
 }

@@ -24,7 +24,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeEntity
+import de.fampopprol.dhbwhorb.domain.model.Semester
+import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
+import de.fampopprol.dhbwhorb.ui.error.toUserMessage
 import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.grades
 import de.fampopprol.dhbwhorb.resources.login_required_for_grades
@@ -34,7 +36,6 @@ import de.fampopprol.dhbwhorb.ui.grades.components.GradeCard
 import de.fampopprol.dhbwhorb.ui.grades.components.OverallStatsCard
 import de.fampopprol.dhbwhorb.ui.grades.components.SemesterGroupCard
 import de.fampopprol.dhbwhorb.ui.grades.components.SemesterSelector
-import de.fampopprol.dhbwhorb.ui.grades.viewModels.ALL_SEMESTERS_ID
 import de.fampopprol.dhbwhorb.ui.grades.viewModels.GradesUiState
 import de.fampopprol.dhbwhorb.ui.grades.viewModels.GradesViewModel
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
@@ -58,11 +59,12 @@ fun GradesPage(
 ) {
 
     val uiState = viewModel.uiState
+    val computeGpa: ComputeGpa = koinInject()
     val hapticFeedback = LocalHapticFeedback.current
 
     // If we were previously blocked due to missing login and the app is now logged in, try again once
     // Local val: smart casts do not cross module boundaries since the state moved to :presentation.
-    val errorMessage = uiState.error
+    val error = uiState.error
 
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn && uiState.requiresLogin) {
@@ -110,7 +112,7 @@ fun GradesPage(
                         style = MaterialTheme.typography.bodyLarge
                     )
                 }
-            } else if ((uiState.isLoading || uiState.isLoadingSemesters || viewModel == null) && uiState.grades.isEmpty()) {
+            } else if ((uiState.isLoading || uiState.isLoadingSemesters) && uiState.grades.isEmpty()) {
                 // Skeleton UI for Grades
                 LazyColumn(
                     modifier = Modifier
@@ -131,7 +133,7 @@ fun GradesPage(
                         GradeCardSkeleton()
                     }
                 }
-            } else if (errorMessage != null && uiState.grades.isEmpty()) {
+            } else if (error != null && uiState.grades.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -142,7 +144,7 @@ fun GradesPage(
                     ) {
                         Text(
                             // Local val: smart casts do not cross module boundaries.
-                            text = errorMessage,
+                            text = error.toUserMessage(),
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(16.dp),
                             style = MaterialTheme.typography.bodyLarge
@@ -183,14 +185,15 @@ fun GradesPage(
                         item {
                             SemesterSelector(
                                 semesters = uiState.semesters,
-                                selectedSemesterId = uiState.selectedSemesterId,
+                                selectedSemester = uiState.selectedSemester,
                                 onSemesterSelected = { viewModel.selectSemester(it) },
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
                         }
 
                         // Show different content based on selection
-                        if (uiState.selectedSemesterId == ALL_SEMESTERS_ID) {
+                        val selectedSemester = uiState.selectedSemester
+                        if (selectedSemester != null && Semester.isAll(selectedSemester)) {
                             // Overview mode - show overall statistics
                             if (uiState.overallGpa != null || uiState.totalCreditsEarned > 0) {
                                 item {
@@ -206,7 +209,7 @@ fun GradesPage(
                             val gradesBySemester = uiState.grades.groupBy { it.semesterName }
                             gradesBySemester.forEach { (semesterName, semesterGrades) ->
                                 item {
-                                    val semesterGpa = calculateSemesterGpa(semesterGrades)
+                                    val semesterGpa = computeGpa(semesterGrades).average
                                     SemesterGroupCard(
                                         semesterName = semesterName,
                                         grades = semesterGrades.sortedBy { it.moduleName },
@@ -239,24 +242,3 @@ fun GradesPage(
     }
 }
 
-// Helper function to calculate GPA for a list of grades
-private fun calculateSemesterGpa(grades: List<GradeEntity>): Double? {
-    var totalWeightedPoints = 0.0
-    var totalCredits = 0.0
-
-    for (grade in grades) {
-        val gradeValueStr = grade.grade?.replace(",", ".")
-        val gradeValue = gradeValueStr?.toDoubleOrNull()
-
-        if (gradeValue != null && grade.credits > 0) {
-            totalWeightedPoints += gradeValue * grade.credits
-            totalCredits += grade.credits
-        }
-    }
-
-    return if (totalCredits > 0) {
-        totalWeightedPoints / totalCredits
-    } else {
-        null
-    }
-}

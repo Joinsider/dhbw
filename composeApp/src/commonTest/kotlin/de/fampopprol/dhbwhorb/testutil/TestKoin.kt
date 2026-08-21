@@ -12,7 +12,15 @@ import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisGradeService
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisLectureService
+import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisPageGateway
+import de.fampopprol.dhbwhorb.data.dualis.remote.session.ReAuthenticator
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
+import de.fampopprol.dhbwhorb.data.repository.AuthRepositoryImpl
+import de.fampopprol.dhbwhorb.data.repository.DocumentRepositoryImpl
+import de.fampopprol.dhbwhorb.data.repository.GradeRepositoryImpl
+import de.fampopprol.dhbwhorb.data.repository.PreferencesRepositoryImpl
+import de.fampopprol.dhbwhorb.data.repository.SessionRepositoryImpl
+import de.fampopprol.dhbwhorb.data.repository.TimetableRepositoryImpl
 import de.fampopprol.dhbwhorb.data.storage.credentials.CredentialsStorageProvider
 import de.fampopprol.dhbwhorb.data.storage.credentials.FakeSecureStorage
 import de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorageInterface
@@ -20,8 +28,25 @@ import de.fampopprol.dhbwhorb.data.storage.database.AppDatabase
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferences
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemePreferences
-import de.fampopprol.dhbwhorb.services.LectureService
-import de.fampopprol.dhbwhorb.services.LogoutUseCase
+import de.fampopprol.dhbwhorb.domain.repository.AuthRepository
+import de.fampopprol.dhbwhorb.domain.repository.DocumentRepository
+import de.fampopprol.dhbwhorb.domain.repository.GradeRepository
+import de.fampopprol.dhbwhorb.domain.repository.PreferencesRepository
+import de.fampopprol.dhbwhorb.domain.repository.SessionRepository
+import de.fampopprol.dhbwhorb.domain.repository.TimetableRepository
+import de.fampopprol.dhbwhorb.domain.usecase.AwaitFullWeekTimetable
+import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
+import de.fampopprol.dhbwhorb.domain.usecase.DownloadDocument
+import de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades
+import de.fampopprol.dhbwhorb.domain.usecase.GetCachedLectures
+import de.fampopprol.dhbwhorb.domain.usecase.GetGradesForSemester
+import de.fampopprol.dhbwhorb.domain.usecase.GetSemesters
+import de.fampopprol.dhbwhorb.domain.usecase.GetWeekTimetable
+import de.fampopprol.dhbwhorb.domain.usecase.ListDocuments
+import de.fampopprol.dhbwhorb.domain.usecase.LoginWithCredentials
+import de.fampopprol.dhbwhorb.domain.usecase.Logout
+import de.fampopprol.dhbwhorb.domain.usecase.RefreshTimetable
+import de.fampopprol.dhbwhorb.domain.usecase.RestoreSession
 import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsViewModel
 import de.fampopprol.dhbwhorb.ui.grades.viewModels.GradesViewModel
 import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
@@ -30,6 +55,9 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.utils.io.ByteReadChannel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.koin.compose.KoinApplication
 import org.koin.core.Koin
 import org.koin.dsl.koinApplication
@@ -62,30 +90,85 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
     single { get<AppDatabase>().lectureLecturerCrossRefDao() }
     single { get<AppDatabase>().gradeDao() }
     single { get<AppDatabase>().gradeCacheMetadataDao() }
+    single { get<AppDatabase>().syncMetadataDao() }
+
+    single<CoroutineScope> { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
+
+    single { ReAuthenticator(sessionManager = get(), authenticationService = get()) }
+    single { DualisPageGateway(apiClient = get(), sessionManager = get(), reAuthenticator = get()) }
 
     single {
         DualisLectureService(
-            apiClient = get(), sessionManager = get(), authenticationService = get(),
+            apiClient = get(), sessionManager = get(), gateway = get(),
             lectureEventDao = get(), lecturerDao = get(), lectureLecturerCrossRefDao = get()
         )
     }
     single {
         DualisGradeService(
-            apiClient = get(), sessionManager = get(), authenticationService = get(),
+            gateway = get(), sessionManager = get(),
             gradeDao = get(), gradeCacheMetadataDao = get()
         )
     }
-    single { DualisDocumentService(apiClient = get(), sessionManager = get(), authenticationService = get()) }
-    single { LectureService(database = get(), dualisLectureServiceFactory = { get() }) }
+    single {
+        DualisDocumentService(
+            apiClient = get(), sessionManager = get(), reAuthenticator = get(), gateway = get()
+        )
+    }
 
     single { ThemePreferences(storage = get()) }
     single { NotificationPreferences(storage = get()) }
     single { NotificationPreferencesInteractor(preferences = get()) }
-    single { LogoutUseCase(sessionManager = get(), credentialsProvider = get(), database = get()) }
 
-    single { TimetableViewModel(lectureService = get(), lecturerDao = get(), lectureLecturerCrossRefDao = get()) }
-    single { GradesViewModel(gradeService = get(), gradeDao = get()) }
-    single { DocumentsViewModel(dualisDocumentService = get()) }
+    single<AuthRepository> {
+        AuthRepositoryImpl(
+            authenticationService = get(),
+            reAuthenticator = get(),
+            credentialsProvider = get(),
+            database = get()
+        )
+    }
+    single<SessionRepository> { SessionRepositoryImpl(sessionManager = get()) }
+    single<TimetableRepository> {
+        TimetableRepositoryImpl(
+            lectureService = get(), lectureEventDao = get(), syncMetadataDao = get(), scope = get()
+        )
+    }
+    single<GradeRepository> { GradeRepositoryImpl(gradeService = get()) }
+    single<DocumentRepository> { DocumentRepositoryImpl(documentService = get()) }
+    single<PreferencesRepository> {
+        PreferencesRepositoryImpl(themePreferences = get(), notificationPreferences = get())
+    }
+
+    factory { LoginWithCredentials(authRepository = get()) }
+    factory { RestoreSession(sessionRepository = get(), authRepository = get()) }
+    factory { Logout(authRepository = get()) }
+    factory { GetWeekTimetable(repository = get()) }
+    factory { AwaitFullWeekTimetable(repository = get()) }
+    factory { RefreshTimetable(repository = get()) }
+    factory { GetCachedLectures(repository = get()) }
+    factory { GetSemesters(repository = get()) }
+    factory { GetGradesForSemester(repository = get()) }
+    factory { GetAllGrades(getSemesters = get(), getGradesForSemester = get()) }
+    factory { ComputeGpa() }
+    factory { ListDocuments(repository = get()) }
+    factory { DownloadDocument(repository = get()) }
+
+    single {
+        TimetableViewModel(
+            getWeekTimetable = get(), awaitFullWeekTimetable = get(), refreshTimetable = get()
+        )
+    }
+    single {
+        GradesViewModel(
+            getSemesters = get(), getGradesForSemester = get(), getAllGrades = get(),
+            computeGpa = get(), sessionRepository = get()
+        )
+    }
+    single {
+        DocumentsViewModel(
+            listDocuments = get(), downloadDocument = get(), sessionRepository = get()
+        )
+    }
 }
 
 /**

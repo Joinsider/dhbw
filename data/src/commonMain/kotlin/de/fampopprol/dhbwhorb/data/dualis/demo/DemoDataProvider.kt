@@ -1,5 +1,6 @@
 package de.fampopprol.dhbwhorb.data.dualis.demo
 
+import de.fampopprol.dhbwhorb.data.dualis.models.DualisDocument
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureEventEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LecturerEntity
 import kotlinx.datetime.DateTimeUnit
@@ -257,6 +258,34 @@ object DemoDataProvider {
     /**
      * Generate demo lecturers.
      */
+    /**
+     * The documents the demo account shows.
+     *
+     * They are listed but cannot be downloaded — there is no file behind the URLs, which is why
+     * [de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService.downloadDocument]
+     * reports them as unsupported rather than letting the request fail.
+     */
+    fun demoDocuments(): List<DualisDocument> = listOf(
+        DualisDocument(
+            title = "Studienbescheinigung",
+            date = "25.03.26",
+            time = "09:40",
+            downloadUrl = "/scripts/filetransfer.exe?demo_cert"
+        ),
+        DualisDocument(
+            title = "Zahlungsinformation Semesterbeiträge",
+            date = "19.02.26",
+            time = "14:47",
+            downloadUrl = "/scripts/filetransfer.exe?demo_payment"
+        ),
+        DualisDocument(
+            title = "Semesternotenbescheid - Download",
+            date = "11.02.26",
+            time = "15:52",
+            downloadUrl = "/scripts/filetransfer.exe?demo_grades"
+        )
+    )
+
     fun generateDemoLecturers(): List<LecturerEntity> {
         return listOf(
             LecturerEntity(

@@ -9,25 +9,6 @@ package de.fampopprol.dhbwhorb.data.storage.preferences
 import de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorageInterface
 
 /**
- * Enum representing the available theme modes
- */
-enum class ThemeMode {
-    LIGHT,
-    DARK,
-    SYSTEM;
-
-    companion object {
-        fun fromString(value: String): ThemeMode {
-            return try {
-                valueOf(value)
-            } catch (_: IllegalArgumentException) {
-                SYSTEM // Default to system if invalid value
-            }
-        }
-    }
-}
-
-/**
  * Manages theme preferences using SecureStorage
  */
 class ThemePreferences(private val storage: SecureStorageInterface) {

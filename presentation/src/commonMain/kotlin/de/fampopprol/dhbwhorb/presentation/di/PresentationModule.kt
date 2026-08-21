@@ -21,22 +21,27 @@ val presentationModule = module {
 
     single {
         TimetableViewModel(
-            lectureService = get(),
-            lecturerDao = get(),
-            lectureLecturerCrossRefDao = get()
+            getWeekTimetable = get(),
+            awaitFullWeekTimetable = get(),
+            refreshTimetable = get()
         )
     }
 
     single {
         GradesViewModel(
-            gradeService = get(),
-            gradeDao = get()
+            getSemesters = get(),
+            getGradesForSemester = get(),
+            getAllGrades = get(),
+            computeGpa = get(),
+            sessionRepository = get()
         )
     }
 
     single {
         DocumentsViewModel(
-            dualisDocumentService = get()
+            listDocuments = get(),
+            downloadDocument = get(),
+            sessionRepository = get()
         )
     }
 

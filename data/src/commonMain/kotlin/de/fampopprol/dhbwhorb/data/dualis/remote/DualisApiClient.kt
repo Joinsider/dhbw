@@ -1,127 +1,92 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 package de.fampopprol.dhbwhorb.data.dualis.remote
 
-import de.fampopprol.dhbwhorb.net.HttpClientFactory
+import de.fampopprol.dhbwhorb.core.error.Outcome
+import de.fampopprol.dhbwhorb.data.error.httpStatusToAppError
+import de.fampopprol.dhbwhorb.data.error.toAppError
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 
 /**
- * Dualis API client - Main HTTP client for all Dualis API requests.
- * This client is responsible ONLY for executing HTTP requests and returning HTML responses.
- * It does NOT handle parsing - that is done by dedicated parsers.
+ * Executes HTTP requests against Dualis and returns the raw response. No parsing happens here —
+ * that belongs to the parsers — and no session handling either, which belongs to the services.
  *
- * Session management and re-authentication should be handled by the calling service.
- *
- * This client is used by all Dualis services (lecture service, grades service, etc.).
- * Rate limiting can be added here in the future.
- *
- * IMPORTANT: Pass the same HttpClient instance used by AuthenticationService to share cookies!
+ * The [client] must be the same instance [de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService]
+ * uses, because the session cookie lives in its cookie storage.
  */
 class DualisApiClient(
     private val client: HttpClient
 ) {
     companion object {
         private const val TAG = "DualisApiClient"
-
-        /**
-         * Create a new DualisApiClient with a default HttpClient configuration.
-         * For production use, prefer passing the same HttpClient used by AuthenticationService.
-         */
-        fun createDefault(): DualisApiClient {
-            val client = HttpClient(HttpClientFactory.createEngine()) {
-                expectSuccess = false
-                install(HttpCookies)
-            }
-            return DualisApiClient(client)
-        }
     }
 
     /**
-     * Execute a GET request to Dualis and return the HTML response.
-     * This method does NO parsing - it only fetches and returns the raw HTML.
+     * GET [url] and return the response body.
      *
-     * @param url The URL to request
-     * @param urlParameters Query parameters for the request
-     * @return ApiResult containing HTML response or error
+     * A transport failure becomes [de.fampopprol.dhbwhorb.core.error.AppError.Offline] and a
+     * non-2xx status becomes an [de.fampopprol.dhbwhorb.core.error.AppError.Http] — the caller
+     * used to receive both as one opaque message string and could not tell them apart.
      */
-    suspend fun get(url: String, urlParameters: Map<String, String> = emptyMap(), cookie: String? = null): ApiResult {
-        try {
+    suspend fun get(
+        url: String,
+        urlParameters: Map<String, String> = emptyMap(),
+        cookie: String? = null
+    ): Outcome<String> {
+        return try {
             Napier.d("Executing GET request to: $url", tag = TAG)
-            if (urlParameters.isNotEmpty()) {
-                Napier.d("Parameters: ${urlParameters.keys.joinToString(", ")}", tag = TAG)
-            }
-            if (cookie != null) {
-                Napier.d("Using manual cookie in request", tag = TAG)
-            }
 
             val response = client.get(url) {
-                urlParameters.forEach { (key, value) ->
-                    parameter(key, value)
-                }
-                if (cookie != null) {
-                    // The raw set-cookie header might need parsing if we want to be clean, 
-                    // but passing it as "Cookie" header usually expects "name=value".
-                    // The set-cookie value is "cnsc =...; path=...".
-                    // We should strip the attributes for the Cookie header, but often sending raw works or we can clean it.
-                    // Let's assume we pass it raw for now or clean it in Service.
-                    // Actually, let's try to just pass what we got, but "Cookie" header expects "key=value".
-                    // If set-cookie is "cnsc =...; ...", we should probably just take the first part.
-                    // But let's just set the header.
-                    headers.append("Cookie", cookie)
-                }
+                urlParameters.forEach { (key, value) -> parameter(key, value) }
+                // Dualis' Set-Cookie value carries attributes the Cookie header must not repeat;
+                // callers hand in the already-trimmed "name=value" part.
+                if (cookie != null) headers.append("Cookie", cookie)
             }
 
             if (!response.status.isSuccess()) {
                 Napier.e("Request failed with status: ${response.status}", tag = TAG)
-                return ApiResult.Failure("HTTP ${response.status.value}: ${response.status.description}")
+                return Outcome.Err(httpStatusToAppError(response.status.value))
             }
 
             val htmlContent = response.bodyAsText()
             Napier.d("Request successful, response length: ${htmlContent.length} characters", tag = TAG)
-
-            return ApiResult.Success(htmlContent)
-
+            Outcome.Ok(htmlContent)
         } catch (e: Exception) {
             Napier.e("Request failed with exception: ${e.message}", e, tag = TAG)
-            return ApiResult.Failure("Network error: ${e.message}")
+            Outcome.Err(e.toAppError(url))
         }
     }
 
-    suspend fun getRawBytes(url: String, cookie: String?): Result<ByteArray> {
+    /** GET [url] and return the response body unparsed, for file downloads. */
+    suspend fun getRawBytes(url: String, cookie: String?): Outcome<ByteArray> {
         return try {
             Napier.d("Executing GET request for raw bytes to: $url", tag = TAG)
 
             val response = client.get(url) {
-                if (cookie != null) {
-                    headers.append("Cookie", cookie)
-                }
+                if (cookie != null) headers.append("Cookie", cookie)
             }
 
             if (!response.status.isSuccess()) {
                 Napier.e("Request for raw bytes failed with status: ${response.status}", tag = TAG)
-                return Result.failure(Exception("HTTP ${response.status.value}: ${response.status.description}"))
+                return Outcome.Err(httpStatusToAppError(response.status.value))
             }
 
             val bytes = response.body<ByteArray>()
             Napier.d("Raw bytes request successful, response length: ${bytes.size} bytes", tag = TAG)
-            Result.success(bytes)
+            Outcome.Ok(bytes)
         } catch (e: Exception) {
             Napier.e("Request for raw bytes failed with exception: ${e.message}", e, tag = TAG)
-            Result.failure(e)
+            Outcome.Err(e.toAppError(url))
         }
-    }
-
-    /**
-     * Result wrapper for API responses.
-     * Contains either the HTML content or an error message.
-     */
-    sealed class ApiResult {
-        data class Success(val htmlContent: String) : ApiResult()
-        data class Failure(val message: String) : ApiResult()
     }
 }

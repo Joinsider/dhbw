@@ -3,7 +3,10 @@
 
 package de.fampopprol.dhbwhorb.services.widget
 
-import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureEventEntity
+import de.fampopprol.dhbwhorb.core.error.Outcome
+import de.fampopprol.dhbwhorb.domain.model.Lecture
+import de.fampopprol.dhbwhorb.domain.model.TimetableWeek
+import de.fampopprol.dhbwhorb.domain.repository.TimetableRepository
 import de.fampopprol.dhbwhorb.services.widget.models.WidgetUpNextState
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
@@ -20,18 +23,29 @@ import kotlin.test.assertTrue
 // ---------------------------------------------------------------------------
 
 /**
- * In-memory [WidgetLectureRepository] for tests.
- * Returns only lectures whose [LectureEventEntity.startTime] falls within the
- * requested range (i.e. same day-level matching the use case uses).
+ * In-memory [TimetableRepository] for tests.
+ *
+ * Only [getCachedLectures] is implemented: the widget must never take any other route, and a
+ * fetch here would fail the test loudly rather than quietly hitting the network.
  */
 private class FakeWidgetLectureRepository(
-    private val lectures: List<LectureEventEntity> = emptyList(),
-) : WidgetLectureRepository {
-    override suspend fun getLecturesForDateRange(
+    private val lectures: List<Lecture> = emptyList(),
+) : TimetableRepository {
+
+    override suspend fun getCachedLectures(
         start: LocalDateTime,
         end: LocalDateTime,
-    ): List<LectureEventEntity> =
-        lectures.filter { it.startTime >= start && it.startTime <= end }
+    ): Outcome<List<Lecture>> =
+        Outcome.Ok(lectures.filter { it.start >= start && it.start <= end })
+
+    override suspend fun getWeek(weekOffset: Int): Outcome<TimetableWeek> =
+        error("The widget must not fetch a week")
+
+    override suspend fun awaitFullWeek(weekOffset: Int): Outcome<TimetableWeek> =
+        error("The widget must not fetch a week")
+
+    override suspend fun refreshWeek(weekOffset: Int): Outcome<TimetableWeek> =
+        error("The widget must not refresh a week")
 }
 
 // ---------------------------------------------------------------------------
@@ -49,12 +63,12 @@ private fun lecture(
     fullName: String? = null,
     location: String = "HOR-101",
     isTest: Boolean = false,
-): LectureEventEntity = LectureEventEntity(
-    lectureId = id,
-    shortSubjectName = shortName,
-    fullSubjectName = fullName,
-    startTime = LocalDateTime(date.year, date.month, date.day, startHour, startMinute),
-    endTime = LocalDateTime(date.year, date.month, date.day, endHour, endMinute),
+): Lecture = Lecture(
+    id = id,
+    shortName = shortName,
+    fullName = fullName,
+    start = LocalDateTime(date.year, date.month, date.day, startHour, startMinute),
+    end = LocalDateTime(date.year, date.month, date.day, endHour, endMinute),
     location = location,
     isTest = isTest,
 )

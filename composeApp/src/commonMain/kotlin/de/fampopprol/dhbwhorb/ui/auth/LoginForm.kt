@@ -52,8 +52,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
-import de.fampopprol.dhbwhorb.data.dualis.remote.services.LoginResult
+import de.fampopprol.dhbwhorb.core.error.AppError
+import de.fampopprol.dhbwhorb.core.error.Outcome
+import de.fampopprol.dhbwhorb.domain.usecase.LoginWithCredentials
+import de.fampopprol.dhbwhorb.ui.error.toUserMessage
 import de.fampopprol.dhbwhorb.data.storage.credentials.CredentialsStorageProvider
 import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.cancel
@@ -75,8 +77,7 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 @Preview
 @Composable
 fun LoginForm(
-    authenticationService: AuthenticationService? = null,
-    credentialsProvider: CredentialsStorageProvider? = null,
+    login: LoginWithCredentials? = null,
     onLoginSuccess: () -> Unit = {},
     viewModel: LoginFormViewModel = viewModel { LoginFormViewModel() }
 ) {
@@ -87,7 +88,7 @@ fun LoginForm(
     val passwordFocusRequester = remember { FocusRequester() }
 
     var isLoading by remember { mutableStateOf(false) }
-    var loginError by remember { mutableStateOf<String?>(null) }
+    var loginError by remember { mutableStateOf<AppError?>(null) }
     var isUsernameFocused by remember { mutableStateOf(false) }
     var isPasswordFocused by remember { mutableStateOf(false) }
 
@@ -111,36 +112,26 @@ fun LoginForm(
                 passwordCannotBeEmpty = passwordCannotBeEmpty
             )
         ) {
-            // Use AuthenticationService if available, otherwise fall back to old behavior
-            if (authenticationService != null) {
+            // Null only in previews and in the form's own UI tests, which exercise validation
+            // and never a real login.
+            if (login == null) {
+                onLoginSuccess()
+            } else {
                 isLoading = true
                 loginError = null
 
                 coroutineScope.launch {
-                    val result = authenticationService.login(
-                        username = uiState.username, password = uiState.password
-                    )
-
+                    val result = login(username = uiState.username, password = uiState.password)
                     isLoading = false
 
                     when (result) {
-                        is LoginResult.Success -> {
+                        is Outcome.Ok -> {
                             println("$loginSuccessfulText! $usernameText: ${uiState.username}")
                             onLoginSuccess()
                         }
-
-                        is LoginResult.Failure -> {
-                            loginError = result.message
-                        }
+                        is Outcome.Err -> loginError = result.error
                     }
                 }
-            } else {
-                // Fallback: Store credentials only (for backward compatibility)
-                credentialsProvider?.storeCredentials(
-                    username = uiState.username, password = uiState.password
-                )
-                println("$loginSuccessfulText! $usernameText: ${uiState.username}")
-                onLoginSuccess()
             }
         }
     }
@@ -275,7 +266,7 @@ fun LoginForm(
         // Show login error if any
         loginError?.let { error ->
             Text(
-                text = error,
+                text = error.toUserMessage(),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag("loginErrorText")

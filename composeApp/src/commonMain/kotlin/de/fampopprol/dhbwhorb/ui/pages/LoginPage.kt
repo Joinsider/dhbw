@@ -7,8 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
-import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
-import de.fampopprol.dhbwhorb.data.storage.credentials.CredentialsStorageProvider
+import de.fampopprol.dhbwhorb.domain.usecase.LoginWithCredentials
 import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.app_name
 import de.fampopprol.dhbwhorb.ui.auth.LoginForm
@@ -19,8 +18,7 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 @Preview
 fun LoginPage(
     onLoginSuccess: () -> Unit = {},
-    authenticationService: AuthenticationService,
-    credentialsProvider: CredentialsStorageProvider,
+    login: LoginWithCredentials,
 ) {
 
 
@@ -35,8 +33,7 @@ fun LoginPage(
     )
 
     LoginForm(
-        authenticationService = authenticationService,
-        credentialsProvider = credentialsProvider,
+        login = login,
         onLoginSuccess = onLoginSuccess
     )
 }

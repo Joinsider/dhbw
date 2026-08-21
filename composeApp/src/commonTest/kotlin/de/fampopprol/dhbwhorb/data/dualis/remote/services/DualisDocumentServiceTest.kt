@@ -1,9 +1,13 @@
 package de.fampopprol.dhbwhorb.data.dualis.remote.services
 
+import de.fampopprol.dhbwhorb.core.error.AppError
+import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
 import de.fampopprol.dhbwhorb.data.dualis.remote.models.AuthData
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.DocumentParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.HtmlParser
+import de.fampopprol.dhbwhorb.data.dualis.remote.parser.fixtures.DualisFixtures
+import de.fampopprol.dhbwhorb.data.dualis.remote.session.ReAuthenticator
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
 import de.fampopprol.dhbwhorb.data.storage.credentials.FakeSecureStorage
 import io.github.aakira.napier.DebugAntilog
@@ -16,11 +20,13 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headers
 import io.ktor.utils.io.ByteReadChannel
+import kotlinx.io.IOException
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class DualisDocumentServiceTest {
@@ -49,10 +55,12 @@ class DualisDocumentServiceTest {
             install(HttpCookies)
         }
         val apiClient = DualisApiClient(client)
+        val reAuthenticator = ReAuthenticator(sessionManager, authService)
         return DualisDocumentService(
-            apiClient,
-            sessionManager,
-            authService
+            apiClient = apiClient,
+            sessionManager = sessionManager,
+            reAuthenticator = reAuthenticator,
+            gateway = DualisPageGateway(apiClient, sessionManager, reAuthenticator)
         )
     }
 
@@ -89,17 +97,16 @@ class DualisDocumentServiceTest {
         val service = createService(mockEngine, authService)
         val result = service.fetchDocuments()
 
-        assertTrue(result.isSuccess)
-        val documents = result.getOrNull()
-        assertEquals(1, documents?.size)
-        assertEquals("Studienbescheinigung", documents?.first()?.title)
-        assertEquals("/scripts/filetransfer.exe?token123", documents?.first()?.downloadUrl)
+        val documents = assertIs<Outcome.Ok<List<de.fampopprol.dhbwhorb.data.dualis.models.DualisDocument>>>(result).value
+        assertEquals(1, documents.size)
+        assertEquals("Studienbescheinigung", documents.first().title)
+        assertEquals("/scripts/filetransfer.exe?token123", documents.first().downloadUrl)
     }
 
     @Test
     fun fetchDocuments_reauthenticates_whenSessionExpired() = runTest {
         var requestCount = 0
-        val loginPageHtml = "<html><title>Login</title><body>Please login</body></html>"
+        val loginPageHtml = DualisFixtures.SESSION_EXPIRED
         val documentHtml = """
             <table class="tb">
                 <tr>
@@ -170,16 +177,18 @@ class DualisDocumentServiceTest {
         val service = createService(mockEngine, authService)
         val result = service.fetchDocuments()
 
-        assertTrue(result.isSuccess, "Should succeed after re-authentication. Error: ${result.exceptionOrNull()?.message}")
+        val documents = assertIs<Outcome.Ok<List<de.fampopprol.dhbwhorb.data.dualis.models.DualisDocument>>>(
+            result,
+            "Should succeed after re-authentication, got $result"
+        ).value
         assertEquals(2, requestCount, "Should have made 2 requests to Dualis")
-        val documents = result.getOrNull()
-        assertEquals(1, documents?.size)
+        assertEquals(1, documents.size)
     }
 
     @Test
     fun fetchDocuments_fails_afterMaxRetries() = runTest {
         var requestCount = 0
-        val loginPageHtml = "<html><title>Login</title><body>Please login</body></html>"
+        val loginPageHtml = DualisFixtures.SESSION_EXPIRED
 
         val mockEngine = MockEngine { request ->
             requestCount++
@@ -223,15 +232,22 @@ class DualisDocumentServiceTest {
         val service = createService(mockEngine, authService)
         val result = service.fetchDocuments()
 
-        assertTrue(result.isFailure, "Should fail after max retries")
-        // Initial attempt (1) + Retry 1 (2) + Retry 2 (3) = 3 attempts total if MAX_RETRY_ATTEMPTS is 2
-        assertEquals(3, requestCount, "Should have attempted 3 times")
+        // The login page is an error page, so an exhausted retry means the account cannot reach
+        // the content — not that Dualis changed its markup.
+        assertEquals(
+            Outcome.Err(AppError.SessionExpired),
+            result,
+            "Dualis' session-expired page must be reported as such, not as an empty document list"
+        )
+        // One request, one re-authentication, one more request. A second fresh login would be
+        // asking the same question again.
+        assertEquals(2, requestCount, "Should have attempted twice")
     }
     
     @Test
-    fun fetchDocuments_networkError() = runTest {
+    fun fetchDocuments_withoutAConnection_reportsOffline() = runTest {
         val mockEngine = MockEngine { request ->
-            throw Exception("Network error")
+            throw IOException("Network is unreachable")
         }
 
         sessionManager.storeAuthData(AuthData(sessionId = "session123", cookie = "cookie123"))
@@ -241,7 +257,6 @@ class DualisDocumentServiceTest {
         val service = createService(mockEngine, authService)
         val result = service.fetchDocuments()
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull()?.message?.contains("Network error") == true)
+        assertEquals(Outcome.Err(AppError.Offline), result)
     }
 }

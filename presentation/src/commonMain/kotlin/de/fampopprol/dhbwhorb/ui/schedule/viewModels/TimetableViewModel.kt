@@ -1,12 +1,21 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 package de.fampopprol.dhbwhorb.ui.schedule.viewModels
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LecturerDao
-import de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LectureLecturerCrossRefDao
-import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureEventEntity
-import de.fampopprol.dhbwhorb.services.LectureService
+import de.fampopprol.dhbwhorb.core.error.AppError
+import de.fampopprol.dhbwhorb.core.error.Outcome
+import de.fampopprol.dhbwhorb.domain.model.Lecture
+import de.fampopprol.dhbwhorb.domain.model.TimetableWeek
+import de.fampopprol.dhbwhorb.domain.usecase.AwaitFullWeekTimetable
+import de.fampopprol.dhbwhorb.domain.usecase.GetWeekTimetable
+import de.fampopprol.dhbwhorb.domain.usecase.RefreshTimetable
 import de.fampopprol.dhbwhorb.ui.schedule.models.LectureModel
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
@@ -21,18 +30,20 @@ import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
-import kotlin.collections.emptyList
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
  * ViewModel for TimetablePage.
- * Manages lecture data fetching and state.
+ *
+ * Loading a week is two steps when the cache is cold: the repository answers with the weekly
+ * skeleton straight away and this then waits for the complete week. Both come from the same
+ * in-flight fetch, so the pair costs one round of requests rather than two.
  */
 class TimetableViewModel(
-    private val lectureService: LectureService,
-    private val lecturerDao: LecturerDao,
-    private val lectureLecturerCrossRefDao: LectureLecturerCrossRefDao,
+    private val getWeekTimetable: GetWeekTimetable,
+    private val awaitFullWeekTimetable: AwaitFullWeekTimetable,
+    private val refreshTimetable: RefreshTimetable,
     private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
     companion object {
@@ -42,7 +53,6 @@ class TimetableViewModel(
     var uiState by mutableStateOf(TimetableUiState())
         private set
 
-    // Cache to hold lectures for different week offsets
     private val lectureCache = mutableMapOf<Int, List<LectureModel>>()
     private val weekLabelCache = mutableMapOf<Int, WeekLabelData>()
 
@@ -52,62 +62,40 @@ class TimetableViewModel(
         loadLecturesForWeek(0)
     }
 
-
     fun cleanup() {
         coroutineScope.cancel()
     }
 
-    /**
-     * Load lectures for a specific week offset.
-     * This is called by the HorizontalPager when a new page is settled.
-     */
+    /** Called by the pager once a page settles. */
     fun loadLecturesForWeek(weekOffset: Int) {
-        // Generate week label data if not in cache
         val weekLabelData = weekLabelCache.getOrPut(weekOffset) { generateWeekLabelData(weekOffset) }
-        
-        // Update current offset in UI state
+
         uiState = uiState.copy(
             currentWeekOffset = weekOffset,
-            weekLabelData = weekLabelData
+            weekLabelData = weekLabelData,
+            lectures = lectureCache[weekOffset] ?: emptyList()
         )
-
-        // If already in cache, update immediate UI
-        if (lectureCache.containsKey(weekOffset)) {
-            uiState = uiState.copy(lectures = lectureCache[weekOffset] ?: emptyList())
-        } else {
-            uiState = uiState.copy(lectures = emptyList())
-        }
 
         coroutineScope.launch {
             loadMutex.withLock {
                 if (uiState.isLoadingWeeks.contains(weekOffset)) return@withLock
-                
                 uiState = uiState.copy(isLoadingWeeks = uiState.isLoadingWeeks + weekOffset)
-                
-                try {
-                    val (lectures, isReloading) = lectureService.getLecturesForWeekStaged(weekOffset)
-                    val lectureModels = lectures.map { it.toLectureModel() }
-                    
-                    lectureCache[weekOffset] = lectureModels
-                    
-                    // Update UI if this is still the active week
-                    if (uiState.currentWeekOffset == weekOffset) {
-                        uiState = uiState.copy(
-                            lectures = lectureModels,
-                            error = null
-                        )
-                    }
 
-                    if (isReloading) {
-                        val fullLectures = lectureService.getLecturesForWeek(weekOffset, forceRefresh = false)
-                        val fullModels = fullLectures.map { it.toLectureModel() }
-                        lectureCache[weekOffset] = fullModels
-                        if (uiState.currentWeekOffset == weekOffset) {
-                            uiState = uiState.copy(lectures = fullModels)
+                try {
+                    when (val week = getWeekTimetable(weekOffset)) {
+                        is Outcome.Ok -> {
+                            publish(week.value)
+                            // A skeleton has no lecturers and no full course names; the complete
+                            // week is already being fetched, so wait for it rather than asking again.
+                            if (week.value.isPartial) {
+                                when (val full = awaitFullWeekTimetable(weekOffset)) {
+                                    is Outcome.Ok -> publish(full.value)
+                                    is Outcome.Err -> fail(weekOffset, full.error)
+                                }
+                            }
                         }
+                        is Outcome.Err -> fail(weekOffset, week.error)
                     }
-                } catch (e: Exception) {
-                    Napier.e("Error loading week $weekOffset", e, tag = TAG)
                 } finally {
                     uiState = uiState.copy(isLoadingWeeks = uiState.isLoadingWeeks - weekOffset)
                 }
@@ -115,27 +103,15 @@ class TimetableViewModel(
         }
     }
 
-    /**
-     * Refresh lectures for a specific week offset.
-     */
     fun refreshLectures(weekOffset: Int) {
         coroutineScope.launch {
             loadMutex.withLock {
                 uiState = uiState.copy(isRefreshingWeeks = uiState.isRefreshingWeeks + weekOffset)
                 try {
-                    val lectureEntities = lectureService.getLecturesForWeek(weekOffset, forceRefresh = true)
-
-                    val lectureModels = lectureEntities.map { it.toLectureModel() }
-                    lectureCache[weekOffset] = lectureModels
-
-                    if (uiState.currentWeekOffset == weekOffset) {
-                        uiState = uiState.copy(
-                            lectures = lectureModels,
-                            error = null
-                        )
+                    when (val week = refreshTimetable(weekOffset)) {
+                        is Outcome.Ok -> publish(week.value)
+                        is Outcome.Err -> fail(weekOffset, week.error)
                     }
-                } catch (e: Exception) {
-                    uiState = uiState.copy(error = "Failed to refresh: ${e.message}")
                 } finally {
                     uiState = uiState.copy(isRefreshingWeeks = uiState.isRefreshingWeeks - weekOffset)
                 }
@@ -143,43 +119,49 @@ class TimetableViewModel(
         }
     }
 
-    /**
-     * Get lectures for a specific week from cache (if available)
-     */
-    fun getLecturesForWeekSync(weekOffset: Int): List<LectureModel> {
-        return lectureCache[weekOffset] ?: emptyList()
+    /** Cache the week, and show it if the user has not paged away in the meantime. */
+    private fun publish(week: TimetableWeek) {
+        val models = week.lectures.map { it.toLectureModel() }
+        lectureCache[week.weekOffset] = models
+
+        if (uiState.currentWeekOffset == week.weekOffset) {
+            uiState = uiState.copy(lectures = models, error = null)
+        }
     }
-    
+
+    private fun fail(weekOffset: Int, error: AppError) {
+        Napier.e("Loading week $weekOffset failed: $error", tag = TAG)
+        // Only the week on screen may replace the visible state with an error.
+        if (uiState.currentWeekOffset == weekOffset) {
+            uiState = uiState.copy(error = error)
+        }
+    }
+
+    /** The cached lectures for a week, for the pager's neighbouring pages. */
+    fun getLecturesForWeekSync(weekOffset: Int): List<LectureModel> =
+        lectureCache[weekOffset] ?: emptyList()
+
     fun isWeekLoading(weekOffset: Int): Boolean = uiState.isLoadingWeeks.contains(weekOffset)
     fun isWeekRefreshing(weekOffset: Int): Boolean = uiState.isRefreshingWeeks.contains(weekOffset)
 
     @OptIn(ExperimentalTime::class)
     private fun generateWeekLabelData(weekOffset: Int): WeekLabelData {
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-        val currentDate = now.date
-        val currentDayOfWeek = currentDate.dayOfWeek.ordinal 
-        val daysToMonday = -currentDayOfWeek + (weekOffset * 7)
+        val currentDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val daysToMonday = -currentDate.dayOfWeek.ordinal + (weekOffset * 7)
         val monday = currentDate.plus(daysToMonday, DateTimeUnit.DAY)
         val friday = monday.plus(4, DateTimeUnit.DAY)
         return WeekLabelData(monday.day, monday.month, friday.day, friday.month)
     }
 
-    private suspend fun LectureEventEntity.toLectureModel(): LectureModel {
-        val lecturerNames = try {
-            val crossRefs = lectureLecturerCrossRefDao.getByLectureId(lectureId)
-            crossRefs.mapNotNull { lecturerDao.getById(it.lecturerId)?.lecturerName }
-        } catch (e: Exception) { emptyList() }
-
-        return LectureModel(
-            name = fullSubjectName ?: shortSubjectName,
-            shortName = shortSubjectName,
-            isTest = isTest,
-            start = startTime,
-            end = endTime,
-            lecturers = lecturerNames,
-            location = location
-        )
-    }
+    private fun Lecture.toLectureModel(): LectureModel = LectureModel(
+        name = displayName,
+        shortName = shortName,
+        isTest = isTest,
+        start = start,
+        end = end,
+        lecturers = lecturers,
+        location = location
+    )
 }
 
 data class WeekLabelData(
@@ -195,5 +177,6 @@ data class TimetableUiState(
     val currentWeekOffset: Int = 0,
     val isLoadingWeeks: Set<Int> = emptySet(),
     val isRefreshingWeeks: Set<Int> = emptySet(),
-    val error: String? = null
+    /** The classified reason the visible week could not be loaded, for the UI to phrase. */
+    val error: AppError? = null
 )
