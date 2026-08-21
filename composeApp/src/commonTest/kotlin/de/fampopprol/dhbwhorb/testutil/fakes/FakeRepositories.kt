@@ -79,7 +79,9 @@ class FakeTimetableRepository(
 
 class FakeGradeRepository(
     var semesters: Outcome<List<Semester>> = Outcome.Ok(emptyList()),
-    var grades: Outcome<List<GradeEntry>> = Outcome.Ok(emptyList())
+    var grades: Outcome<List<GradeEntry>> = Outcome.Ok(emptyList()),
+    /** Per-semester answers, for tests about ordering; [grades] answers anything not listed. */
+    var gradesBySemester: Map<String, List<GradeEntry>> = emptyMap()
 ) : GradeRepository {
 
     /** Every (semester id, forceRefresh) pair this was asked for, in order. */
@@ -92,7 +94,7 @@ class FakeGradeRepository(
         forceRefresh: Boolean
     ): Outcome<List<GradeEntry>> {
         requests += semester.id to forceRefresh
-        return grades
+        return gradesBySemester[semester.id]?.let { Outcome.Ok(it) } ?: grades
     }
 }
 

@@ -54,12 +54,8 @@ fun DhbwNavHost(
 
         composable<Route.Grades>(
             deepLinks = listOf(navDeepLink<Route.Grades>(basePath = "$DEEP_LINK_SCHEME://grades"))
-        ) { entry ->
-            GradesPage(
-                initialSemesterId = entry.toRoute<Route.Grades>().semesterId,
-                onNavigate = navController::switchTab,
-                modifier = modifier
-            )
+        ) {
+            GradesPage(onNavigate = navController::switchTab, modifier = modifier)
         }
 
         composable<Route.Documents>(

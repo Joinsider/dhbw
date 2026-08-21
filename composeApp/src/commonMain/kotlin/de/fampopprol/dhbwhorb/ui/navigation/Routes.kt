@@ -11,7 +11,7 @@ import kotlinx.serialization.Serializable
 /**
  * The destinations of the logged-in graph.
  *
- * Typed rather than an enum plus a `when`: a route carries its arguments, so `Grades(semesterId)`
+ * Typed rather than an enum plus a `when`: a route carries its arguments, so `Timetable(week)`
  * either has one or does not compile. The previous `AppScreen` enum could only say *which* screen,
  * which is why "open the grades of this semester" had no way to be expressed at all.
  *
@@ -26,11 +26,9 @@ sealed interface Route {
     @Serializable
     data class Timetable(val week: Int? = null) : Route
 
-    /**
-     * @param semesterId the Dualis id to preselect; null shows the combined view.
-     */
+
     @Serializable
-    data class Grades(val semesterId: String? = null) : Route
+    data object Grades : Route
 
     @Serializable
     data object Documents : Route
@@ -39,7 +37,7 @@ sealed interface Route {
     data object Settings : Route
 }
 
-/** The scheme deep links use: `dhbw://timetable?week=-1`, `dhbw://grades/000000015168000`. */
+/** The scheme deep links use: `dhbw://timetable?week=-1`, `dhbw://grades`. */
 const val DEEP_LINK_SCHEME = "dhbw"
 
 /** Which tab is highlighted for a route. */
@@ -53,7 +51,7 @@ fun Route.toNavItem(): BottomNavItem = when (this) {
 /** Where a tab tap goes. Tapping a tab always lands on its default arguments. */
 fun BottomNavItem.toRoute(): Route = when (this) {
     BottomNavItem.TIMETABLE -> Route.Timetable()
-    BottomNavItem.GRADES -> Route.Grades()
+    BottomNavItem.GRADES -> Route.Grades
     BottomNavItem.DOCUMENTS -> Route.Documents
     BottomNavItem.SETTINGS -> Route.Settings
 }

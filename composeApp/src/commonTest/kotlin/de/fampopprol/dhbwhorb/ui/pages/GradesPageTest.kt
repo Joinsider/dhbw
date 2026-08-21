@@ -24,7 +24,6 @@ import de.fampopprol.dhbwhorb.ui.navigation.navItemTestTag
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeGradeRepository
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeSessionRepository
 import kotlin.test.Test
-import kotlin.test.assertEquals
 
 /**
  * The page renders inside the logged-in graph, so there is no "not logged in" variant of it any
@@ -40,12 +39,8 @@ class GradesPageTest {
             semesters = Outcome.Ok(listOf(wise2526)),
             grades = Outcome.Ok(emptyList())
         )
-        val getSemesters = GetSemesters(repository)
-        val getForSemester = GetGradesForSemester(repository)
         return GradesStore(
-            getSemesters = getSemesters,
-            getGradesForSemester = getForSemester,
-            getAllGrades = GetAllGrades(getSemesters, getForSemester),
+            getAllGrades = GetAllGrades(GetSemesters(repository), GetGradesForSemester(repository)),
             computeGpa = ComputeGpa(),
             sessionRepository = FakeSessionRepository(canAuthenticate = true),
             scope = TestScopes.immediate()
@@ -65,15 +60,4 @@ class GradesPageTest {
         store.close()
     }
 
-    @Test
-    fun gradesPage_preselectsTheSemesterADeepLinkNames() = runComposeUiTest {
-        val store = store()
-
-        // dhbw://grades/000000015168000 lands here as initialSemesterId.
-        setContent { WithTestKoin { GradesPage(initialSemesterId = wise2526.id, store = store) } }
-        waitForIdle()
-
-        assertEquals(wise2526.id, store.state.value.selectedSemester?.id)
-        store.close()
-    }
 }

@@ -31,12 +31,12 @@ class RoutesTest {
     fun tappingATab_landsOnDefaultArguments() {
         // A tab tap is "show me this screen", not "show me the week I deep-linked to last time".
         assertEquals(Route.Timetable(week = null), BottomNavItem.TIMETABLE.toRoute())
-        assertEquals(Route.Grades(semesterId = null), BottomNavItem.GRADES.toRoute())
+        assertEquals(Route.Grades, BottomNavItem.GRADES.toRoute())
     }
 
     @Test
     fun aRoutesArgumentsDoNotChangeWhichTabItBelongsTo() {
         assertEquals(BottomNavItem.TIMETABLE, Route.Timetable(week = -12).toNavItem())
-        assertEquals(BottomNavItem.GRADES, Route.Grades(semesterId = "000000015168000").toNavItem())
+        assertEquals(BottomNavItem.GRADES, Route.Grades.toNavItem())
     }
 }

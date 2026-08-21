@@ -183,8 +183,7 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
     }
     single {
         GradesStore(
-            getSemesters = get(), getGradesForSemester = get(), getAllGrades = get(),
-            computeGpa = get(), sessionRepository = get(), scope = get()
+            getAllGrades = get(), computeGpa = get(), sessionRepository = get(), scope = get()
         )
     }
     single {

@@ -9,19 +9,15 @@ package de.fampopprol.dhbwhorb.presentation.grades
 import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
-import de.fampopprol.dhbwhorb.domain.model.Semester
+import de.fampopprol.dhbwhorb.domain.model.SemesterOrder
 import de.fampopprol.dhbwhorb.domain.repository.SessionRepository
 import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
 import de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades
-import de.fampopprol.dhbwhorb.domain.usecase.GetGradesForSemester
-import de.fampopprol.dhbwhorb.domain.usecase.GetSemesters
 import de.fampopprol.dhbwhorb.presentation.store.BaseStore
 import de.fampopprol.dhbwhorb.presentation.store.EffectScope
 import kotlinx.coroutines.CoroutineScope
 
 class GradesStore(
-    private val getSemesters: GetSemesters,
-    private val getGradesForSemester: GetGradesForSemester,
     private val getAllGrades: GetAllGrades,
     private val computeGpa: ComputeGpa,
     private val sessionRepository: SessionRepository,
@@ -41,62 +37,28 @@ class GradesStore(
         state: GradesState
     ) {
         when (intent) {
-            GradesIntent.Load -> load()
+            GradesIntent.Load -> load(isRefresh = false)
 
             // Re-entering the screen must not refetch what the store already holds.
-            GradesIntent.EnsureLoaded -> if (!state.hasLoaded && state.error == null) load()
-
-            is GradesIntent.SemesterSelected -> {
-                emit(GradesMsg.SemesterSelected(intent.semester))
-                loadGrades(intent.semester, isRefresh = false)
+            GradesIntent.EnsureLoaded -> if (!state.hasLoaded && state.error == null) {
+                load(isRefresh = false)
             }
 
-            GradesIntent.Refresh -> {
-                val semester = state.selectedSemester
-                if (semester == null) {
-                    // Nothing selected yet means the first load never finished; start it over
-                    // rather than refreshing nothing.
-                    load()
-                } else {
-                    loadGrades(semester, isRefresh = true)
-                }
-            }
+            GradesIntent.Refresh -> load(isRefresh = true)
         }
     }
 
-    private suspend fun EffectScope<GradesMsg, GradesEffect>.load() {
-        emit(GradesMsg.LoadingSemesters)
-        if (requireLogin()) return
-
-        when (val result = getSemesters()) {
-            is Outcome.Err -> {
-                emit(GradesMsg.Failed(result.error))
-                emit(GradesMsg.LoadFinished)
-            }
-            is Outcome.Ok -> {
-                emit(GradesMsg.SemestersLoaded(result.value))
-                emit(GradesMsg.SemesterSelected(Semester.All))
-                loadGrades(Semester.All, isRefresh = false)
-            }
-        }
-    }
-
-    private suspend fun EffectScope<GradesMsg, GradesEffect>.loadGrades(
-        semester: Semester,
-        isRefresh: Boolean
-    ) {
+    private suspend fun EffectScope<GradesMsg, GradesEffect>.load(isRefresh: Boolean) {
         emit(GradesMsg.LoadStarted(isRefresh))
-        if (requireLogin()) return
 
-        val forAll = Semester.isAll(semester)
-        val result = if (forAll) {
-            getAllGrades(forceRefresh = isRefresh)
-        } else {
-            getGradesForSemester(semester, forceRefresh = isRefresh)
+        if (!sessionRepository.canAuthenticate()) {
+            emit(GradesMsg.LoginRequired)
+            emit(GradesMsg.LoadFinished)
+            return
         }
 
-        when (result) {
-            is Outcome.Ok -> emit(gradesLoaded(result.value, forAll))
+        when (val result = getAllGrades(forceRefresh = isRefresh)) {
+            is Outcome.Ok -> emit(gradesLoaded(result.value))
             is Outcome.Err -> {
                 emit(GradesMsg.Failed(result.error))
                 if (isRefresh) send(GradesEffect.RefreshFailed(result.error))
@@ -105,29 +67,20 @@ class GradesStore(
         emit(GradesMsg.LoadFinished)
     }
 
-    private fun gradesLoaded(grades: List<GradeEntry>, forAll: Boolean): GradesMsg.GradesLoaded {
-        val ordered = if (forAll) {
-            grades.sortedWith(
-                compareByDescending<GradeEntry> { it.semesterName }.thenBy { it.moduleName }
-            )
-        } else {
-            grades
+    private fun gradesLoaded(grades: List<GradeEntry>): GradesMsg.GradesLoaded {
+        // Sorted here, once, so that both UIs and the section grouping in GradesState agree on
+        // what "in order" means. By semester name it would read WiSe 2024/25, WiSe 2025/26,
+        // SoSe 2025 — alphabetical, and not the order anybody studied them in.
+        val ordered = grades.sortedWith { a, b ->
+            val bySemester = SemesterOrder.oldestFirst.compare(a.semesterName, b.semesterName)
+            if (bySemester != 0) bySemester else a.moduleName.compareTo(b.moduleName)
         }
         val gpa = computeGpa(ordered)
         return GradesMsg.GradesLoaded(
             grades = ordered,
             average = gpa.average,
-            earnedCredits = gpa.earnedCredits,
-            forAllSemesters = forAll
+            earnedCredits = gpa.earnedCredits
         )
-    }
-
-    /** @return true when the caller should stop because there is nothing to authenticate with. */
-    private fun EffectScope<GradesMsg, GradesEffect>.requireLogin(): Boolean {
-        if (sessionRepository.canAuthenticate()) return false
-        emit(GradesMsg.LoginRequired)
-        emit(GradesMsg.LoadFinished)
-        return true
     }
 }
 
@@ -138,18 +91,6 @@ class GradesStore(
  * is structural rather than a promise. Its tests call it directly, with no coroutines involved.
  */
 fun reduceGrades(state: GradesState, msg: GradesMsg): GradesState = when (msg) {
-    GradesMsg.LoadingSemesters -> state.copy(
-        isLoadingSemesters = true,
-        isLoading = true,
-        error = null,
-        requiresLogin = false
-    )
-
-    is GradesMsg.SemestersLoaded -> state.copy(
-        semesters = msg.semesters,
-        isLoadingSemesters = false
-    )
-
     is GradesMsg.LoadStarted -> state.copy(
         isLoading = !msg.isRefresh,
         isRefreshing = msg.isRefresh,
@@ -157,12 +98,9 @@ fun reduceGrades(state: GradesState, msg: GradesMsg): GradesState = when (msg) {
         requiresLogin = false
     )
 
-    is GradesMsg.SemesterSelected -> state.copy(selectedSemester = msg.semester)
-
     is GradesMsg.GradesLoaded -> state.copy(
         grades = msg.grades,
-        overallGpa = if (msg.forAllSemesters) msg.average else null,
-        semesterGpa = if (msg.forAllSemesters) null else msg.average,
+        overallGpa = msg.average,
         totalCreditsEarned = msg.earnedCredits,
         error = null,
         hasLoaded = true
@@ -178,9 +116,5 @@ fun reduceGrades(state: GradesState, msg: GradesMsg): GradesState = when (msg) {
 
     GradesMsg.LoginRequired -> state.copy(requiresLogin = true, error = null)
 
-    GradesMsg.LoadFinished -> state.copy(
-        isLoading = false,
-        isRefreshing = false,
-        isLoadingSemesters = false
-    )
+    GradesMsg.LoadFinished -> state.copy(isLoading = false, isRefreshing = false)
 }

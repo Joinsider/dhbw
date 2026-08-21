@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,7 +24,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import de.fampopprol.dhbwhorb.domain.model.Semester
 import de.fampopprol.dhbwhorb.presentation.grades.GradesIntent
 import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
 import de.fampopprol.dhbwhorb.ui.store.collectState
@@ -35,11 +33,8 @@ import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.grades
 import de.fampopprol.dhbwhorb.resources.login_required_for_grades
 import de.fampopprol.dhbwhorb.resources.retry
-import de.fampopprol.dhbwhorb.ui.grades.components.GpaSummaryCard
-import de.fampopprol.dhbwhorb.ui.grades.components.GradeCard
 import de.fampopprol.dhbwhorb.ui.grades.components.OverallStatsCard
 import de.fampopprol.dhbwhorb.ui.grades.components.SemesterGroupCard
-import de.fampopprol.dhbwhorb.ui.grades.components.SemesterSelector
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
 import de.fampopprol.dhbwhorb.ui.components.GradeCardSkeleton
@@ -52,8 +47,6 @@ import androidx.compose.runtime.remember
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun GradesPage(
-    /** Semester to preselect, from a deep link; null shows the combined view. */
-    initialSemesterId: String? = null,
     onNavigate: (BottomNavItem) -> Unit = {},
     modifier: Modifier = Modifier,
     store: GradesStore = koinInject()
@@ -69,16 +62,6 @@ fun GradesPage(
 
     // The store outlives the composition, so this loads once and costs nothing on a tab switch.
     LaunchedEffect(Unit) { store.dispatch(GradesIntent.EnsureLoaded) }
-
-    // A deep link names a semester; select it once the list it belongs to has arrived.
-    LaunchedEffect(initialSemesterId, uiState.semesters) {
-        if (initialSemesterId == null) return@LaunchedEffect
-        uiState.semesters.firstOrNull { it.id == initialSemesterId }?.let { semester ->
-            if (uiState.selectedSemester?.id != semester.id) {
-                store.dispatch(GradesIntent.SemesterSelected(semester))
-            }
-        }
-    }
 
     Scaffold(
         modifier = if (isMobilePlatform()) {
@@ -110,7 +93,7 @@ fun GradesPage(
                         style = MaterialTheme.typography.bodyLarge
                     )
                 }
-            } else if ((uiState.isLoading || uiState.isLoadingSemesters) && uiState.grades.isEmpty()) {
+            } else if (uiState.isLoading && uiState.grades.isEmpty()) {
                 // Skeleton UI for Grades
                 LazyColumn(
                     modifier = Modifier
@@ -180,51 +163,25 @@ fun GradesPage(
                             )
                         }
 
-                        item {
-                            SemesterSelector(
-                                semesters = uiState.semesters,
-                                selectedSemester = uiState.selectedSemester,
-                                onSemesterSelected = { store.dispatch(GradesIntent.SemesterSelected(it)) },
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
+                        if (uiState.overallGpa != null || uiState.totalCreditsEarned > 0) {
+                            item {
+                                OverallStatsCard(
+                                    overallGpa = uiState.overallGpa,
+                                    totalCredits = uiState.totalCreditsEarned,
+                                    modulesCompleted = uiState.modulesCompleted
+                                )
+                            }
                         }
 
-                        // Show different content based on selection
-                        if (uiState.isShowingAllSemesters) {
-                            // Overview mode - show overall statistics
-                            if (uiState.overallGpa != null || uiState.totalCreditsEarned > 0) {
-                                item {
-                                    OverallStatsCard(
-                                        overallGpa = uiState.overallGpa,
-                                        totalCredits = uiState.totalCreditsEarned,
-                                        modulesCompleted = uiState.modulesCompleted
-                                    )
-                                }
-                            }
-
-                            // Group grades by semester and show collapsible cards
-                            val gradesBySemester = uiState.grades.groupBy { it.semesterName }
-                            gradesBySemester.forEach { (semesterName, semesterGrades) ->
-                                item {
-                                    val semesterGpa = computeGpa(semesterGrades).average
-                                    SemesterGroupCard(
-                                        semesterName = semesterName,
-                                        grades = semesterGrades.sortedBy { it.moduleName },
-                                        semesterGpa = semesterGpa
-                                    )
-                                }
-                            }
-                        } else {
-                            // Single semester mode - show as before
-                            val semesterGpa = uiState.semesterGpa
-                            if (semesterGpa != null) {
-                                item {
-                                    GpaSummaryCard(gpa = semesterGpa)
-                                }
-                            }
-
-                            items(uiState.grades) { grade ->
-                                GradeCard(grade = grade)
+                        // One card per semester, oldest first — the order the store sorted them
+                        // into, which is why this must not group or sort again.
+                        uiState.sections.forEach { section ->
+                            item {
+                                SemesterGroupCard(
+                                    semesterName = section.semesterName,
+                                    grades = section.grades,
+                                    semesterGpa = computeGpa(section.grades).average
+                                )
                             }
                         }
 
