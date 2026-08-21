@@ -101,8 +101,9 @@ platform-specific constructor parameter, which is what Android needs for its Con
 ### Dependency Injection (Koin)
 One composition root: `initKoin()` in `:shared`, called from `DualisApplication.onCreate()`,
 `desktopMain/main.kt` and `MainViewController()`. Modules: `coreModule`, `dataModule` +
-`dataPlatformModule()`, `servicesModule` + `servicesPlatformModule()`; `presentationModule` is
-passed in by the caller so `Shared.framework` stays free of the Compose runtime.
+`dataPlatformModule()`, `servicesModule` + `servicesPlatformModule()`, `presentationModule`.
+`extraModules` is what a platform adds on top — the Glance refresher on Android, the widget writer
+on iOS.
 
 **On iOS, Koin has to start before the first composition.** `App()` resolves its dependencies
 during composition while a `LaunchedEffect` only runs afterwards — starting Koin there crashes the
@@ -115,6 +116,28 @@ resolve themselves; `Application.onCreate()` always runs first, so the graph is 
 `WithTestKoin { … }` for Compose tests, `testKoin()` for plain ones — both in `testutil/TestKoin.kt`.
 `KoinGraphTest` verifies every module and builds the real graph, so a missing binding fails in CI
 rather than when a user opens the screen.
+
+### Navigation
+`androidx.navigation:navigation-compose` in the JetBrains Multiplatform variant
+(`org.jetbrains.androidx.navigation`). Navigation 3 was still alpha and Android-only when P5 ran,
+so the plan's rule picked this one.
+
+Destinations are typed (`ui/navigation/Routes.kt`), so a route carries its arguments:
+`Route.Grades(semesterId)` either has one or does not compile. `DhbwNavHost` is the logged-in
+graph; the root composable only chooses between *restoring*, *login* and *the graph*.
+
+`NavController.switchTab()` is the single way to change tab — `popUpTo(startDestination)` plus
+`launchSingleTop` keeps the stack from growing one entry per tap, and `saveState`/`restoreState`
+keep each tab's scroll position. Back from a tab returns to the timetable; back from the timetable
+leaves the app.
+
+Deep links: `dhbw://timetable?week=-1`, `dhbw://grades/{semesterId}`, `dhbw://documents`,
+`dhbw://settings`. The Android manifest declares the scheme; the graph resolves the path, so a
+cold start opens the right screen instead of the timetable and then jumping.
+
+Navigation tests drive the controller through `runOnUiThread`, not by tapping the bar:
+`NavBackStackEntry` moves its own `LifecycleRegistry` and that refuses to run off the main thread,
+which a click dispatched from the Compose test's thread trips.
 
 ### MVI stores
 One store per feature in `:presentation`: `AppStore`, `AuthStore`, `TimetableStore`, `GradesStore`,
@@ -143,10 +166,11 @@ coroutines can both read as false.
 
 **A screen re-enters the composition on every tab switch**, so pages dispatch `EnsureLoaded`, not
 `Load`. `Load` is the retry action and always fetches. Getting this wrong is invisible in tests and
-shows up only as network traffic when walking the tabs.
+shows up only as network traffic when walking the tabs — check it with
+`adb logcat -d --pid=… | grep -c "Executing GET request"`, which must read 0.
 
-Stores are Koin singles on `appCoroutineScope`, so switching tabs costs nothing. A navigation-scoped
-lifetime arrives with P5, which brings the navigation graph that would define such a scope.
+Stores are Koin singles on `appCoroutineScope`, so switching tabs costs nothing and a store keeps
+what it has already loaded for the whole session.
 
 Compose sees a store through two helpers in `composeApp/.../ui/store/StoreCompose.kt`:
 `store.collectState()` and `store.HandleEffects { … }`. Nothing else about a store is Compose-aware.
@@ -205,7 +229,7 @@ Files must include SPDX headers:
 
 | File | Purpose |
 |---|---|
-| `composeApp/src/commonMain/kotlin/…/App.kt` | Root composable; resolves from Koin; defines `AppScreen` enum |
+| `composeApp/src/commonMain/kotlin/…/App.kt` | Root composable: theme, and restoring / login / graph |
 | `shared/src/commonMain/kotlin/…/shared/Koin.kt` | `initKoin()` — the single composition root |
 | `…/data/dualis/remote/services/AuthenticationService.kt` | Login + redirect chain + re-auth logic |
 | `…/data/dualis/remote/DualisApiClient.kt` | Raw HTTP GET; no parsing |

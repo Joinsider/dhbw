@@ -65,10 +65,9 @@ import kotlinx.coroutines.launch
 )
 @Composable
 fun TimetablePage(
-    onNavigateToGrades: () -> Unit = {},
-    onNavigateToDocuments: () -> Unit = {},
-    onNavigateToSettings: () -> Unit = {},
-    isLoggedIn: Boolean = true,
+    /** Week offset from a deep link; null opens the current week. */
+    initialWeek: Int? = null,
+    onNavigate: (BottomNavItem) -> Unit = {},
     modifier: Modifier = Modifier,
     store: TimetableStore = koinInject()
 ) {
@@ -77,7 +76,10 @@ fun TimetablePage(
 
     // The pager fakes an infinite range around the current week.
     val initialPage = 1000
-    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 2001 })
+    val pagerState = rememberPagerState(
+        initialPage = initialPage + (initialWeek ?: 0),
+        pageCount = { 2001 }
+    )
 
     // The pager owns the scroll position; the store owns everything that follows from it.
     LaunchedEffect(pagerState) {
@@ -91,19 +93,10 @@ fun TimetablePage(
     Scaffold(
         modifier = if (isMobilePlatform()) modifier.statusBarsPadding() else modifier,
         bottomBar = {
-            if (isLoggedIn) {
-                BottomNavigationBar(
-                    currentItem = BottomNavItem.TIMETABLE,
-                    onItemSelected = { item ->
-                        when (item) {
-                            BottomNavItem.TIMETABLE -> { /* Already here */ }
-                            BottomNavItem.GRADES -> onNavigateToGrades()
-                            BottomNavItem.DOCUMENTS -> onNavigateToDocuments()
-                            BottomNavItem.SETTINGS -> onNavigateToSettings()
-                        }
-                    }
-                )
-            }
+            BottomNavigationBar(
+                currentItem = BottomNavItem.TIMETABLE,
+                onItemSelected = onNavigate
+            )
         }
     ) { paddingValues ->
         Column(

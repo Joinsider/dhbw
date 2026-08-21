@@ -49,7 +49,6 @@ class AppStoreTest {
         val state = store.state.value
         assertTrue(state.isLoggedIn)
         assertFalse(state.isRestoring)
-        assertEquals(AppScreen.TIMETABLE, state.screen)
         assertEquals("Max Mustermann", state.userFullName)
         store.close()
     }
@@ -63,7 +62,6 @@ class AppStoreTest {
         val state = store.state.value
         assertFalse(state.isLoggedIn)
         assertFalse(state.isRestoring)
-        assertEquals(AppScreen.LOGIN, state.screen)
         store.close()
     }
 
@@ -80,15 +78,6 @@ class AppStoreTest {
     }
 
     @Test
-    fun aSessionFoundWhileOnAnotherScreen_doesNotYankTheUserAway() {
-        val onGrades = reduceApp(AppState(), AppMsg.Navigated(AppScreen.GRADES))
-
-        val restored = reduceApp(onGrades, AppMsg.SessionRestored("Max Mustermann", isDemo = false))
-
-        assertEquals(AppScreen.GRADES, restored.screen)
-    }
-
-    @Test
     fun loggingOut_returnsToTheLoginAndForgetsTheUser() = runTest {
         val auth = FakeAuthRepository()
         val store = store(FakeSessionRepository(session = Session("Max Mustermann")), auth)
@@ -99,7 +88,6 @@ class AppStoreTest {
         val state = store.state.value
         assertEquals(1, auth.logoutCount)
         assertFalse(state.isLoggedIn)
-        assertEquals(AppScreen.LOGIN, state.screen)
         assertNull(state.userFullName)
         assertFalse(state.isRestoring, "Logging out is not a restore")
         store.close()
@@ -123,13 +111,12 @@ class AppStoreTest {
     }
 
     @Test
-    fun navigating_onlyChangesTheScreen() {
-        val loggedIn = reduceApp(AppState(), AppMsg.SessionRestored("Max", isDemo = false))
+    fun theStoreDoesNotTrackAScreen() {
+        // Since P5 the navigation graph's back stack is the only answer to "where am I". A second
+        // one here could disagree with it, which is why AppState no longer has a screen at all.
+        val restored = reduceApp(AppState(), AppMsg.SessionRestored("Max", isDemo = false))
 
-        val navigated = reduceApp(loggedIn, AppMsg.Navigated(AppScreen.DOCUMENTS))
-
-        assertEquals(AppScreen.DOCUMENTS, navigated.screen)
-        assertTrue(navigated.isLoggedIn)
-        assertEquals("Max", navigated.userFullName)
+        assertTrue(restored.isLoggedIn)
+        assertEquals("Max", restored.userFullName)
     }
 }

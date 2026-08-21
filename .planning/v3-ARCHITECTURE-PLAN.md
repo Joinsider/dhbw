@@ -436,7 +436,7 @@ Reload aus, weil der Store nicht mehr im `remember` der Page hängt.
 gestartet und durchgeklickt: Stundenplan, Noten, Dokumente, Einstellungen inklusive Theme-Wechsel
 über einen Neustart hinweg.
 
-### P5 — Compose-UI auf Stores + echte Navigation (Android/Desktop) · Größe M
+### P5 — Compose-UI auf Stores + echte Navigation (Android/Desktop) · Größe M · **abgeschlossen**
 
 Weil iOS ab P7 nativ navigiert, betrifft die Navigations-Library nur noch Android und Desktop —
 das senkt das Risiko der Bibliothekswahl deutlich.
@@ -457,6 +457,43 @@ das senkt das Risiko der Bibliothekswahl deutlich.
 
 **Fertig wenn:** Zurück-Geste auf Android verhält sich erwartbar; Wechsel Timetable → Grades → Timetable
 löst keinen Netzwerk-Request aus; Deep Link öffnet den richtigen Screen bei kaltem Start.
+
+**Was tatsächlich passiert ist** (`phase/p5-navigation`):
+
+* **Bibliotheksentscheidung** (offener Punkt 1 aus §3): Navigation 3 steht bei `1.2.0-alpha07` und
+  hat keine Multiplatform-Variante — die Regel des Plans greift also und es wurde
+  `org.jetbrains.androidx.navigation:navigation-compose` **2.9.2** (stabil). Voyager wurde nicht
+  gebraucht, die androidx-Variante läuft auf Desktop.
+* Typisierte Routen in `ui/navigation/Routes.kt`. `AppScreen` ist damit ganz entfallen — auch aus
+  `AppStore`: seit es einen echten Back-Stack gibt, ist der die **einzige** Antwort auf „wo bin
+  ich", und ein zweiter Zustand daneben könnte ihm widersprechen. `AppState` hält nur noch die
+  eine Entscheidung, die keine Navigation ist: Login-Screen oder App.
+* Die Seiten haben ihren `isLoggedIn`-Parameter verloren. Vier Screens haben je die Hälfte
+  derselben Frage beantwortet (Navigationsleiste verstecken, Logout-Knopf verstecken); jetzt
+  rendert eine Seite überhaupt nur noch innerhalb des eingeloggten Graphen.
+* `SettingsPage` bekam zehn Parameter durchgereicht, fünf davon Callbacks, die nur eine
+  Preference zurückgeschrieben haben. Sie liest jetzt ihren eigenen `SettingsStore`.
+* `useMaterialYou` wirkt jetzt auch auf Desktop: ohne die Option gibt es das statische Schema der
+  App statt des Seed-Schemas. Die Einstellung war dort sichtbar und wirkungslos.
+* Der Restore-Zustand ist sichtbar geworden: solange die gespeicherte Sitzung nicht geprüft ist,
+  zeigt die Wurzel einen Ladeindikator statt zu raten.
+
+**Ein Fallstrick fürs Testen:** `NavBackStackEntry` bewegt seine eigene `LifecycleRegistry`, und
+die weigert sich außerhalb des Main-Threads. Ein Klick aus dem Compose-Test-Thread löst genau das
+aus („State must be at least 'CREATED'" bzw. „must be called on the main thread"). Die
+Navigationstests steuern den Controller deshalb über `runOnUiThread`.
+
+**Gate bei Abschluss:** `testDebugUnitTest` 288 Tests, `desktopTest` 386 Tests, 0 Fehler,
+0 übersprungen. Framework Compose-frei (0), iOS-Build und -Start grün. **Alle drei
+Abnahmekriterien auf dem Gerät nachgemessen:** Zurück aus einem Tab führt zum Stundenplan, Zurück
+vom Stundenplan verlässt die App; ein kompletter Tab-Durchlauf macht **0 Requests**;
+`dhbw://grades` und `dhbw://timetable?week=-2` öffnen bei kaltem Start den richtigen Screen — die
+Woche „03 - 07 Aug" statt „17 - 21 Aug".
+
+**Bewusst nicht gemacht:** die Stores in den Navigations-Scope zu verschieben. Sie bleiben
+Applikations-Singles. Ein Halter je Navigationseintrag würde bei jedem Tab-Wechsel neu laden —
+genau das, was P4 abgestellt hat — und `saveState`/`restoreState` müssten das dann wieder
+zurückholen, ohne dass der Nutzer etwas davon hätte. `EnsureLoaded` bleibt deshalb bestehen.
 
 ### P6 — Room-Migrationen statt Datenverlust · Größe M
 
@@ -555,12 +592,19 @@ P5 und P6 sind unabhängig voneinander und parallelisierbar. P7 setzt P4 **und**
 **Offene Punkte, die vor der jeweiligen Phase zu klären sind**
 
 1. *P5:* Ist Navigation 3 zum Umsetzungszeitpunkt stabil? Falls nein → `navigation-compose` Multiplatform.
+   → **Beantwortet in P5:** Navigation 3 stand bei `1.2.0-alpha07` und ohne Multiplatform-Variante,
+   also `org.jetbrains.androidx.navigation:navigation-compose` 2.9.2.
 2. *P6:* Soll der iOS-DB-Umzug bestehende Daten kopieren oder einmalig neu synchronisieren?
-   Kopieren ist sauberer, Neu-Sync ist deutlich weniger Code.
+   → **Vom Nutzer entschieden (2026-08-21): neu synchronisieren.** Die Datenbank ist ein
+   Dualis-Cache, kein Primärspeicher — es geht nichts verloren, was nicht wiederbeschaffbar wäre.
+   Konkret heißt das für P6: die alte Datei am alten Ort wird gelöscht, die neue in der App-Group
+   leer angelegt, und der nächste Abruf füllt sie. Kein Kopierpfad, keine Zwei-Orte-Logik. Der
+   Nutzer sieht beim ersten Start nach dem Update einen kurzen Ladevorgang statt sofortiger Daten.
 3. *P7:* Bleibt macOS bei Compose-Desktop, oder bekommt es später dasselbe SwiftUI-Interface?
    Der Plan geht von „bleibt Compose-Desktop" aus.
 4. *P8:* App-Group und Keychain-Access-Group erfordern Anpassungen im Apple-Developer-Portal
-   (Entitlements, Provisioning) — muss vor P8 bereitstehen.
+   (Entitlements, Provisioning). **Die App-Group wird schon in P6 gebraucht**, nicht erst in P8 —
+   ohne sie lässt sich der DB-Umzug zwar bauen, aber nicht verifizieren.
 
 **Was der Umbau nicht löst:** Dualis bleibt HTML-Scraping ohne stabilen Vertrag. P0 macht Brüche
 sichtbar statt sie zu verhindern. Ein Portal-Redesign bricht die App weiterhin — die Fixtures

@@ -14,11 +14,11 @@ import de.fampopprol.dhbwhorb.presentation.store.EffectScope
 import kotlinx.coroutines.CoroutineScope
 
 /**
- * Who is logged in, and which screen the root shows.
+ * Who is logged in.
  *
- * Replaces the `when (currentScreen)` plus half a dozen `remember { mutableStateOf(...) }` in the
- * root composable, where the session was read once during composition and again in a
- * `LaunchedEffect` that could disagree with it.
+ * Replaces the half a dozen `remember { mutableStateOf(...) }` in the root composable, where the
+ * session was read once during composition and again in a `LaunchedEffect` that could disagree
+ * with it. Navigation moved to the graph's back stack in P5.
  */
 class AppStore(
     private val sessionRepository: SessionRepository,
@@ -29,10 +29,9 @@ class AppStore(
     scope = scope
 ) {
 
-    override fun dedupeKey(intent: AppIntent): Any? = when (intent) {
+    override fun dedupeKey(intent: AppIntent): Any = when (intent) {
         AppIntent.LogoutRequested -> "logout"
-        AppIntent.Started -> "start"
-        else -> null
+        AppIntent.Started, AppIntent.LoggedIn -> "session"
     }
 
     override fun reduce(state: AppState, msg: AppMsg): AppState = reduceApp(state, msg)
@@ -47,8 +46,6 @@ class AppStore(
                     emit(AppMsg.SessionRestored(session.userFullName, session.isDemo))
                 }
             }
-
-            is AppIntent.Navigated -> emit(AppMsg.Navigated(intent.screen))
 
             AppIntent.LogoutRequested -> {
                 val result = logout()
@@ -72,21 +69,15 @@ fun reduceApp(state: AppState, msg: AppMsg): AppState = when (msg) {
         isLoggedIn = true,
         isRestoring = false,
         userFullName = msg.userFullName,
-        isDemo = msg.isDemo,
-        // Only move off the login screen; a session found while the user is already on
-        // Grades must not throw them back to the timetable.
-        screen = if (state.screen == AppScreen.LOGIN) AppScreen.TIMETABLE else state.screen
+        isDemo = msg.isDemo
     )
 
     AppMsg.NoSession -> state.copy(
         isLoggedIn = false,
         isRestoring = false,
         userFullName = null,
-        isDemo = false,
-        screen = AppScreen.LOGIN
+        isDemo = false
     )
-
-    is AppMsg.Navigated -> state.copy(screen = msg.screen)
 
     AppMsg.LoggedOut -> AppState(isRestoring = false)
 }

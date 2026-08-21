@@ -9,159 +9,115 @@ package de.fampopprol.dhbwhorb.ui.pages
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
+import de.fampopprol.dhbwhorb.presentation.TestScopes
+import de.fampopprol.dhbwhorb.presentation.settings.SettingsIntent
+import de.fampopprol.dhbwhorb.presentation.settings.SettingsStore
+import de.fampopprol.dhbwhorb.testutil.WithTestKoin
+import de.fampopprol.dhbwhorb.testutil.fakes.FakePreferencesRepository
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.navItemTestTag
-import de.fampopprol.dhbwhorb.testutil.WithTestKoin
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+/**
+ * The page renders inside the logged-in graph, so there is no "not logged in" variant of it any
+ * more — the root shows the login screen instead. `AppRoutingTest` covers that.
+ */
 @OptIn(ExperimentalTestApi::class)
 class SettingsPageTest {
 
-    @Test
-    fun settingsPage_displaysBottomNavigation_whenLoggedIn() = runComposeUiTest {
-        setContent {
-            WithTestKoin {
-                SettingsPage(
-                    isLoggedIn = true
-                )
-            }
-        }
+    private fun store(preferences: FakePreferencesRepository = FakePreferencesRepository()) =
+        SettingsStore(preferences, TestScopes.immediate())
 
+    @Test
+    fun settingsPage_displaysBottomNavigation() = runComposeUiTest {
+        val store = store()
+        setContent { WithTestKoin { SettingsPage(store = store) } }
         waitForIdle()
 
-        // Page title should be visible
         onNodeWithTag("settingsPageTitle").assertIsDisplayed()
-
-        // Bottom navigation items should be visible when logged in
         // Tags instead of labels: nav captions are localised string resources.
         onNodeWithTag(navItemTestTag(BottomNavItem.TIMETABLE)).assertIsDisplayed()
         onNodeWithTag(navItemTestTag(BottomNavItem.GRADES)).assertIsDisplayed()
-    }
-
-    @Test
-    fun settingsPage_hidesBottomNavigation_whenNotLoggedIn() = runComposeUiTest {
-        setContent {
-            WithTestKoin {
-                SettingsPage(
-                    isLoggedIn = false
-                )
-            }
-        }
-
-        waitForIdle()
-
-        // Page title should still be visible
-        onNodeWithTag("settingsPageTitle").assertIsDisplayed()
-
-        // Bottom navigation items should not be visible when not logged in
-        onNodeWithTag(navItemTestTag(BottomNavItem.TIMETABLE)).assertDoesNotExist()
-        onNodeWithTag(navItemTestTag(BottomNavItem.GRADES)).assertDoesNotExist()
+        store.close()
     }
 
     @Test
     fun settingsPage_displaysThemeButtons() = runComposeUiTest {
-        setContent {
-            WithTestKoin {
-                SettingsPage(
-                    currentThemeMode = ThemeMode.SYSTEM
-                )
-            }
-        }
-
+        val store = store()
+        setContent { WithTestKoin { SettingsPage(store = store) } }
         waitForIdle()
 
-        // All three theme buttons should be visible
         onNodeWithTag("themeLightButton").assertIsDisplayed()
         onNodeWithTag("themeDarkButton").assertIsDisplayed()
         onNodeWithTag("themeSystemButton").assertIsDisplayed()
+        store.close()
     }
 
     @Test
-    fun settingsPage_themeSelection_callsCallback() = runComposeUiTest {
-        var selectedTheme: ThemeMode? = null
-
-        setContent {
-            WithTestKoin {
-                SettingsPage(
-                    currentThemeMode = ThemeMode.SYSTEM,
-                    onThemeModeChange = { selectedTheme = it }
-                )
-            }
-        }
-
+    fun settingsPage_themeSelection_reachesTheStore() = runComposeUiTest {
+        val preferences = FakePreferencesRepository()
+        val store = store(preferences)
+        setContent { WithTestKoin { SettingsPage(store = store) } }
         waitForIdle()
 
-        // Click on Light theme button
+        // The button no longer reports to a callback the caller has to wire up — it dispatches,
+        // and the state is the assertion.
         onNodeWithTag("themeLightButton").performClick()
         waitForIdle()
-        assertEquals(ThemeMode.LIGHT, selectedTheme)
+        assertEquals(ThemeMode.LIGHT, store.state.value.themeMode)
 
-        // Click on Dark theme button
         onNodeWithTag("themeDarkButton").performClick()
         waitForIdle()
-        assertEquals(ThemeMode.DARK, selectedTheme)
+        assertEquals(ThemeMode.DARK, store.state.value.themeMode)
 
-        // Click on System theme button
         onNodeWithTag("themeSystemButton").performClick()
         waitForIdle()
-        assertEquals(ThemeMode.SYSTEM, selectedTheme)
+        assertEquals(ThemeMode.SYSTEM, store.state.value.themeMode)
+
+        // And it was written through, not only held.
+        assertEquals(ThemeMode.SYSTEM, preferences.getThemeMode())
+        store.close()
     }
 
     @Test
-    fun settingsPage_displaysLogoutButton_whenLoggedIn() = runComposeUiTest {
-        setContent {
-            WithTestKoin {
-                SettingsPage(
-                    isLoggedIn = true
-                )
-            }
-        }
+    fun settingsPage_showsTheStoredTheme() = runComposeUiTest {
+        val store = store(FakePreferencesRepository(themeMode = ThemeMode.DARK))
+        store.dispatch(SettingsIntent.Load)
 
+        setContent { WithTestKoin { SettingsPage(store = store) } }
         waitForIdle()
 
-        // Logout button should be visible when logged in
+        assertEquals(ThemeMode.DARK, store.state.value.themeMode)
+        store.close()
+    }
+
+    @Test
+    fun settingsPage_displaysLogoutButton() = runComposeUiTest {
+        val store = store()
+        setContent { WithTestKoin { SettingsPage(store = store) } }
+        waitForIdle()
+
         onNodeWithTag("logoutButton").assertIsDisplayed()
-    }
-
-    @Test
-    fun settingsPage_hidesLogoutButton_whenNotLoggedIn() = runComposeUiTest {
-        setContent {
-            WithTestKoin {
-                SettingsPage(
-                    isLoggedIn = false
-                )
-            }
-        }
-
-        waitForIdle()
-
-        // Logout button should not be visible when not logged in
-        onNodeWithTag("logoutButton").assertDoesNotExist()
+        store.close()
     }
 
     @Test
     fun settingsPage_logoutButton_callsCallback() = runComposeUiTest {
         var logoutCalled = false
+        val store = store()
 
         setContent {
-            WithTestKoin {
-                SettingsPage(
-                    isLoggedIn = true,
-                    onLogout = { logoutCalled = true }
-                )
-            }
+            WithTestKoin { SettingsPage(onLogout = { logoutCalled = true }, store = store) }
         }
-
         waitForIdle()
 
-        // Click logout button
         onNodeWithTag("logoutButton").performClick()
         waitForIdle()
         assertEquals(true, logoutCalled)
+        store.close()
     }
 }

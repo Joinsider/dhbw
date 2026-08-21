@@ -35,6 +35,20 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!--
+                Deep links: dhbw://timetable?week=-1, dhbw://grades/000000015168000,
+                dhbw://documents, dhbw://settings. The navigation graph resolves the path, so a
+                cold start opens the right screen rather than the timetable and then jumping.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="dhbw" />
+            </intent-filter>
         </activity>
 
         <provider

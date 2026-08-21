@@ -25,6 +25,7 @@ import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.navItemTestTag
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 /**
  * UI tests for [TimetablePage].
@@ -75,7 +76,7 @@ class TimetablePageTest {
     fun timetablePage_displaysTheLecturesInTheStore() = runComposeUiTest {
         val store = storeShowing(listOf(lecture("Sample Lecture", 8)))
 
-        setContent { WithTestKoin { TimetablePage(isLoggedIn = true, store = store) } }
+        setContent { WithTestKoin { TimetablePage(store = store) } }
         waitForIdle()
 
         onNodeWithText("Sample Lecture").assertIsDisplayed()
@@ -92,7 +93,7 @@ class TimetablePageTest {
             )
         )
 
-        setContent { WithTestKoin { TimetablePage(isLoggedIn = true, store = store) } }
+        setContent { WithTestKoin { TimetablePage(store = store) } }
         waitForIdle()
 
         onNodeWithText("Sample Lecture").assertIsDisplayed()
@@ -102,28 +103,27 @@ class TimetablePageTest {
     }
 
     @Test
-    fun timetablePage_displaysBottomNavigation_whenLoggedIn() = runComposeUiTest {
+    fun timetablePage_opensTheWeekADeepLinkNames() = runComposeUiTest {
         val store = storeShowing(emptyList())
 
-        setContent { WithTestKoin { TimetablePage(isLoggedIn = true, store = store) } }
+        // dhbw://timetable?week=-1 lands here as initialWeek.
+        setContent { WithTestKoin { TimetablePage(initialWeek = -1, store = store) } }
+        waitForIdle()
+
+        assertEquals(-1, store.state.value.currentWeekOffset)
+        store.close()
+    }
+
+    @Test
+    fun timetablePage_displaysBottomNavigation() = runComposeUiTest {
+        val store = storeShowing(emptyList())
+
+        setContent { WithTestKoin { TimetablePage(store = store) } }
         waitForIdle()
 
         onNodeWithTag(navItemTestTag(BottomNavItem.TIMETABLE)).assertIsDisplayed()
         onNodeWithTag(navItemTestTag(BottomNavItem.GRADES)).assertIsDisplayed()
         onNodeWithTag(navItemTestTag(BottomNavItem.SETTINGS)).assertIsDisplayed()
-        store.close()
-    }
-
-    @Test
-    fun timetablePage_hidesBottomNavigation_whenNotLoggedIn() = runComposeUiTest {
-        val store = storeShowing(emptyList())
-
-        setContent { WithTestKoin { TimetablePage(isLoggedIn = false, store = store) } }
-        waitForIdle()
-
-        onNodeWithTag(navItemTestTag(BottomNavItem.TIMETABLE)).assertDoesNotExist()
-        onNodeWithTag(navItemTestTag(BottomNavItem.GRADES)).assertDoesNotExist()
-        onNodeWithTag(navItemTestTag(BottomNavItem.SETTINGS)).assertDoesNotExist()
         store.close()
     }
 }
