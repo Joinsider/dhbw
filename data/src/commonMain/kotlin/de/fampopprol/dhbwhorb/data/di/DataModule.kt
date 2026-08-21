@@ -71,7 +71,7 @@ val dataModule = module {
     // Cookie storage lives in the client, so authentication and every subsequent request must
     // share this instance — otherwise the session cookie is lost after login.
     single {
-        HttpClient(HttpClientFactory.createEngine()) {
+        HttpClientFactory.create {
             expectSuccess = false
             install(HttpCookies)
             install(HttpTimeout) {
