@@ -6,12 +6,12 @@
 
 package de.fampopprol.dhbwhorb.data.storage.preferences
 
-import de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorageInterface
+import de.fampopprol.dhbwhorb.data.storage.settings.SettingsStorage
 
 /**
- * Manages notification preferences using SecureStorage
+ * Manages notification preferences. These are settings, not secrets — see [SettingsStorage].
  */
-class NotificationPreferences(private val storage: SecureStorageInterface) {
+class NotificationPreferences(private val storage: SettingsStorage) {
 
     companion object {
         private const val NOTIFICATIONS_ENABLED_KEY = "notifications_enabled"

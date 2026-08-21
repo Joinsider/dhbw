@@ -105,6 +105,29 @@ that it let one caller through and rejected the rest.
 Used for `getDatabaseBuilder()`, `NotificationDispatcher`, `getPlatform(): PlatformType`, and the
 two DI entry points `dataPlatformModule()` / `servicesPlatformModule()`.
 
+### Two storages, on purpose
+`SecureStorageInterface` holds **secrets** (credentials, session, cookie). `PlatformSettings` holds
+**settings** (theme, colour, notification toggles), through the `SettingsStorage` wrapper that also
+performs the one-time move of pre-split installations out of the secure store.
+
+They used to be one interface, and the price was paid only on desktop: macOS checks its Keychain
+access list per *entry*, so reading the colour scheme opened a permission dialog — eight of them on
+a cold start. Android and iOS never prompt, which is why it survived so long. **Whether a value is
+a secret is a property of the value, not of the platform**; put settings in `PlatformSettings`.
+
+Backends: Android `SharedPreferences` (`dualis_settings`), desktop `java.util.prefs`, Apple
+`NSUserDefaults`. Logging out clears credentials and no longer takes the user's theme with it.
+
+### One keyring entry on desktop
+`DesktopSecureStorage` keeps everything in a single keyring entry (`DualisApp` / `credentials`)
+and holds it in memory for the run: one dialog per start instead of one per value, and a repeated
+read cannot ask twice. Pre-bundle installations are migrated on first access via the `_stored_keys`
+index; the old entries are deleted only after the bundle is verifiably written, because failing
+halfway would log the user out for good.
+
+`KoinGraphTest.graph_actuallyBuilds` constructs the real secure storage, so running the desktop
+suite touches — and migrates — the developer's own keyring.
+
 Secure storage is **not** expect/actual any more: `SecureStorageInterface` has one implementation
 per platform (`AndroidSecureStorage`, `DesktopSecureStorage`, `IosSecureStorage`,
 `MacosSecureStorage`), bound in `dataPlatformModule()`. An expect class cannot take a

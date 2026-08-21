@@ -1,7 +1,7 @@
 # Handoff — v3-Umbau
 
-> Stand: 2026-08-21 · Phasen P-1 bis P6 abgeschlossen und auf `v3` gemerged, dazu der
-> Desktop-TLS-Fix (`fix/desktop-dualis-truststore`)
+> Stand: 2026-08-21 · Phasen P-1 bis P6 abgeschlossen und auf `v3` gemerged, dazu zwei Fixes
+> außerhalb der Phasenkette: Desktop-TLS und die Trennung von Geheimnissen und Einstellungen
 > Arbeitsverzeichnis sauber · nichts gepusht
 > Nächste Phase: **P7 — Natives SwiftUI-Interface**
 
@@ -91,6 +91,10 @@ until [ "$($ADB shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do slee
   nicht an Dualis heran. `DesktopTrustStore.kt` bündelt die zwei Roots; Details in
   `data/src/desktopMain/resources/certs/README.md`. Wenn Desktop wieder „PKIX path building
   failed" sagt, hat Dualis vermutlich die Kette gewechselt — dort nachsehen, nicht im Netzwerkcode.
+* **`:composeApp:desktopTest` fasst den echten Schlüsselbund an.** `KoinGraphTest.graph_actuallyBuilds`
+  baut absichtlich den realen Graphen, also auch das echte `DesktopSecureStorage` — und das
+  migriert beim ersten Zugriff die alten Einträge in das gebündelte. Kein Datenverlust, aber es
+  erklärt, warum ein Testlauf den Schlüsselbund verändert.
 * Auf dem **Android-Emulator ist eine echte Sitzung gespeichert.** Die App startet dort eingeloggt
   und mit echten Daten — praktisch zum Durchklicken, aber Vorsicht: das sind reale Dualis-Requests.
 
@@ -107,7 +111,7 @@ ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew \
   :composeApp:testDebugUnitTest :composeApp:desktopTest --rerun-tasks
 ```
 
-**Sollwerte nach P6:** `testDebugUnitTest` **288**, `desktopTest` **395**, 0 Fehler,
+**Sollwerte nach P6:** `testDebugUnitTest` **293**, `desktopTest` **400**, 0 Fehler,
 **0 übersprungen**. Es gibt seit P4 keinen einzigen `@Ignore` mehr im Projekt — wenn einer
 auftaucht, gehören ein Grund und eine Phase dazu.
 
@@ -257,6 +261,7 @@ Package-Namen. Eine Datei zwischen Modulen zu verschieben erfordert deshalb kein
 | Repository-Fakes | `composeApp/src/commonTest/…/testutil/fakes/FakeRepositories.kt` |
 | Store-Test-Helfer | `composeApp/src/commonTest/…/presentation/StoreTestSupport.kt` |
 | Graph-Prüfung | `composeApp/src/desktopTest/…/di/KoinGraphTest.kt` — bei neuen Bindungen mitpflegen |
+| Geheimnisse vs. Einstellungen | `data/…/storage/settings/` — `PlatformSettings`, `SettingsStorage` |
 | Desktop-Truststore | `data/…/net/DesktopTrustStore.kt` + `data/src/desktopMain/resources/certs/` |
 | Schema-Version, Migrationen | `data/…/database/AppDatabaseMigrations.kt` — `APP_DATABASE_VERSION` ist die einzige Quelle |
 | Öffnungspolitik der DB | `data/…/database/DatabaseFactory.kt` — `createRoomDatabase()`; die vier Actuals wählen nur den Pfad |

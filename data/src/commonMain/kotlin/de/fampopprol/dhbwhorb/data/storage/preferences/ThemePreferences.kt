@@ -6,12 +6,12 @@
 
 package de.fampopprol.dhbwhorb.data.storage.preferences
 
-import de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorageInterface
+import de.fampopprol.dhbwhorb.data.storage.settings.SettingsStorage
 
 /**
- * Manages theme preferences using SecureStorage
+ * Manages theme preferences. These are settings, not secrets — see [SettingsStorage].
  */
-class ThemePreferences(private val storage: SecureStorageInterface) {
+class ThemePreferences(private val storage: SettingsStorage) {
 
     companion object {
         private const val THEME_MODE_KEY = "theme_mode_preference"

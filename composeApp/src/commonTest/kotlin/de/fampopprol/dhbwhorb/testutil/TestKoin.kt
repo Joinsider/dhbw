@@ -29,6 +29,8 @@ import de.fampopprol.dhbwhorb.data.storage.database.AppDatabase
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferences
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemePreferences
+import de.fampopprol.dhbwhorb.data.storage.settings.PlatformSettings
+import de.fampopprol.dhbwhorb.data.storage.settings.SettingsStorage
 import de.fampopprol.dhbwhorb.domain.repository.AuthRepository
 import de.fampopprol.dhbwhorb.domain.repository.DocumentRepository
 import de.fampopprol.dhbwhorb.domain.repository.GradeRepository
@@ -131,6 +133,8 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
         )
     }
 
+    single<PlatformSettings> { TestPlatformSettings() }
+    single { SettingsStorage(settings = get(), legacy = get()) }
     single { ThemePreferences(storage = get()) }
     single { NotificationPreferences(storage = get()) }
     single { NotificationPreferencesInteractor(preferences = get()) }
