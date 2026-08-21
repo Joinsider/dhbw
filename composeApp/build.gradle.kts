@@ -86,6 +86,7 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.androidx.navigation.compose)
             implementation(libs.kotlinx.datetime)
             implementation(libs.material.icons.extended)
             implementation(libs.napier)
@@ -198,6 +199,7 @@ android {
                 // These tests work on iOS and JVM but require instrumented tests on Android
                 it.exclude(
                     "**/AppTest.class",
+                    "**/AppRoutingTest.class",
                     "**/LoginFormTest.class",
                     "**/ui/**/*Test.class",
                     // Renders Compose UI, needs an Android runtime (Build.FINGERPRINT); covered by desktopTest.

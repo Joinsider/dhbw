@@ -8,6 +8,7 @@ package de.fampopprol.dhbwhorb.testutil
 
 import androidx.compose.runtime.Composable
 import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
+import de.fampopprol.dhbwhorb.data.dualis.remote.models.AuthData
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisGradeService
@@ -83,7 +84,19 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
         }
     }
 
-    single { SessionManager(secureStorage = get()) }
+    single {
+        SessionManager(secureStorage = get()).apply {
+            // `authenticated` has to reach the SessionManager the graph actually uses: everything
+            // above :data asks SessionRepository, which reads this one. Setting it only on the
+            // mock authentication service left the rest of the graph logged out.
+            if (authenticated) {
+                storeCredentials("test@hb.dhbw-stuttgart.de", "password")
+                storeAuthData(
+                    AuthData(sessionId = "test-session", authToken = "test-token", userFullName = "Test User")
+                )
+            }
+        }
+    }
     single<AuthenticationService> { MockAuthenticationService(authenticated) }
     single<CredentialsStorageProvider> { MockCredentialsProvider() }
     single { DualisApiClient(client = get()) }

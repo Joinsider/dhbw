@@ -7,27 +7,16 @@
 package de.fampopprol.dhbwhorb.presentation.app
 
 /**
- * The screens the root can show.
+ * Who is logged in.
  *
- * Still an enum: P5 replaces it with typed routes once a navigation library is in. It lives in
- * `:presentation` rather than in the Compose UI so the store can own the routing decision.
- */
-enum class AppScreen {
-    LOGIN,
-    TIMETABLE,
-    GRADES,
-    DOCUMENTS,
-    SETTINGS
-}
-
-/**
- * Session status and root routing.
+ * No longer holds a screen: since P5 the navigation graph's back stack is the only answer to
+ * "where am I", and having a second one here meant the two could disagree. What is left is the
+ * one routing decision that is not navigation — login screen or app.
  *
  * [isRestoring] is what the root shows before the stored session has been checked. Without it the
- * first frame guesses — and guessed wrong for anyone whose session had expired.
+ * first frame guesses, and it guessed wrong for anyone whose session had expired.
  */
 data class AppState(
-    val screen: AppScreen = AppScreen.LOGIN,
     val isLoggedIn: Boolean = false,
     val isRestoring: Boolean = true,
     val userFullName: String? = null,
@@ -37,7 +26,6 @@ data class AppState(
 sealed interface AppIntent {
     /** Check for a usable session. Dispatched once at start. */
     data object Started : AppIntent
-    data class Navigated(val screen: AppScreen) : AppIntent
     data object LoggedIn : AppIntent
     data object LogoutRequested : AppIntent
 }
@@ -45,7 +33,6 @@ sealed interface AppIntent {
 sealed interface AppMsg {
     data class SessionRestored(val userFullName: String?, val isDemo: Boolean) : AppMsg
     data object NoSession : AppMsg
-    data class Navigated(val screen: AppScreen) : AppMsg
     data object LoggedOut : AppMsg
 }
 

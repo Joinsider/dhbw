@@ -52,10 +52,9 @@ import androidx.compose.runtime.remember
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun GradesPage(
-    onNavigateToTimetable: () -> Unit = {},
-    onNavigateToDocuments: () -> Unit = {},
-    onNavigateToSettings: () -> Unit = {},
-    isLoggedIn: Boolean = true,
+    /** Semester to preselect, from a deep link; null shows the combined view. */
+    initialSemesterId: String? = null,
+    onNavigate: (BottomNavItem) -> Unit = {},
     modifier: Modifier = Modifier,
     store: GradesStore = koinInject()
 ) {
@@ -68,10 +67,17 @@ fun GradesPage(
     // Local val: smart casts do not cross module boundaries since the state moved to :presentation.
     val error = uiState.error
 
-    // The store outlives the composition, so the first load runs once; a login that arrives later
-    // retries the load that stopped at "login required".
-    LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn) store.dispatch(GradesIntent.EnsureLoaded)
+    // The store outlives the composition, so this loads once and costs nothing on a tab switch.
+    LaunchedEffect(Unit) { store.dispatch(GradesIntent.EnsureLoaded) }
+
+    // A deep link names a semester; select it once the list it belongs to has arrived.
+    LaunchedEffect(initialSemesterId, uiState.semesters) {
+        if (initialSemesterId == null) return@LaunchedEffect
+        uiState.semesters.firstOrNull { it.id == initialSemesterId }?.let { semester ->
+            if (uiState.selectedSemester?.id != semester.id) {
+                store.dispatch(GradesIntent.SemesterSelected(semester))
+            }
+        }
     }
 
     Scaffold(
@@ -81,20 +87,10 @@ fun GradesPage(
             modifier
         },
         bottomBar = {
-            if (isLoggedIn) {
-                BottomNavigationBar(
-                    currentItem = BottomNavItem.GRADES,
-                    onItemSelected = { item ->
-                        when (item) {
-                            BottomNavItem.TIMETABLE -> onNavigateToTimetable()
-                            BottomNavItem.GRADES -> { /* Already here */
-                            }
-                            BottomNavItem.DOCUMENTS -> onNavigateToDocuments()
-                            BottomNavItem.SETTINGS -> onNavigateToSettings()
-                        }
-                    }
-                )
-            }
+            BottomNavigationBar(
+                currentItem = BottomNavItem.GRADES,
+                onItemSelected = onNavigate
+            )
         }
     ) { paddingValues ->
         Box(
@@ -103,7 +99,7 @@ fun GradesPage(
                 .padding(paddingValues)
                 .padding(top = 20.dp)
         ) {
-            if (uiState.requiresLogin && !isLoggedIn) {
+            if (uiState.requiresLogin) {
                 // Friendly message instead of an error when not logged in
                 Box(
                     modifier = Modifier.fillMaxSize(),

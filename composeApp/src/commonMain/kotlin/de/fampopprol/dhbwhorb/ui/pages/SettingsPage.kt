@@ -22,29 +22,26 @@ import de.fampopprol.dhbwhorb.util.isMobilePlatform
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import de.fampopprol.dhbwhorb.presentation.settings.SettingsIntent
+import de.fampopprol.dhbwhorb.presentation.settings.SettingsStore
+import de.fampopprol.dhbwhorb.ui.store.collectState
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 @Preview
 fun SettingsPage(
-    onNavigateToTimetable: () -> Unit = {},
-    onNavigateToGrades: () -> Unit = {},
-    onNavigateToDocuments: () -> Unit = {},
+    onNavigate: (BottomNavItem) -> Unit = {},
     onLogout: () -> Unit = {},
-    isLoggedIn: Boolean = true,
-    currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
-    onThemeModeChange: (ThemeMode) -> Unit = {},
-    materialYouEnabled: Boolean = true,
-    onMaterialYouChange: (Boolean) -> Unit = {},
-    currentSeedColor: Color = Color(0xFF6650a4),
-    onSeedColorChange: (Color) -> Unit = {},
-    notificationsEnabled: Boolean = false,
-    onNotificationsEnabledChange: (Boolean) -> Unit = {},
-    lectureAlertsEnabled: Boolean = false,
-    onLectureAlertsEnabledChange: (Boolean) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    store: SettingsStore = koinInject()
 ) {
+    // Ten parameters used to be threaded down from the root composable, five of them callbacks
+    // that only wrote a preference back. The screen reads its own state now.
+    val settings by store.collectState()
 
     Scaffold(
         modifier = if (isMobilePlatform()) {
@@ -54,19 +51,10 @@ fun SettingsPage(
             modifier
         },
         bottomBar = {
-            if (isLoggedIn) {
-                BottomNavigationBar(
-                    currentItem = BottomNavItem.SETTINGS,
-                    onItemSelected = { item ->
-                        when (item) {
-                            BottomNavItem.TIMETABLE -> onNavigateToTimetable()
-                            BottomNavItem.GRADES -> onNavigateToGrades()
-                            BottomNavItem.DOCUMENTS -> onNavigateToDocuments()
-                            BottomNavItem.SETTINGS -> { /* Already here */ }
-                        }
-                    }
-                )
-            }
+            BottomNavigationBar(
+                currentItem = BottomNavItem.SETTINGS,
+                onItemSelected = onNavigate
+            )
         }
     ) { paddingValues ->
         Box(
@@ -93,23 +81,29 @@ fun SettingsPage(
 
                 // Design Selection Card
                 DesignSelectionCard(
-                    currentThemeMode = currentThemeMode,
-                    onThemeModeChange = onThemeModeChange,
-                    materialYouEnabled = materialYouEnabled,
-                    onMaterialYouChange = onMaterialYouChange,
-                    currentSeedColor = currentSeedColor,
-                    onSeedColorChange = onSeedColorChange
+                    currentThemeMode = settings.themeMode,
+                    onThemeModeChange = { store.dispatch(SettingsIntent.ThemeModeChanged(it)) },
+                    materialYouEnabled = settings.materialYouEnabled,
+                    onMaterialYouChange = { store.dispatch(SettingsIntent.MaterialYouChanged(it)) },
+                    currentSeedColor = Color(settings.seedColor.toInt()),
+                    onSeedColorChange = {
+                        store.dispatch(SettingsIntent.SeedColorChanged(it.toArgb().toLong()))
+                    }
                 )
 
                 // Notification Settings Card
                 NotificationSettingsCard(
-                    notificationsEnabled = notificationsEnabled,
-                    onNotificationsEnabledChange = onNotificationsEnabledChange,
-                    lectureAlertsEnabled = lectureAlertsEnabled,
-                    onLectureAlertsEnabledChange = onLectureAlertsEnabledChange
+                    notificationsEnabled = settings.notificationsEnabled,
+                    onNotificationsEnabledChange = {
+                        store.dispatch(SettingsIntent.NotificationsChanged(it))
+                    },
+                    lectureAlertsEnabled = settings.lectureAlertsEnabled,
+                    onLectureAlertsEnabledChange = {
+                        store.dispatch(SettingsIntent.LectureAlertsChanged(it))
+                    }
                 )
 
-                HelpSelectionCard(onLogout = onLogout, showLogout = isLoggedIn)
+                HelpSelectionCard(onLogout = onLogout, showLogout = true)
             }
         }
     }

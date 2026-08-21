@@ -1,7 +1,7 @@
 # Handoff — v3-Umbau
 
-> Stand: 2026-08-21 · Branch `phase/p4-stores` · Phasen P-1, P0, P1, P2, P3, P4 abgeschlossen
-> Nächste Phase: **P5 — Navigation** (oder P6, beide sind unabhängig)
+> Stand: 2026-08-21 · Branch `phase/p5-navigation` · Phasen P-1 … P5 abgeschlossen
+> Nächste Phase: **P6 — Room-Migrationen** (danach P7, das P6 voraussetzt)
 
 ---
 
@@ -29,10 +29,10 @@ Navigation-Library und echten Room-Migrationen.
 * Der Nutzer schreibt Deutsch. Code, Kommentare, Commit-Messages und Testnamen sind Englisch.
 
 ```bash
-git checkout -b phase/p5-navigation v3
+git checkout -b phase/p6-migrations v3
 # … arbeiten, Gate grün bekommen …
 git commit
-git checkout v3 && git merge --no-ff phase/p5-navigation -m "merge: P5 … into v3"
+git checkout v3 && git merge --no-ff phase/p6-migrations -m "merge: P6 … into v3"
 ```
 
 ---
@@ -73,9 +73,13 @@ Eine Phase ist erst fertig, wenn beides grün ist:
 ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew :composeApp:testDebugUnitTest :composeApp:desktopTest --rerun-tasks
 ```
 
-**Sollwerte nach P4:** `testDebugUnitTest` 289 Tests, `desktopTest` 380 Tests, 0 Fehler,
+**Sollwerte nach P5:** `testDebugUnitTest` 288 Tests, `desktopTest` 386 Tests, 0 Fehler,
 **0 übersprungen**. Es gibt keinen `@Ignore` mehr im Projekt — wenn einer auftaucht, gehört ein
 Grund und eine Phase dazu.
+
+Neue Compose-UI-Tests im Wurzelpaket brauchen einen Eintrag in der Ausschlussliste in
+`composeApp/build.gradle.kts` (`**/…Test.class`), sonst laufen sie auch als Android-Unit-Test und
+scheitern dort — der bestehende Filter deckt nur `**/ui/**` ab.
 
 Zahlen zählen (Gradle meldet sie nicht immer):
 
@@ -169,6 +173,7 @@ Wichtige Einstiegspunkte:
 * `presentation/…/presentation/store/` — `Store`, `BaseStore`, `EffectScope`
 * `presentation/…/presentation/<feature>/` — je ein Contract (State/Intent/Msg/Effect) und Store
 * `composeApp/…/ui/store/StoreCompose.kt` — `collectState()` und `HandleEffects { }`
+* `composeApp/…/ui/navigation/Routes.kt` + `DhbwNavHost.kt` — typisierte Routen, Graph, Deep Links
 * `data/…/data/repository/` — die sechs Repository-Implementierungen
 * `data/…/dualis/remote/services/DualisPageGateway.kt` — jeder authentifizierte Seitenabruf
 * `data/…/dualis/remote/session/ReAuthenticator.kt` — Single-Flight-Re-Login
@@ -185,11 +190,9 @@ Alle sind im Code kommentiert und im Plan vermerkt — nichts davon ist vergesse
 
 | Punkt | Ort | Fällig |
 |---|---|---|
-| Die Seiten holen ihren Store noch selbst per `koinInject()` und die Navigation ist ein `when` über `AppScreen`. Typisierte Routen, echter Back-Stack und Deep Links stehen aus. | `App.kt`, alle Seiten | **P5** |
-| `EnsureLoaded` vs. `Load` ist ein Behelf: er existiert, weil ein Screen bei jedem Tab-Wechsel die Composition neu betritt. Mit einem Navigations-Scope entscheidet die Store-Lebensdauer darüber, und der Intent entfällt. | `GradesStore`, `DocumentsStore` | P5 |
-| Store-Lebensdauer ist Applikation, nicht Navigations-Scope. Bewusst so: ohne Navigationsgraph gibt es keinen solchen Scope, und ein Halter pro Screen würde genau das Nachladen zurückbringen, das P4 entfernt hat. | `PresentationModule.kt` | P5 |
-| `useMaterialYou` ist auf Desktop wirkungslos: `Theme.desktop.kt` ignoriert das Flag und erzeugt immer ein Seed-Schema. | `Theme.desktop.kt` | **P5** |
 | `fallbackToDestructiveMigration(dropAllTables = true)` in allen vier `DatabaseFactory.*.kt` — jedes Schema-Update löscht Nutzerdaten. Dazu: iOS-DB liegt in `NSDocumentDirectory`, wo die Widget-Extension nicht lesen kann. | `data/src/*/…/DatabaseFactory.*.kt` | **P6** |
+| Die Stores sind Applikations-Singles, nicht im Navigations-Scope. Bewusst so: ein Halter je Navigationseintrag würde bei jedem Tab-Wechsel neu laden — genau das, was P4 abgestellt hat. Deshalb bleibt auch `EnsureLoaded` bestehen. | `PresentationModule.kt`, `GradesStore`, `DocumentsStore` | — |
+| Wenn die Sitzung abläuft, während man eingeloggt im Graphen steht, zeigt die Seite „bitte anmelden" statt zur Login-Wurzel zurückzukehren. Ehrlich, aber nicht schön. | `GradesPage`, `DocumentsPage` | P9 |
 | Die Fakes für die sechs Repositories liegen in `composeApp/commonTest/testutil/fakes/`, nicht in einem `:core:testing`. Bewusst so, solange alle Tests in `:composeApp` liegen — beides zusammen umziehen. | `testutil/fakes/` | P9 |
 | Tests liegen noch alle in `:composeApp`, nicht in ihren Modulen. Die Gates bleiben dadurch unverändert; der Umzug braucht pro Modul eigene Test-Abhängigkeiten. | `composeApp/src/commonTest` | P9 |
 | `NotificationDispatcher` hält seinen Android-Context statisch, weil `expect class` keinen plattformspezifischen Konstruktorparameter erlaubt. Wie bei `SecureStorage` in P2 ist die Lösung ein Interface mit je einer Implementierung pro Plattform. | `NotificationDispatcher.android.kt` | P8/P9 |
@@ -202,32 +205,26 @@ vor dem Umbau, keine Regression, und in P8 eingeplant.
 
 ---
 
-## 7. Nächster Schritt: P5 (oder P6)
+## 7. Nächster Schritt: P6
 
-P5 und P6 sind laut §3 des Plans unabhängig voneinander. P5 ist die naheliegende Fortsetzung, weil
-P4 die Seiten schon zu `State → UI` plus `dispatch(Intent)` gemacht hat; es fehlt nur noch die
-Navigation selbst.
-
-**Vor P5 zu klären** (steht als offener Punkt 1 in §3): ist Navigation 3 inzwischen stabil? Wenn
-nein → `androidx.navigation:navigation-compose` in der Multiplatform-Variante. Voyager ist die
-Rückfallebene, falls die androidx-Variante auf Desktop klemmt.
+**Vor P6 zu beantworten** (offener Punkt 2 in §3): Soll der iOS-DB-Umzug die vorhandenen Daten
+kopieren oder einmalig neu synchronisieren? Kopieren ist sauberer, Neu-Sync ist deutlich weniger
+Code — und da die Datenbank ohnehin nur ein Cache von Dualis ist, spricht einiges für Neu-Sync.
+Das ist eine Nutzerentscheidung, keine technische.
 
 Reihenfolge, die ich wählen würde:
 
-1. Bibliothek entscheiden und einbinden, typisierte Routen statt `AppScreen`-Enum.
-2. Den Navigations-Scope aufsetzen und die Stores dorthin verschieben. **Erst dann** `EnsureLoaded`
-   entfernen — vorher lädt jeder Tab-Wechsel neu, und das ist genau das, was P4 abgestellt hat.
-   Der Beweis dafür ist nicht ein Test, sondern `adb logcat | grep "Executing GET request"` beim
-   Durchklicken: das Ergebnis muss 0 sein.
-3. Back-Stack und Deep Links (`dhbw://timetable?week=…`, `dhbw://grades/{semesterId}`).
-4. `Theme.desktop.kt` — `useMaterialYou` wird dort ignoriert.
+1. `fallbackToDestructiveMigration` raus, echte `Migration`-Objekte rein. Die Schemas liegen
+   exportiert in `data/schemas/` — Schema 4 ist der Ausgangspunkt.
+2. Migrationstests: von Schema 4 auf 5 mit echten Daten, und die Kette von 1 an, falls es
+   Installationen mit älteren Schemas gibt.
+3. Die iOS-Datenbank aus `NSDocumentDirectory` in die App-Group verschieben, damit die
+   Widget-Extension sie lesen kann. **Achtung:** die App-Group muss dafür im Apple-Developer-Portal
+   eingerichtet sein (offener Punkt 4 in §3, eigentlich für P8 notiert — für P6 wird sie schon
+   gebraucht).
 
-Was P4 dafür schon bereitgestellt hat: `AppStore` hält Session-Status und Route, `AppScreen` liegt
-in `:presentation`, und jede Seite ist bereits eine Funktion ihres Store-States. Die Navigation
-tauscht also das `when` in `App.kt` gegen einen Graphen, sonst nichts.
-
-**P6** braucht keine Vorarbeit aus P5 und ist unabhängig planbar. Offener Punkt 2 in §3 gehört
-davor beantwortet: iOS-DB-Umzug kopieren oder einmalig neu synchronisieren?
+P6 ist Voraussetzung für P7 (natives SwiftUI), weil das Widget dort auf dieselbe Datenbank
+zugreift.
 
 ## 8. Zur Parallelisierung
 

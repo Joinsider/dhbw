@@ -48,10 +48,7 @@ import de.fampopprol.dhbwhorb.util.saveFileWithDialog
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DocumentsPage(
-    onNavigateToTimetable: () -> Unit,
-    onNavigateToGrades: () -> Unit,
-    onNavigateToSettings: () -> Unit,
-    isLoggedIn: Boolean,
+    onNavigate: (BottomNavItem) -> Unit = {},
     modifier: Modifier = Modifier,
     store: DocumentsStore = koinInject()
 ) {
@@ -68,11 +65,8 @@ fun DocumentsPage(
         }
     }
 
-    // The store outlives the composition, so the first load runs once; a login that arrives later
-    // retries the load that stopped at "login required".
-    LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn) store.dispatch(DocumentsIntent.EnsureLoaded)
-    }
+    // The store outlives the composition, so this loads once and costs nothing on a tab switch.
+    LaunchedEffect(Unit) { store.dispatch(DocumentsIntent.EnsureLoaded) }
 
     Scaffold(
         modifier = if (isMobilePlatform()) {
@@ -81,21 +75,10 @@ fun DocumentsPage(
             modifier
         },
         bottomBar = {
-            if (isLoggedIn) {
-                BottomNavigationBar(
-                    currentItem = BottomNavItem.DOCUMENTS,
-                    onItemSelected = { item ->
-                        when (item) {
-                            BottomNavItem.TIMETABLE -> onNavigateToTimetable()
-                            BottomNavItem.GRADES -> onNavigateToGrades()
-                            BottomNavItem.DOCUMENTS -> { /* Already here */
-                            }
-
-                            BottomNavItem.SETTINGS -> onNavigateToSettings()
-                        }
-                    }
-                )
-            }
+            BottomNavigationBar(
+                currentItem = BottomNavItem.DOCUMENTS,
+                onItemSelected = onNavigate
+            )
         }
     ) { paddingValues ->
         Box(
@@ -103,7 +86,7 @@ fun DocumentsPage(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (uiState.requiresLogin && !isLoggedIn) {
+            if (uiState.requiresLogin) {
                 // Show login required message
                 Box(
                     modifier = Modifier.fillMaxSize(),
