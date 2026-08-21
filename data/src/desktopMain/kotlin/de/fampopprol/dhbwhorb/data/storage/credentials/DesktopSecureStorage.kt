@@ -7,7 +7,7 @@ import io.github.aakira.napier.Napier
 import java.util.prefs.Preferences
 
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
-actual class SecureStorage {
+class DesktopSecureStorage : SecureStorageInterface {
     private val keyring: Keyring? = try {
         val kr = Keyring.create()
         Napier.d("Using native keyring backend: ${kr::class.java.name}", tag = "SecureStorage")
@@ -18,13 +18,15 @@ actual class SecureStorage {
     }
     
     private val prefs: Preferences by lazy {
-        Preferences.userNodeForPackage(SecureStorage::class.java)
+        // userNodeForPackage keys on the package, not the class, and this class sits in the same
+        // package as the former SecureStorage — existing users keep their stored values.
+        Preferences.userNodeForPackage(DesktopSecureStorage::class.java)
     }
     
     private val serviceName = "DualisApp"
     private val keysKey = "_stored_keys"
 
-    actual fun setString(key: String, value: String) {
+    override fun setString(key: String, value: String) {
         if (keyring != null) {
             try {
                 // Windows Credential Manager doesn't accept empty strings
@@ -45,7 +47,7 @@ actual class SecureStorage {
         }
     }
 
-    actual fun getString(key: String, defaultValue: String): String {
+    override fun getString(key: String, defaultValue: String): String {
         return if (keyring != null) {
             try {
                 keyring.getPassword(serviceName, key) ?: defaultValue
@@ -62,7 +64,7 @@ actual class SecureStorage {
         }
     }
 
-    actual fun remove(key: String) {
+    override fun remove(key: String) {
         if (keyring != null) {
             try {
                 keyring.deletePassword(serviceName, key)
@@ -76,7 +78,7 @@ actual class SecureStorage {
         }
     }
 
-    actual fun clear() {
+    override fun clear() {
         if (keyring != null) {
             val keys = getTrackedKeys()
             keys.forEach { key ->

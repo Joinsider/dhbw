@@ -49,13 +49,10 @@ import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
 import de.fampopprol.dhbwhorb.ui.schedule.viewModels.WeekLabelData
 import de.fampopprol.dhbwhorb.ui.schedule.views.WeeklyLecturesView
 import de.fampopprol.dhbwhorb.util.isMobilePlatform
+import org.koin.compose.koinInject
 import kotlinx.datetime.Month
 import org.jetbrains.compose.resources.InternalResourceApi
 import org.jetbrains.compose.resources.stringResource
-import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
-import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
-import de.fampopprol.dhbwhorb.data.storage.database.AppDatabase
-import io.ktor.client.HttpClient
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
@@ -64,16 +61,12 @@ import kotlinx.coroutines.launch
 )
 @Composable
 fun TimetablePage(
-    viewModel: TimetableViewModel,
-    database: AppDatabase? = null,
-    authenticationService: AuthenticationService? = null,
-    sharedHttpClient: HttpClient? = null,
-    sessionManager: SessionManager? = null,
     onNavigateToGrades: () -> Unit = {},
     onNavigateToDocuments: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     isLoggedIn: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: TimetableViewModel = koinInject()
 ) {
     val uiState = viewModel.uiState
     var selectedLecture by remember { mutableStateOf<LectureModel?>(null) }

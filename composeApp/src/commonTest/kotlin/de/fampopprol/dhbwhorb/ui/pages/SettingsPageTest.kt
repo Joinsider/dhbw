@@ -15,6 +15,7 @@ import androidx.compose.ui.test.runComposeUiTest
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.navItemTestTag
+import de.fampopprol.dhbwhorb.testutil.WithTestKoin
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -24,9 +25,11 @@ class SettingsPageTest {
     @Test
     fun settingsPage_displaysBottomNavigation_whenLoggedIn() = runComposeUiTest {
         setContent {
-            SettingsPage(
-                isLoggedIn = true
-            )
+            WithTestKoin {
+                SettingsPage(
+                    isLoggedIn = true
+                )
+            }
         }
 
         waitForIdle()
@@ -43,9 +46,11 @@ class SettingsPageTest {
     @Test
     fun settingsPage_hidesBottomNavigation_whenNotLoggedIn() = runComposeUiTest {
         setContent {
-            SettingsPage(
-                isLoggedIn = false
-            )
+            WithTestKoin {
+                SettingsPage(
+                    isLoggedIn = false
+                )
+            }
         }
 
         waitForIdle()
@@ -61,9 +66,11 @@ class SettingsPageTest {
     @Test
     fun settingsPage_displaysThemeButtons() = runComposeUiTest {
         setContent {
-            SettingsPage(
-                currentThemeMode = ThemeMode.SYSTEM
-            )
+            WithTestKoin {
+                SettingsPage(
+                    currentThemeMode = ThemeMode.SYSTEM
+                )
+            }
         }
 
         waitForIdle()
@@ -79,10 +86,12 @@ class SettingsPageTest {
         var selectedTheme: ThemeMode? = null
 
         setContent {
-            SettingsPage(
-                currentThemeMode = ThemeMode.SYSTEM,
-                onThemeModeChange = { selectedTheme = it }
-            )
+            WithTestKoin {
+                SettingsPage(
+                    currentThemeMode = ThemeMode.SYSTEM,
+                    onThemeModeChange = { selectedTheme = it }
+                )
+            }
         }
 
         waitForIdle()
@@ -106,9 +115,11 @@ class SettingsPageTest {
     @Test
     fun settingsPage_displaysLogoutButton_whenLoggedIn() = runComposeUiTest {
         setContent {
-            SettingsPage(
-                isLoggedIn = true
-            )
+            WithTestKoin {
+                SettingsPage(
+                    isLoggedIn = true
+                )
+            }
         }
 
         waitForIdle()
@@ -120,9 +131,11 @@ class SettingsPageTest {
     @Test
     fun settingsPage_hidesLogoutButton_whenNotLoggedIn() = runComposeUiTest {
         setContent {
-            SettingsPage(
-                isLoggedIn = false
-            )
+            WithTestKoin {
+                SettingsPage(
+                    isLoggedIn = false
+                )
+            }
         }
 
         waitForIdle()
@@ -136,10 +149,12 @@ class SettingsPageTest {
         var logoutCalled = false
 
         setContent {
-            SettingsPage(
-                isLoggedIn = true,
-                onLogout = { logoutCalled = true }
-            )
+            WithTestKoin {
+                SettingsPage(
+                    isLoggedIn = true,
+                    onLogout = { logoutCalled = true }
+                )
+            }
         }
 
         waitForIdle()

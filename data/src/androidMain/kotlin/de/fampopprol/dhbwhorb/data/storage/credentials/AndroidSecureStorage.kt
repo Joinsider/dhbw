@@ -8,10 +8,9 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import androidx.core.content.edit
 
-@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
-actual class SecureStorage {
+class AndroidSecureStorage(private val context: Context) : SecureStorageInterface {
     private val sharedPreferences: SharedPreferences by lazy {
-        val appContext = getApplicationContext()
+        val appContext = context.applicationContext
         val masterKey = MasterKey.Builder(appContext)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
@@ -44,21 +43,21 @@ actual class SecureStorage {
 
     private val keysKey = "_stored_keys"
 
-    actual fun setString(key: String, value: String) {
+    override fun setString(key: String, value: String) {
         sharedPreferences.edit { putString(key, value) }
         addKeyToTracking(key)
     }
 
-    actual fun getString(key: String, defaultValue: String): String {
+    override fun getString(key: String, defaultValue: String): String {
         return sharedPreferences.getString(key, defaultValue) ?: defaultValue
     }
 
-    actual fun remove(key: String) {
+    override fun remove(key: String) {
         sharedPreferences.edit { remove(key) }
         removeKeyFromTracking(key)
     }
 
-    actual fun clear() {
+    override fun clear() {
         val keys = getTrackedKeys()
         sharedPreferences.edit {
             keys.forEach { key ->
@@ -85,7 +84,4 @@ actual class SecureStorage {
         sharedPreferences.edit { putString(keysKey, keys.joinToString(",")) }
     }
 
-    private fun getApplicationContext(): Context {
-        return de.fampopprol.dhbwhorb.util.AndroidAppContext.requireContext()
-    }
 }

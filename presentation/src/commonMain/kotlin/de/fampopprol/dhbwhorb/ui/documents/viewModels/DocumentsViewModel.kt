@@ -9,12 +9,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class DocumentsViewModel(
-    private val dualisDocumentService: DualisDocumentService?,
+    private val dualisDocumentService: DualisDocumentService,
     private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
     companion object {
@@ -72,45 +71,6 @@ class DocumentsViewModel(
         loadDocuments()
     }
 
-    /**
-     * Retries a database or network operation for up to 5 seconds.
-     * This ensures that if services are still initializing in the background,
-     * the ViewModel will eventually get the data once they are ready.
-     * 
-     * Retry Strategy:
-     * - Max attempts: 5
-     * - Delay between attempts: 1 second
-     * - Total duration: ~5 seconds
-     */
-    private suspend fun <T> getDataWithRetry(
-        actionName: String,
-        block: suspend () -> T?
-    ): T? {
-        val maxAttempts = 5
-        val delayMillis = 1000L
-        var lastException: Exception? = null
-
-        for (attempt in 1..maxAttempts) {
-            try {
-                // Check if services are ready (not null)
-                // This is specifically for Task 1.2 and 2.3 requirements
-                val result = block()
-                if (result != null) return result
-                
-                Napier.d("Attempt $attempt for $actionName returned null (service might not be ready), retrying...", tag = TAG)
-            } catch (e: Exception) {
-                lastException = e
-                Napier.w("Attempt $attempt for $actionName failed: ${e.message}", tag = TAG)
-            }
-
-            if (attempt < maxAttempts) {
-                delay(delayMillis)
-            }
-        }
-
-        Napier.e("All $maxAttempts attempts failed for $actionName. Last error: ${lastException?.message}", tag = TAG)
-        return null
-    }
 
     /**
      * Cleanup resources and cancel coroutine scope.
@@ -127,15 +87,8 @@ class DocumentsViewModel(
 
         coroutineScope.launch {
             try {
-                // Use retry logic to wait for dualisDocumentService
-                val service = getDataWithRetry("Documents Service Availability") {
-                    dualisDocumentService
-                }
-
-                if (service == null) {
-                    _isLoading.value = false
-                    _error.value = "Documents service not available. Please try again later."
-                } else if (!service.hasCredentialsOrSession()) {
+                val service = dualisDocumentService
+                if (!service.hasCredentialsOrSession()) {
                     Napier.d("Skipping loadDocuments: not authenticated and no stored credentials", tag = TAG)
                     _requiresLogin.value = true
                     _isLoading.value = false
@@ -168,15 +121,8 @@ class DocumentsViewModel(
 
         coroutineScope.launch {
             try {
-                // Use retry logic to wait for dualisDocumentService
-                val service = getDataWithRetry("Documents Service Availability (Refresh)") {
-                    dualisDocumentService
-                }
-
-                if (service == null) {
-                    _isRefreshing.value = false
-                    _error.value = "Service not ready"
-                } else if (!service.hasCredentialsOrSession()) {
+                val service = dualisDocumentService
+                if (!service.hasCredentialsOrSession()) {
                     Napier.d("Skipping refreshDocuments: login required", tag = TAG)
                     _requiresLogin.value = true
                     _isRefreshing.value = false
@@ -212,16 +158,7 @@ class DocumentsViewModel(
             val documentKey = getDocumentKey(document)
             _isDownloading.update { it + (documentKey to true) }
             try {
-                // Use retry logic to wait for dualisDocumentService
-                val service = getDataWithRetry("Documents Service Availability (Download)") {
-                    dualisDocumentService
-                }
-
-                if (service == null) {
-                    _error.value = "Service not ready"
-                    return@launch
-                }
-
+                val service = dualisDocumentService
                 Napier.d("Downloading document: ${document.title}", tag = TAG)
                 val result = service.downloadDocument(document.downloadUrl)
 
@@ -247,16 +184,7 @@ class DocumentsViewModel(
             val documentKey = getDocumentKey(document)
             _isDownloading.update { it + (documentKey to true) }
             try {
-                // Use retry logic to wait for dualisDocumentService
-                val service = getDataWithRetry("Documents Service Availability (Save)") {
-                    dualisDocumentService
-                }
-
-                if (service == null) {
-                    _error.value = "Service not ready"
-                    return@launch
-                }
-
+                val service = dualisDocumentService
                 Napier.d("Saving document to files: ${document.title}", tag = TAG)
                 val result = service.downloadDocument(document.downloadUrl)
 

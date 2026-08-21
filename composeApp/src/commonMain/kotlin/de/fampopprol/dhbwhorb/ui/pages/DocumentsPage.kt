@@ -36,6 +36,7 @@ import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsViewModel
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
 import de.fampopprol.dhbwhorb.util.isMobilePlatform
+import org.koin.compose.koinInject
 import de.fampopprol.dhbwhorb.ui.components.DocumentCardSkeleton
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService
 import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
@@ -48,47 +49,20 @@ import kotlinx.coroutines.flow.MutableStateFlow
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DocumentsPage(
-    viewModel: DocumentsViewModel? = null,
-    authenticationService: de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService? = null,
-    sharedHttpClient: io.ktor.client.HttpClient? = null,
-    sessionManager: de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager? = null,
     onNavigateToTimetable: () -> Unit,
     onNavigateToGrades: () -> Unit,
     onNavigateToSettings: () -> Unit,
     isLoggedIn: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: DocumentsViewModel = koinInject()
 ) {
-    // Truly lazy initialization of ViewModel if not provided
-    val composableScope = rememberCoroutineScope()
-    val actualViewModel = viewModel ?: remember(authenticationService, sharedHttpClient, sessionManager) {
-        if (authenticationService != null && sharedHttpClient != null && sessionManager != null) {
-            val documentService = DualisDocumentService(
-                apiClient = DualisApiClient(sharedHttpClient),
-                sessionManager = sessionManager,
-                authenticationService = authenticationService
-            )
-            DocumentsViewModel(
-                coroutineScope = composableScope,
-                dualisDocumentService = documentService
-            )
-        } else {
-            null
-        }
-    }
 
-    // Call cleanup on disposal
-    DisposableEffect(actualViewModel) {
-        onDispose {
-            actualViewModel?.cleanup()
-        }
-    }
-
-    val uiState by (actualViewModel?.uiState ?: MutableStateFlow(DocumentsUiState())).collectAsState()
+    val uiState by (viewModel.uiState ?: MutableStateFlow(DocumentsUiState())).collectAsState()
 
     // If we were previously blocked due to missing login and the app is now logged in, try again once
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn && uiState.requiresLogin) {
-            actualViewModel?.loadDocuments()
+            viewModel.loadDocuments()
         }
     }
 
@@ -140,7 +114,7 @@ fun DocumentsPage(
                 ) {
                     OutlinedTextField(
                         value = uiState.searchQuery,
-                        onValueChange = { actualViewModel?.onSearchQueryChange(it) },
+                        onValueChange = { viewModel.onSearchQueryChange(it) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 16.dp, bottom = 8.dp),
@@ -153,7 +127,7 @@ fun DocumentsPage(
                         },
                         trailingIcon = {
                             if (uiState.searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { actualViewModel?.onSearchQueryChange("") }) {
+                                IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
                                     Icon(
                                         imageVector = Icons.Default.Clear,
                                         contentDescription = "Clear Search"
@@ -164,7 +138,7 @@ fun DocumentsPage(
                         singleLine = true
                     )
 
-                    if ((uiState.isLoading || actualViewModel == null) && uiState.documents.isEmpty()) {
+                    if ((uiState.isLoading || viewModel == null) && uiState.documents.isEmpty()) {
                         // Skeleton UI for Documents
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
@@ -178,16 +152,16 @@ fun DocumentsPage(
                     } else {
                         PullToRefreshBox(
                             isRefreshing = uiState.isRefreshing,
-                            onRefresh = { actualViewModel?.refreshDocuments() },
+                            onRefresh = { viewModel.refreshDocuments() },
                         ) {
-                            if (uiState.documents.isEmpty() && uiState.searchQuery.isNotEmpty() && !uiState.isLoading && actualViewModel != null) {
+                            if (uiState.documents.isEmpty() && uiState.searchQuery.isNotEmpty() && !uiState.isLoading && viewModel != null) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text("No documents found matching your search.")
                                 }
-                            } else if (uiState.documents.isEmpty() && !uiState.isLoading && actualViewModel != null) {
+                            } else if (uiState.documents.isEmpty() && !uiState.isLoading && viewModel != null) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
@@ -206,12 +180,12 @@ fun DocumentsPage(
                                         DocumentCard(
                                             document = document,
                                             onDownloadClick = {
-                                                actualViewModel?.downloadAndOpenDocument(
+                                                viewModel.downloadAndOpenDocument(
                                                     document
                                                 )
                                             },
                                             onSaveToFiles = { doc ->
-                                                actualViewModel?.saveDocumentToFiles(
+                                                viewModel.saveDocumentToFiles(
                                                     doc
                                                 )
                                             },

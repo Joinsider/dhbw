@@ -45,6 +45,7 @@ kotlin {
         }
 
         androidMain.dependencies {
+            implementation(libs.koin.android)
             implementation(libs.androidx.security.crypto)
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.lifecycle.runtimeCompose)

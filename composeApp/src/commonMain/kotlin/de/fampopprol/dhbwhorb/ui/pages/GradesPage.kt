@@ -18,7 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -42,54 +41,23 @@ import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
 import de.fampopprol.dhbwhorb.ui.components.GradeCardSkeleton
 import de.fampopprol.dhbwhorb.util.isMobilePlatform
+import org.koin.compose.koinInject
 import org.jetbrains.compose.resources.stringResource
 
 import androidx.compose.runtime.remember
-import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
-import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
-import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisGradeService
-import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
-import de.fampopprol.dhbwhorb.data.storage.database.AppDatabase
-import io.ktor.client.HttpClient
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun GradesPage(
-    viewModel: GradesViewModel? = null,
-    database: AppDatabase? = null,
-    authenticationService: AuthenticationService? = null,
-    sharedHttpClient: HttpClient? = null,
-    sessionManager: SessionManager? = null,
     onNavigateToTimetable: () -> Unit = {},
     onNavigateToDocuments: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     isLoggedIn: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: GradesViewModel = koinInject()
 ) {
-    // Truly lazy initialization of ViewModel if not provided
-    val actualViewModel = viewModel ?: remember(database, authenticationService, sharedHttpClient, sessionManager) {
-        if (database != null && authenticationService != null && sharedHttpClient != null && sessionManager != null) {
-            val gradeService = DualisGradeService(
-                apiClient = DualisApiClient(sharedHttpClient),
-                sessionManager = sessionManager,
-                authenticationService = authenticationService,
-                gradeDao = database.gradeDao(),
-                gradeCacheMetadataDao = database.gradeCacheMetadataDao()
-            )
-            GradesViewModel(gradeService, database.gradeDao())
-        } else {
-            null
-        }
-    }
 
-    // Call cleanup on disposal
-    DisposableEffect(actualViewModel) {
-        onDispose {
-            actualViewModel?.cleanup()
-        }
-    }
-
-    val uiState = actualViewModel?.uiState ?: GradesUiState()
+    val uiState = viewModel.uiState
     val hapticFeedback = LocalHapticFeedback.current
 
     // If we were previously blocked due to missing login and the app is now logged in, try again once
@@ -98,7 +66,7 @@ fun GradesPage(
 
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn && uiState.requiresLogin) {
-            actualViewModel?.loadSemesters()
+            viewModel.loadSemesters()
         }
     }
 
@@ -142,7 +110,7 @@ fun GradesPage(
                         style = MaterialTheme.typography.bodyLarge
                     )
                 }
-            } else if ((uiState.isLoading || uiState.isLoadingSemesters || actualViewModel == null) && uiState.grades.isEmpty()) {
+            } else if ((uiState.isLoading || uiState.isLoadingSemesters || viewModel == null) && uiState.grades.isEmpty()) {
                 // Skeleton UI for Grades
                 LazyColumn(
                     modifier = Modifier
@@ -181,7 +149,7 @@ fun GradesPage(
                         )
                         
                         Button(
-                            onClick = { actualViewModel?.loadSemesters() }
+                            onClick = { viewModel.loadSemesters() }
                         ) {
                             Text(text = stringResource(Res.string.retry))
                         }
@@ -192,7 +160,7 @@ fun GradesPage(
                     isRefreshing = uiState.isRefreshing,
                     onRefresh = {
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-                        actualViewModel?.refreshGrades()
+                        viewModel.refreshGrades()
                     },
                     modifier = Modifier.fillMaxSize(),
                 ) {
@@ -216,7 +184,7 @@ fun GradesPage(
                             SemesterSelector(
                                 semesters = uiState.semesters,
                                 selectedSemesterId = uiState.selectedSemesterId,
-                                onSemesterSelected = { actualViewModel?.selectSemester(it) },
+                                onSemesterSelected = { viewModel.selectSemester(it) },
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
                         }

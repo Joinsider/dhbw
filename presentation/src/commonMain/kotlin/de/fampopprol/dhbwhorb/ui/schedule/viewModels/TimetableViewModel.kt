@@ -13,7 +13,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -31,9 +30,9 @@ import kotlin.time.ExperimentalTime
  * Manages lecture data fetching and state.
  */
 class TimetableViewModel(
-    private val lectureService: LectureService?,
-    private val lecturerDao: LecturerDao?,
-    private val lectureLecturerCrossRefDao: LectureLecturerCrossRefDao?,
+    private val lectureService: LectureService,
+    private val lecturerDao: LecturerDao,
+    private val lectureLecturerCrossRefDao: LectureLecturerCrossRefDao,
     private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
     companion object {
@@ -53,27 +52,6 @@ class TimetableViewModel(
         loadLecturesForWeek(0)
     }
 
-    private suspend fun <T> getDataWithRetry(
-        actionName: String,
-        block: suspend () -> T?
-    ): T? {
-        val maxAttempts = 5
-        val delayMillis = 1000L
-        var lastException: Exception? = null
-
-        for (attempt in 1..maxAttempts) {
-            try {
-                val result = block()
-                if (result != null) return result
-                Napier.d("Attempt $attempt for $actionName returned null, retrying...", tag = TAG)
-            } catch (e: Exception) {
-                lastException = e
-                Napier.w("Attempt $attempt for $actionName failed: ${e.message}", tag = TAG)
-            }
-            if (attempt < maxAttempts) delay(delayMillis)
-        }
-        return null
-    }
 
     fun cleanup() {
         coroutineScope.cancel()
@@ -107,33 +85,25 @@ class TimetableViewModel(
                 uiState = uiState.copy(isLoadingWeeks = uiState.isLoadingWeeks + weekOffset)
                 
                 try {
-                    val stagedResult = getDataWithRetry("Load Lectures Staged $weekOffset") {
-                        lectureService?.getLecturesForWeekStaged(weekOffset)
+                    val (lectures, isReloading) = lectureService.getLecturesForWeekStaged(weekOffset)
+                    val lectureModels = lectures.map { it.toLectureModel() }
+                    
+                    lectureCache[weekOffset] = lectureModels
+                    
+                    // Update UI if this is still the active week
+                    if (uiState.currentWeekOffset == weekOffset) {
+                        uiState = uiState.copy(
+                            lectures = lectureModels,
+                            error = null
+                        )
                     }
 
-                    if (stagedResult != null) {
-                        val (lectures, isReloading) = stagedResult
-                        val lectureModels = lectures.map { it.toLectureModel() }
-                        
-                        lectureCache[weekOffset] = lectureModels
-                        
-                        // Update UI if this is still the active week
+                    if (isReloading) {
+                        val fullLectures = lectureService.getLecturesForWeek(weekOffset, forceRefresh = false)
+                        val fullModels = fullLectures.map { it.toLectureModel() }
+                        lectureCache[weekOffset] = fullModels
                         if (uiState.currentWeekOffset == weekOffset) {
-                            uiState = uiState.copy(
-                                lectures = lectureModels,
-                                error = null
-                            )
-                        }
-
-                        if (isReloading) {
-                            val fullLectures = getDataWithRetry("Load Full Lectures $weekOffset") {
-                                lectureService?.getLecturesForWeek(weekOffset, forceRefresh = false)
-                            } ?: emptyList()
-                            val fullModels = fullLectures.map { it.toLectureModel() }
-                            lectureCache[weekOffset] = fullModels
-                            if (uiState.currentWeekOffset == weekOffset) {
-                                uiState = uiState.copy(lectures = fullModels)
-                            }
+                            uiState = uiState.copy(lectures = fullModels)
                         }
                     }
                 } catch (e: Exception) {
@@ -153,9 +123,7 @@ class TimetableViewModel(
             loadMutex.withLock {
                 uiState = uiState.copy(isRefreshingWeeks = uiState.isRefreshingWeeks + weekOffset)
                 try {
-                    val lectureEntities = getDataWithRetry("Refresh Lectures $weekOffset") {
-                        lectureService?.getLecturesForWeek(weekOffset, forceRefresh = true)
-                    } ?: emptyList()
+                    val lectureEntities = lectureService.getLecturesForWeek(weekOffset, forceRefresh = true)
 
                     val lectureModels = lectureEntities.map { it.toLectureModel() }
                     lectureCache[weekOffset] = lectureModels
@@ -198,11 +166,8 @@ class TimetableViewModel(
 
     private suspend fun LectureEventEntity.toLectureModel(): LectureModel {
         val lecturerNames = try {
-            if (lectureLecturerCrossRefDao == null || lecturerDao == null) emptyList()
-            else {
-                val crossRefs = lectureLecturerCrossRefDao.getByLectureId(lectureId)
-                crossRefs.mapNotNull { lecturerDao.getById(it.lecturerId)?.lecturerName }
-            }
+            val crossRefs = lectureLecturerCrossRefDao.getByLectureId(lectureId)
+            crossRefs.mapNotNull { lecturerDao.getById(it.lecturerId)?.lecturerName }
         } catch (e: Exception) { emptyList() }
 
         return LectureModel(
