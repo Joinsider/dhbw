@@ -39,6 +39,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(libs.napier)
             api(projects.core.common)
             api(projects.domain)
             api(projects.data)
