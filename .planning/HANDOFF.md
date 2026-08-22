@@ -1,20 +1,23 @@
 # Handoff — v3-Umbau
 
-> Stand: 2026-08-22 · **P-1 bis P8 abgeschlossen und auf `v3`**, dazu fünf Arbeiten außerhalb
-> der Phasenkette
+> Stand: 2026-08-22 · **P-1 bis P9 abgeschlossen**, dazu fünf Arbeiten außerhalb der Phasenkette
+> P9 liegt auf `phase/p9-cleanup` und ist **noch nicht nach `v3` gemergt** — das wartet auf die
+> Freigabe des Nutzers
 > Arbeitsverzeichnis sauber · nichts gepusht
-> Nächste Phase: **P9 — Aufräumen** (die letzte)
+> **Die Phasenkette ist damit zu Ende.** Was offen bleibt, steht in §6 und wartet auf ein echtes
+> Gerät oder auf eine Entscheidung, nicht auf eine Phase.
 
-Alles liegt auf `v3`, nichts steht offen zum Mergen:
+`v3` steht auf dem Stand nach P8; P9 hängt daneben:
 
 ```bash
 git -C <v3-worktree> log --oneline -1   # merge: lecture reminders into v3
+git log --oneline -1 phase/p9-cleanup   # test: make the instrumented suite runnable, and run it
+git checkout v3 && git merge --no-ff phase/p9-cleanup -m "merge: P9 cleanup into v3"
 ```
 
-**Die Arbeit dieser Sitzung lag nicht auf `phase/p8-ios-services`**, sondern auf einem
-Worktree-Branch (`claude/widget-entitlements-duplicate-…`); `phase/p8-ios-services` war in einem
-anderen Worktree ausgecheckt und ließ sich nicht nachziehen. Für die nächste Phase spielt das
-keine Rolle — `v3` ist der Stand —, aber wundere dich nicht über den Branchnamen in der History.
+**`phase/p9-cleanup` ist von einem Worktree-Branch aus angelegt**, nicht direkt von `v3` — `v3`
+war in einem anderen Worktree ausgecheckt. Der Commit darunter ist derselbe; der Merge geht
+sauber durch.
 
 **Was seit dem letzten Handoff dazugekommen ist**, in der Reihenfolge der Commits:
 
@@ -25,6 +28,7 @@ keine Rolle — `v3` ist der Stand —, aber wundere dich nicht über den Branch
 | **Stundentakt** | Die Prüfung lief alle 15 Minuten, jetzt stündlich; auf Android brauchte es dafür `ExistingPeriodicWorkPolicy.UPDATE`. |
 | **Änderungserkennung neu** | Verschiebungen werden als Verschiebungen erkannt, nichts Vergangenes wird mehr gemeldet, zwei Geschwindigkeiten (laufende Woche voll, vier Zukunftswochen per Raster), Cache räumt sich auf, Texte übersetzt. |
 | **Erinnerung vor Vorlesungen** | Zweite Benachrichtigungsart, vom Betriebssystem geplant statt gepollt. Neue Berechtigungen auf Android. |
+| **P9 — Aufräumen** | Letzter Service-Locator weg, Tests in ihre Module, iOS-Widget lokalisiert, Apple-Job in der CI, Logs entkästelt, PROJECT.md nachgezogen. Details unten und im Plan. |
 
 ---
 
@@ -70,7 +74,7 @@ sie benennen auch, was schiefging und was bewusst nicht gemacht wurde.
 Android-Task mit „SDK location not found" fehl. Jedem Gradle-Aufruf voranstellen:
 
 ```bash
-ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew :composeApp:testDebugUnitTest :composeApp:desktopTest
+ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew testDebugUnitTest desktopTest
 ```
 
 Vorhanden: Java 25 (Zulu), Xcode 26.6, Android SDK unter `~/Library/Android/sdk`,
@@ -205,13 +209,17 @@ Eine Phase ist erst fertig, wenn alles Folgende grün ist.
 
 ### 4.1 Tests
 
+**Die Tasknamen sind seit P9 unqualifiziert** — die Tests liegen jetzt in ihren Modulen, und
+`:composeApp:desktopTest` allein deckt nur noch die Compose-UI ab.
+
 ```bash
-ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew \
-  :composeApp:testDebugUnitTest :composeApp:desktopTest --rerun-tasks
+ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew testDebugUnitTest desktopTest --rerun-tasks
 ```
 
-**Sollwerte auf dem Stand von `v3`:** `testDebugUnitTest` **322**, `desktopTest` **428**, 0 Fehler,
-**0 übersprungen**. Es gibt seit P4 keinen einzigen `@Ignore` mehr im Projekt — wenn einer
+**Sollwerte auf dem Stand von `phase/p9-cleanup`:** `testDebugUnitTest` **318**, `desktopTest`
+**424**, 0 Fehler, **0 übersprungen**. (Vor P9 waren es 322 und 428; die vier Differenz sind
+`DatabaseFactoryTest`, gelöscht — kein Test ist beim Umzug verlorengegangen, das war die Prüfung,
+auf die es dabei ankam.) Es gibt seit P4 keinen einzigen `@Ignore` mehr im Projekt — wenn einer
 auftaucht, gehören ein Grund und eine Phase dazu.
 
 Gradle meldet die Zahlen nicht zuverlässig, also selbst zählen:
@@ -221,7 +229,7 @@ python3 - <<'EOF'
 import glob, re
 for d in ["testDebugUnitTest", "desktopTest"]:
     t = f = sk = 0
-    for x in glob.glob(f"composeApp/build/test-results/{d}/*.xml"):
+    for x in glob.glob(f"*/build/test-results/{d}/*.xml") + glob.glob(f"core/*/build/test-results/{d}/*.xml"):
         s = open(x, encoding="utf-8", errors="replace").read()
         m = re.search(r'tests="(\d+)" skipped="(\d+)" failures="(\d+)" errors="(\d+)"', s)
         if m:
@@ -235,7 +243,7 @@ Fehlermeldungen stehen nicht in der Konsolenausgabe, sondern in den XMLs:
 ```bash
 python3 - <<'EOF'
 import glob, re, html
-for x in glob.glob("composeApp/build/test-results/desktopTest/*.xml"):
+for x in glob.glob("*/build/test-results/desktopTest/*.xml"):
     s = open(x, encoding="utf-8", errors="replace").read()
     for m in re.finditer(r'<testcase name="([^"]+)"[^>]*>\s*<failure[^>]*message="([^"]*)"', s):
         print(m.group(1), "->", html.unescape(m.group(2))[:300])
@@ -245,6 +253,18 @@ EOF
 **Neue Compose-UI-Tests im Wurzelpaket** brauchen einen Eintrag in der Ausschlussliste in
 `composeApp/build.gradle.kts` — der bestehende Filter deckt nur `**/ui/**/*Test.class` ab, alles
 darüber läuft sonst auch als Android-Unit-Test und scheitert dort.
+
+**Ein neuer Test gehört in das Modul, das er testet**, nicht mehr nach `:composeApp`. Die Fakes
+(`FakeRepositories`, `MockAppDatabase`, `testKoin()`) liegen in `:core:testing` und stehen jedem
+`commonTest` zur Verfügung. Zwei Fallen dabei: **Backtick-Namen dürfen kein Komma enthalten** —
+Kotlin/Native lehnt sie ab, und anders als früher wird `commonTest` auch für Apple-Targets
+kompiliert. Und ein Modul ohne `isReturnDefaultValues` in `testOptions` lässt jeden
+Android-Unit-Test, der loggt, in `android.util.Log` sterben; alle vier haben es inzwischen.
+
+**Die instrumentierten Tests stehen in keinem Gate** — sie brauchen ein Gerät. Sie laufen aber
+wieder (`:composeApp:connectedDebugAndroidTest`, 3 Tests): bis P9 fehlten dem Source-Set sowohl
+die Test-Abhängigkeiten als auch `androidx.test:runner`, also kompilierte es seit dem
+Modulschnitt nicht einmal.
 
 ### 4.2 Das Framework muss Compose-frei bleiben
 
@@ -334,6 +354,8 @@ $ADB logcat -d --pid=$PID | grep -c "Executing GET request"    # muss 0 sein
 
 ```
 :core:common     Outcome/AppError, Platform-Erkennung, appCoroutineScope, coreModule
+:core:testing    Fakes, Mocks, testKoin() — hängt an keiner Produktionsabhängigkeit,
+                 wird nur aus einem commonTest heraus benutzt
 :domain          Dualis- und Domänenmodelle, Repository-Interfaces, UseCases, TimeHelper
                  ← keine Frameworks
 :data            Ktor, Parser, Dualis-Services, Gateway, ReAuthenticator, Room + DAOs,
@@ -344,6 +366,7 @@ $ADB logcat -d --pid=$PID | grep -c "Executing GET request"    # muss 0 sein
                  dazu die Swift-Brücke in iosMain/…/ios/
 :composeApp      Compose-UI, Navigation, Entry Points, Glance-Widget
                  ← seit P7 ohne iOS-Targets (Android, Desktop, macOS)
+                 ← seit P9 nur noch die eigenen Tests: UI, Navigation, Koin-Graph
 iosApp/          SwiftUI-App: RootView + fünf Screens, linkt Shared.framework
 iosApp/TimetableWidget/
                  Widget-Extension: **eigener Prozess mit eigenem Koin-Graphen**, linkt
@@ -377,17 +400,19 @@ Package-Namen. Eine Datei zwischen Modulen zu verschieben erfordert deshalb kein
 | Änderungserkennung | `services/…/notifications/LectureChangeMonitor.kt` — zwei Geschwindigkeiten und die Paarung, die eine Verschiebung erkennt |
 | Erinnerungen | `services/…/reminders/` — `LectureReminderPlanner` plant, die drei `…ReminderScheduler` übergeben ans System |
 | Android-Weckerrechte | `services/src/androidMain/AndroidManifest.xml` — eigenes Manifest im Modul, wird gemerged |
-| Benachrichtigungstexte | `services/…/notifications/LectureNotificationTexts.kt` (de/en) — der einzige Nutzertext außerhalb der beiden UI-Ressourcensysteme |
+| Benachrichtigungstexte | `services/…/notifications/LectureNotificationTexts.kt` (de/en) — der einzige Nutzertext außerhalb der drei Ressourcensysteme |
+| Widget-Texte (iOS) | `iosApp/TimetableWidget/Localizable.xcstrings` — eigenes Bundle, seit P9; die Extension erbt den Katalog der App **nicht** |
 | SwiftUI-Screens | `iosApp/iosApp/RootView.swift` + `iosApp/iosApp/Screens/` |
 | iOS-Farben, Karten | `iosApp/iosApp/Design/Theme.swift` — `Color.brand` und `.tint()` an der Wurzel sind der iOS-Ersatz für die Material-You-Seed-Farbe |
 | Wochenraster (iOS) | `iosApp/iosApp/Screens/TimetableGrid.swift` — Spurenlayout für parallele Vorlesungen |
 | Semester-Reihenfolge | `domain/…/model/SemesterOrder.kt` — sortiert und gruppiert wird einmal im `GradesStore`, beide UIs lesen `GradesState.sections` |
 | iOS-Texte | `iosApp/iosApp/Localizable.xcstrings` (en/de) — getrennt von den Compose-Ressourcen |
 | Navigation | `composeApp/…/ui/navigation/Routes.kt`, `DhbwNavHost.kt` |
-| Test-Graph | `composeApp/src/commonTest/…/testutil/TestKoin.kt` — `WithTestKoin { }`, `testKoin()` |
-| Repository-Fakes | `composeApp/src/commonTest/…/testutil/fakes/FakeRepositories.kt` |
-| Store-Test-Helfer | `composeApp/src/commonTest/…/presentation/StoreTestSupport.kt` |
+| Test-Graph | `core/testing/…/testutil/TestKoin.kt` — `testKoin()`; das Composable `WithTestKoin { }` liegt in `composeApp/src/commonTest/…/testutil/WithTestKoin.kt`, weil `:core:testing` kein Compose kennen darf |
+| Repository-Fakes | `core/testing/…/testutil/fakes/FakeRepositories.kt` |
+| Store-Test-Helfer | `core/testing/…/presentation/StoreTestSupport.kt` |
 | Graph-Prüfung | `composeApp/src/desktopTest/…/di/KoinGraphTest.kt` — bei neuen Bindungen mitpflegen |
+| Migrations-Gate, Truststore-Test | seit P9 in `data/src/desktopTest/` |
 | Geheimnisse vs. Einstellungen | `data/…/storage/settings/` — `PlatformSettings`, `SettingsStorage` |
 | Desktop-Truststore | `data/…/net/DesktopTrustStore.kt` + `data/src/desktopMain/resources/certs/` |
 | Schema-Version, Migrationen | `data/…/database/AppDatabaseMigrations.kt` — `APP_DATABASE_VERSION` ist die einzige Quelle |
@@ -409,73 +434,60 @@ Alle sind im Code kommentiert und im Plan vermerkt — nichts davon ist vergesse
 | **Prüfungen werden farblich unterschieden, aber fast nie erkannt.** Der Block wird bernsteinfarben, wenn `Lecture.isTest` gesetzt ist — und das setzt `TimetableParser` nur bei `background-color:#FF6666` in der Dualis-Zelle. Einträge, die bloß „Mündliche Prüfung" heißen, tragen die Markierung nicht. Offene Entscheidung des Nutzers: zusätzlich am Titel erkennen (Heuristik im Parser, wirkt auf allen Plattformen) oder erst prüfen, ob die Farbmarkierung heute woanders steht — dafür braucht es das rohe HTML einer Woche mit echter Prüfung. | `TimetableParser.kt:79` | offen, wartet auf den Nutzer |
 | **Das Sichern eines Dokuments in „Dateien" ist weiterhin nur durch Tests belegt.** Die Semester-Reihenfolge ist in P8 am Simulator gesehen worden (WiSe 2024/25 vor SoSe 2025, mit echten Noten). | `DocumentsScreen.swift` | beim nächsten Gerätetest |
 | **VoiceOver auf iOS ist statisch geprüft, nicht durchlaufen.** Jedes Bedienelement trägt ein `Text`-Label, Listenzeilen sind zu einem Element zusammengefasst, Symbole haben `accessibilityLabel` — aber niemand ist mit eingeschaltetem VoiceOver durchgegangen. In P8 wieder nicht: was VoiceOver *sagt*, steht in keinem Screenshot, das braucht einen Menschen mit eingeschaltetem Screenreader. | `iosApp/iosApp/Screens/` | offen, braucht einen Menschen |
-| **Die Widget-Texte sind hart auf Deutsch.** „JETZT", „Keine Vorlesungen", „Heute"/„Morgen" stehen als Literale in `WidgetViews.swift`; die Extension hat keinen String-Katalog. Stammt aus der Zeit vor P8 und ist dort nicht angefasst worden. | `iosApp/TimetableWidget/WidgetViews.swift` | offen |
 | **Das Widget lebt mit Room, Ktor und Koin in einem Prozess mit engem Speicherlimit.** Auf dem Simulator unauffällig; auf einem Gerät sind ~30 MB die Grenze für eine Widget-Extension. Wenn das Widget dort leer bleibt, ist das der erste Verdacht — und die Antwort wäre ein kleinerer Graph nur für die Extension. | `WidgetSnapshot.kt` | beim ersten Gerätetest |
 | **Dass der Background-Task auch feuert, ist ungeprüft.** Registrierung und Einreichung sind auf dem Simulator belegt, das Auslösen nicht — dafür braucht es ein Gerät am Debugger (`_simulateLaunchForTaskWithIdentifier`). | `LectureMonitorScheduler.ios.kt` | beim nächsten Gerätetest |
 | **Benachrichtigungs-Kategorien und -Actions („Woche öffnen") gibt es nicht.** Der Plan hatte sie für P8 vorgesehen; da `NotificationDispatcher.ios.kt` bereits eine vollständige Kotlin-Zustellung ist, wurde sie nicht nach Swift kopiert — und die Actions damit auch nicht gebaut. Der Text selbst ist seit dem Monitor-Umbau übersetzt. | `NotificationDispatcher.ios.kt` | offen |
-| `NotificationDispatcher` hält seinen Android-Context statisch, weil `expect class` keinen plattformspezifischen Konstruktorparameter erlaubt. Wie bei `SecureStorage` in P2 ist die Lösung ein Interface mit je einer Implementierung pro Plattform. Bis dahin: `DualisApplication.onCreate()` **muss** `initialize()` rufen — das zu vergessen hat die App von P2 bis P4 beim Öffnen der Einstellungen abstürzen lassen. | `NotificationDispatcher.android.kt` | P8/P9 |
-| Die Repository-Fakes liegen in `composeApp/commonTest/testutil/fakes/`, nicht in einem `:core:testing`. Bewusst so, solange alle Tests in `:composeApp` liegen — beides zusammen umziehen. | `testutil/fakes/` | P9 |
-| Tests liegen alle in `:composeApp`, nicht in ihren Modulen. Die Gates bleiben dadurch unverändert; der Umzug braucht pro Modul eigene Test-Abhängigkeiten. | `composeApp/src/commonTest` | P9 |
-| `composeApp/commonTest/…/data/database/DatabaseFactoryTest.kt` besteht aus vier Tests, die nur prüfen, dass `::createRoomDatabase` nicht null ist. Sie testen nichts. Seit P6 gibt es mit `AppDatabaseMigrationTest` echte Abdeckung derselben Stelle. | `DatabaseFactoryTest.kt` | P9 |
 | Der Widget-UseCase liefert bei einem Lesefehler des Caches eine leere Liste statt eines Fehlers — ein Widget hat keine Fehlerdarstellung. Bewusst so, im Code begründet. | `WidgetTimetableUseCase.kt` | — |
 | **Der Rastervergleich der Zukunftswochen sieht keine Dozenten- und keine Detail-Raumwechsel.** Das Wochenraster kennt beides nicht, und seine Raumangabe ist eine andere Zeichenkette als die gespeicherte. Bewusst: die laufende Woche wird vollständig geprüft, in Woche +3 fällt so etwas auf, sobald sie zur laufenden wird. | `LectureChangeMonitor.checkFutureWeekByGrid()` | — |
 | **Eine Vorlesung, die in eine andere Woche verschoben wird, bleibt Absage plus Neuanlage.** Die Paarung läuft innerhalb einer Woche. Wochenübergreifend zu paaren hieße, alle beobachteten Wochen gleichzeitig zu vergleichen. | `LectureChangeMonitor.diff()` | offen |
 | **Auf iOS ist die Erinnerung nur bis zur Übergabe an das System belegt, nicht bis zur Zustellung.** Der Simulator hat keine erteilte Benachrichtigungserlaubnis, und die App ist dort abgemeldet. Auf Android ist die Zustellung nachgewiesen (Alarm um 10:51:00, Benachrichtigung sichtbar). | `IosLectureReminderScheduler` | beim nächsten Gerätetest |
 | **Ohne `SCHEDULE_EXACT_ALARM` kommen Erinnerungen mit bis zu fünf Minuten Verzug.** Ab Android 14 erteilt der Nutzer die Berechtigung selbst; die App zeigt einen Hinweis und einen Knopf dorthin, drängt aber nicht. `USE_EXACT_ALARM` (auto-erteilt) wäre die Alternative — Play beschränkt es auf Wecker- und Kalender-Apps, das wäre eine Entscheidung mit Review-Risiko. | `AndroidLectureReminderScheduler` | offen, wenn Verzug stört |
 | **Erinnerungen werden nur alle 40 Stück und 14 Tage weit geplant.** iOS hält höchstens 64 wartende Anfragen und verwirft den Rest stillschweigend; der stündliche Lauf schiebt nach. Bei mehr als 40 Vorlesungen in 14 Tagen fehlen die hintersten, bis eine frühere vorbei ist. | `LectureReminderPlanner.MAX_REMINDERS` | — |
-| **Die Meldungstexte sind der einzige Nutzertext außerhalb der beiden Ressourcensysteme.** Begründet (ein Hintergrund-Worker hat weder Compose- noch Bundle-Kontext), aber es ist eine dritte Stelle, an der Sprache lebt. | `LectureNotificationTexts.kt` | — |
+| **Die Meldungstexte sind der einzige Nutzertext außerhalb der Ressourcensysteme.** Begründet (ein Hintergrund-Worker hat weder Compose- noch Bundle-Kontext), aber es ist eine weitere Stelle, an der Sprache lebt — inzwischen die vierte neben Compose-Ressourcen, dem App-Katalog und dem Widget-Katalog. | `LectureNotificationTexts.kt` | — |
+| **`NotificationSettingsCard.kt` enthält englische Literale statt String-Ressourcen** („Notification permission denied…", „Check completed"). In P9 beim Durchsehen aufgefallen, nicht angefasst — es ist Compose-UI und gehört in `composeResources`, nicht in eine Aufräumphase, die den Umfang schon gesprengt hatte. | `NotificationSettingsCard.kt` | offen |
 | 48 × `catch (e: Exception)` übrig (von ursprünglich 69). Drei Sorten, alle bewusst: die Parser (schlucken eine kaputte Zeile, nicht die Seite), die Klassifikationsstellen selbst (`toAppError`, DB-Zugriffe in den Repositories), und die Plattformschicht (FileViewer, Dispatcher, Scheduler, DNS, SecureStorage). Im Dualis-Datenpfad ist keines mehr. | `:data`, `:services`, `:composeApp` | — |
 
 ---
 
-## 7. Nächster Schritt: P9 — Aufräumen
+## 7. Nächster Schritt
 
-Die letzte Phase, Größe S im Plan — inzwischen etwas größer, weil P8 und die Arbeiten danach ihre
-eigenen Aufräumpunkte hinterlassen haben. Nichts davon ist dringend; alles davon ist die Sorte
-Artefakt, die still verrottet, wenn sie niemand anfasst.
+**Die Phasenkette ist zu Ende.** P9 war die letzte, und was von ihr zu tun war, ist getan. Der
+konkrete nächste Schritt ist deshalb keiner im Code, sondern:
 
-**Aus dem Plan:**
+1. **P9 durchsehen und nach `v3` mergen** (Befehl oben im Kopf). Danach ist `v3` der vollständige
+   Umbau.
+2. **Die drei Portal-Einträge anlegen** — App Group `group.de.fampopprol.dhbwhorb`, die
+   Keychain-Gruppe und `BGTaskSchedulerPermittedIdentifiers`. Kein Code, aber ohne sie ist auf
+   einem echten Gerät die Datenbank am falschen Ort, das Widget blind und der Hintergrund-Task
+   abgelehnt. Das blockiert alles unter „beim nächsten Gerätetest" in §6.
+3. **Einen Gerätetest machen.** Sechs der offenen Punkte in §6 warten darauf und auf nichts
+   sonst: VoiceOver, das Feuern des Background-Tasks, die Zustellung der iOS-Erinnerung, das
+   Sichern eines Dokuments in „Dateien", das Speicherlimit der Widget-Extension, die App Group.
+4. **Die beiden Entscheidungen treffen**, die in §6 auf den Nutzer warten: die Prüfungserkennung
+   im Parser (Heuristik am Titel oder erst rohes HTML einer Prüfungswoche ansehen) und ob der
+   Verzug ohne `SCHEDULE_EXACT_ALARM` stört.
 
-1. `services/notifications/IntegrationExample.kt` löschen — 213 Zeilen Beispielcode mit eigenem
-   `CoroutineScope`.
-2. Material3-Alpha-Pinning neu bewerten. Die Expressive-Begründung gilt seit P7 nur noch für
-   Android und Desktop.
-3. `.planning/PROJECT.md` auf die neue Struktur ziehen. `AGENTS.md` ist unterwegs mitgewachsen,
-   `PROJECT.md` nicht.
-4. CI: eigener macOS-Job für `:shared`-Framework-Build, Xcode-Build und Swift-Tests.
+**Was P9 gemacht hat**, in Commit-Reihenfolge:
 
-**Tests, die keine sind** (§6 hat die Begründungen):
+| | |
+|---|---|
+| Service-Locator | `NotificationDispatcher` ist ein Interface mit vier Implementierungen; der Android-Context kommt aus Koin. `FileViewer` las dasselbe statische Feld und holt sich den Context jetzt ebenfalls aus dem Graphen. `DualisApplication.onCreate()` initialisiert nichts mehr. |
+| Tests, die keine waren | `DatabaseFactoryTest` gelöscht (vier Prüfungen auf „Funktionsreferenz ≠ null"). `BackgroundServicesIntegrationTest` kompilierte seit dem Modulschnitt nicht — sechs seiner acht Tests endeten in `assertTrue(true)`; übrig sind zwei, die scheitern können, und sie laufen wieder. |
+| Logs | Kästchengrafik und Emoji aus den drei `LectureMonitorScheduler` raus. |
+| iOS-Widget | Eigener String-Katalog; die Extension war komplett auf Deutsch verdrahtet, inklusive `Locale("de_DE")` im Datumsformat. |
+| CI | Zweiter Job auf macOS: Framework, die Compose-frei-Prüfung, iOS- und macOS-Build. Testschritte unqualifiziert. |
+| Material3 | Der Pin bleibt — nachgemessen: auf der neuesten stabilen Version 45 Compile-Fehler. Der alte Kommentar warnte vor einer Version, die es nicht gibt. |
+| Tests umgezogen | Jedes Modul testet sich selbst, `:core:testing` hält die Fakes. 318 / 424, exakt die vier gelöschten weniger. |
+| Doku | `PROJECT.md` neu (es beschrieb noch April), `AGENTS.md` nachgezogen, Sonar-Pfade auf alle Module. |
 
-5. `DatabaseFactoryTest.kt` — vier Tests, die prüfen, dass eine Funktionsreferenz nicht null ist.
-6. `BackgroundServicesIntegrationTest.testLectureMonitorIntervalCleaned` — `assertTrue(true)` mit
-   einem Kommentar, der ein Intervall benennt, das er nie prüft. Steht seit dem Stundentakt
-   ehrlich kommentiert da, aber es bleibt ein Test ohne Zusicherung.
-7. Die Repository-Fakes und die Tests aus `:composeApp` in ihre Module ziehen. Braucht pro Modul
-   eigene Test-Abhängigkeiten; die Gates ändern sich dadurch nicht.
+Punkt 1 der P9-Liste — `IntegrationExample.kt` löschen — war schon in P3 erledigt worden und
+stand nur noch doppelt im Plan.
 
-**Dazugekommen:**
-
-8. `NotificationDispatcher` ist die letzte `expect class` mit statischem Android-Context. Die
-   anderen beiden Service-Locators sind weg; `LectureReminderScheduler` zeigt als Interface mit
-   drei Implementierungen, wie es stattdessen aussieht.
-9. Die Widget-Texte sind hart auf Deutsch (`WidgetViews.swift`). Die Extension hat keinen
-   String-Katalog — entweder einen anlegen oder die Texte aus `LectureNotificationTexts` holen.
-10. Die Log-Ausgaben in `NotificationManager`, den Schedulern und `LectureChangeMonitor` sind
-    stellenweise noch Kästchengrafik aus der Zeit vor dem Umbau. Kosmetik, aber sie machen die
-    Logs beim Prüfen schwerer lesbar als nötig.
-
-**Was P9 *nicht* ist:** die offenen Punkte aus §6, die auf ein echtes Gerät oder auf eine
-Entscheidung des Nutzers warten. Die stehen dort mit Fälligkeit und gehören nicht in eine
-Aufräumphase.
-
-**Vor dem ersten Gerätetest** — unabhängig von P9, aber es blockiert alles iOS-Seitige:
-drei Einträge im Apple-Developer-Portal (App Group, Keychain-Gruppe, Background-Task-Identifier).
-Ohne sie ist nicht nur die Datenbank am falschen Ort, sondern das Widget blind und der
-Hintergrund-Task abgelehnt.
+---
 
 ## 8. Zur Parallelisierung
 
-Der Nutzer hat nach Subagents und Worktrees gefragt. Einschätzung nach acht Phasen:
+Der Nutzer hat nach Subagents und Worktrees gefragt. Einschätzung nach neun Phasen:
 
 * **Über Phasen hinweg lohnt es sich nicht.** Die Kette ist bindend, und jede Phase schreibt
   dieselben zentralen Dateien um. P3 hat fast jede Datei im Datenpfad angefasst, P4 die gesamte
@@ -547,3 +559,23 @@ Kurz, weil es sich wiederholt hat:
   im iOS-Gate lässt Entitlements weg; der App-Group-Umzug in P6 lief damit sauber durch und war
   trotzdem nicht das, was geprüft werden sollte. Bei jedem „ohne X geht es auch": prüft man dann
   noch dasselbe?
+* **Ein Test-Source-Set, das nicht kompiliert, schweigt genauso wie ein Test ohne Zusicherung.**
+  `BackgroundServicesIntegrationTest` stand seit dem Modulschnitt da, ohne je zu laufen — dem
+  Source-Set fehlten die Test-Abhängigkeiten, und weil kein Gate es anfasst, hat das niemand
+  gemerkt. Der Plan kannte nur den einen `assertTrue(true)` darin und nicht, dass die ganze Datei
+  tot war. Bei jedem Verzeichnis, das nach Abdeckung aussieht: einmal nachsehen, ob es überhaupt
+  gebaut wird.
+* **Ein Kommentar ist eine Behauptung mit Verfallsdatum — auch der eigene.** „Nicht auf stable
+  1.10.0 upgraden" stand seit P12 im Buildfile und warnte vor einer Version, die es nie gab. Die
+  Begründung war trotzdem richtig, nur aus einem anderen Grund; zwei Minuten Nachmessen haben aus
+  einer weitergereichten Behauptung eine geprüfte gemacht. Dasselbe galt für den Aufräumpunkt
+  `IntegrationExample.kt`, den P3 längst erledigt hatte.
+* **Umziehen deckt auf, was am alten Ort nicht auffallen konnte.** Der Testumzug hat zwei Fehler
+  sichtbar gemacht, die keiner Prüfung anzulasten sind: Backtick-Namen mit Komma (Kotlin/Native
+  lehnt sie ab — in `:composeApp` nie gemerkt, weil es seit P7 kein Apple-Target hat) und vier
+  Module ohne `isReturnDefaultValues`. Beide Male war der Code korrekt für den Ort, an dem er lag,
+  und falsch für den, an den er gehörte.
+* **Beim Verschieben von Tests ist die Zahl der Beweis.** 322 → 318 und 428 → 424, und die
+  Differenz war exakt der Test, der vorher gelöscht wurde. Ohne diese Rechnung wäre ein Modul, das
+  seine Tests nach dem Umzug gar nicht mehr ausführt, nicht von einem unterscheidbar gewesen, das
+  sie erfolgreich ausführt — beide melden „BUILD SUCCESSFUL".
