@@ -736,14 +736,33 @@ eine Benachrichtigung; kein DTO existiert doppelt in Kotlin und Swift.
   auszulösen; nachgewiesen sind Registrierung und Einreichung. Ebenso offen bleibt der
   VoiceOver-Durchlauf.
 
-### P9 — Aufräumen · Größe S
+### P9 — Aufräumen · Größe S→M
 
 * `services/notifications/IntegrationExample.kt` (213 Zeilen Beispielcode mit eigenem
   `CoroutineScope`) löschen.
 * Material3-Alpha-Pinning neu bewerten — die Expressive-Begründung gilt nach P7 nur noch
   für Android/Desktop.
-* `AGENTS.md` und `.planning/PROJECT.md` auf die neue Struktur ziehen.
+* `.planning/PROJECT.md` auf die neue Struktur ziehen. (`AGENTS.md` ist während P8 und der
+  Arbeiten danach mitgewachsen und stimmt.)
 * CI: eigener macOS-Job für `:shared`-Framework-Build + Xcode-Build + Swift-Tests.
+* Tests, die keine sind: `DatabaseFactoryTest.kt` und
+  `BackgroundServicesIntegrationTest.testLectureMonitorIntervalCleaned` (`assertTrue(true)`).
+* Repository-Fakes und Tests aus `:composeApp` in ihre Module ziehen.
+
+**Nach P8 dazugekommen:**
+
+* `NotificationDispatcher` ist die letzte `expect class` mit statischem Android-Context.
+  `LectureReminderScheduler` zeigt als Interface mit drei Implementierungen, wie es stattdessen
+  aussieht — die beiden anderen Service-Locators sind bereits weg.
+* Die Widget-Texte in `WidgetViews.swift` sind hart auf Deutsch; die Extension hat keinen
+  String-Katalog.
+* Log-Kästchengrafik in `NotificationManager`, den Schedulern und `LectureChangeMonitor`.
+
+**Außerhalb der Phasenkette gebaut** (nach P8, alles auf `v3`): der Zugangsdaten-Wächter beim
+Neuinstallieren, der Stundentakt der Hintergrundprüfung, der Umbau der Änderungserkennung
+(Verschiebungserkennung, zwei Geschwindigkeiten, Cache-Verfall, Übersetzung) und die Erinnerung vor
+Vorlesungen. Der Handoff beschreibt jede davon; keine gehört zu einer Phase, weil keine im Plan
+stand — sie kamen aus der Durchsicht des Nutzers.
 
 ---
 

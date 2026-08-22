@@ -1,20 +1,30 @@
 # Handoff — v3-Umbau
 
-> Stand: 2026-08-22 · Phasen P-1 bis P8 abgeschlossen, dazu vier Arbeiten außerhalb der
-> Phasenkette: Desktop-TLS, die Trennung von Geheimnissen und Einstellungen, der
-> Zugangsdaten-Wächter beim Neuinstallieren (`CredentialsInstallGuard`), und der Umbau der
-> Änderungserkennung (Stundentakt, zwei Geschwindigkeiten, echte Verschiebungserkennung)
+> Stand: 2026-08-22 · **P-1 bis P8 abgeschlossen und auf `v3`**, dazu fünf Arbeiten außerhalb
+> der Phasenkette
 > Arbeitsverzeichnis sauber · nichts gepusht
-> Nächste Phase: **P9 — Aufräumen**
+> Nächste Phase: **P9 — Aufräumen** (die letzte)
 
-P-1 bis P7 liegen auf `v3`. **P8 ist gebaut, aber noch nicht gemerged** — es wartet auf die
-Freigabe des Nutzers:
+Alles liegt auf `v3`, nichts steht offen zum Mergen:
 
 ```bash
-git log --oneline -1   # feat: let the iOS widget read the database it shares with the app
-# nach Freigabe:
-git checkout v3 && git merge --no-ff <p8-branch> -m "merge: native iOS platform services into v3"
+git -C <v3-worktree> log --oneline -1   # merge: lecture reminders into v3
 ```
+
+**Die Arbeit dieser Sitzung lag nicht auf `phase/p8-ios-services`**, sondern auf einem
+Worktree-Branch (`claude/widget-entitlements-duplicate-…`); `phase/p8-ios-services` war in einem
+anderen Worktree ausgecheckt und ließ sich nicht nachziehen. Für die nächste Phase spielt das
+keine Rolle — `v3` ist der Stand —, aber wundere dich nicht über den Branchnamen in der History.
+
+**Was seit dem letzten Handoff dazugekommen ist**, in der Reihenfolge der Commits:
+
+| | |
+|---|---|
+| **P8 — iOS-Plattformdienste nativ** | Widget liest die App-Group-Datenbank direkt, BGTaskScheduler in Kotlin, Keychain-Gruppe. Details im Plan unter „Was tatsächlich passiert ist". |
+| **Zugangsdaten-Wächter** | Deinstallieren nimmt das Konto mit — der Schlüsselbund tut das nicht von selbst. `CredentialsInstallGuard`, plus Backup-Ausschluss auf Android. |
+| **Stundentakt** | Die Prüfung lief alle 15 Minuten, jetzt stündlich; auf Android brauchte es dafür `ExistingPeriodicWorkPolicy.UPDATE`. |
+| **Änderungserkennung neu** | Verschiebungen werden als Verschiebungen erkannt, nichts Vergangenes wird mehr gemeldet, zwei Geschwindigkeiten (laufende Woche voll, vier Zukunftswochen per Raster), Cache räumt sich auf, Texte übersetzt. |
+| **Erinnerung vor Vorlesungen** | Zweite Benachrichtigungsart, vom Betriebssystem geplant statt gepollt. Neue Berechtigungen auf Android. |
 
 ---
 
@@ -151,6 +161,36 @@ until [ "$($ADB shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do slee
   ```bash
   xcrun simctl spawn 8D76539B-73DF-410F-B550-027260B1BAAD defaults write de.fampopprol.dhbw notifications_enabled -string true
   ```
+* **Die Android-Datenbank und die Einstellungen lassen sich von Hand setzen** — der Weg, auf dem
+  Erinnerungen und Änderungserkennung ohne echte Dualis-Requests prüfbar sind. `sqlite3` gibt es
+  auf dem Emulator nicht, also über `/data/local/tmp` hin und zurück, und die App vorher beenden:
+
+  ```bash
+  ADB=$HOME/Library/Android/sdk/platform-tools/adb
+  $ADB shell am force-stop de.fampopprol.dhbwhorb
+  for f in grades_database.db grades_database.db-wal grades_database.db-shm; do
+    $ADB exec-out "run-as de.fampopprol.dhbwhorb cat databases/$f" > "/tmp/gdb.db${f#grades_database.db}"
+  done
+  sqlite3 /tmp/gdb.db "INSERT INTO lecture (...) VALUES (...); PRAGMA wal_checkpoint(TRUNCATE);"
+  for f in db db-wal db-shm; do $ADB push /tmp/gdb.$f /data/local/tmp/gdb.$f; done
+  $ADB shell 'run-as de.fampopprol.dhbwhorb sh -c "cp /data/local/tmp/gdb.db databases/grades_database.db; …"'
+  ```
+
+  `exec-out` und nicht `shell`, sonst zerstören Zeilenenden die Datei. Das `wal_checkpoint` ist
+  nötig, weil der lokale `sqlite3` sonst nur ins WAL schreibt. Einstellungen liegen daneben in
+  `shared_prefs/dualis_settings.xml` und gehen denselben Weg. **Hinterher aufräumen.**
+* **Berechtigungen auf dem Emulator setzt man mit `pm grant` und `appops`:**
+
+  ```bash
+  $ADB shell pm grant de.fampopprol.dhbwhorb android.permission.POST_NOTIFICATIONS
+  $ADB shell cmd appops set de.fampopprol.dhbwhorb SCHEDULE_EXACT_ALARM allow   # oder ignore
+  ```
+
+  Ob ein Wecker wirklich steht — und ob exakt —, sagt `adb shell dumpsys alarm | grep -A 2 reminder_`:
+  `window=0 exactAllowReason=permission` heißt exakt, `window=+5m0s0ms` heißt Fallback.
+* **`installDebug` löscht alle gestellten Wecker.** Eine Neuinstallation zieht die `PendingIntent`s
+  mit; wer auf das Feuern eines Alarms wartet, darf zwischendurch nicht neu installieren. Erst
+  installieren, dann stellen, dann warten — sonst wartet man auf nichts.
 * **Ein Xcode-Target, das `Shared.framework` linkt, braucht zwei Dinge.** Die Gradle-Build-Phase
   (`:shared:embedAndSignAppleFrameworkForXcode`) als *erste* Phase — die Extension wird vor der App
   gebaut, sonst gibt es das Framework noch nicht — und `ARCHS = arm64`, weil das Kotlin-Framework
@@ -170,7 +210,7 @@ ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew \
   :composeApp:testDebugUnitTest :composeApp:desktopTest --rerun-tasks
 ```
 
-**Sollwerte nach P8:** `testDebugUnitTest` **322**, `desktopTest` **428**, 0 Fehler,
+**Sollwerte auf dem Stand von `v3`:** `testDebugUnitTest` **322**, `desktopTest` **428**, 0 Fehler,
 **0 übersprungen**. Es gibt seit P4 keinen einzigen `@Ignore` mehr im Projekt — wenn einer
 auftaucht, gehören ein Grund und eine Phase dazu.
 
@@ -248,7 +288,9 @@ Das ist die teuerste Lektion des Umbaus, zweimal gelernt:
 
 Also nach jeder Phase: **beide Apps starten und jeden Screen einmal öffnen.** Seit P8 gehört das
 Widget dazu — es ist ein zweiter Prozess mit eigenem Koin-Start, der von keinem Test und keinem
-App-Durchlauf berührt wird.
+App-Durchlauf berührt wird. Und seit den Erinnerungen gehört dazu, dass ein gestellter Wecker
+wirklich feuert: `dumpsys alarm` zeigt nur, dass etwas eingetragen ist, nicht dass es ankommt.
+Beides steht in §3 als Rezept.
 
 ```bash
 # Android
@@ -332,6 +374,10 @@ Package-Namen. Eine Datei zwischen Modulen zu verschieben erfordert deshalb kein
 | Store ↔ Swift | `shared/src/iosMain/…/ios/` (`SharedApp`, `StoreBridges`, `FlowObserver`) und `iosApp/iosApp/Bridge/StoreBox.swift` |
 | Widget ↔ Kotlin | `shared/src/iosMain/…/ios/WidgetSnapshot.kt` — die **einzige** Beschreibung der Widget-Daten; die Extension startet dort ihren eigenen Koin-Graphen |
 | iOS-Hintergrundlauf | `services/…/notifications/LectureMonitorScheduler.ios.kt` (BGTaskScheduler), registriert in `iOSApp.init()`, ein-/ausgeschaltet in `AppModel` |
+| Änderungserkennung | `services/…/notifications/LectureChangeMonitor.kt` — zwei Geschwindigkeiten und die Paarung, die eine Verschiebung erkennt |
+| Erinnerungen | `services/…/reminders/` — `LectureReminderPlanner` plant, die drei `…ReminderScheduler` übergeben ans System |
+| Android-Weckerrechte | `services/src/androidMain/AndroidManifest.xml` — eigenes Manifest im Modul, wird gemerged |
+| Benachrichtigungstexte | `services/…/notifications/LectureNotificationTexts.kt` (de/en) — der einzige Nutzertext außerhalb der beiden UI-Ressourcensysteme |
 | SwiftUI-Screens | `iosApp/iosApp/RootView.swift` + `iosApp/iosApp/Screens/` |
 | iOS-Farben, Karten | `iosApp/iosApp/Design/Theme.swift` — `Color.brand` und `.tint()` an der Wurzel sind der iOS-Ersatz für die Material-You-Seed-Farbe |
 | Wochenraster (iOS) | `iosApp/iosApp/Screens/TimetableGrid.swift` — Spurenlayout für parallele Vorlesungen |
@@ -375,37 +421,57 @@ Alle sind im Code kommentiert und im Plan vermerkt — nichts davon ist vergesse
 | **Der Rastervergleich der Zukunftswochen sieht keine Dozenten- und keine Detail-Raumwechsel.** Das Wochenraster kennt beides nicht, und seine Raumangabe ist eine andere Zeichenkette als die gespeicherte. Bewusst: die laufende Woche wird vollständig geprüft, in Woche +3 fällt so etwas auf, sobald sie zur laufenden wird. | `LectureChangeMonitor.checkFutureWeekByGrid()` | — |
 | **Eine Vorlesung, die in eine andere Woche verschoben wird, bleibt Absage plus Neuanlage.** Die Paarung läuft innerhalb einer Woche. Wochenübergreifend zu paaren hieße, alle beobachteten Wochen gleichzeitig zu vergleichen. | `LectureChangeMonitor.diff()` | offen |
 | **Auf iOS ist die Erinnerung nur bis zur Übergabe an das System belegt, nicht bis zur Zustellung.** Der Simulator hat keine erteilte Benachrichtigungserlaubnis, und die App ist dort abgemeldet. Auf Android ist die Zustellung nachgewiesen (Alarm um 10:51:00, Benachrichtigung sichtbar). | `IosLectureReminderScheduler` | beim nächsten Gerätetest |
+| **Ohne `SCHEDULE_EXACT_ALARM` kommen Erinnerungen mit bis zu fünf Minuten Verzug.** Ab Android 14 erteilt der Nutzer die Berechtigung selbst; die App zeigt einen Hinweis und einen Knopf dorthin, drängt aber nicht. `USE_EXACT_ALARM` (auto-erteilt) wäre die Alternative — Play beschränkt es auf Wecker- und Kalender-Apps, das wäre eine Entscheidung mit Review-Risiko. | `AndroidLectureReminderScheduler` | offen, wenn Verzug stört |
 | **Erinnerungen werden nur alle 40 Stück und 14 Tage weit geplant.** iOS hält höchstens 64 wartende Anfragen und verwirft den Rest stillschweigend; der stündliche Lauf schiebt nach. Bei mehr als 40 Vorlesungen in 14 Tagen fehlen die hintersten, bis eine frühere vorbei ist. | `LectureReminderPlanner.MAX_REMINDERS` | — |
-| **Die Meldungstexte sind der einzige Nutzertext außerhalb der beiden Ressourcensysteme.** Begründet (ein Hintergrund-Worker hat weder Compose- noch Bundle-Kontext), aber es ist eine dritte Stelle, an der Sprache lebt. | `LectureChangeMessages.kt` | — |
+| **Die Meldungstexte sind der einzige Nutzertext außerhalb der beiden Ressourcensysteme.** Begründet (ein Hintergrund-Worker hat weder Compose- noch Bundle-Kontext), aber es ist eine dritte Stelle, an der Sprache lebt. | `LectureNotificationTexts.kt` | — |
 | 48 × `catch (e: Exception)` übrig (von ursprünglich 69). Drei Sorten, alle bewusst: die Parser (schlucken eine kaputte Zeile, nicht die Seite), die Klassifikationsstellen selbst (`toAppError`, DB-Zugriffe in den Repositories), und die Plattformschicht (FileViewer, Dispatcher, Scheduler, DNS, SecureStorage). Im Dualis-Datenpfad ist keines mehr. | `:data`, `:services`, `:composeApp` | — |
 
 ---
 
 ## 7. Nächster Schritt: P9 — Aufräumen
 
-Der Plan beschreibt P9 in §2 (Größe S). Vier Punkte, alle unabhängig:
+Die letzte Phase, Größe S im Plan — inzwischen etwas größer, weil P8 und die Arbeiten danach ihre
+eigenen Aufräumpunkte hinterlassen haben. Nichts davon ist dringend; alles davon ist die Sorte
+Artefakt, die still verrottet, wenn sie niemand anfasst.
+
+**Aus dem Plan:**
 
 1. `services/notifications/IntegrationExample.kt` löschen — 213 Zeilen Beispielcode mit eigenem
    `CoroutineScope`.
 2. Material3-Alpha-Pinning neu bewerten. Die Expressive-Begründung gilt seit P7 nur noch für
    Android und Desktop.
-3. `AGENTS.md` und `.planning/PROJECT.md` auf die neue Struktur ziehen. `AGENTS.md` ist in P8
-   mitgewachsen (iOS-Zweitprozess, BGTaskScheduler, Keychain-Gruppe); `PROJECT.md` nicht.
+3. `.planning/PROJECT.md` auf die neue Struktur ziehen. `AGENTS.md` ist unterwegs mitgewachsen,
+   `PROJECT.md` nicht.
 4. CI: eigener macOS-Job für `:shared`-Framework-Build, Xcode-Build und Swift-Tests.
 
-Dazu die Aufräumpunkte aus §6, die dort auf P9 datiert sind: die Repository-Fakes und die Tests
-aus `:composeApp` in ihre Module ziehen, und `DatabaseFactoryTest.kt` löschen — vier Tests, die
-nur prüfen, dass eine Funktionsreferenz nicht null ist.
+**Tests, die keine sind** (§6 hat die Begründungen):
 
-**Was aus P8 hier ankommt:**
+5. `DatabaseFactoryTest.kt` — vier Tests, die prüfen, dass eine Funktionsreferenz nicht null ist.
+6. `BackgroundServicesIntegrationTest.testLectureMonitorIntervalCleaned` — `assertTrue(true)` mit
+   einem Kommentar, der ein Intervall benennt, das er nie prüft. Steht seit dem Stundentakt
+   ehrlich kommentiert da, aber es bleibt ein Test ohne Zusicherung.
+7. Die Repository-Fakes und die Tests aus `:composeApp` in ihre Module ziehen. Braucht pro Modul
+   eigene Test-Abhängigkeiten; die Gates ändern sich dadurch nicht.
 
-* Der iOS-Build hat jetzt zwei Targets, die Gradle aufrufen. Wenn der CI-Job aus Punkt 4 entsteht,
-  ist das der Grund, warum ein `xcodebuild` mehr als einmal in `:shared` landet.
-* Vor dem ersten **Gerätetest** stehen drei Portal-Einträge an (§6, erste Zeile). Ohne sie ist
-  nicht nur die DB am falschen Ort, sondern das Widget ganz blind und der Background-Task
-  abgelehnt.
-* Zwei P8-Nachweise fehlen und brauchen ein Gerät bzw. einen Menschen: das Feuern des
-  Background-Tasks und der VoiceOver-Durchlauf.
+**Dazugekommen:**
+
+8. `NotificationDispatcher` ist die letzte `expect class` mit statischem Android-Context. Die
+   anderen beiden Service-Locators sind weg; `LectureReminderScheduler` zeigt als Interface mit
+   drei Implementierungen, wie es stattdessen aussieht.
+9. Die Widget-Texte sind hart auf Deutsch (`WidgetViews.swift`). Die Extension hat keinen
+   String-Katalog — entweder einen anlegen oder die Texte aus `LectureNotificationTexts` holen.
+10. Die Log-Ausgaben in `NotificationManager`, den Schedulern und `LectureChangeMonitor` sind
+    stellenweise noch Kästchengrafik aus der Zeit vor dem Umbau. Kosmetik, aber sie machen die
+    Logs beim Prüfen schwerer lesbar als nötig.
+
+**Was P9 *nicht* ist:** die offenen Punkte aus §6, die auf ein echtes Gerät oder auf eine
+Entscheidung des Nutzers warten. Die stehen dort mit Fälligkeit und gehören nicht in eine
+Aufräumphase.
+
+**Vor dem ersten Gerätetest** — unabhängig von P9, aber es blockiert alles iOS-Seitige:
+drei Einträge im Apple-Developer-Portal (App Group, Keychain-Gruppe, Background-Task-Identifier).
+Ohne sie ist nicht nur die Datenbank am falschen Ort, sondern das Widget blind und der
+Hintergrund-Task abgelehnt.
 
 ## 8. Zur Parallelisierung
 
@@ -457,6 +523,17 @@ Kurz, weil es sich wiederholt hat:
 * **„Geht nicht" im Handoff ist eine Behauptung mit Verfallsdatum.** Der Demo-Login galt auf dem
   iOS-Simulator als nicht eintippbar; über die Zwischenablage geht er. Bei jedem geerbten „geht
   nicht" lohnt ein zweiter Weg, bevor man die Prüfung darum herum baut.
+* **Ein injizierter Teil der Umgebung ist keine injizierte Umgebung.** Der Änderungsmonitor nahm
+  eine Uhr als Parameter und fragte für die Woche trotzdem `TimeHelper`. Ein Test konnte damit die
+  Stunde setzen, aber nicht die Woche — und lief still gegen ein leeres Fenster, ohne zu scheitern.
+  Aufgefallen ist es erst, als sieben neue Tests gleichzeitig „keine Änderungen" meldeten.
+* **Ein Test, der grün ist, sagt nicht, wofür er grün ist.** Die beiden Sweep-Tests aus dem
+  Monitor-Umbau bestanden, während im Hintergrund drei Wochen geseedet wurden, von denen sie nichts
+  erwähnten. Erst die Zahl der Requests in der Zusicherung hat es sichtbar gemacht.
+* **Ein Schalter wirkt nicht rückwirkend.** Das Prüfintervall von 15 Minuten auf eine Stunde zu
+  ändern hätte für jede bestehende Installation gar nichts getan: WorkManager behält mit `KEEP` das
+  Intervall, mit dem der Job einmal eingereiht wurde. Bei jeder Änderung an etwas Persistiertem:
+  gilt sie auch für die, die es schon haben?
 * **Eine Prüfung, deren beide Seiten dieselben Werte tragen, prüft nichts.** In P8 zeigte das
   Widget in der Galerie „Mathematik 1, HOR-120" — genau das, was auch die Vorschaudaten im
   SwiftUI-Code sagen. Erst ein Wert, den es *nur* in der Datenbank gab, hat gezeigt, dass die
