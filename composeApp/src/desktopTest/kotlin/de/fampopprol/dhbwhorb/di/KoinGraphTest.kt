@@ -103,6 +103,7 @@ class KoinGraphTest {
             assertNotNull(koin.get<DualisDocumentService>())
             assertNotNull(koin.get<NotificationManager>())
             assertNotNull(koin.get<WidgetTimetableUseCase>())
+            assertNotNull(koin.get<de.fampopprol.dhbwhorb.services.reminders.LectureReminderPlanner>())
             assertNotNull(koin.get<NotificationPreferencesInteractor>())
             assertNotNull(koin.get<ThemePreferences>())
             assertNotNull(koin.get<de.fampopprol.dhbwhorb.data.storage.settings.SettingsStorage>())
@@ -169,7 +170,8 @@ class KoinGraphTest {
             de.fampopprol.dhbwhorb.data.storage.database.dao.SyncMetadataDao::class,
             de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher::class,
             // Bound per platform (Glance on Android, a Swift closure on iOS) or not at all.
-            de.fampopprol.dhbwhorb.services.widget.WidgetRefresher::class
+            de.fampopprol.dhbwhorb.services.widget.WidgetRefresher::class,
+            de.fampopprol.dhbwhorb.services.reminders.LectureReminderScheduler::class
         )
         val presentationExtraTypes = servicesExtraTypes + listOf(
             de.fampopprol.dhbwhorb.domain.repository.SessionRepository::class,

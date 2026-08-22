@@ -77,6 +77,22 @@ Notification text is the one thing users read that comes from neither resource s
 `currentLanguage()`. A background worker has no Compose context and no bundle to ask, and copying
 the formatting into the four platform dispatchers would put one behaviour in four places.
 
+**There are two kinds of notification, and only one of them is a background check.** The lecture
+*reminder* is not polled: `LectureReminderPlanner` reads the cached timetable and hands finished
+notifications to the operating system, which holds them and shows them at a wall-clock minute
+whether or not the app ever runs again. Every replan is a `replaceAll`, so a cancelled lecture
+stops reminding by simply not being planned. Replanned at launch, whenever the lead time changes,
+after every hourly check, and — on Android — after a reboot, which clears every pending alarm.
+
+Both platforms need something for it. On iOS a `UNCalendarNotificationTrigger` is enough and the
+existing notification permission covers it, but iOS keeps at most **64 pending requests** per app
+and drops the rest silently, which is why `MAX_REMINDERS` is 40. On Android it is an `AlarmManager`
+alarm plus `LectureReminderReceiver`; exact alarms need `SCHEDULE_EXACT_ALARM`, which from
+Android 14 the user grants on a system screen. Without it the alarms are set with a five-minute
+window instead of not at all, `firesExactly()` returns false, and the settings screen says so and
+offers a button to that screen. `:services` carries its own `AndroidManifest.xml` so the two
+permissions and the two receivers sit next to the code that needs them.
+
 **Deleting the app takes the account with it.** That is what a user deleting an app expects, and
 it is what app data does on both platforms — except the Keychain, which outlives an uninstall by
 design. `CredentialsInstallGuard` closes that: it keeps the identity of the installation that wrote
@@ -377,7 +393,9 @@ cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration 
 | `…/core/error/Outcome.kt`, `…/core/error/AppError.kt` | The error channel |
 | `…/data/storage/credentials/CredentialsInstallGuard.kt` | Drops credentials that outlived the installation that stored them |
 | `services/…/notifications/LectureChangeMonitor.kt` | What changed in the timetable: two speeds, and the pairing that recognises a move |
-| `services/…/notifications/LectureChangeMessages.kt` | The notification wording, de/en — the only user-facing text outside the two UI resource systems |
+| `services/…/notifications/LectureNotificationTexts.kt` | The notification wording, de/en — the only user-facing text outside the two UI resource systems |
+| `services/…/reminders/LectureReminderPlanner.kt` | Turns the cached timetable into the alarms the system holds |
+| `services/src/androidMain/AndroidManifest.xml` | The alarm permissions and the two reminder receivers |
 | `presentation/…/presentation/store/BaseStore.kt` | The store contract every feature inherits |
 | `composeApp/…/ui/store/StoreCompose.kt` | The only Compose-aware part of the store plumbing |
 | `shared/src/iosMain/…/ios/SharedApp.kt` | The one door Swift uses: starts Koin, hands out the six bridges |

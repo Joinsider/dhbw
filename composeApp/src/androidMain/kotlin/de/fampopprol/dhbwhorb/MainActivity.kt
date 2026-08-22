@@ -18,6 +18,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.lifecycleScope
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
+import de.fampopprol.dhbwhorb.services.reminders.LectureReminderPlanner
 import de.fampopprol.dhbwhorb.widget.sync.WidgetSyncWorker
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.flow.combine
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity() {
 
     private val notificationPreferences: NotificationPreferencesInteractor by inject()
     private val lectureMonitorScheduler: LectureMonitorScheduler by inject()
+    private val reminderPlanner: LectureReminderPlanner by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // System bars draw under app content; insets are handled by the theme.
@@ -54,16 +56,21 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Background monitoring runs only while both toggles are on. Combining the flows means a change
-     * to either one re-evaluates the schedule.
+     * Background monitoring runs while the master switch is on and something wants it: change
+     * alerts, reminders, or both. Combining the flows means a change to any of them re-evaluates
+     * the schedule — including on launch, since each one replays its current value.
+     *
+     * The reminders are replanned here rather than only in the hourly run, so that picking a
+     * different lead time takes effect now instead of within the hour.
      */
     private fun observeNotificationPreferences() {
         lifecycleScope.launch {
             combine(
                 notificationPreferences.notificationsEnabled,
-                notificationPreferences.lectureAlertsEnabled
-            ) { notificationsEnabled, lectureAlertsEnabled ->
-                notificationsEnabled && lectureAlertsEnabled
+                notificationPreferences.lectureAlertsEnabled,
+                notificationPreferences.reminderLeadMinutes
+            ) { notificationsEnabled, lectureAlertsEnabled, reminderLead ->
+                notificationsEnabled && (lectureAlertsEnabled || reminderLead > 0)
             }.collect { shouldSchedule ->
                 if (shouldSchedule) {
                     Napier.d("Notifications enabled, scheduling lecture monitoring", tag = TAG)
@@ -72,6 +79,7 @@ class MainActivity : ComponentActivity() {
                     Napier.d("Notifications disabled, cancelling lecture monitoring", tag = TAG)
                     lectureMonitorScheduler.cancel()
                 }
+                reminderPlanner.reschedule()
             }
         }
     }

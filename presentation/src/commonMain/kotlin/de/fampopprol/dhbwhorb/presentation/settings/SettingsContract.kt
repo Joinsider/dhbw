@@ -19,7 +19,14 @@ data class SettingsState(
     val materialYouEnabled: Boolean = true,
     val seedColor: Long = DEFAULT_SEED_COLOR,
     val notificationsEnabled: Boolean = false,
-    val lectureAlertsEnabled: Boolean = false
+    val lectureAlertsEnabled: Boolean = false,
+    /**
+     * Minutes before a lecture that its reminder fires; `0` means off.
+     *
+     * One number instead of a switch plus a duration: for the user it is one choice, and two
+     * fields could disagree about whether reminders are on.
+     */
+    val reminderLeadMinutes: Int = 0
 ) {
     companion object {
         /** Purple40, the value `ThemePreferences` falls back to. */
@@ -34,6 +41,7 @@ sealed interface SettingsIntent {
     data class SeedColorChanged(val argb: Long) : SettingsIntent
     data class NotificationsChanged(val enabled: Boolean) : SettingsIntent
     data class LectureAlertsChanged(val enabled: Boolean) : SettingsIntent
+    data class ReminderLeadChanged(val minutes: Int) : SettingsIntent
 }
 
 sealed interface SettingsMsg {
@@ -43,6 +51,7 @@ sealed interface SettingsMsg {
     data class SeedColorChanged(val argb: Long) : SettingsMsg
     data class NotificationsChanged(val enabled: Boolean) : SettingsMsg
     data class LectureAlertsChanged(val enabled: Boolean) : SettingsMsg
+    data class ReminderLeadChanged(val minutes: Int) : SettingsMsg
 }
 
 /** Nothing here is one-shot: every setting is state the whole app reads. */

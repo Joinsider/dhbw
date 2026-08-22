@@ -14,10 +14,16 @@ import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
 import de.fampopprol.dhbwhorb.presentation.settings.SettingsStore
 import de.fampopprol.dhbwhorb.presentation.timetable.TimetableStore
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
+import de.fampopprol.dhbwhorb.services.reminders.LectureReminderPlanner
 import de.fampopprol.dhbwhorb.services.widget.IosWidgetRefresher
 import de.fampopprol.dhbwhorb.shared.initKoin
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.plus
 import org.koin.core.Koin
 import org.koin.mp.KoinPlatform
 
@@ -65,6 +71,7 @@ object SharedApp {
 
     private lateinit var koin: Koin
     private val observer = FlowObserver()
+    private val scope = CoroutineScope(Dispatchers.Main) + SupervisorJob()
 
     val app: AppStoreBridge by lazy { AppStoreBridge(koin.get<AppStore>()) }
     val auth: AuthStoreBridge by lazy { AuthStoreBridge(koin.get<AuthStore>()) }
@@ -81,6 +88,20 @@ object SharedApp {
      * runs belongs to the platform entry point.
      */
     val lectureMonitor: LectureMonitorScheduler by lazy { koin.get<LectureMonitorScheduler>() }
+
+    /**
+     * Replans the lecture reminders from the cached timetable.
+     *
+     * Swift calls this whenever the lead time changes, so a new choice takes effect immediately
+     * instead of at the next hourly run. iOS then holds the reminders itself as pending
+     * notification requests — nothing here has to be running for one to arrive.
+     */
+    fun rescheduleReminders(onDone: () -> Unit) {
+        scope.launch {
+            koin.get<LectureReminderPlanner>().reschedule()
+            onDone()
+        }
+    }
 
     /**
      * Installs the one thing Kotlin cannot do for itself on iOS: reloading the widget.

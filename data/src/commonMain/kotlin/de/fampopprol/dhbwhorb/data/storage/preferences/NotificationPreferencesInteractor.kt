@@ -24,6 +24,11 @@ class NotificationPreferencesInteractor(
     private val _lectureAlertsEnabled = MutableStateFlow(preferences.getLectureAlertsEnabled())
     val lectureAlertsEnabled: StateFlow<Boolean> = _lectureAlertsEnabled.asStateFlow()
 
+    private val _reminderLeadMinutes = MutableStateFlow(preferences.getReminderLeadMinutes())
+
+    /** Observable so the entry points can replan the alarms the moment the choice changes. */
+    val reminderLeadMinutes: StateFlow<Int> = _reminderLeadMinutes.asStateFlow()
+
     init {
         Napier.d("NotificationPreferencesInteractor initialized: notifications=${_notificationsEnabled.value}, lectureAlerts=${_lectureAlertsEnabled.value}")
     }
@@ -93,5 +98,13 @@ class NotificationPreferencesInteractor(
         _lectureAlertsEnabled.value = preferences.getLectureAlertsEnabled()
 
         Napier.d("Preferences refreshed: notifications ${oldNotifications} -> ${_notificationsEnabled.value}, lectureAlerts ${oldLectureAlerts} -> ${_lectureAlertsEnabled.value}")
+    }
+
+    /** Minutes before a lecture that its reminder fires, `0` when reminders are off. */
+    fun getReminderLeadMinutes(): Int = _reminderLeadMinutes.value
+
+    fun setReminderLeadMinutes(minutes: Int) {
+        preferences.setReminderLeadMinutes(minutes)
+        _reminderLeadMinutes.value = minutes
     }
 }

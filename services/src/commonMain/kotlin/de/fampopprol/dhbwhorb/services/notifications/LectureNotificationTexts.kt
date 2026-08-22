@@ -11,7 +11,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.number
 
 /**
- * The text of a lecture-change notification, in the user's language.
+ * The text of every notification this app sends, in the user's language.
  *
  * **Why the strings live here and not in a resource file.** Everything else the user reads comes
  * from one of the two UI resource systems — Compose resources on Android and Desktop, a string
@@ -23,7 +23,7 @@ import kotlinx.datetime.number
  * So: one table, two languages, chosen by [currentLanguage]. Adding a language means adding a
  * [Strings] implementation and nothing else.
  */
-object LectureChangeMessages {
+object LectureNotificationTexts {
 
     private val strings: Strings
         get() = if (currentLanguage() == "de") German else English
@@ -34,11 +34,25 @@ object LectureChangeMessages {
     /** Title and body for a run that found more than one. */
     fun summary(changes: List<LectureChange>): Pair<String, String> = strings.summary(changes)
 
+    /** Title and body for the reminder that fires [leadMinutes] before a lecture starts. */
+    fun reminder(
+        courseName: String,
+        location: String,
+        startsAt: LocalDateTime,
+        leadMinutes: Int,
+    ): Pair<String, String> = strings.reminder(courseName, location, startsAt, leadMinutes)
+
     // ── The two tables ──────────────────────────────────────────────────────────────────────
 
     private interface Strings {
         fun single(change: LectureChange): Pair<String, String>
         fun summary(changes: List<LectureChange>): Pair<String, String>
+        fun reminder(
+            courseName: String,
+            location: String,
+            startsAt: LocalDateTime,
+            leadMinutes: Int,
+        ): Pair<String, String>
     }
 
     private object German : Strings {
@@ -83,6 +97,22 @@ object LectureChangeMessages {
                 separator = ", ",
                 lastSeparator = " und ",
             )
+
+        override fun reminder(
+            courseName: String,
+            location: String,
+            startsAt: LocalDateTime,
+            leadMinutes: Int,
+        ): Pair<String, String> {
+            val lead = if (leadMinutes % 60 == 0) {
+                val hours = leadMinutes / 60
+                if (hours == 1) "In einer Stunde" else "In $hours Stunden"
+            } else {
+                "In $leadMinutes Minuten"
+            }
+            val room = location.takeIf { it.isNotBlank() }?.let { ", $it" }.orEmpty()
+            return "$lead: $courseName" to "${startsAt.hour.pad()}:${startsAt.minute.pad()} Uhr$room"
+        }
 
         private fun LocalDateTime?.dayAndTime(): String =
             if (this == null) "unbekannt" else "${day.pad()}.${month.number.pad()}., ${hour.pad()}:${minute.pad()} Uhr"
@@ -130,6 +160,22 @@ object LectureChangeMessages {
                 separator = ", ",
                 lastSeparator = " and ",
             )
+
+        override fun reminder(
+            courseName: String,
+            location: String,
+            startsAt: LocalDateTime,
+            leadMinutes: Int,
+        ): Pair<String, String> {
+            val lead = if (leadMinutes % 60 == 0) {
+                val hours = leadMinutes / 60
+                if (hours == 1) "In an hour" else "In $hours hours"
+            } else {
+                "In $leadMinutes minutes"
+            }
+            val room = location.takeIf { it.isNotBlank() }?.let { ", $it" }.orEmpty()
+            return "$lead: $courseName" to "${startsAt.hour.pad()}:${startsAt.minute.pad()}$room"
+        }
 
         private fun LocalDateTime?.dayAndTime(): String =
             if (this == null) "unknown" else "${day.pad()}/${month.number.pad()}, ${hour.pad()}:${minute.pad()}"

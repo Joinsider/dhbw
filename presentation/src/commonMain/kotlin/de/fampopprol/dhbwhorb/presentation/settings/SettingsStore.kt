@@ -39,7 +39,8 @@ class SettingsStore(
                         materialYouEnabled = preferences.isMaterialYouEnabled(),
                         seedColor = preferences.getCustomColor(),
                         notificationsEnabled = preferences.areNotificationsEnabled(),
-                        lectureAlertsEnabled = preferences.areLectureAlertsEnabled()
+                        lectureAlertsEnabled = preferences.areLectureAlertsEnabled(),
+                        reminderLeadMinutes = preferences.getReminderLeadMinutes()
                     )
                 )
             )
@@ -69,6 +70,11 @@ class SettingsStore(
                 preferences.setLectureAlertsEnabled(intent.enabled)
                 emit(SettingsMsg.LectureAlertsChanged(intent.enabled))
             }
+
+            is SettingsIntent.ReminderLeadChanged -> {
+                preferences.setReminderLeadMinutes(intent.minutes)
+                emit(SettingsMsg.ReminderLeadChanged(intent.minutes))
+            }
         }
     }
 }
@@ -86,4 +92,5 @@ fun reduceSettings(state: SettingsState, msg: SettingsMsg): SettingsState = when
     is SettingsMsg.SeedColorChanged -> state.copy(seedColor = msg.argb)
     is SettingsMsg.NotificationsChanged -> state.copy(notificationsEnabled = msg.enabled)
     is SettingsMsg.LectureAlertsChanged -> state.copy(lectureAlertsEnabled = msg.enabled)
+    is SettingsMsg.ReminderLeadChanged -> state.copy(reminderLeadMinutes = msg.minutes)
 }

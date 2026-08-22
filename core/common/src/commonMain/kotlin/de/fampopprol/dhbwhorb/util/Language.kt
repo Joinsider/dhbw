@@ -11,6 +11,6 @@ package de.fampopprol.dhbwhorb.util
  *
  * Almost nothing needs this: both UIs get their text from their own resource system, which knows
  * the language without asking. The exception is text produced where there is no UI at all — a
- * notification written by a background worker. See `LectureChangeMessages`.
+ * notification written by a background worker. See `LectureNotificationTexts`.
  */
 expect fun currentLanguage(): String

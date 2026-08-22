@@ -8,6 +8,8 @@ package de.fampopprol.dhbwhorb.services.di
 
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
 import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
+import de.fampopprol.dhbwhorb.services.reminders.AndroidLectureReminderScheduler
+import de.fampopprol.dhbwhorb.services.reminders.LectureReminderScheduler
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -15,4 +17,5 @@ import org.koin.dsl.module
 actual fun servicesPlatformModule(): Module = module {
     single { NotificationDispatcher() }
     single { LectureMonitorScheduler(androidContext()) }
+    single<LectureReminderScheduler> { AndroidLectureReminderScheduler(androidContext(), settings = get()) }
 }

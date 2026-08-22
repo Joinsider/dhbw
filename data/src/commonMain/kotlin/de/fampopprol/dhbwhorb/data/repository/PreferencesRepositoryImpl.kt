@@ -36,4 +36,7 @@ class PreferencesRepositoryImpl(
 
     override fun areLectureAlertsEnabled(): Boolean = notificationPreferences.getLectureAlertsEnabled()
     override fun setLectureAlertsEnabled(enabled: Boolean) = notificationPreferences.setLectureAlertsEnabled(enabled)
+
+    override fun getReminderLeadMinutes(): Int = notificationPreferences.getReminderLeadMinutes()
+    override fun setReminderLeadMinutes(minutes: Int) = notificationPreferences.setReminderLeadMinutes(minutes)
 }
