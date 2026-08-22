@@ -5,6 +5,15 @@ import platform.Foundation.*
 import platform.Security.*
 import platform.CoreFoundation.*
 
+/**
+ * Keychain-backed credential storage, shared with the widget extension.
+ *
+ * No access group is named in any query on purpose. The keychain files an item into the first
+ * entry of the writing process's `keychain-access-groups` entitlement and searches the same list
+ * on the way back, so app and extension see the same items as long as both entitlement files
+ * start with the same group — which they do since P8. Naming the group in code would mean
+ * knowing the team prefix that completes it, and that only exists at signing time.
+ */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 class IosSecureStorage : SecureStorageInterface {

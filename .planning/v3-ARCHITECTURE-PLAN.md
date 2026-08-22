@@ -672,7 +672,7 @@ der P1-Baseline messbar kleiner; VoiceOver-Durchlauf je Screen ohne unbeschrifte
   E-Mail-Feld öffnete iOS-Passwort-Autofill statt des Einsetzen-Menüs, samt Absenden. Steht als
   Fallstrick im Handoff (§3).
 
-### P8 — iOS-Plattformdienste nativ · Größe L
+### P8 — iOS-Plattformdienste nativ · Größe L · **abgeschlossen**
 
 * **BGTaskScheduler:** `LectureMonitorScheduler.ios.kt` ist heute ein reiner Log-Stub —
   die Doku im Code beschreibt die Swift-Implementierung, die es nicht gibt. Registrierung in
@@ -690,6 +690,51 @@ der P1-Baseline messbar kleiner; VoiceOver-Durchlauf je Screen ohne unbeschrifte
 
 **Fertig wenn:** Widget aktualisiert ohne laufende App; Background-Refresh liefert im Gerätetest
 eine Benachrichtigung; kein DTO existiert doppelt in Kotlin und Swift.
+
+**Was tatsächlich passiert ist:**
+
+* **Das Widget hat keine eigenen Modelle mehr.** Die Extension linkt `Shared.framework`, startet
+  über `WidgetSnapshotProvider` ihren eigenen Koin-Graphen und liest die App-Group-Datenbank aus
+  P6 direkt. `WidgetDataWriter`, `WidgetDataSerializer` und `WidgetSerializableModels` sind
+  gelöscht, mit ihnen die drei Swift-Codable-Spiegel — zusammen 222 Zeilen, die dieselben neun
+  Felder ein zweites Mal beschrieben haben. Übrig bleibt `WidgetSnapshot.kt`.
+* **Der Snapshot ist eine Brücke, kein zweites Modell.** `WidgetLecture`/`WidgetDay` geben die
+  Felder in Typen weiter, die Objective-C tragen kann (`NSDate` statt `LocalDateTime`) — dieselbe
+  Rolle wie `StoreBridges` für die Stores. Der dreiwertige `WidgetUpNextState` wird dabei zu
+  `upNext: WidgetLecture?` plus `upNextIsRunning`; der dritte Fall trägt ohnehin keine Vorlesung.
+* **Die Notification-Brücke ist weg, der Anlass nicht.** Nur die App darf `WidgetCenter`
+  aufrufen, also meldet `SharedApp.observeTimetableChanges` weiterhin, dass sich die
+  Vorlesungstabelle geändert hat — jetzt aber als direkter Callback statt über
+  `NSNotificationCenter`, und ohne dabei irgendetwas zu serialisieren.
+* **BGTaskScheduler steckt in Kotlin, nicht in Swift.** Der Plan ging davon aus, dass das
+  Swift braucht; `platform.BackgroundTasks` ist aber eine Plattform-Bibliothek wie jede andere.
+  `LectureMonitorScheduler.ios.kt` ist damit eine echte Implementierung statt eines Log-Stubs mit
+  Swift-Anleitung im Kommentar, und Android und iOS haben wieder dieselbe Form: `schedule()`,
+  `cancel()`, ein Aufruf von `NotificationManager.checkAndNotify()`. Swift steuert die zwei
+  Zeitpunkte bei, die nur es kennt — `registerTaskHandler()` in `iOSApp.init()`, weil iOS eine
+  spätere Registrierung ablehnt, und das Beobachten der beiden Schalter in `AppModel`.
+* **UNUserNotificationCenter blieb, wo es war.** Der Plan wollte es nach Swift holen;
+  `NotificationDispatcher.ios.kt` ist aber bereits eine vollständige Kotlin-Implementierung.
+  Es nach Swift zu kopieren hätte eine dritte Zustellungsvariante neben Android und Desktop
+  geschaffen, ohne etwas zu können, was die vorhandene nicht kann. Die Kategorien-Actions
+  („Woche öffnen") sind damit nicht gebaut worden — sie stehen jetzt im Handoff.
+* **Die Keychain-Gruppe brauchte keinen Code.** Der Schlüsselbund legt einen Eintrag in die
+  *erste* Gruppe der `keychain-access-groups` des schreibenden Prozesses und sucht ihn dort
+  wieder; es genügt, dass beide Entitlement-Dateien mit derselben Gruppe beginnen. Ein
+  `kSecAttrAccessGroup` im Code hätte den Team-Präfix gebraucht, den es zur Laufzeit nicht gibt.
+* **Zwei Dinge am Xcode-Projekt, die nicht im Plan standen:** die Extension braucht dieselbe
+  Gradle-Build-Phase wie die App (sie wird *vor* der App gebaut, und ohne sie gibt es noch kein
+  `Shared.framework`), und sie muss auf `ARCHS = arm64` festgelegt werden — das Kotlin-Framework
+  hat keine x86_64-Scheibe, und der Linker der Extension hat vorher genau daran gescheitert.
+* **Die doppelte `TimetableWidget.entitlements` ist gelöscht.** Sie lag seit dem
+  Widget-Commit unbenutzt neben der verdrahteten `TimetableWidgetExtension.entitlements` und
+  hatte denselben Inhalt — wer sie bearbeitet hätte, hätte nichts am Build geändert.
+* **Nachgemessen statt behauptet:** das Widget zeigt einen Wert, der nach dem Beenden der App in
+  die Datenbank geschrieben wurde, also liest die Extension wirklich selbst. Auf iOS macht ein
+  Tab-Wechsel außerdem **0 Requests** — das war seit P4 nur auf Android belegt.
+* **Nicht belegt:** dass der Background-Task auch feuert. Der Simulator hat keinen Weg, ihn
+  auszulösen; nachgewiesen sind Registrierung und Einreichung. Ebenso offen bleibt der
+  VoiceOver-Durchlauf.
 
 ### P9 — Aufräumen · Größe S
 

@@ -13,23 +13,30 @@ import de.fampopprol.dhbwhorb.presentation.documents.DocumentsStore
 import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
 import de.fampopprol.dhbwhorb.presentation.settings.SettingsStore
 import de.fampopprol.dhbwhorb.presentation.timetable.TimetableStore
-import de.fampopprol.dhbwhorb.services.widget.WidgetDataWriter
-import de.fampopprol.dhbwhorb.services.widget.WidgetTimetableUseCase
+import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
 import de.fampopprol.dhbwhorb.shared.initKoin
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.plus
 import org.koin.core.Koin
-import org.koin.dsl.module
 import org.koin.mp.KoinPlatform
 
 private const val TAG = "SharedApp"
-private const val APP_GROUP = "group.de.fampopprol.dhbwhorb"
+
+/**
+ * Starts the object graph if it is not running yet, and returns it.
+ *
+ * Two processes call this: the app through [SharedApp.start], and the widget extension through
+ * [WidgetSnapshotProvider]. They are separate processes with separate graphs — what they share is
+ * the database file in the App Group container, not this object.
+ *
+ * Idempotent, because starting Koin twice throws and SwiftUI may build the root view more than
+ * once (a scene reconnecting, a preview).
+ */
+internal fun startSharedKoin(): Koin = KoinPlatform.getKoinOrNull() ?: run {
+    Napier.base(DebugAntilog())
+    Napier.d("Starting dependency graph", tag = TAG)
+    initKoin().koin
+}
 
 /**
  * Everything the SwiftUI app needs from Kotlin, behind one door.
@@ -49,27 +56,14 @@ private const val APP_GROUP = "group.de.fampopprol.dhbwhorb"
  */
 object SharedApp {
 
-    private val scope = CoroutineScope(Dispatchers.Main) + SupervisorJob()
-
-    /**
-     * Starts the object graph if it is not running, and returns the accessor for it.
-     *
-     * Idempotent: SwiftUI may build the root view more than once (a scene reconnecting, a
-     * preview), and starting Koin twice throws.
-     */
+    /** Starts the graph if needed and returns the accessor for it. */
     fun start(): SharedApp {
-        val koin = KoinPlatform.getKoinOrNull() ?: run {
-            Napier.base(DebugAntilog())
-            Napier.d("Starting dependency graph", tag = TAG)
-            initKoin(extraModules = listOf(iosWidgetModule)).koin.also { started ->
-                scope.launch { observeDatabaseForWidget(started) }
-            }
-        }
-        this.koin = koin
+        koin = startSharedKoin()
         return this
     }
 
     private lateinit var koin: Koin
+    private val observer = FlowObserver()
 
     val app: AppStoreBridge by lazy { AppStoreBridge(koin.get<AppStore>()) }
     val auth: AuthStoreBridge by lazy { AuthStoreBridge(koin.get<AuthStore>()) }
@@ -77,32 +71,27 @@ object SharedApp {
     val grades: GradesStoreBridge by lazy { GradesStoreBridge(koin.get<GradesStore>()) }
     val documents: DocumentsStoreBridge by lazy { DocumentsStoreBridge(koin.get<DocumentsStore>()) }
     val settings: SettingsStoreBridge by lazy { SettingsStoreBridge(koin.get<SettingsStore>()) }
-}
 
-/**
- * Keeps the App Group snapshot in step with the database, so the widget extension can render
- * without a session or a network call.
- *
- * Moved here from `MainViewController` unchanged. P8 replaces it: since P6 the database itself
- * lives in the App Group container, so the widget can read it directly and this JSON detour
- * disappears together with [WidgetDataWriter].
- */
-private suspend fun observeDatabaseForWidget(koin: Koin) {
-    val database: AppDatabase = koin.get()
-    val widgetWriter: WidgetDataWriter = koin.get()
-    val widgetUseCase: WidgetTimetableUseCase = koin.get()
+    /**
+     * The background-refresh scheduler, for the two things only Swift can time: registering the
+     * launch handler before the app finishes launching, and following the settings switches.
+     *
+     * `MainActivity` does the same on Android — the scheduler is a service, and deciding when it
+     * runs belongs to the platform entry point.
+     */
+    val lectureMonitor: LectureMonitorScheduler by lazy { koin.get<LectureMonitorScheduler>() }
 
-    database.lectureDao().getAllFlow().collectLatest {
-        try {
-            widgetWriter.writeUpNextState(widgetUseCase.getUpNextState())
-            widgetWriter.writeMultiDayState(widgetUseCase.getMultiDaySummaryState())
-            widgetWriter.notifyWidgetDataUpdated()
-        } catch (e: Exception) {
-            Napier.e("Widget snapshot failed: ${e.message}", e, tag = TAG)
-        }
+    /**
+     * Calls [onChange] whenever the cached timetable changes, so Swift can reload the widget.
+     *
+     * The widget extension reads the same database file out of the App Group container, but it is
+     * a separate process and nothing tells it that a fetch has landed — only `WidgetCenter` can,
+     * and only from the app. What used to happen here instead was a whole JSON snapshot written
+     * into `NSUserDefaults` on every change, with a Foundation notification behind it; the
+     * snapshot is gone with P8 and this is what is left of it.
+     */
+    fun observeTimetableChanges(onChange: () -> Unit): ObservationHandle {
+        val database: AppDatabase = koin.get()
+        return observer.observe(database.lectureDao().getAllFlow()) { onChange() }
     }
-}
-
-private val iosWidgetModule = module {
-    single { WidgetDataWriter(appGroupSuiteName = APP_GROUP) }
 }

@@ -1107,19 +1107,19 @@
         }
       }
     },
-    "settings.lectureAlertsIosNote": {
+    "settings.lectureAlertsFooter": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On iPhone the app checks for lecture changes only while it is open."
+            "value": "iOS decides how often it checks in the background, so a change can take a while to arrive."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Auf dem iPhone prüft die App nur auf Vorlesungsänderungen, solange sie geöffnet ist."
+            "value": "Wie oft im Hintergrund geprüft wird, entscheidet iOS — eine Änderung kann daher etwas dauern."
           }
         }
       }

@@ -3,134 +3,59 @@
 
 import WidgetKit
 import SwiftUI
+import Shared
 
-// ── Konstanten ────────────────────────────────────────────────────────────────
-
-/// App-Group-Bezeichner – muss mit dem Wert in den Entitlements beider Targets übereinstimmen.
-let kAppGroupSuite  = "group.de.fampopprol.dhbwhorb"
-let kUpNextKey      = "widget_up_next"
-let kMultiDayKey    = "widget_multi_day"
-
-// ── Swift-seitige Codable-Spiegel der KMP-DTOs ────────────────────────────────
-// Feldnamen und Diskriminatorwerte müssen mit WidgetSerializableModels.kt übereinstimmen.
-
-struct WidgetClassInfo: Codable, Identifiable {
-    let name: String
-    let shortName: String
-    let startTime: String       // "HH:mm"
-    let endTime: String         // "HH:mm"
-    let location: String
-    let isTest: Bool
-    let isOngoing: Bool
-    let startEpoch: Double
-    let endEpoch: Double
-
-    /// Stable identity für `ForEach` – Kombination aus Epoch-Sekunden.
-    var id: Double { startEpoch }
-
-    var startDate: Date { Date(timeIntervalSince1970: startEpoch) }
-    var endDate:   Date { Date(timeIntervalSince1970: endEpoch) }
-}
-
-struct WidgetDayInfo: Codable, Identifiable {
-    /// ISO-8601 Datums-String `"YYYY-MM-DD"`.
-    let date: String
-    let classes: [WidgetClassInfo]
-
-    var id: String { date }
-
-    /// `Date`-Objekt für Datumsvergleiche (z. B. `isDateInToday`).
-    var parsedDate: Date? {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f.date(from: date)
-    }
-}
-
-/// Spiegelt `WidgetUpNextDto` aus Kotlin – das `type`-Feld ist der Diskriminator.
-struct UpNextInfo: Codable {
-    enum UpNextType: String, Codable {
-        case currentlyRunning = "currently_running"
-        case comingUp         = "coming_up"
-        case noMoreToday      = "no_more_today"
-    }
-    let type: UpNextType
-    let lecture: WidgetClassInfo?
-}
-
-// ── TimelineEntry ─────────────────────────────────────────────────────────────
-
+/// The timeline entry: whatever Kotlin last read out of the shared database.
+///
+/// There are no model types in this file any more. Until P8 the extension held Swift `Codable`
+/// mirrors of the Kotlin DTOs and decoded them out of a JSON blob the app wrote into the App
+/// Group's `NSUserDefaults` on every database change. The extension now links `Shared.framework`
+/// and reads the database in the App Group container directly — the same one the app writes, in
+/// place since P6 — so `WidgetLecture` and `WidgetDay` come from `WidgetSnapshot.kt` and cannot
+/// drift out of step with it.
 struct TimetableEntry: TimelineEntry {
     let date: Date
-    let upNext:   UpNextInfo?
-    let multiDay: [WidgetDayInfo]
-
-    /// Keine Daten verfügbar (App noch nie gestartet oder nicht eingeloggt).
-    var hasData: Bool { upNext != nil || !multiDay.isEmpty }
+    let snapshot: WidgetSnapshot
 }
-
-// ── TimelineProvider ──────────────────────────────────────────────────────────
 
 struct TimetableProvider: TimelineProvider {
 
-    private var sharedDefaults: UserDefaults? { UserDefaults(suiteName: kAppGroupSuite) }
-
-    // Snapshot beim Hinzufügen des Widgets zur Ansicht
+    /// Shown while the real snapshot loads, and in the widget gallery.
     func placeholder(in context: Context) -> TimetableEntry {
-        TimetableEntry(date: .now, upNext: UpNextInfo.previewCurrentlyRunning, multiDay: [WidgetDayInfo].previewTwoDays)
+        TimetableEntry(date: .now, snapshot: .previewTwoDays)
     }
 
-    // Snapshot für die Widget-Galerie
     func getSnapshot(in context: Context, completion: @escaping (TimetableEntry) -> Void) {
-        completion(context.isPreview ? placeholder(in: context) : buildEntry())
-    }
-
-    // Timeline – ein einzelner Eintrag; Refresh-Datum wird aus Vorlesungszeiten berechnet
-    func getTimeline(in context: Context, completion: @escaping (Timeline<TimetableEntry>) -> Void) {
-        let entry = buildEntry()
-        completion(Timeline(entries: [entry], policy: .after(nextRefreshDate(for: entry))))
-    }
-
-    // ── Private Hilfsmethoden ─────────────────────────────────────────────────
-
-    private func buildEntry() -> TimetableEntry {
-        TimetableEntry(
-            date:     .now,
-            upNext:   loadUpNext(),
-            multiDay: loadMultiDay()
-        )
-    }
-
-    private func loadUpNext() -> UpNextInfo? {
-        guard
-            let json = sharedDefaults?.string(forKey: kUpNextKey),
-            let data = json.data(using: .utf8)
-        else { return nil }
-        return try? JSONDecoder().decode(UpNextInfo.self, from: data)
-    }
-
-    private func loadMultiDay() -> [WidgetDayInfo] {
-        guard
-            let json = sharedDefaults?.string(forKey: kMultiDayKey),
-            let data = json.data(using: .utf8)
-        else { return [] }
-        return (try? JSONDecoder().decode([WidgetDayInfo].self, from: data)) ?? []
-    }
-
-    /// Berechnet das nächste Refresh-Datum:
-    /// - Läuft gerade eine Vorlesung → am Ende dieser Vorlesung
-    /// - Steht die nächste bevor → zum Startzeitpunkt (damit Status auf „läuft" wechselt)
-    /// - Keine Daten / alles vorbei → 7 Uhr morgen früh
-    private func nextRefreshDate(for entry: TimetableEntry) -> Date {
-        if let lecture = entry.upNext?.lecture {
-            let startDate = lecture.startDate
-            let endDate   = lecture.endDate
-            if lecture.isOngoing, endDate > .now   { return endDate }
-            if startDate > .now                    { return startDate }
-            if endDate > .now                      { return endDate }
+        if context.isPreview {
+            completion(placeholder(in: context))
+        } else {
+            loadEntry(completion)
         }
-        // Fallback: 7 Uhr morgen früh, maximal aber in 60 Minuten
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<TimetableEntry>) -> Void) {
+        loadEntry { entry in
+            completion(Timeline(entries: [entry], policy: .after(nextRefreshDate(for: entry))))
+        }
+    }
+
+    /// Kotlin answers on a background thread; WidgetKit accepts its completions from any of them.
+    private func loadEntry(_ completion: @escaping (TimetableEntry) -> Void) {
+        WidgetSnapshotProvider.shared.load { snapshot in
+            completion(TimetableEntry(date: .now, snapshot: snapshot))
+        }
+    }
+
+    /// When to ask again:
+    /// - a lecture is running → when it ends, so the card stops saying "now"
+    /// - one is coming up → when it starts, for the same reason
+    /// - nothing today → 7 in the morning, and at most an hour from now either way
+    private func nextRefreshDate(for entry: TimetableEntry) -> Date {
+        if let lecture = entry.snapshot.upNext {
+            if lecture.isOngoing, lecture.end > .now { return lecture.end }
+            if lecture.start > .now { return lecture.start }
+            if lecture.end > .now { return lecture.end }
+        }
         let nextMorning = Calendar.current.nextDate(
             after: .now,
             matching: DateComponents(hour: 7, minute: 0),
@@ -139,8 +64,6 @@ struct TimetableProvider: TimelineProvider {
         return min(nextMorning, Date().addingTimeInterval(60 * 60))
     }
 }
-
-// ── Widget-Konfiguration ──────────────────────────────────────────────────────
 
 struct TimetableWidget: Widget {
     let kind: String = "de.fampopprol.dhbwhorb.TimetableWidget"
@@ -156,8 +79,6 @@ struct TimetableWidget: Widget {
     }
 }
 
-// ── Entry-View-Dispatcher ─────────────────────────────────────────────────────
-
 struct TimetableWidgetEntryView: View {
     @Environment(\.widgetFamily) var family
     let entry: TimetableEntry
@@ -172,61 +93,52 @@ struct TimetableWidgetEntryView: View {
     }
 }
 
-// ── Vorschau-Daten (Erweiterungen) ────────────────────────────────────────────
+// ── Vorschau-Daten ────────────────────────────────────────────────────────────
+// Die Typen kommen aus Kotlin; nur diese Beispielwerte stehen hier, damit die
+// SwiftUI-Vorschauen ohne Datenbank laufen.
 
-extension UpNextInfo {
-    static var previewCurrentlyRunning: UpNextInfo {
-        UpNextInfo(type: .currentlyRunning, lecture: .previewRunning)
+extension WidgetLecture {
+    static var previewRunning: WidgetLecture {
+        WidgetLecture(name: "Mathematik 1", shortName: "MATHE",
+                      startText: "08:15", endText: "11:30",
+                      location: "HOR-120", isTest: false, isOngoing: true,
+                      start: Date().addingTimeInterval(-3600), end: Date().addingTimeInterval(1800))
     }
-    static var previewComingUp: UpNextInfo {
-        UpNextInfo(type: .comingUp, lecture: .previewNext)
+    static var previewNext: WidgetLecture {
+        WidgetLecture(name: "Programmierung", shortName: "PROG",
+                      startText: "13:00", endText: "16:00",
+                      location: "HOR-231", isTest: false, isOngoing: false,
+                      start: Date().addingTimeInterval(5400), end: Date().addingTimeInterval(9000))
     }
-    static var previewNoMore: UpNextInfo {
-        UpNextInfo(type: .noMoreToday, lecture: nil)
+    static var previewExam: WidgetLecture {
+        WidgetLecture(name: "Klausur Analysis", shortName: "KLSR",
+                      startText: "09:00", endText: "11:00",
+                      location: "HOR-Aula", isTest: true, isOngoing: false,
+                      start: Date().addingTimeInterval(86400), end: Date().addingTimeInterval(86400 + 7200))
     }
 }
 
-extension WidgetClassInfo {
-    static var previewRunning: WidgetClassInfo {
-        WidgetClassInfo(name: "Mathematik 1", shortName: "MATHE",
-                        startTime: "08:15", endTime: "11:30",
-                        location: "HOR-120", isTest: false, isOngoing: true,
-                        startEpoch: Date().timeIntervalSince1970 - 3600,
-                        endEpoch:   Date().timeIntervalSince1970 + 1800)
-    }
-    static var previewNext: WidgetClassInfo {
-        WidgetClassInfo(name: "Programmierung", shortName: "PROG",
-                        startTime: "13:00", endTime: "16:00",
-                        location: "HOR-231", isTest: false, isOngoing: false,
-                        startEpoch: Date().timeIntervalSince1970 + 5400,
-                        endEpoch:   Date().timeIntervalSince1970 + 9000)
-    }
-    static var previewExam: WidgetClassInfo {
-        WidgetClassInfo(name: "Klausur Analysis", shortName: "KLSR",
-                        startTime: "09:00", endTime: "11:00",
-                        location: "HOR-Aula", isTest: true, isOngoing: false,
-                        startEpoch: Date().timeIntervalSince1970 + 86400,
-                        endEpoch:   Date().timeIntervalSince1970 + 86400 + 7200)
-    }
-}
-
-extension Array where Element == WidgetDayInfo {
-    static var previewTwoDays: [WidgetDayInfo] {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
-        let today    = df.string(from: Date())
-        let tomorrow = df.string(from: Date().addingTimeInterval(86400))
-        return [
-            WidgetDayInfo(date: today, classes: [.previewRunning, .previewNext]),
-            WidgetDayInfo(date: tomorrow, classes: [.previewExam]),
+extension WidgetSnapshot {
+    private static var twoDays: [WidgetDay] {
+        [
+            WidgetDay(date: Calendar.current.startOfDay(for: .now),
+                      lectures: [.previewRunning, .previewNext]),
+            WidgetDay(date: Calendar.current.startOfDay(for: Date().addingTimeInterval(86400)),
+                      lectures: [.previewExam]),
         ]
     }
-    static var previewOneDay: [WidgetDayInfo] {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
-        return [WidgetDayInfo(date: df.string(from: Date()), classes: [.previewRunning])]
+
+    static var previewTwoDays: WidgetSnapshot {
+        WidgetSnapshot(upNext: .previewRunning, upNextIsRunning: true, days: twoDays)
+    }
+    static var previewComingUp: WidgetSnapshot {
+        WidgetSnapshot(upNext: .previewNext, upNextIsRunning: false, days: twoDays)
+    }
+    static var previewNoMoreToday: WidgetSnapshot {
+        WidgetSnapshot(upNext: nil, upNextIsRunning: false, days: twoDays)
+    }
+    static var previewEmpty: WidgetSnapshot {
+        WidgetSnapshot(upNext: nil, upNextIsRunning: false, days: [])
     }
 }
 
@@ -235,41 +147,41 @@ extension Array where Element == WidgetDayInfo {
 #Preview("Small – Läuft gerade", as: .systemSmall) {
     TimetableWidget()
 } timeline: {
-    TimetableEntry(date: .now, upNext: .previewCurrentlyRunning, multiDay: .previewTwoDays)
+    TimetableEntry(date: .now, snapshot: .previewTwoDays)
 }
 
 #Preview("Small – Nächste Vorlesung", as: .systemSmall) {
     TimetableWidget()
 } timeline: {
-    TimetableEntry(date: .now, upNext: .previewComingUp, multiDay: .previewTwoDays)
+    TimetableEntry(date: .now, snapshot: .previewComingUp)
 }
 
 #Preview("Small – Keine Vorlesungen", as: .systemSmall) {
     TimetableWidget()
 } timeline: {
-    TimetableEntry(date: .now, upNext: .previewNoMore, multiDay: [])
+    TimetableEntry(date: .now, snapshot: .previewEmpty)
 }
 
 #Preview("Medium – Zwei Tage", as: .systemMedium) {
     TimetableWidget()
 } timeline: {
-    TimetableEntry(date: .now, upNext: .previewCurrentlyRunning, multiDay: .previewTwoDays)
+    TimetableEntry(date: .now, snapshot: .previewTwoDays)
 }
 
 #Preview("Medium – Keine Daten", as: .systemMedium) {
     TimetableWidget()
 } timeline: {
-    TimetableEntry(date: .now, upNext: nil, multiDay: [])
+    TimetableEntry(date: .now, snapshot: .previewEmpty)
 }
 
 #Preview("Large – Zwei Tage", as: .systemLarge) {
     TimetableWidget()
 } timeline: {
-    TimetableEntry(date: .now, upNext: .previewCurrentlyRunning, multiDay: .previewTwoDays)
+    TimetableEntry(date: .now, snapshot: .previewTwoDays)
 }
 
 #Preview("Large – Klausur morgen", as: .systemLarge) {
     TimetableWidget()
 } timeline: {
-    TimetableEntry(date: .now, upNext: .previewNoMore, multiDay: .previewTwoDays)
+    TimetableEntry(date: .now, snapshot: .previewNoMoreToday)
 }

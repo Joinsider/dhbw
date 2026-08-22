@@ -58,6 +58,27 @@ until P4.
 Platform entry points: `composeApp/androidMain/MainActivity.kt`, `composeApp/desktopMain/main.kt`,
 `composeApp/macosMain/main.kt`, and `iosApp/iosApp/iOSApp.swift` (which calls `SharedApp.start()`).
 
+**On iOS there is a second process.** Since P8 the widget extension links `Shared.framework` too
+and starts its own Koin graph through `WidgetSnapshotProvider`; the two processes share the
+database file in the App Group container, nothing else. That means:
+
+* The widget has no Swift copy of any model. It renders `WidgetLecture`/`WidgetDay` straight out
+  of `WidgetSnapshot.kt`. Adding a field there is enough — there is no second place to change.
+* Only the app can tell WidgetKit that something moved, so `AppModel` reloads the timelines from
+  `SharedApp.observeTimetableChanges`.
+* The `TimetableWidgetExtension` target runs `:shared:embedAndSignAppleFrameworkForXcode` in its
+  own build phase and is pinned to `ARCHS = arm64`, because the Kotlin framework has no x86_64
+  slice and the extension would otherwise be asked to build one.
+* Background monitoring is real on iOS now: `LectureMonitorScheduler.ios.kt` drives
+  `BGTaskScheduler` from Kotlin. `iOSApp.init()` registers the launch handler (iOS rejects a
+  registration that arrives after launch has finished), and `AppModel` submits or cancels the
+  request as the two notification switches change — the same job `MainActivity` does on Android.
+  The identifier lives in `Info.plist` under `BGTaskSchedulerPermittedIdentifiers`; if it is
+  missing, registration fails and the first `submit` terminates the process.
+* App and extension see the same keychain items because both entitlement files list
+  `$(AppIdentifierPrefix)de.fampopprol.dhbw` first. No access group is named in code — see
+  `IosSecureStorage`.
+
 ## Critical Patterns
 
 ### Shared HttpClient (cookie sharing)
@@ -325,7 +346,10 @@ cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration 
 | `shared/src/iosMain/…/ios/SharedApp.kt` | The one door Swift uses: starts Koin, hands out the six bridges |
 | `shared/src/iosMain/…/ios/StoreBridges.kt` | One typed bridge per store, for Swift |
 | `iosApp/iosApp/Bridge/StoreBox.swift` | `@Observable` wrapper — the Swift half of the store plumbing |
-| `iosApp/iosApp/RootView.swift` | Login gate, tab bar, colour scheme, widget reload |
+| `iosApp/iosApp/RootView.swift` | `AppModel` (stores, widget reload, background schedule) plus login gate and tab bar |
+| `shared/src/iosMain/…/ios/WidgetSnapshot.kt` | The widget's data, defined once; the extension's only Kotlin entry point |
+| `services/…/notifications/LectureMonitorScheduler.ios.kt` | `BGTaskScheduler` registration, submission and the background check |
+| `iosApp/TimetableWidgetExtension.entitlements` | App Group + keychain group for the extension (the app's are in `iosApp/iosApp/iosApp.entitlements`) |
 | `iosApp/iosApp/Localizable.xcstrings` | iOS strings (en/de); the Compose UI has its own in `composeResources` |
 | `…/data/storage/database/AppDatabase.kt` | Room DB definition; `clearAllData()` for logout |
 | `…/data/storage/database/AppDatabaseMigrations.kt` | Schema version, migration list, destructive-fallback allowlist |

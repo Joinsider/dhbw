@@ -39,9 +39,7 @@ struct SettingsScreen: View {
             } header: {
                 Text("settings.notificationsHeader")
             } footer: {
-                // Honest rather than silent: `LectureMonitorScheduler.ios.kt` is still a log stub,
-                // so nothing checks for changes while the app is closed. P8 brings BGTaskScheduler.
-                Text("settings.lectureAlertsIosNote")
+                Text("settings.lectureAlertsFooter")
             }
 
             Section("settings.account") {
