@@ -73,7 +73,7 @@ plus a new lecture) *without* turning "the Monday slot was cancelled" into "Mond
 Wednesday". `LectureChangeMonitorTest` holds both halves.
 
 Notification text is the one thing users read that comes from neither resource system:
-`LectureChangeMessages` in `:services` holds it in German and English, picked by
+`LectureNotificationTexts` in `:services` holds it in German and English, picked by
 `currentLanguage()`. A background worker has no Compose context and no bundle to ask, and copying
 the formatting into the four platform dispatchers would put one behaviour in four places.
 
