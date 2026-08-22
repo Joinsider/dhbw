@@ -118,6 +118,7 @@ kotlin {
             implementation(libs.junit)
             implementation(libs.androidx.testExt.junit)
             implementation(libs.androidx.test.core)
+            implementation(libs.androidx.test.runner)
             implementation(libs.androidx.work.testing)
             implementation(libs.androidx.work.runtime.ktx)
             implementation(libs.glance.appwidget)

@@ -736,7 +736,7 @@ eine Benachrichtigung; kein DTO existiert doppelt in Kotlin und Swift.
   auszulösen; nachgewiesen sind Registrierung und Einreichung. Ebenso offen bleibt der
   VoiceOver-Durchlauf.
 
-### P9 — Aufräumen · Größe S→M
+### P9 — Aufräumen · Größe S→M · **abgeschlossen**
 
 * `services/notifications/IntegrationExample.kt` (213 Zeilen Beispielcode mit eigenem
   `CoroutineScope`) löschen.
@@ -757,6 +757,41 @@ eine Benachrichtigung; kein DTO existiert doppelt in Kotlin und Swift.
 * Die Widget-Texte in `WidgetViews.swift` sind hart auf Deutsch; die Extension hat keinen
   String-Katalog.
 * Log-Kästchengrafik in `NotificationManager`, den Schedulern und `LectureChangeMonitor`.
+
+**Was tatsächlich passiert ist:**
+
+* **Punkt 1 war schon erledigt.** `IntegrationExample.kt` hat P3 mitgenommen, weil es die Datei
+  ohnehin anfassen musste — im Plan stand sie weiter unter P9. Ein Aufräumpunkt, der zweimal
+  notiert war und einmal ausgeführt.
+* **`NotificationDispatcher` ist ein Interface.** Damit ist der letzte Service-Locator weg; die
+  Android-Implementierung bekommt ihren Context als Konstruktorparameter aus Koin.
+  `DualisApplication.onCreate()` hat nichts mehr zu initialisieren. Mitgenommen: `FileViewer`
+  las dasselbe statische Feld, um an einen Context zu kommen — ein Dokument ließ sich also erst
+  öffnen, nachdem jemand den Benachrichtigungs-Code initialisiert hatte.
+* **`BackgroundServicesIntegrationTest` kompilierte gar nicht.** Der Plan nannte einen einzigen
+  Test darin (`assertTrue(true)`); tatsächlich hatte das instrumentierte Source-Set seit dem
+  Modulschnitt keine Test-Abhängigkeiten, also lief die Datei seit P1 nie. Von acht Tests endeten
+  sechs in `assertTrue(true)`. Jetzt kompiliert sie und enthält die drei Aussagen, die scheitern
+  können; die Intervall-Prüfungen ließen sich nicht retten, weil die Konstanten privat sind und
+  `WorkInfo` die Periode nicht trägt.
+* **Der Material3-Pin bleibt, aber aus dem richtigen Grund.** Der Kommentar warnte vor einem
+  „Upgrade auf stable (1.10.0)" — die Version gibt es nicht, das Artefakt geht 1.9.0 →
+  1.10.0-alphaNN → 1.11.0-alphaNN. Was stimmt: auf 1.9.0 ist die Expressive-Annotation internal
+  und `LoadingIndicator` fehlt, 45 Compile-Fehler. Nachgemessen statt weitergeschrieben.
+* **Die Tests liegen jetzt in ihren Modulen**, mit `:core:testing` als Heimat der Fakes. Der Umzug
+  hat zwei Dinge sichtbar gemacht, die in `:composeApp` nicht auffallen konnten: Kotlin/Native
+  lehnt Backtick-Testnamen mit Komma ab (drei Tests, nie für ein Apple-Target kompiliert, weil
+  `:composeApp` seit P7 keines hat), und vier Module hatten kein `isReturnDefaultValues` — jeder
+  Android-Unit-Test, der loggt, stirbt dort in `android.util.Log`.
+* **Das Widget hat einen eigenen String-Katalog.** Kein Projekteingriff nötig: das Target ist ein
+  synchronisierter Ordner, eine `Localizable.xcstrings` daneben genügt. Im gebauten `.appex`
+  nachgesehen, dass die zehn Schlüssel in `de.lproj` liegen.
+* **Sonar sah seit dem Modulschnitt nur `:composeApp`.** Beim Nachziehen der Pfade aufgefallen,
+  nicht im Plan vorgesehen.
+* **Die instrumentierten Tests laufen wieder** — 3 Tests, 0 Fehler auf dem Emulator
+  (`:composeApp:connectedDebugAndroidTest`). Dass sie nicht liefen, hatte zwei Ursachen: keine
+  Test-Abhängigkeiten *und* kein `androidx.test:runner`, ohne den der Instrumentierungs-Runner
+  selbst nicht gefunden wird. Sie stehen weiterhin in keinem Gate — sie brauchen ein Gerät.
 
 **Außerhalb der Phasenkette gebaut** (nach P8, alles auf `v3`): der Zugangsdaten-Wächter beim
 Neuinstallieren, der Stundentakt der Hintergrundprüfung, der Umbau der Änderungserkennung
