@@ -36,6 +36,14 @@ struct SettingsScreen: View {
                 Toggle("settings.lectureAlerts", isOn: lectureAlertsBinding)
                     .disabled(!state.notificationsEnabled)
                     .accessibilityIdentifier("settingsLectureAlertsToggle")
+                Picker("settings.reminder", selection: reminderBinding) {
+                    Text("settings.reminderOff").tag(Int32(0))
+                    Text("settings.reminder15").tag(Int32(15))
+                    Text("settings.reminder30").tag(Int32(30))
+                    Text("settings.reminder60").tag(Int32(60))
+                }
+                .disabled(!state.notificationsEnabled)
+                .accessibilityIdentifier("settingsReminderPicker")
             } header: {
                 Text("settings.notificationsHeader")
             } footer: {
@@ -101,6 +109,18 @@ struct SettingsScreen: View {
                         .requestAuthorization(options: [.alert, .sound, .badge])) ?? false
                     model.settings.dispatch(SettingsIntentNotificationsChanged(enabled: granted))
                 }
+            }
+        )
+    }
+
+    /// The reminder is scheduled by iOS itself, so a new lead time has to be replanned now rather
+    /// than at the next background run — otherwise the choice would not take effect for an hour.
+    private var reminderBinding: Binding<Int32> {
+        Binding(
+            get: { state.reminderLeadMinutes },
+            set: { minutes in
+                model.settings.dispatch(SettingsIntentReminderLeadChanged(minutes: minutes))
+                SharedApp.shared.rescheduleReminders {}
             }
         )
     }

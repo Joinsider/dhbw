@@ -100,6 +100,10 @@ fun SettingsPage(
                     lectureAlertsEnabled = settings.lectureAlertsEnabled,
                     onLectureAlertsEnabledChange = {
                         store.dispatch(SettingsIntent.LectureAlertsChanged(it))
+                    },
+                    reminderLeadMinutes = settings.reminderLeadMinutes,
+                    onReminderLeadChange = {
+                        store.dispatch(SettingsIntent.ReminderLeadChanged(it))
                     }
                 )
 

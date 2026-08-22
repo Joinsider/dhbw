@@ -12,3 +12,10 @@ actual fun rememberNotificationPermissionRequest(
 @Composable
 actual fun checkNotificationPermission(): Boolean = true
 
+/** Moot: the macOS build has no scheduler to be exact with. */
+@Composable
+actual fun remindersFireExactly(): Boolean = true
+
+/** No such screen: the macOS build schedules nothing. */
+@Composable
+actual fun rememberExactAlarmSettingsOpener(): (() -> Unit)? = null

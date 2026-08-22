@@ -49,6 +49,13 @@
     <string name="allow_notifications_description">Erlaube der App verschiedene Benachrichtigungen zu senden</string>
     <string name="lecture_change_notification">Benachrichtigung für Vorlesungsänderungen</string>
     <string name="lecture_change_notification_description">Werde benachrichtigt, wenn sich die Uhrzeit oder der Ort einer Vorlesung ändert oder eine abgesagt wurde</string>
+    <string name="lecture_reminder">Erinnerung vor Vorlesungen</string>
+    <string name="lecture_reminder_description">Eine Benachrichtigung kurz vor Vorlesungsbeginn</string>
+    <string name="lecture_reminder_off">Aus</string>
+    <string name="lecture_reminder_minutes">%1$d Min.</string>
+    <string name="lecture_reminder_hour">1 Stunde</string>
+    <string name="lecture_reminder_inexact">Exakte Wecker sind für diese App ausgeschaltet, eine Erinnerung kann daher ein paar Minuten zu spät kommen.</string>
+    <string name="lecture_reminder_allow_exact">Exakte Wecker erlauben</string>
     <string name="notifications">Benachrichtigungen</string>
 
     <!-- Error messages -->

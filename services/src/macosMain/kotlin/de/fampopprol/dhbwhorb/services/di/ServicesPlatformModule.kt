@@ -8,10 +8,13 @@ package de.fampopprol.dhbwhorb.services.di
 
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
 import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
+import de.fampopprol.dhbwhorb.services.reminders.NoLectureReminderScheduler
+import de.fampopprol.dhbwhorb.services.reminders.LectureReminderScheduler
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
 actual fun servicesPlatformModule(): Module = module {
     single { NotificationDispatcher() }
     single { LectureMonitorScheduler(scope = get()) }
+    single<LectureReminderScheduler> { NoLectureReminderScheduler() }
 }

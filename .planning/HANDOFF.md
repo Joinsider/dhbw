@@ -170,7 +170,7 @@ ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew \
   :composeApp:testDebugUnitTest :composeApp:desktopTest --rerun-tasks
 ```
 
-**Sollwerte nach P8:** `testDebugUnitTest` **314**, `desktopTest` **420**, 0 Fehler,
+**Sollwerte nach P8:** `testDebugUnitTest` **322**, `desktopTest` **428**, 0 Fehler,
 **0 übersprungen**. Es gibt seit P4 keinen einzigen `@Ignore` mehr im Projekt — wenn einer
 auftaucht, gehören ein Grund und eine Phase dazu.
 
@@ -374,6 +374,8 @@ Alle sind im Code kommentiert und im Plan vermerkt — nichts davon ist vergesse
 | Der Widget-UseCase liefert bei einem Lesefehler des Caches eine leere Liste statt eines Fehlers — ein Widget hat keine Fehlerdarstellung. Bewusst so, im Code begründet. | `WidgetTimetableUseCase.kt` | — |
 | **Der Rastervergleich der Zukunftswochen sieht keine Dozenten- und keine Detail-Raumwechsel.** Das Wochenraster kennt beides nicht, und seine Raumangabe ist eine andere Zeichenkette als die gespeicherte. Bewusst: die laufende Woche wird vollständig geprüft, in Woche +3 fällt so etwas auf, sobald sie zur laufenden wird. | `LectureChangeMonitor.checkFutureWeekByGrid()` | — |
 | **Eine Vorlesung, die in eine andere Woche verschoben wird, bleibt Absage plus Neuanlage.** Die Paarung läuft innerhalb einer Woche. Wochenübergreifend zu paaren hieße, alle beobachteten Wochen gleichzeitig zu vergleichen. | `LectureChangeMonitor.diff()` | offen |
+| **Auf iOS ist die Erinnerung nur bis zur Übergabe an das System belegt, nicht bis zur Zustellung.** Der Simulator hat keine erteilte Benachrichtigungserlaubnis, und die App ist dort abgemeldet. Auf Android ist die Zustellung nachgewiesen (Alarm um 10:51:00, Benachrichtigung sichtbar). | `IosLectureReminderScheduler` | beim nächsten Gerätetest |
+| **Erinnerungen werden nur alle 40 Stück und 14 Tage weit geplant.** iOS hält höchstens 64 wartende Anfragen und verwirft den Rest stillschweigend; der stündliche Lauf schiebt nach. Bei mehr als 40 Vorlesungen in 14 Tagen fehlen die hintersten, bis eine frühere vorbei ist. | `LectureReminderPlanner.MAX_REMINDERS` | — |
 | **Die Meldungstexte sind der einzige Nutzertext außerhalb der beiden Ressourcensysteme.** Begründet (ein Hintergrund-Worker hat weder Compose- noch Bundle-Kontext), aber es ist eine dritte Stelle, an der Sprache lebt. | `LectureChangeMessages.kt` | — |
 | 48 × `catch (e: Exception)` übrig (von ursprünglich 69). Drei Sorten, alle bewusst: die Parser (schlucken eine kaputte Zeile, nicht die Seite), die Klassifikationsstellen selbst (`toAppError`, DB-Zugriffe in den Repositories), und die Plattformschicht (FileViewer, Dispatcher, Scheduler, DNS, SecureStorage). Im Dualis-Datenpfad ist keines mehr. | `:data`, `:services`, `:composeApp` | — |
 

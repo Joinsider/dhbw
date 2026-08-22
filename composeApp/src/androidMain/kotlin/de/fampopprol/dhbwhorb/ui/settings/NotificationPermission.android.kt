@@ -7,10 +7,17 @@
 package de.fampopprol.dhbwhorb.ui.settings
 
 import android.Manifest
+import android.app.AlarmManager
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import androidx.core.net.toUri
+import io.github.aakira.napier.Napier
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
 
 /**
@@ -57,3 +64,33 @@ actual fun checkNotificationPermission(): Boolean {
     return hasPermission
 }
 
+@Composable
+actual fun remindersFireExactly(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            true
+        } else {
+            (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).canScheduleExactAlarms()
+        }
+    }
+}
+
+@Composable
+actual fun rememberExactAlarmSettingsOpener(): (() -> Unit)? {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
+    val context = LocalContext.current
+    return remember(context) {
+        {
+            // Android offers no way to ask for this in a dialog: the permission is granted on a
+            // settings screen, and all an app may do is take the user there.
+            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                data = "package:${context.packageName}".toUri()
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            runCatching { context.startActivity(intent) }
+                .onFailure { Napier.w("No exact-alarm settings screen on this device", it, tag = "Settings") }
+            Unit
+        }
+    }
+}

@@ -53,11 +53,17 @@ final class AppModel {
         let monitor = shared.lectureMonitor
         var scheduled: Bool?
         handles.append(shared.settings.observeState { state in
-            let wanted = state.notificationsEnabled && state.lectureAlertsEnabled
+            let wanted = state.notificationsEnabled
+                && (state.lectureAlertsEnabled || state.reminderLeadMinutes > 0)
             guard wanted != scheduled else { return }
             scheduled = wanted
             if wanted { monitor.schedule() } else { monitor.cancel() }
         })
+
+        // The reminders iOS holds are wall-clock notification requests, and nothing refreshes them
+        // on its own: a reinstall or an app update clears them, and the timetable moves underneath
+        // them. Replanning at launch is what MainActivity does on Android.
+        shared.rescheduleReminders {}
     }
 
     /// Observations that live as long as the app does. Nothing cancels them; the process ending

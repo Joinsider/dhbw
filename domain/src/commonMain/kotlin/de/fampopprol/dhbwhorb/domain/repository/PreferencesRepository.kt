@@ -30,4 +30,8 @@ interface PreferencesRepository {
 
     fun areLectureAlertsEnabled(): Boolean
     fun setLectureAlertsEnabled(enabled: Boolean)
+
+    /** Minutes before a lecture that its reminder fires. `0` means no reminder. */
+    fun getReminderLeadMinutes(): Int
+    fun setReminderLeadMinutes(minutes: Int)
 }

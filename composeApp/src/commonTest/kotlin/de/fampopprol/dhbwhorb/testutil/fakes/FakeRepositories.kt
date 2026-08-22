@@ -151,7 +151,8 @@ class FakePreferencesRepository(
     private var materialYou: Boolean = true,
     private var seedColor: Long = SettingsState.DEFAULT_SEED_COLOR,
     private var notifications: Boolean = false,
-    private var lectureAlerts: Boolean = false
+    private var lectureAlerts: Boolean = false,
+    private var reminderLeadMinutes: Int = 0
 ) : PreferencesRepository {
     override fun getThemeMode() = themeMode
     override fun setThemeMode(mode: ThemeMode) { themeMode = mode }
@@ -163,6 +164,8 @@ class FakePreferencesRepository(
     override fun setNotificationsEnabled(enabled: Boolean) { notifications = enabled }
     override fun areLectureAlertsEnabled() = lectureAlerts
     override fun setLectureAlertsEnabled(enabled: Boolean) { lectureAlerts = enabled }
+    override fun getReminderLeadMinutes() = reminderLeadMinutes
+    override fun setReminderLeadMinutes(minutes: Int) { reminderLeadMinutes = minutes }
 }
 
 /** A repository whose every call fails the same way, for the error paths. */
