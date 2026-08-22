@@ -14,6 +14,7 @@ import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
 import de.fampopprol.dhbwhorb.presentation.settings.SettingsStore
 import de.fampopprol.dhbwhorb.presentation.timetable.TimetableStore
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
+import de.fampopprol.dhbwhorb.services.widget.IosWidgetRefresher
 import de.fampopprol.dhbwhorb.shared.initKoin
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
@@ -80,6 +81,17 @@ object SharedApp {
      * runs belongs to the platform entry point.
      */
     val lectureMonitor: LectureMonitorScheduler by lazy { koin.get<LectureMonitorScheduler>() }
+
+    /**
+     * Installs the one thing Kotlin cannot do for itself on iOS: reloading the widget.
+     *
+     * `WidgetCenter` is Swift-only, and the background check needs it — otherwise a lecture change
+     * found while the app is closed updates the database and leaves the widget showing yesterday
+     * until WidgetKit next feels like asking. Android has done this since before the rebuild.
+     */
+    fun setWidgetReload(reload: () -> Unit) {
+        koin.get<IosWidgetRefresher>().reload = reload
+    }
 
     /**
      * Calls [onChange] whenever the cached timetable changes, so Swift can reload the widget.

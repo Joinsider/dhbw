@@ -6,6 +6,7 @@
 
 package de.fampopprol.dhbwhorb.services.notifications
 
+import de.fampopprol.dhbwhorb.core.error.Outcome
 import io.github.aakira.napier.Napier
 import org.koin.core.component.KoinComponent
 import kotlinx.coroutines.*
@@ -49,7 +50,7 @@ class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent
                     val notificationManager = getKoin().getOrNull<NotificationManager>()
                     if (notificationManager != null) {
                         Napier.d("🚀 Calling notificationManager.checkAndNotify()...", tag = TAG)
-                        val success = notificationManager.checkAndNotify()
+                        val success = notificationManager.checkAndNotify() is Outcome.Ok
                         if (success) {
                             Napier.d("✅ Check completed successfully, waiting $REPEAT_INTERVAL until next check", tag = TAG)
                         } else {

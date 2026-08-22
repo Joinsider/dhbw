@@ -6,6 +6,7 @@
 
 package de.fampopprol.dhbwhorb.services.notifications
 
+import de.fampopprol.dhbwhorb.core.error.Outcome
 import io.github.aakira.napier.Napier
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.CoroutineScope
@@ -124,7 +125,7 @@ class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent
                 Napier.w("NotificationManager unavailable, skipping background check", tag = TAG)
                 false
             } else {
-                manager.checkAndNotify()
+                manager.checkAndNotify() is Outcome.Ok
             }
             Napier.d("Background check finished, success=$success", tag = TAG)
             task.setTaskCompletedWithSuccess(success)

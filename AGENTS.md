@@ -55,6 +55,25 @@ constructor parameter. All three are initialised from `DualisApplication.onCreat
 one is not a compile error, and dropping the dispatcher's call in P2 crashed the settings screen
 until P4.
 
+**Background monitoring runs at two speeds.** `LectureChangeMonitor` checks the current week in
+full on every run — the grid plus one request per lecture, because lecturers and rooms only exist
+on a lecture's own page — and sweeps the next four weeks with the weekly grid alone (one request
+each) at most every four hours. A future week whose grid moved is then fetched in full, so the
+detailed comparison still happens, for one week instead of five. Nothing before now is compared on
+either side, and `saveLecturesToDatabase` drops anything that ended more than 60 days ago, so the
+cache no longer keeps every week it has ever seen.
+
+Pairing cached against fetched lectures happens per subject in two passes — exact slots first, then
+nearest survivors. That order is the whole trick: it is what lets a moved lecture be recognised as
+moved (the old key contained the start time, so a move could only ever look like a cancellation
+plus a new lecture) *without* turning "the Monday slot was cancelled" into "Monday moved to
+Wednesday". `LectureChangeMonitorTest` holds both halves.
+
+Notification text is the one thing users read that comes from neither resource system:
+`LectureChangeMessages` in `:services` holds it in German and English, picked by
+`currentLanguage()`. A background worker has no Compose context and no bundle to ask, and copying
+the formatting into the four platform dispatchers would put one behaviour in four places.
+
 **Deleting the app takes the account with it.** That is what a user deleting an app expects, and
 it is what app data does on both platforms — except the Keychain, which outlives an uninstall by
 design. `CredentialsInstallGuard` closes that: it keeps the identity of the installation that wrote
@@ -354,6 +373,8 @@ cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration 
 | `…/data/dualis/remote/session/ReAuthenticator.kt` | Single-flight re-login |
 | `…/core/error/Outcome.kt`, `…/core/error/AppError.kt` | The error channel |
 | `…/data/storage/credentials/CredentialsInstallGuard.kt` | Drops credentials that outlived the installation that stored them |
+| `services/…/notifications/LectureChangeMonitor.kt` | What changed in the timetable: two speeds, and the pairing that recognises a move |
+| `services/…/notifications/LectureChangeMessages.kt` | The notification wording, de/en — the only user-facing text outside the two UI resource systems |
 | `presentation/…/presentation/store/BaseStore.kt` | The store contract every feature inherits |
 | `composeApp/…/ui/store/StoreCompose.kt` | The only Compose-aware part of the store plumbing |
 | `shared/src/iosMain/…/ios/SharedApp.kt` | The one door Swift uses: starts Koin, hands out the six bridges |

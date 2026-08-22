@@ -27,11 +27,13 @@ expect class NotificationDispatcher() {
 
     /**
      * Show a notification for lecture changes.
-     * @param title Notification title
-     * @param message Notification message body
-     * @param lectureId Associated lecture ID for potential click actions
+     *
+     * @param notificationKey identifies this notification. Two calls with the same key replace
+     *   each other, which is why it comes from [LectureChange.notificationKey] rather than from a
+     *   database id — a lecture that does not exist yet has no id, and every one of them used to
+     *   land under `lecture_0`.
      */
-    suspend fun showNotification(title: String, message: String, lectureId: Long)
+    suspend fun showNotification(title: String, message: String, notificationKey: String)
 
     /**
      * Show a notification for multiple lecture changes (summary).

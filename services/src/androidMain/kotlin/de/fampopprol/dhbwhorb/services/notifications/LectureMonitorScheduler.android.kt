@@ -9,7 +9,8 @@ package de.fampopprol.dhbwhorb.services.notifications
 import android.content.Context
 import androidx.work.*
 import androidx.work.WorkerParameters
-import de.fampopprol.dhbwhorb.services.widget.WidgetRefresher
+import de.fampopprol.dhbwhorb.core.error.Outcome
+import de.fampopprol.dhbwhorb.core.error.isTransient
 import io.github.aakira.napier.Napier
 import org.koin.core.component.KoinComponent
 import java.util.concurrent.TimeUnit
@@ -116,44 +117,31 @@ class LectureMonitorWorker(
 
             // Perform the monitoring check
             Napier.d("🚀 Calling notificationManager.checkAndNotify()...", tag = TAG)
-            val success = notificationManager.checkAndNotify()
+            when (val outcome = notificationManager.checkAndNotify()) {
+                is Outcome.Ok -> {
+                    Napier.d("║  ✅ Background Worker: Completed successfully                      ║", tag = TAG)
+                    Result.success()
+                }
 
-            if (!success) {
-                Napier.w("⚠️  Check failed, scheduling retry", tag = TAG)
-                Napier.d("╔════════════════════════════════════════════════════════════════════╗", tag = TAG)
-                Napier.d("║  ⏭️  Background Worker: Retrying due to error                      ║", tag = TAG)
-                Napier.d("╚════════════════════════════════════════════════════════════════════╝", tag = TAG)
-                return Result.retry()
+                is Outcome.Err -> {
+                    // Whether a retry can help is a property of the error, not of the words in
+                    // its message — which is how this used to be decided.
+                    val error = outcome.error
+                    if (error.isTransient) {
+                        Napier.w("⏭️  Transient failure ($error), retrying later", tag = TAG)
+                        Result.retry()
+                    } else {
+                        Napier.e("❌ Permanent failure ($error), not retrying", tag = TAG)
+                        Result.failure()
+                    }
+                }
             }
-
-            // ENHANCEMENT per D-01: Trigger immediate widget refresh on successful check
-            Napier.d("✓ Check succeeded — triggering immediate widget sync to keep widgets fresh", tag = TAG)
-            getKoin().getOrNull<WidgetRefresher>()?.requestRefresh()
-
-            Napier.d("╔════════════════════════════════════════════════════════════════════╗", tag = TAG)
-            Napier.d("║  ✅ Background Worker: Completed successfully                      ║", tag = TAG)
-            Napier.d("╚════════════════════════════════════════════════════════════════════╝", tag = TAG)
-            Result.success()
 
         } catch (e: Exception) {
-            Napier.e("╔════════════════════════════════════════════════════════════════════╗", tag = TAG)
-            Napier.e("║  ❌ Background Worker: ERROR                                       ║", tag = TAG)
-            Napier.e("╚════════════════════════════════════════════════════════════════════╝", tag = TAG)
+            // Anything that escaped the typed error channel above. Retrying costs one wake-up and
+            // might catch a transient condition the classification missed.
             Napier.e("Error during lecture change monitoring: ${e.message}", e, tag = TAG)
-            Napier.e("Stack trace: ${e.stackTraceToString()}", tag = TAG)
-
-            // Retry on transient errors (network, auth)
-            val shouldRetry = e.message?.contains("network", ignoreCase = true) == true ||
-                e.message?.contains("auth", ignoreCase = true) == true ||
-                e.message?.contains("connection", ignoreCase = true) == true
-
-            if (shouldRetry) {
-                Napier.d("⏭️  Transient error detected, scheduling retry", tag = TAG)
-                Result.retry()
-            } else {
-                Napier.e("❌ Permanent failure, not retrying", tag = TAG)
-                Result.failure()
-            }
+            Result.retry()
         }
     }
 }

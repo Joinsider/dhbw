@@ -166,7 +166,10 @@ class KoinGraphTest {
             de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor::class,
             de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LectureEventDao::class,
             de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LectureLecturerCrossRefDao::class,
-            de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher::class
+            de.fampopprol.dhbwhorb.data.storage.database.dao.SyncMetadataDao::class,
+            de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher::class,
+            // Bound per platform (Glance on Android, a Swift closure on iOS) or not at all.
+            de.fampopprol.dhbwhorb.services.widget.WidgetRefresher::class
         )
         val presentationExtraTypes = servicesExtraTypes + listOf(
             de.fampopprol.dhbwhorb.domain.repository.SessionRepository::class,
