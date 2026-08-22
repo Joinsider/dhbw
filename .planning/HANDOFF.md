@@ -1,16 +1,18 @@
 # Handoff — v3-Umbau
 
-> Stand: 2026-08-21 · Phasen P-1 bis P7 abgeschlossen und auf `v3` gemerged, dazu zwei Fixes
-> außerhalb der Phasenkette: Desktop-TLS und die Trennung von Geheimnissen und Einstellungen
+> Stand: 2026-08-22 · Phasen P-1 bis P8 abgeschlossen, dazu drei Fixes außerhalb der
+> Phasenkette: Desktop-TLS, die Trennung von Geheimnissen und Einstellungen, und der
+> Zugangsdaten-Wächter beim Neuinstallieren (`CredentialsInstallGuard`)
 > Arbeitsverzeichnis sauber · nichts gepusht
-> Nächste Phase: **P8 — iOS-Plattformdienste nativ**
+> Nächste Phase: **P9 — Aufräumen**
 
-Alles Abgeschlossene liegt auf `v3`. **Der Branch `phase/p8-ios-services` steht schon** und zeigt
-auf denselben Stand — das Arbeitsverzeichnis liegt bereits darauf, es ist nichts einzurichten:
+P-1 bis P7 liegen auf `v3`. **P8 ist gebaut, aber noch nicht gemerged** — es wartet auf die
+Freigabe des Nutzers:
 
 ```bash
-git branch --show-current   # phase/p8-ios-services
-git log --oneline -1        # merge: native SwiftUI interface into v3
+git log --oneline -1   # feat: let the iOS widget read the database it shares with the app
+# nach Freigabe:
+git checkout v3 && git merge --no-ff <p8-branch> -m "merge: native iOS platform services into v3"
 ```
 
 ---
@@ -113,6 +115,41 @@ until [ "$($ADB shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do slee
   erklärt, warum ein Testlauf den Schlüsselbund verändert.
 * Auf dem **Android-Emulator ist eine echte Sitzung gespeichert.** Die App startet dort eingeloggt
   und mit echten Daten — praktisch zum Durchklicken, aber Vorsicht: das sind reale Dualis-Requests.
+* **Auf dem iOS-Simulator ebenso — aber seit dem Install-Guard nicht mehr über eine
+  Neuinstallation hinweg.** Der Schlüsselbund überlebt ein `simctl uninstall`, der
+  App-Group-Container nicht; `CredentialsInstallGuard` vergleicht beides und räumt die
+  Zugangsdaten weg, sobald sie aus einer früheren Installation stammen. Ein erneutes `install`
+  über die bestehende App hinweg (der Update-Fall) lässt sie in Ruhe. Wer die angemeldete Sitzung
+  auf dem Simulator behalten will, deinstalliert also nicht.
+* **Widget-Daten kommen aus der App-Group-Datenbank, und die lässt sich von Hand füllen.** Für
+  Prüfungen, in denen der echte Stundenplan leer ist (Praxisphase), ist das der Weg zu sichtbaren
+  Vorlesungen ohne weitere Dualis-Requests — und der einzige, der beweist, dass die Extension
+  wirklich selbst liest, weil man einen Wert schreiben kann, den die App nie gesehen hat:
+
+  ```bash
+  DB=$(find ~/Library/Developer/CoreSimulator/Devices/8D76539B-73DF-410F-B550-027260B1BAAD/data/Containers/Shared/AppGroup -name grades_database.db)
+  sqlite3 "$DB" "INSERT INTO lecture (shortSubjectName, fullSubjectName, startTime, endTime, location, isTest) VALUES ('TEST','Testvorlesung','2026-08-22T08:15:00','2026-08-22T11:30:00','RAUM',0);"
+  ```
+
+  Danach die App einmal starten (das löst `reloadAllTimelines()` aus) oder im Widget-Kontextmenü
+  die Größe wechseln — das erzwingt eine frische Timeline auch ohne laufende App. **Hinterher
+  aufräumen**, sonst stehen Phantomvorlesungen im Cache des Nutzers.
+* **Ein iOS-Widget lässt sich nicht per `simctl` neu zeichnen.** Ein Neustart des Simulators und
+  ein `launchctl kickstart` von SpringBoard zeigen beide weiter die gespeicherte Timeline. Was
+  wirklich neu lädt: die Widget-Größe im Kontextmenü umschalten.
+* **Der Schalter „Benachrichtigungen aktivieren" lässt sich auf dem Simulator nicht umlegen**,
+  solange die Systemabfrage nicht beantwortet wurde — `requestAuthorization` liefert dann `false`
+  und der Store bleibt korrekterweise aus. Zum Prüfen der Folgelogik die Voreinstellung direkt
+  setzen und die App neu starten:
+
+  ```bash
+  xcrun simctl spawn 8D76539B-73DF-410F-B550-027260B1BAAD defaults write de.fampopprol.dhbw notifications_enabled -string true
+  ```
+* **Ein Xcode-Target, das `Shared.framework` linkt, braucht zwei Dinge.** Die Gradle-Build-Phase
+  (`:shared:embedAndSignAppleFrameworkForXcode`) als *erste* Phase — die Extension wird vor der App
+  gebaut, sonst gibt es das Framework noch nicht — und `ARCHS = arm64`, weil das Kotlin-Framework
+  keine x86_64-Scheibe hat. Der Fehler ohne das zweite ist „Undefined symbols for architecture
+  x86_64" und sieht aus wie ein Linkerproblem, ist aber eine Architekturfrage.
 
 ---
 
@@ -127,7 +164,7 @@ ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew \
   :composeApp:testDebugUnitTest :composeApp:desktopTest --rerun-tasks
 ```
 
-**Sollwerte nach P7:** `testDebugUnitTest` **297**, `desktopTest` **403**, 0 Fehler,
+**Sollwerte nach P8:** `testDebugUnitTest` **302**, `desktopTest` **408**, 0 Fehler,
 **0 übersprungen**. Es gibt seit P4 keinen einzigen `@Ignore` mehr im Projekt — wenn einer
 auftaucht, gehören ein Grund und eine Phase dazu.
 
@@ -203,7 +240,9 @@ Das ist die teuerste Lektion des Umbaus, zweimal gelernt:
   beim Öffnen der Einstellungen (der seit P2 drin war und niemandem aufgefallen ist), und
   Nachladen bei jedem Tab-Wechsel. Beide nur sichtbar beim Durchklicken.
 
-Also nach jeder Phase: **beide Apps starten und jeden Screen einmal öffnen.**
+Also nach jeder Phase: **beide Apps starten und jeden Screen einmal öffnen.** Seit P8 gehört das
+Widget dazu — es ist ein zweiter Prozess mit eigenem Koin-Start, der von keinem Test und keinem
+App-Durchlauf berührt wird.
 
 ```bash
 # Android
@@ -258,6 +297,9 @@ $ADB logcat -d --pid=$PID | grep -c "Executing GET request"    # muss 0 sein
 :composeApp      Compose-UI, Navigation, Entry Points, Glance-Widget
                  ← seit P7 ohne iOS-Targets (Android, Desktop, macOS)
 iosApp/          SwiftUI-App: RootView + fünf Screens, linkt Shared.framework
+iosApp/TimetableWidget/
+                 Widget-Extension: **eigener Prozess mit eigenem Koin-Graphen**, linkt
+                 Shared.framework ebenfalls und liest die App-Group-DB direkt (seit P8)
 ```
 
 **Alles oberhalb von `:data` spricht nur mit den sechs Repository-Interfaces und den UseCases aus
@@ -282,6 +324,8 @@ Package-Namen. Eine Datei zwischen Modulen zu verschieben erfordert deshalb kein
 | Die sechs Stores | `presentation/…/presentation/{app,auth,timetable,grades,documents,settings}/` |
 | Store ↔ Compose | `composeApp/…/ui/store/StoreCompose.kt` — `collectState()`, `HandleEffects { }` |
 | Store ↔ Swift | `shared/src/iosMain/…/ios/` (`SharedApp`, `StoreBridges`, `FlowObserver`) und `iosApp/iosApp/Bridge/StoreBox.swift` |
+| Widget ↔ Kotlin | `shared/src/iosMain/…/ios/WidgetSnapshot.kt` — die **einzige** Beschreibung der Widget-Daten; die Extension startet dort ihren eigenen Koin-Graphen |
+| iOS-Hintergrundlauf | `services/…/notifications/LectureMonitorScheduler.ios.kt` (BGTaskScheduler), registriert in `iOSApp.init()`, ein-/ausgeschaltet in `AppModel` |
 | SwiftUI-Screens | `iosApp/iosApp/RootView.swift` + `iosApp/iosApp/Screens/` |
 | iOS-Farben, Karten | `iosApp/iosApp/Design/Theme.swift` — `Color.brand` und `.tint()` an der Wurzel sind der iOS-Ersatz für die Material-You-Seed-Farbe |
 | Wochenraster (iOS) | `iosApp/iosApp/Screens/TimetableGrid.swift` — Spurenlayout für parallele Vorlesungen |
@@ -306,15 +350,17 @@ Alle sind im Code kommentiert und im Plan vermerkt — nichts davon ist vergesse
 
 | Punkt | Ort | Fällig |
 |---|---|---|
-| Auf einem **echten** iOS-Gerät ist die App Group `group.de.fampopprol.dhbwhorb` erst nutzbar, wenn sie im Apple-Developer-Portal registriert ist. Fehlt sie, protokolliert die App „App group … unavailable" und legt die DB im Dokumentverzeichnis ab — das Widget bliebe blind. Auf dem Simulator ist das kein Thema. | `DatabaseFactory.ios.kt` | **P7/P8** (nur Portal, kein Code) |
+| Auf einem **echten** iOS-Gerät ist die App Group `group.de.fampopprol.dhbwhorb` erst nutzbar, wenn sie im Apple-Developer-Portal registriert ist. Fehlt sie, protokolliert die App „App group … unavailable" und legt die DB im Dokumentverzeichnis ab — und seit P8 hängt das ganze Widget daran, nicht mehr nur ein JSON-Snapshot. Dasselbe gilt für die Keychain-Gruppe und für `BGTaskSchedulerPermittedIdentifiers`. Auf dem Simulator ist nichts davon ein Thema. | `DatabaseFactory.ios.kt`, beide `.entitlements` | **vor dem ersten Gerätetest** (nur Portal, kein Code) |
 | Die Stores sind Applikations-Singles, nicht im Navigations-Scope. Bewusst so: ein Halter je Navigationseintrag würde bei jedem Tab-Wechsel neu laden — genau das, was P4 abgestellt hat. Deshalb bleibt auch `EnsureLoaded` neben `Load` bestehen. | `PresentationModule.kt`, `GradesStore`, `DocumentsStore` | — |
 | Läuft die Sitzung ab, während man eingeloggt im Graphen steht, zeigt die Seite „bitte anmelden" statt zur Login-Wurzel zurückzukehren. Ehrlich, aber nicht schön. | `GradesPage`, `DocumentsPage` | P9 |
 | **Im Demo-Modus gibt es keine Noten.** `DualisGradeService` hat als einziger Dienst keinen Demo-Zweig, der Abruf endet in `AppError.SessionExpired`. Gilt auf allen Plattformen, stammt aus der Zeit vor dem Umbau — beim Durchklicken von P7 aufgefallen. | `DualisGradeService.kt` | offen |
 | **Prüfungen werden farblich unterschieden, aber fast nie erkannt.** Der Block wird bernsteinfarben, wenn `Lecture.isTest` gesetzt ist — und das setzt `TimetableParser` nur bei `background-color:#FF6666` in der Dualis-Zelle. Einträge, die bloß „Mündliche Prüfung" heißen, tragen die Markierung nicht. Offene Entscheidung des Nutzers: zusätzlich am Titel erkennen (Heuristik im Parser, wirkt auf allen Plattformen) oder erst prüfen, ob die Farbmarkierung heute woanders steht — dafür braucht es das rohe HTML einer Woche mit echter Prüfung. | `TimetableParser.kt:79` | offen, wartet auf den Nutzer |
-| **Zwei Dinge aus P7 sind nur durch Tests belegt, nicht am Gerät:** die Semester-Reihenfolge (`SemesterOrderTest`) und das Sichern eines Dokuments in „Dateien". Beides braucht ein Konto mit echten Daten — im Demo-Modus gibt es weder Noten noch Downloads. | `GradesScreen.swift`, `DocumentsScreen.swift` | beim nächsten Gerätetest |
-| **VoiceOver auf iOS ist statisch geprüft, nicht durchlaufen.** Jedes Bedienelement trägt ein `Text`-Label, Listenzeilen sind zu einem Element zusammengefasst, Symbole haben `accessibilityLabel` — aber niemand ist mit eingeschaltetem VoiceOver durchgegangen. | `iosApp/iosApp/Screens/` | **P8** |
-| **„Tab-Wechsel macht 0 Requests" ist auf iOS ungeprüft.** Im Demo-Modus kann es keine Requests geben, und für eine echte Sitzung fehlt auf dem Simulator ein Konto. Auf Android ist es gemessen. | — | wenn ein Konto verfügbar ist |
-| Der iOS-`LectureMonitorScheduler` ist ein reiner Log-Stub — auf iOS gibt es **kein** Background-Monitoring, obwohl die Einstellung es anbietet. Feature-Lücke von vor dem Umbau, keine Regression. | `LectureMonitorScheduler.ios.kt` | **P8** |
+| **Das Sichern eines Dokuments in „Dateien" ist weiterhin nur durch Tests belegt.** Die Semester-Reihenfolge ist in P8 am Simulator gesehen worden (WiSe 2024/25 vor SoSe 2025, mit echten Noten). | `DocumentsScreen.swift` | beim nächsten Gerätetest |
+| **VoiceOver auf iOS ist statisch geprüft, nicht durchlaufen.** Jedes Bedienelement trägt ein `Text`-Label, Listenzeilen sind zu einem Element zusammengefasst, Symbole haben `accessibilityLabel` — aber niemand ist mit eingeschaltetem VoiceOver durchgegangen. In P8 wieder nicht: was VoiceOver *sagt*, steht in keinem Screenshot, das braucht einen Menschen mit eingeschaltetem Screenreader. | `iosApp/iosApp/Screens/` | offen, braucht einen Menschen |
+| **Die Widget-Texte sind hart auf Deutsch.** „JETZT", „Keine Vorlesungen", „Heute"/„Morgen" stehen als Literale in `WidgetViews.swift`; die Extension hat keinen String-Katalog. Stammt aus der Zeit vor P8 und ist dort nicht angefasst worden. | `iosApp/TimetableWidget/WidgetViews.swift` | offen |
+| **Das Widget lebt mit Room, Ktor und Koin in einem Prozess mit engem Speicherlimit.** Auf dem Simulator unauffällig; auf einem Gerät sind ~30 MB die Grenze für eine Widget-Extension. Wenn das Widget dort leer bleibt, ist das der erste Verdacht — und die Antwort wäre ein kleinerer Graph nur für die Extension. | `WidgetSnapshot.kt` | beim ersten Gerätetest |
+| **Dass der Background-Task auch feuert, ist ungeprüft.** Registrierung und Einreichung sind auf dem Simulator belegt, das Auslösen nicht — dafür braucht es ein Gerät am Debugger (`_simulateLaunchForTaskWithIdentifier`). | `LectureMonitorScheduler.ios.kt` | beim nächsten Gerätetest |
+| **Benachrichtigungs-Kategorien und -Actions („Woche öffnen") gibt es nicht.** Der Plan hatte sie für P8 vorgesehen; da `NotificationDispatcher.ios.kt` bereits eine vollständige Kotlin-Zustellung ist, wurde sie nicht nach Swift kopiert — und die Actions damit auch nicht gebaut. | `NotificationDispatcher.ios.kt` | offen |
 | `NotificationDispatcher` hält seinen Android-Context statisch, weil `expect class` keinen plattformspezifischen Konstruktorparameter erlaubt. Wie bei `SecureStorage` in P2 ist die Lösung ein Interface mit je einer Implementierung pro Plattform. Bis dahin: `DualisApplication.onCreate()` **muss** `initialize()` rufen — das zu vergessen hat die App von P2 bis P4 beim Öffnen der Einstellungen abstürzen lassen. | `NotificationDispatcher.android.kt` | P8/P9 |
 | Die Repository-Fakes liegen in `composeApp/commonTest/testutil/fakes/`, nicht in einem `:core:testing`. Bewusst so, solange alle Tests in `:composeApp` liegen — beides zusammen umziehen. | `testutil/fakes/` | P9 |
 | Tests liegen alle in `:composeApp`, nicht in ihren Modulen. Die Gates bleiben dadurch unverändert; der Umzug braucht pro Modul eigene Test-Abhängigkeiten. | `composeApp/src/commonTest` | P9 |
@@ -324,35 +370,35 @@ Alle sind im Code kommentiert und im Plan vermerkt — nichts davon ist vergesse
 
 ---
 
-## 7. Nächster Schritt: P8 — iOS-Plattformdienste nativ
+## 7. Nächster Schritt: P9 — Aufräumen
 
-Der Plan beschreibt P8 in §2 (Größe L). Drei Stücke, die unabhängig voneinander sind:
+Der Plan beschreibt P9 in §2 (Größe S). Vier Punkte, alle unabhängig:
 
-1. **WidgetKit ohne Umweg.** Seit P6 liegt die Datenbank im App-Group-Container, seit P7 linkt die
-   App `Shared.framework` — die Voraussetzungen für den direkten Weg stehen beide. Heute schreibt
-   `SharedApp` noch bei jeder DB-Änderung eine JSON-Momentaufnahme über `WidgetDataWriter` in
-   `NSUserDefaults`, und `TimetableWidget.swift` hält eine **von Hand gepflegte Swift-Kopie** der
-   Kotlin-DTOs. Jede Feldänderung bricht das Widget still. Ersatz: die Extension linkt
-   `Shared.framework` und ruft den Widget-UseCase direkt; `WidgetDataWriter`, der JSON-Umweg und
-   die Notification-Brücke in `RootView` entfallen zusammen.
-2. **BGTaskScheduler + UNUserNotificationCenter.** `LectureMonitorScheduler.ios.kt` ist ein
-   Log-Stub; die Einstellung „Benachrichtigung für Vorlesungsänderungen" verspricht auf iOS etwas,
-   das nicht passiert. Der Hinweistext unter dem Schalter sagt das derzeit offen — mit P8 gehört
-   er wieder entfernt.
-3. **Keychain-Access-Group**, damit Widget und App dieselben Zugangsdaten sehen.
+1. `services/notifications/IntegrationExample.kt` löschen — 213 Zeilen Beispielcode mit eigenem
+   `CoroutineScope`.
+2. Material3-Alpha-Pinning neu bewerten. Die Expressive-Begründung gilt seit P7 nur noch für
+   Android und Desktop.
+3. `AGENTS.md` und `.planning/PROJECT.md` auf die neue Struktur ziehen. `AGENTS.md` ist in P8
+   mitgewachsen (iOS-Zweitprozess, BGTaskScheduler, Keychain-Gruppe); `PROJECT.md` nicht.
+4. CI: eigener macOS-Job für `:shared`-Framework-Build, Xcode-Build und Swift-Tests.
 
-**Was aus P7 hier ankommt:**
+Dazu die Aufräumpunkte aus §6, die dort auf P9 datiert sind: die Repository-Fakes und die Tests
+aus `:composeApp` in ihre Module ziehen, und `DatabaseFactoryTest.kt` löschen — vier Tests, die
+nur prüfen, dass eine Funktionsreferenz nicht null ist.
 
-* Der Weg an den Login vorbei ist geklärt (§3, Zwischenablage) — Screens hinter dem Login lassen
-  sich von Hand prüfen.
-* `CODE_SIGNING_ALLOWED=NO` weglassen, sobald etwas an einem Entitlement hängt. In P8 hängt fast
-  alles daran (App Group, Keychain-Gruppe, Background-Task).
-* Der VoiceOver-Durchlauf steht noch aus (§6) und passt gut in dieselbe Sitzung, weil er dieselbe
-  Gerätearbeit ist.
+**Was aus P8 hier ankommt:**
+
+* Der iOS-Build hat jetzt zwei Targets, die Gradle aufrufen. Wenn der CI-Job aus Punkt 4 entsteht,
+  ist das der Grund, warum ein `xcodebuild` mehr als einmal in `:shared` landet.
+* Vor dem ersten **Gerätetest** stehen drei Portal-Einträge an (§6, erste Zeile). Ohne sie ist
+  nicht nur die DB am falschen Ort, sondern das Widget ganz blind und der Background-Task
+  abgelehnt.
+* Zwei P8-Nachweise fehlen und brauchen ein Gerät bzw. einen Menschen: das Feuern des
+  Background-Tasks und der VoiceOver-Durchlauf.
 
 ## 8. Zur Parallelisierung
 
-Der Nutzer hat nach Subagents und Worktrees gefragt. Einschätzung nach sieben Phasen:
+Der Nutzer hat nach Subagents und Worktrees gefragt. Einschätzung nach acht Phasen:
 
 * **Über Phasen hinweg lohnt es sich nicht.** Die Kette ist bindend, und jede Phase schreibt
   dieselben zentralen Dateien um. P3 hat fast jede Datei im Datenpfad angefasst, P4 die gesamte
@@ -360,7 +406,9 @@ Der Nutzer hat nach Subagents und Worktrees gefragt. Einschätzung nach sieben P
 * **Innerhalb einer Phase über disjunkte Dateimengen schon.** P7 wäre der Fan-out gewesen; die
   fünf Screens sind dann doch der Reihe nach entstanden, weil sie zusammen keine zwei Stunden
   gebraucht haben, nachdem die Brücke stand. Der Aufwand lag in der Brücke, und die ist
-  unteilbar. P8 zerfällt sauberer: Widget, Background-Task und Keychain berühren einander nicht.
+  unteilbar. P8 hätte sauberer zerfallen können — Widget, Background-Task und Keychain berühren
+  einander nicht — nur war der Keychain-Teil am Ende zwei Zeilen Entitlement und der
+  Background-Teil eine Datei. Die Aufteilung hätte mehr Absprache gekostet als Arbeit gespart.
 * Voraussetzung ist, dass die gemeinsamen Verträge **vorher** stehen. In P3 waren das
   `Outcome`/`AppError` plus die Repository-Interfaces, in P4 `Store`/`BaseStore`/`EffectScope` —
   beide Male zuerst geschrieben, beide Male hat es getragen. Für P7 wäre es entsprechend die
@@ -398,6 +446,15 @@ Kurz, weil es sich wiederholt hat:
 * **„Geht nicht" im Handoff ist eine Behauptung mit Verfallsdatum.** Der Demo-Login galt auf dem
   iOS-Simulator als nicht eintippbar; über die Zwischenablage geht er. Bei jedem geerbten „geht
   nicht" lohnt ein zweiter Weg, bevor man die Prüfung darum herum baut.
+* **Eine Prüfung, deren beide Seiten dieselben Werte tragen, prüft nichts.** In P8 zeigte das
+  Widget in der Galerie „Mathematik 1, HOR-120" — genau das, was auch die Vorschaudaten im
+  SwiftUI-Code sagen. Erst ein Wert, den es *nur* in der Datenbank gab, hat gezeigt, dass die
+  Extension wirklich liest; und erst ein Wert, der nach dem Beenden der App hineingeschrieben
+  wurde, dass sie es ohne die App tut. Vorher sah beides identisch aus.
+* **Was der Plan nach Swift schiebt, kann Kotlin oft selbst.** BGTaskScheduler stand seit dem
+  ersten Entwurf als „braucht Swift" im Plan, und der Log-Stub trug eine Swift-Anleitung im
+  Kommentar. `platform.BackgroundTasks` ist eine Plattform-Bibliothek wie jede andere — die
+  Annahme hat die Lücke länger offen gehalten als ihre Beseitigung gedauert hat.
 * **Ein Schalter, der das Bauen bequem macht, kann die Prüfung entwerten.** `CODE_SIGNING_ALLOWED=NO`
   im iOS-Gate lässt Entitlements weg; der App-Group-Umzug in P6 lief damit sauber durch und war
   trotzdem nicht das, was geprüft werden sollte. Bei jedem „ohne X geht es auch": prüft man dann

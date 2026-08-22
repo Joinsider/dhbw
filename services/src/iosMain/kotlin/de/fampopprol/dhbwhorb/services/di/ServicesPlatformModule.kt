@@ -13,5 +13,5 @@ import org.koin.dsl.module
 
 actual fun servicesPlatformModule(): Module = module {
     single { NotificationDispatcher() }
-    single { LectureMonitorScheduler() }
+    single { LectureMonitorScheduler(scope = get()) }
 }

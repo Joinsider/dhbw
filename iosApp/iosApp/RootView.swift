@@ -40,7 +40,29 @@ final class AppModel {
 
         app.dispatch(AppIntentStarted())
         settings.dispatch(SettingsIntentLoad())
+
+        // The widget extension reads the same database out of the App Group container, but it is
+        // a separate process: only the app can tell WidgetKit that a fetch has landed.
+        handles.append(shared.observeTimetableChanges {
+            WidgetCenter.shared.reloadAllTimelines()
+        })
+
+        // Background monitoring follows both switches, the way `MainActivity` does on Android —
+        // a change to either re-evaluates the schedule. The state flow replays its current value,
+        // so a launch with both already on schedules straight away.
+        let monitor = shared.lectureMonitor
+        var scheduled: Bool?
+        handles.append(shared.settings.observeState { state in
+            let wanted = state.notificationsEnabled && state.lectureAlertsEnabled
+            guard wanted != scheduled else { return }
+            scheduled = wanted
+            if wanted { monitor.schedule() } else { monitor.cancel() }
+        })
     }
+
+    /// Observations that live as long as the app does. Nothing cancels them; the process ending
+    /// is what stops them, which is the honest lifetime for "while the app runs".
+    private var handles: [ObservationHandle] = []
 }
 
 struct RootView: View {
@@ -66,15 +88,6 @@ struct RootView: View {
         .tint(Color.brand)
         .preferredColorScheme(colorScheme)
         .animation(.default, value: model.app.state.isLoggedIn)
-        // The KMP side writes the widget snapshot into the App Group and posts this; the name must
-        // match WidgetDataWriter.NOTIFICATION_WIDGET_DATA_UPDATED.
-        .onReceive(
-            NotificationCenter.default.publisher(
-                for: Notification.Name("de.fampopprol.dhbwhorb.widgetDataUpdated")
-            )
-        ) { _ in
-            WidgetCenter.shared.reloadAllTimelines()
-        }
     }
 
     /// `nil` means "follow the system", which is what `ThemeMode.SYSTEM` asks for.

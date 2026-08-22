@@ -5,6 +5,19 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 
+	<!-- Background refresh for lecture-change notifications.
+	     The identifier must match LectureMonitorScheduler.TASK_IDENTIFIER; without this entry
+	     iOS refuses the registration and the switch in Settings would promise nothing again. -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>de.fampopprol.dhbwhorb.lecture-monitor</string>
+	</array>
+
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+
 	<!-- App Transport Security Settings -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

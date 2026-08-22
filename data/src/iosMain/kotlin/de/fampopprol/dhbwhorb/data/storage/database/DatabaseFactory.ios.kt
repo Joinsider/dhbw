@@ -14,7 +14,7 @@ private const val TAG = "DatabaseFactory"
  * App group shared by the app and the timetable widget extension.
  *
  * Must stay in sync with `com.apple.security.application-groups` in `iosApp.entitlements` and
- * `TimetableWidget.entitlements`.
+ * `TimetableWidgetExtension.entitlements`.
  */
 const val IOS_APP_GROUP_IDENTIFIER = "group.de.fampopprol.dhbwhorb"
 

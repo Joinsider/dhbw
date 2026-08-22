@@ -25,6 +25,7 @@ import de.fampopprol.dhbwhorb.data.storage.database.AppDatabase
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferences
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemePreferences
+import de.fampopprol.dhbwhorb.data.storage.credentials.CredentialsInstallGuard
 import de.fampopprol.dhbwhorb.data.storage.settings.SettingsStorage
 import de.fampopprol.dhbwhorb.domain.repository.AuthRepository
 import de.fampopprol.dhbwhorb.domain.repository.DocumentRepository
@@ -134,6 +135,10 @@ val dataModule = module {
     // The settings storage is where the theme and the notification toggles live. They used to
     // share the secure storage with credentials, which cost a Keychain dialog per value on desktop.
     single { SettingsStorage(settings = get(), legacy = get()) }
+
+    // Runs once from initKoin(), before anything reads a credential. See the class for why it is
+    // a stored stamp and not a flag.
+    single { CredentialsInstallGuard(storage = get()) }
     single { ThemePreferences(storage = get()) }
     single { NotificationPreferences(storage = get()) }
     single { NotificationPreferencesInteractor(preferences = get()) }
