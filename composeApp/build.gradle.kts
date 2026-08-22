@@ -60,11 +60,21 @@ kotlin {
 
             implementation(compose.runtime)
             implementation(compose.foundation)
-            // Material3 Expressive Components:
-            // App uses Material3 Expressive (advanced animations, typography variations) which is only available in alpha releases.
-            // Do NOT upgrade to stable (1.10.0) release — it will break Expressive component imports.
-            // Keep current alpha version (1.10.0-alpha05 or newer alpha) for Expressive functionality.
-            // See Phase 12 decision D-11 for rationale.
+            // Pinned to an alpha on purpose, re-checked in P9.
+            //
+            // The UI is built on Material 3 Expressive: `MaterialExpressiveTheme` in Theme.kt, the
+            // expressive type scale in Type.kt, `LoadingIndicator` on the login and documents
+            // screens, `ButtonGroupDefaults` in the design settings. On the newest stable release
+            // (1.9.0) `ExperimentalMaterial3ExpressiveApi` is internal and `LoadingIndicator` does
+            // not exist — tried in P9, 45 compile errors.
+            //
+            // The old comment here warned against "upgrading to stable (1.10.0)". There is no such
+            // release: the artefact goes 1.9.0 → 1.10.0-alphaNN → 1.11.0-alphaNN. alpha05 is the
+            // last of the 1.10 line and matches the Compose Multiplatform runtime; the 1.11 and
+            // 1.12 alphas run ahead of it, so moving there is a runtime bump, not a version bump.
+            //
+            // Since P7 this only ships to Android, Desktop and macOS — the iOS app is SwiftUI and
+            // never sees Compose.
             implementation(libs.compose.material3)
             implementation(compose.ui)
             implementation(compose.components.resources)
