@@ -59,7 +59,10 @@ until P4.
 full on every run — the grid plus one request per lecture, because lecturers and rooms only exist
 on a lecture's own page — and sweeps the next four weeks with the weekly grid alone (one request
 each) at most every four hours. A future week whose grid moved is then fetched in full, so the
-detailed comparison still happens, for one week instead of five. Nothing before now is compared on
+detailed comparison still happens, for one week instead of five. A future week the app has never
+loaded has nothing to compare against, so it is fetched in full once and stored *without*
+notifying — otherwise the whole week would arrive as new lectures, and skipping it instead (which
+is what used to happen) left week +3 unwatched until somebody paged to it. Nothing before now is compared on
 either side, and `saveLecturesToDatabase` drops anything that ended more than 60 days ago, so the
 cache no longer keeps every week it has ever seen.
 
