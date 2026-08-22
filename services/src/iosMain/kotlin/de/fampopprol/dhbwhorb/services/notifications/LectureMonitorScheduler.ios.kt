@@ -44,8 +44,14 @@ class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent
         /** Must match `BGTaskSchedulerPermittedIdentifiers` in the app's Info.plist. */
         const val TASK_IDENTIFIER = "de.fampopprol.dhbwhorb.lecture-monitor"
 
-        /** The earliest the system may run the task — the same 15 minutes Android asks for. */
-        private const val EARLIEST_BEGIN_SECONDS = 15.0 * 60
+        /**
+         * The earliest the system may run the task — the same hour Android and Desktop use.
+         *
+         * A floor, not a schedule: iOS decides the real cadence from how the app is used, and it
+         * is usually slower than this. Raising the floor therefore costs little here and saves
+         * wake-ups on the two platforms that do honour it.
+         */
+        private const val EARLIEST_BEGIN_SECONDS = 60.0 * 60
     }
 
     private var handlerRegistered = false

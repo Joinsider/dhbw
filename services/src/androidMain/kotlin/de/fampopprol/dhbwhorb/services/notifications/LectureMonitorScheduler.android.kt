@@ -15,8 +15,12 @@ import org.koin.core.component.KoinComponent
 import java.util.concurrent.TimeUnit
 
 /**
- * Android WorkManager-based periodic scheduler for lecture change monitoring.
- * Runs every 2 hours with network and authentication constraints.
+ * WorkManager-based periodic monitoring for lecture changes.
+ *
+ * Runs hourly, which is a deliberate step down from the 15 minutes it used to ask for. What costs
+ * battery on Android is the wake-up, not the work: four times fewer of them, and a timetable
+ * change that arrives up to an hour later than it might have — which is well inside the time it
+ * takes anyone to act on one.
  */
 class LectureMonitorScheduler(private val context: Context) {
 
@@ -24,15 +28,13 @@ class LectureMonitorScheduler(private val context: Context) {
         private const val TAG = "LectureMonitorScheduler"
         private const val WORK_NAME = "lecture_change_monitor"
         /**
-         * WorkManager enforces a minimum of 15 minutes for periodic work (Android API constraint).
-         * This value is locked at 15 minutes for lecture monitoring. This interval is less
-         * battery-sensitive than widget sync and provides reasonable responsiveness for lecture
-         * change notifications.
+         * How often to wake up. WorkManager's floor is 15 minutes; this asks for four times that.
          *
-         * Rationale: Lecture checks happen less frequently than widget updates; 15-minute
-         * minimum is acceptable for this use case. Not user-configurable in v3.0.
+         * Kept in step with the desktop scheduler and the iOS background task by hand — the three
+         * are separate implementations of the same intent, and an interval that drifts apart on
+         * one platform is invisible until someone compares battery figures.
          */
-        private const val REPEAT_INTERVAL_MINUTES = 15L
+        private const val REPEAT_INTERVAL_MINUTES = 60L
     }
 
     /**
@@ -60,7 +62,10 @@ class LectureMonitorScheduler(private val context: Context) {
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP, // Keep existing work if already scheduled
+            // UPDATE, not KEEP: with KEEP an installation that already has the job keeps whatever
+            // interval it was enqueued with, so changing the constant above would have moved
+            // nothing for existing users and only shown up on fresh installs.
+            ExistingPeriodicWorkPolicy.UPDATE,
             workRequest
         )
 

@@ -12,14 +12,16 @@ import kotlinx.coroutines.*
 import kotlin.time.Duration.Companion.minutes
 
 /**
- * Desktop coroutine-based periodic scheduler for lecture change monitoring.
- * Runs every 2 hours using coroutine delay in a background scope.
+ * Coroutine-based periodic monitoring for lecture changes.
+ *
+ * Runs hourly, in step with Android and iOS. Only while the app is open — the desktop build has no
+ * background service, so closing the window ends the monitoring with it.
  */
 class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent {
 
     companion object {
         private const val TAG = "LectureMonitorScheduler"
-        private val REPEAT_INTERVAL = 15.minutes // Changed to 5 minutes for testing
+        private val REPEAT_INTERVAL = 60.minutes
     }
 
     private var monitorJob: Job? = null

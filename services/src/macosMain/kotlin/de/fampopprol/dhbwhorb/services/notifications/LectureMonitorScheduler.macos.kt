@@ -13,13 +13,13 @@ import kotlin.time.Duration.Companion.minutes
 
 /**
  * macOS coroutine-based periodic scheduler for lecture change monitoring.
- * Runs every 2 hours using coroutine delay in a background scope.
+ * Runs hourly, in step with the other platforms, and only while the app is open.
  */
 class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent {
 
     companion object {
         private const val TAG = "LectureMonitorScheduler"
-        private val REPEAT_INTERVAL = 15.minutes // Changed to 5 minutes for testing
+        private val REPEAT_INTERVAL = 60.minutes
     }
 
     private var monitorJob: Job? = null

@@ -183,20 +183,16 @@ class BackgroundServicesIntegrationTest {
     }
 
     /**
-     * Test 7: Verify lecture monitor interval is 15 minutes (not 5 minutes for testing).
+     * Test 7: the monitoring interval is the shipped one, not a leftover testing value.
      *
-     * Scenario: Check that LectureMonitorScheduler uses clean 15-minute interval
-     * Expected: No "5 minutes for testing" comments in code
-     * Verification: Code inspection shows proper documentation
+     * Asserts nothing — `assertTrue(true)` cannot fail, and the interval it names has since moved
+     * from 15 minutes to an hour without this noticing. Belongs on the P9 pile of tests that only
+     * look like coverage; a real one would have to read the constant, which is private.
      */
     @Test
     fun testLectureMonitorIntervalCleaned() {
         Napier.d("Test 7: Lecture monitor interval cleaned (no testing comments)", tag = "TEST")
-
-        // This is verified by code inspection
-        // The comment "Changed to 5 minutes for testing" should not exist
-        Napier.d("✓ Lecture monitor interval verification passed (see code inspection)", tag = "TEST")
-        assertTrue(true, "LectureMonitorScheduler uses clean 15-minute interval")
+        assertTrue(true, "placeholder — see the comment above")
     }
 
     /**
