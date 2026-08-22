@@ -31,6 +31,8 @@ import kotlin.math.abs
  * is checked in full on every run, and the next [FUTURE_WEEKS] weeks are checked by their grid
  * only, at most every [FUTURE_SWEEP_HOURS] hours. A future week whose grid moved is then fetched
  * in full, so the detailed comparison still happens; it just happens for one week instead of five.
+ * A future week the app has never loaded is fetched in full once and stored without notifying, so
+ * that it *has* a previous state to be compared against from then on.
  *
  * **Nothing that has already happened is reported.** Both sides of every comparison drop lectures
  * that ended before now, and no week before the current one is looked at at all. A notification
@@ -158,16 +160,13 @@ class LectureChangeMonitor(
      * sides describe the same way — subject, start, end, exam flag — and any difference at all is
      * the signal to go and look properly.
      *
-     * A week with nothing cached is skipped: there is no previous state to compare against, and
-     * announcing an entire week as new lectures is not news.
+     * A week with nothing cached has no previous state to compare against, so it is fetched in
+     * full once and stored — see [seedFutureWeek].
      */
     private suspend fun checkFutureWeekByGrid(now: LocalDateTime, weekOffset: Int): Outcome<WeekOutcome> {
         val (start, end) = weekAround(now, weekOffset)
         val old = cachedLectures(start, end).stillAhead(now)
-        if (old.isEmpty()) {
-            Napier.d("Week +$weekOffset is not cached, skipping", tag = TAG)
-            return Outcome.Ok(WeekOutcome(emptyList(), 0))
-        }
+        if (old.isEmpty()) return seedFutureWeek(weekOffset, start, end)
 
         val grid = when (val outcome = dualisLectureService.getWeeklySkeletonForWeek(start, end)) {
             is Outcome.Ok -> outcome.value.filter { it.endTime > now }
@@ -183,6 +182,41 @@ class LectureChangeMonitor(
 
         Napier.d("Week +$weekOffset moved — fetching it in full", tag = TAG)
         return checkWeekInFull(now, start, end)
+    }
+
+    /**
+     * Fills the cache for a week the app has never loaded, without saying a word about it.
+     *
+     * Comparing against an empty cache would report the entire week as new lectures, which is not
+     * news — that is what "skip it" used to mean here. But skipping also meant the week stayed
+     * invisible until the user happened to page to it, so a change in week +3 went unnoticed for
+     * as long as nobody looked. Fetching it once closes that: from the next sweep on it has a
+     * previous state and the ordinary grid comparison applies.
+     *
+     * The full fetch rather than the grid, because the grid alone would be a downgrade — it has no
+     * lecturers and no detail rooms, and storing it would make the next comparison report both as
+     * having appeared out of nowhere.
+     *
+     * A week that is genuinely empty (semester break) stays uncached and is fetched again next
+     * time. That costs exactly what its grid request would have cost, since there are no lectures
+     * to ask detail pages for.
+     */
+    private suspend fun seedFutureWeek(
+        weekOffset: Int,
+        start: LocalDateTime,
+        end: LocalDateTime,
+    ): Outcome<WeekOutcome> {
+        Napier.d("Week +$weekOffset has never been loaded — fetching it in full to compare later", tag = TAG)
+
+        val fetched = when (val outcome = dualisLectureService.getWeeklyLecturesForWeek(start, end)) {
+            is Outcome.Ok -> outcome.value
+            is Outcome.Err -> return outcome
+        }
+
+        return when (val saved = dualisLectureService.saveLecturesToDatabase(fetched, start, end)) {
+            is Outcome.Ok -> Outcome.Ok(WeekOutcome(emptyList(), fetched.size))
+            is Outcome.Err -> Outcome.Err(saved.error)
+        }
     }
 
     // ── Matching ────────────────────────────────────────────────────────────────────────────

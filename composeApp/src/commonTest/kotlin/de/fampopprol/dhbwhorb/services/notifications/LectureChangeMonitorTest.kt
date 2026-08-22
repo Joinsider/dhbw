@@ -140,30 +140,37 @@ class LectureChangeMonitorTest {
 
     // ── The grid sweep over future weeks ────────────────────────────────────────────────────
 
+    /** One lecture in each of the weeks the sweep covers, so nothing has to be seeded. */
+    private fun futureWeeks(shiftWeek1By: Int = 0) =
+        (1..LectureChangeMonitor.FUTURE_WEEKS).associateWith { offset ->
+            val from = if (offset == 1) 10 + shiftWeek1By else 10
+            listOf(lecture("PROG", day = 2 + offset * 7, from = from, to = from + 2))
+        }
+
     @Test
     fun `a future week whose grid is unchanged is never fetched in full`() = runTest {
-        val nextWeek = lecture("PROG", day = 12, from = 10, to = 12)
+        val cached = futureWeeks()
         val service = FakeLectureService(
-            fullByWeek = mapOf(0 to emptyList(), 1 to listOf(nextWeek)),
-            gridByWeek = mapOf(1 to listOf(nextWeek)),
+            fullByWeek = cached + (0 to emptyList()),
+            gridByWeek = cached,
         )
 
-        monitor(service = service, cached = listOf(nextWeek)).checkForChanges()
+        monitor(service = service, cached = cached.values.flatten()).checkForChanges()
 
-        assertEquals(1, service.gridFetches, "the grid is what a sweep is supposed to cost")
+        assertEquals(4, service.gridFetches, "the grid is what a sweep is supposed to cost")
         assertEquals(1, service.fullFetches, "only the current week may be fetched in full")
     }
 
     @Test
     fun `a future week whose grid moved is fetched in full`() = runTest {
-        val cachedNextWeek = lecture("PROG", day = 12, from = 10, to = 12)
-        val movedNextWeek = lecture("PROG", day = 12, from = 14, to = 16)
+        val cached = futureWeeks()
+        val moved = futureWeeks(shiftWeek1By = 4)
         val service = FakeLectureService(
-            fullByWeek = mapOf(0 to emptyList(), 1 to listOf(movedNextWeek)),
-            gridByWeek = mapOf(1 to listOf(movedNextWeek)),
+            fullByWeek = moved + (0 to emptyList()),
+            gridByWeek = moved,
         )
 
-        val result = monitor(service = service, cached = listOf(cachedNextWeek)).checkForChanges()
+        val result = monitor(service = service, cached = cached.values.flatten()).checkForChanges()
 
         assertEquals(2, service.fullFetches, "current week plus the one that moved")
         assertTrue(result is MonitorResult.Changes, "$result")
@@ -171,48 +178,56 @@ class LectureChangeMonitorTest {
     }
 
     @Test
-    fun `a future week with nothing cached is left alone`() = runTest {
-        val service = FakeLectureService(
-            fullByWeek = mapOf(0 to emptyList()),
-            gridByWeek = mapOf(1 to listOf(lecture("PROG", day = 12, from = 10, to = 12))),
-        )
+    fun `a future week that was never loaded is fetched in full and stays quiet`() = runTest {
+        val weeks = futureWeeks()
+        val service = FakeLectureService(fullByWeek = weeks + (0 to emptyList()), gridByWeek = weeks)
 
         val result = monitor(service = service, cached = emptyList()).checkForChanges()
 
-        // Announcing a whole week the app has never shown is not news, it is noise.
-        assertTrue(result is MonitorResult.NoChanges, "$result")
-        assertEquals(0, service.gridFetches, "a week with no previous state is not worth a request")
+        // Announcing a whole week the app has never shown is not news, it is noise — but the week
+        // still has to end up in the cache, or it stays invisible until someone pages to it.
+        assertTrue(result is MonitorResult.NoChanges, "seeding must not notify: $result")
+        assertEquals(
+            LectureChangeMonitor.FUTURE_WEEKS,
+            service.savedWeeks.keys.count { it > 0 },
+            "every uncached week gets seeded, not just the first: ${service.savedWeeks.keys}",
+        )
+        assertEquals(0, service.gridFetches, "there is nothing to compare a grid against yet")
+    }
+
+    @Test
+    fun `a seeded week is compared by its grid on the next run`() = runTest {
+        val weeks = futureWeeks()
+        val service = FakeLectureService(fullByWeek = weeks + (0 to emptyList()), gridByWeek = weeks)
+        val sync = RememberingSyncDao()
+
+        monitor(service = service, cached = emptyList(), sync = sync).checkForChanges()
+        val fullAfterSeeding = service.fullFetches
+
+        // Four hours later, with everything the first run stored now in the cache.
+        sync.insert(SyncMetadataEntity("lecture_monitor_future_sweep", now.minusHours(5)))
+        monitor(service = service, cached = weeks.values.flatten(), sync = sync).checkForChanges()
+
+        assertEquals(4, service.gridFetches, "the second run compares instead of seeding again")
+        assertEquals(
+            fullAfterSeeding + 1,
+            service.fullFetches,
+            "only the current week may still be fetched in full",
+        )
     }
 
     @Test
     fun `the grid sweep is skipped when it ran recently`() = runTest {
-        val nextWeek = lecture("PROG", day = 12, from = 10, to = 12)
-        val service = FakeLectureService(
-            fullByWeek = mapOf(0 to emptyList(), 1 to listOf(nextWeek)),
-            gridByWeek = mapOf(1 to listOf(nextWeek)),
-        )
+        val weeks = futureWeeks()
+        val service = FakeLectureService(fullByWeek = weeks + (0 to emptyList()), gridByWeek = weeks)
         val sync = RememberingSyncDao()
         // One hour ago — inside the four the sweep waits for.
         sync.insert(SyncMetadataEntity("lecture_monitor_future_sweep", now.minusHours(1)))
 
-        monitor(service = service, cached = listOf(nextWeek), sync = sync).checkForChanges()
+        monitor(service = service, cached = weeks.values.flatten(), sync = sync).checkForChanges()
 
         assertEquals(0, service.gridFetches, "the hourly run must not sweep the future every time")
-    }
-
-    @Test
-    fun `the grid sweep runs again once it is due`() = runTest {
-        val nextWeek = lecture("PROG", day = 12, from = 10, to = 12)
-        val service = FakeLectureService(
-            fullByWeek = mapOf(0 to emptyList(), 1 to listOf(nextWeek)),
-            gridByWeek = mapOf(1 to listOf(nextWeek)),
-        )
-        val sync = RememberingSyncDao()
-        sync.insert(SyncMetadataEntity("lecture_monitor_future_sweep", now.minusHours(5)))
-
-        monitor(service = service, cached = listOf(nextWeek), sync = sync).checkForChanges()
-
-        assertEquals(1, service.gridFetches)
+        assertEquals(1, service.fullFetches, "nor seed anything outside a sweep")
     }
 
     // ── Scaffolding ─────────────────────────────────────────────────────────────────────────
@@ -323,11 +338,16 @@ class LectureChangeMonitorTest {
             return Outcome.Ok(gridByWeek[start.weekOffset()].orEmpty())
         }
 
+        val savedWeeks = mutableMapOf<Int, List<LectureEventEntity>>()
+
         override suspend fun saveLecturesToDatabase(
             lectures: List<LectureEventEntity>,
             weekStart: LocalDateTime,
             weekEnd: LocalDateTime
-        ): Outcome<List<LectureEventEntity>> = Outcome.Ok(lectures)
+        ): Outcome<List<LectureEventEntity>> {
+            savedWeeks[weekStart.weekOffset()] = lectures
+            return Outcome.Ok(lectures)
+        }
 
         /** 2 March 2026 is week 0 here, so every Monday maps back to an offset. */
         private fun LocalDateTime.weekOffset(): Int = (day - 2) / 7
