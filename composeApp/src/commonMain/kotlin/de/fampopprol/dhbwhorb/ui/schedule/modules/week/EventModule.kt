@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.lecturers
 import de.fampopprol.dhbwhorb.resources.room
-import de.fampopprol.dhbwhorb.ui.schedule.models.LectureModel
+import de.fampopprol.dhbwhorb.domain.model.Lecture
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.format
@@ -39,7 +39,7 @@ fun formatEventTime(dateTime: LocalDateTime): String {
 @Composable
 @Preview
 fun EventModule(
-    lecture: LectureModel,
+    lecture: Lecture,
     modifier: Modifier = Modifier,
     smallFont: Boolean = false,
     onClick: () -> Unit = {}
@@ -66,7 +66,7 @@ fun EventModule(
         }
 
         Text(
-            text = if(smallFont) lecture.shortName else lecture.name,
+            text = if(smallFont) lecture.shortName else lecture.displayName,
             style = if(smallFont) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimary,

@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 package de.fampopprol.dhbwhorb
 
 import androidx.compose.foundation.background
@@ -8,259 +14,81 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
-import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-// Material3 Expressive Components (Phase 12, D-11):
-// App uses Material3 Expressive which requires alpha releases.
-// Stable 1.10.0 release will break Expressive components.
-// Keep alpha version; update only to newer alphas if needed for bug fixes.
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
-import de.fampopprol.dhbwhorb.data.dualis.remote.parser.DocumentParser
-import de.fampopprol.dhbwhorb.data.dualis.remote.parser.GradeParser
-import de.fampopprol.dhbwhorb.data.dualis.remote.parser.HtmlParser
-import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisGradeService
-import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
-import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
-import de.fampopprol.dhbwhorb.data.storage.credentials.CredentialsStorageProvider
-import de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorage
-import de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorageWrapper
-import de.fampopprol.dhbwhorb.data.storage.database.AppDatabase
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
-import de.fampopprol.dhbwhorb.data.storage.preferences.ThemePreferences
-import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferences
-import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
-import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
-import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService
-import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsViewModel
-import de.fampopprol.dhbwhorb.ui.pages.DocumentsPage
-import de.fampopprol.dhbwhorb.ui.pages.GradesPage
-import de.fampopprol.dhbwhorb.ui.pages.SettingsPage
+import de.fampopprol.dhbwhorb.presentation.app.AppIntent
+import de.fampopprol.dhbwhorb.presentation.app.AppStore
+import de.fampopprol.dhbwhorb.presentation.auth.AuthEffect
+import de.fampopprol.dhbwhorb.presentation.auth.AuthStore
+import de.fampopprol.dhbwhorb.presentation.settings.SettingsIntent
+import de.fampopprol.dhbwhorb.presentation.settings.SettingsStore
+import de.fampopprol.dhbwhorb.ui.navigation.DhbwNavHost
 import de.fampopprol.dhbwhorb.ui.pages.LoginPage
-import de.fampopprol.dhbwhorb.ui.pages.TimetablePage
-import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
-import de.fampopprol.dhbwhorb.ui.grades.viewModels.GradesViewModel
+import de.fampopprol.dhbwhorb.ui.store.HandleEffects
+import de.fampopprol.dhbwhorb.ui.store.collectState
 import de.fampopprol.dhbwhorb.ui.theme.DHBWHorbTheme
 import de.fampopprol.dhbwhorb.ui.theme.LocalThemePrefs
 import de.fampopprol.dhbwhorb.ui.theme.ThemePreferences as UIThemePreferences
-import org.jetbrains.compose.ui.tooling.preview.Preview
-import io.github.aakira.napier.DebugAntilog
-import io.github.aakira.napier.Napier
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.cookies.HttpCookies
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.StateFlow
+import org.koin.compose.koinInject
 
-enum class AppScreen {
-    WELCOME,
-    LOGIN,
-    TIMETABLE,
-    GRADES,
-    DOCUMENTS,
-    SETTINGS
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/**
+ * Root composable: the theme, and the choice between the login screen and the app.
+ *
+ * Navigation inside the app belongs to [DhbwNavHost] — this used to be a `when` over an enum with
+ * a callback per screen per page, which had no back stack and no way to express a destination's
+ * arguments.
+ *
+ * @param navController injected so tests can drive navigation and assert where it landed.
+ */
 @Composable
-@Preview
-fun App(
-    testAuthenticationService: AuthenticationService? = null,
-    testCredentialsProvider: CredentialsStorageProvider? = null,
-    testSecureStorage: de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorageInterface? = null,
-    timetableViewModel: TimetableViewModel? = null,
-    database: AppDatabase? = null,
-    notificationPreferencesInteractor: NotificationPreferencesInteractor? = null,
-    sharedHttpClient: HttpClient? = null,
-    sessionManager: SessionManager? = null,
-    isInitialized: Boolean = true,
-    databaseErrorMessage: String? = null
-) {
-    // Handle unrecoverable database errors (show blocking error screen)
-    if (databaseErrorMessage != null) {
-        DHBWHorbTheme {
-            Box(
-                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "Database Error",
-                        style = MaterialTheme.typography.headlineLarge,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                    Text(
-                        text = databaseErrorMessage,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(bottom = 16.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                    Text(
-                        text = "Please restart the app. If the problem persists, please reinstall.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-        return  // Block all navigation past this screen
-    }
+fun App(navController: NavHostController = rememberNavController()) {
+    val appStore: AppStore = koinInject()
+    val authStore: AuthStore = koinInject()
+    val settingsStore: SettingsStore = koinInject()
 
-    // Ensure Napier is initialized (fallback in case platform didn't initialize it)
+    val appState by appStore.collectState()
+    val settings by settingsStore.collectState()
+
+    // Both stores outlive the composition, so this only has to run once per process.
     LaunchedEffect(Unit) {
-        try {
-            // Test if Napier is initialized by attempting to log
-            Napier.d("App() composable started, isInitialized=$isInitialized", tag = "App")
-        } catch (_: Exception) {
-            // If not initialized, initialize it now
-            Napier.base(DebugAntilog())
-            Napier.d("Napier initialized from App() composable, isInitialized=$isInitialized", tag = "App")
+        appStore.dispatch(AppIntent.Started)
+        settingsStore.dispatch(SettingsIntent.Load)
+    }
+
+    authStore.HandleEffects { effect ->
+        when (effect) {
+            AuthEffect.LoggedIn -> appStore.dispatch(AppIntent.LoggedIn)
         }
     }
 
-    // Initialize SecureStorage, SessionManager, and Services
-    // Use test dependencies if provided, otherwise create real ones
-    val actualSecureStorage = testSecureStorage ?: remember { SecureStorageWrapper(SecureStorage()) }
-    
-    // Use passed sessionManager or create one
-    val actualSessionManager = sessionManager ?: remember(actualSecureStorage) { SessionManager(actualSecureStorage) }
-
-    // Initialize theme preferences
-    val themePreferences = remember { ThemePreferences(actualSecureStorage) }
-    var themeMode by remember { mutableStateOf(themePreferences.getThemeMode()) }
-    var materialYouEnabled by remember { mutableStateOf(themePreferences.getMaterialYouEnabled()) }
-    // Default to Purple40 (0xFF6650a4) which is 4284932260L
-    var seedColorLong by remember { mutableStateOf(themePreferences.getCustomColor()) }
-    val seedColor = remember(seedColorLong) { Color(seedColorLong.toInt()) }
-
-    // Initialize notification preferences
-    // Use passed parameter if provided (from MainActivity), otherwise create new one (for preview)
-    val notificationPreferences = remember { NotificationPreferences(actualSecureStorage) }
-    val actualNotificationPreferencesInteractor = notificationPreferencesInteractor
-        ?: remember { NotificationPreferencesInteractor(notificationPreferences) }
-
-    // Load theme preferences from storage and cache in CompositionLocal
-    // Compute dark mode setting based on theme mode  
-    val computedDarkTheme = when (themeMode) {
+    val darkTheme = when (settings.themeMode) {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
-    
-    // Cache in CompositionLocal for all children
-    var uiThemePrefs by remember { mutableStateOf<UIThemePreferences?>(null) }
-    
-    LaunchedEffect(computedDarkTheme, materialYouEnabled) {
-        uiThemePrefs = UIThemePreferences(
-            darkMode = computedDarkTheme,
-            useMaterialYou = materialYouEnabled
+
+    CompositionLocalProvider(
+        LocalThemePrefs provides UIThemePreferences(
+            darkMode = darkTheme,
+            useMaterialYou = settings.materialYouEnabled
         )
-        Napier.d("Theme preferences loaded: darkMode=$computedDarkTheme, materialYou=$materialYouEnabled", tag = "App")
-    }
-
-    // Observe notification preferences
-    val notificationsEnabled by actualNotificationPreferencesInteractor.notificationsEnabled.collectAsState()
-    val lectureAlertsEnabled by actualNotificationPreferencesInteractor.lectureAlertsEnabled.collectAsState()
-
-    // Notification dispatcher (used later by schedulers/monitors)
-    val notificationDispatcher = remember { NotificationDispatcher() }
-
-    // Use passed sharedHttpClient or create one
-    val actualHttpClient = sharedHttpClient ?: remember {
-        HttpClient {
-            expectSuccess = false
-            install(HttpCookies)
-            install(HttpTimeout) {
-                socketTimeoutMillis = 30000
-                connectTimeoutMillis = 30000
-                requestTimeoutMillis = 30000
-            }
-        }
-    }
-
-    // Initialize services with shared HttpClient
-    val authenticationService = testAuthenticationService ?: remember(actualSessionManager, actualHttpClient) {
-        AuthenticationService(
-            sessionManager = actualSessionManager,
-            client = actualHttpClient
-        )
-    }
-
-    // ViewModels are now lazily initialized in their respective pages
-    // GradesViewModel and DocumentsViewModel local instantiation removed from here
-
-    // Keep CredentialsProvider for backward compatibility with existing UI
-    val credentialsProvider =
-        testCredentialsProvider ?: remember { CredentialsStorageProvider(actualSecureStorage) }
-
-    // Navigation state
-    var currentScreen by remember { mutableStateOf(AppScreen.WELCOME) }
-    var isLoggedIn by remember { mutableStateOf(false) }
-
-    // Session check on startup
-    LaunchedEffect(authenticationService) {
-        authenticationService?.let {
-            isLoggedIn = it.isAuthenticated()
-            if (isLoggedIn && currentScreen == AppScreen.WELCOME) {
-                currentScreen = AppScreen.TIMETABLE
-            }
-        }
-    }
-
-    // Logout handler
-    val handleLogout: () -> Unit = {
-        Napier.d("Logout initiated", tag = "App")
-
-        // Clear session data
-        actualSessionManager.logout()
-
-        // Clear credentials
-        credentialsProvider.clearCredentials()
-
-        // Clear database if available
-        database?.let { db ->
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    Napier.d("Clearing database...", tag = "App")
-                    db.clearAllData()
-                    Napier.d("Database cleared successfully", tag = "App")
-                } catch (e: Exception) {
-                    Napier.e("Error clearing database: ${e.message}", e, tag = "App")
-                }
-            }
-        }
-
-        // Update UI state
-        isLoggedIn = false
-        currentScreen = AppScreen.WELCOME
-
-        Napier.d("Logout completed", tag = "App")
-    }
-
-    CompositionLocalProvider(LocalThemePrefs provides (uiThemePrefs ?: UIThemePreferences())) {
+    ) {
         DHBWHorbTheme(
-            darkTheme = when (themeMode) {
-                ThemeMode.LIGHT -> false
-                ThemeMode.DARK -> true
-                ThemeMode.SYSTEM -> isSystemInDarkTheme()
-            },
-            useMaterialYou = materialYouEnabled,
-            seedColor = seedColor
+            darkTheme = darkTheme,
+            useMaterialYou = settings.materialYouEnabled,
+            seedColor = Color(settings.seedColor.toInt())
         ) {
             Column(
                 modifier = Modifier
@@ -268,177 +96,34 @@ fun App(
                     .background(MaterialTheme.colorScheme.background)
                     .testTag("appContainer")
             ) {
-                if (!isInitialized) {
-                // Initial Skeleton state for the entire app during service startup
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    LoadingIndicator()
-                }
-            } else {
-                when (currentScreen) {
-                    AppScreen.WELCOME -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .safeContentPadding(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            authenticationService?.let { auth ->
-                                LoginPage(
-                                    onLoginSuccess = {
-                                        isLoggedIn = true
-                                        currentScreen = AppScreen.TIMETABLE
-                                    },
-                                    authenticationService = auth,
-                                    credentialsProvider = credentialsProvider,
-                                )
-                            } ?: LoadingIndicator()
-                        }
+                when {
+                    // The stored session has not been checked yet. Rendering either the login or
+                    // the timetable here would be a guess, and it guessed wrong for anyone whose
+                    // session had expired.
+                    appState.isRestoring -> Box(
+                        modifier = Modifier.fillMaxSize().testTag("appRestoring"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
                     }
 
-                    AppScreen.LOGIN -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .safeContentPadding(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            authenticationService?.let { auth ->
-                                LoginPage(
-                                    onLoginSuccess = {
-                                        isLoggedIn = true
-                                        currentScreen = AppScreen.TIMETABLE
-                                    },
-                                    authenticationService = auth,
-                                    credentialsProvider = credentialsProvider,
-                                )
-                            } ?: LoadingIndicator()
-                        }
+                    !appState.isLoggedIn -> Column(
+                        modifier = Modifier.fillMaxSize().safeContentPadding(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        // No success callback: the auth store emits AuthEffect.LoggedIn and the
+                        // app store decides what that means.
+                        LoginPage()
                     }
 
-                    AppScreen.TIMETABLE -> {
-                        if (timetableViewModel != null) {
-                            TimetablePage(
-                                viewModel = timetableViewModel,
-                                database = database,
-                                authenticationService = authenticationService,
-                                sharedHttpClient = actualHttpClient,
-                                sessionManager = actualSessionManager,
-                                onNavigateToGrades = {
-                                    currentScreen = AppScreen.GRADES
-                                },
-                                onNavigateToDocuments = {
-                                    currentScreen = AppScreen.DOCUMENTS
-                                },
-                                onNavigateToSettings = {
-                                    currentScreen = AppScreen.SETTINGS
-                                },
-                                isLoggedIn = isLoggedIn,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(top = 16.dp)
-                            )
-                        } else {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                LoadingIndicator()
-                            }
-                        }
-                    }
-
-                    AppScreen.GRADES -> {
-                        GradesPage(
-                            viewModel = null, // Initialized lazily inside GradesPage
-                            database = database,
-                            authenticationService = authenticationService,
-                            sharedHttpClient = actualHttpClient,
-                            sessionManager = actualSessionManager,
-                            onNavigateToTimetable = {
-                                currentScreen = AppScreen.TIMETABLE
-                            },
-                            onNavigateToDocuments = {
-                                currentScreen = AppScreen.DOCUMENTS
-                            },
-                            onNavigateToSettings = {
-                                currentScreen = AppScreen.SETTINGS
-                            },
-                            isLoggedIn = isLoggedIn,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = 16.dp)
-                        )
-                    }
-
-                    AppScreen.DOCUMENTS -> {
-                        DocumentsPage(
-                            viewModel = null, // Initialized lazily inside DocumentsPage
-                            authenticationService = authenticationService,
-                            sharedHttpClient = actualHttpClient,
-                            sessionManager = actualSessionManager,
-                            onNavigateToTimetable = {
-                                currentScreen = AppScreen.TIMETABLE
-                            },
-                            onNavigateToGrades = {
-                                currentScreen = AppScreen.GRADES
-                            },
-                            onNavigateToSettings = {
-                                currentScreen = AppScreen.SETTINGS
-                            },
-                            isLoggedIn = isLoggedIn,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = 16.dp)
-                        )
-                    }
-
-                    AppScreen.SETTINGS -> {
-                        SettingsPage(
-                            onNavigateToTimetable = {
-                                currentScreen = AppScreen.TIMETABLE
-                            },
-                            onNavigateToGrades = {
-                                currentScreen = AppScreen.GRADES
-                            },
-                            onNavigateToDocuments = {
-                                currentScreen = AppScreen.DOCUMENTS
-                            },
-                            onLogout = handleLogout,
-                            isLoggedIn = isLoggedIn,
-                            currentThemeMode = themeMode,
-                            onThemeModeChange = { newMode ->
-                                themeMode = newMode
-                                themePreferences.setThemeMode(newMode)
-                            },
-                            materialYouEnabled = materialYouEnabled,
-                            onMaterialYouChange = { enabled ->
-                                materialYouEnabled = enabled
-                                themePreferences.setMaterialYouEnabled(enabled)
-                            },
-                            currentSeedColor = seedColor,
-                            onSeedColorChange = { newColor ->
-                                // Store as ARGB Long (UInt)
-                                val colorLong = newColor.toArgb().toLong()
-                                seedColorLong = colorLong
-                                themePreferences.setCustomColor(colorLong)
-                            },
-                            notificationsEnabled = notificationsEnabled,
-                            onNotificationsEnabledChange = { enabled ->
-                                // This immediately updates StateFlow, triggering collectors in MainActivity/main.kt
-                                actualNotificationPreferencesInteractor.setNotificationsEnabled(enabled)
-                            },
-                            lectureAlertsEnabled = lectureAlertsEnabled,
-                            onLectureAlertsEnabledChange = { enabled ->
-                                // This immediately updates StateFlow, triggering collectors in MainActivity/main.kt
-                                actualNotificationPreferencesInteractor.setLectureAlertsEnabled(enabled)
-                            },
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = 16.dp)
-                        )
-                    }
+                    else -> DhbwNavHost(
+                        navController = navController,
+                        onLogout = { appStore.dispatch(AppIntent.LogoutRequested) },
+                        modifier = Modifier.fillMaxSize().padding(top = 16.dp)
+                    )
                 }
             }
-        }
         }
     }
 }

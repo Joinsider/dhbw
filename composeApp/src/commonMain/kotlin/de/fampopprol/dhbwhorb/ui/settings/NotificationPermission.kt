@@ -27,3 +27,21 @@ expect fun rememberNotificationPermissionRequest(
 @Composable
 expect fun checkNotificationPermission(): Boolean
 
+/**
+ * Whether the system will run the lecture reminders at the minute they name.
+ *
+ * `false` only on Android, and only when the user has taken the exact-alarm permission away — the
+ * reminders still arrive, the system may just hold them back to save power. The settings screen
+ * says so rather than being quietly late.
+ */
+@Composable
+expect fun remindersFireExactly(): Boolean
+
+/**
+ * Opens the system screen where exact alarms are allowed, or `null` where there is no such screen.
+ *
+ * Only Android has one, and only from Android 12. Returning `null` rather than an empty lambda so
+ * the settings screen can leave the button out entirely instead of offering one that does nothing.
+ */
+@Composable
+expect fun rememberExactAlarmSettingsOpener(): (() -> Unit)?

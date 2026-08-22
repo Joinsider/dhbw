@@ -51,12 +51,25 @@
     <string name="allow_notifications_description">Allow the app to send notifications</string>
     <string name="lecture_change_notification">Lecture Change Notification</string>
     <string name="lecture_change_notification_description">Get notified about lecture time, location and cancellation changes</string>
+    <string name="lecture_reminder">Reminder before a lecture</string>
+    <string name="lecture_reminder_description">A notification shortly before a lecture starts</string>
+    <string name="lecture_reminder_off">Off</string>
+    <string name="lecture_reminder_minutes">%1$d min</string>
+    <string name="lecture_reminder_hour">1 hour</string>
+    <string name="lecture_reminder_inexact">Exact alarms are off for this app, so a reminder can arrive a few minutes late.</string>
+    <string name="lecture_reminder_allow_exact">Allow exact alarms</string>
     <string name="notifications">Notifications</string>
     <!-- Error messages -->
     <string name="network_error">Network error. Please check your connection.</string>
     <string name="unknown_error">An unknown error occurred.</string>
     <string name="invalid_credentials">Invalid username or password.</string>
     <string name="error_loading_lectures">Error loading lectures.</string>
+    <string name="error_session_expired">Your session has expired. Please log in again.</string>
+    <string name="error_login_required">Please log in to continue.</string>
+    <string name="error_server">Dualis answered with an error (%1$d).</string>
+    <string name="error_unreadable_response">Dualis answered with something the app could not read. It may have changed.</string>
+    <string name="error_storage">Local data could not be read or written.</string>
+    <string name="error_unsupported_in_demo">This is not available in demo mode.</string>
 
     <!-- Timetable -->
     <string name="lecturers">Lecturers</string>

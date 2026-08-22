@@ -1,0 +1,113 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "+%lld more": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%lld weitere"
+          }
+        }
+      }
+    },
+    "DHBW Timetable": {
+      "comment": "Widget name in the gallery.",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DHBW Stundenplan"
+          }
+        }
+      }
+    },
+    "EXAM": {
+      "comment": "Marks a lecture the portal flagged as an exam.",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KLAUSUR"
+          }
+        }
+      }
+    },
+    "NEXT": {
+      "comment": "Badge on the upcoming lecture.",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NÄCHSTE"
+          }
+        }
+      }
+    },
+    "NOW": {
+      "comment": "Badge on a lecture that is running right now.",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JETZT"
+          }
+        }
+      }
+    },
+    "No lectures": {
+      "comment": "Empty state, small widget.",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Vorlesungen"
+          }
+        }
+      }
+    },
+    "No upcoming lectures": {
+      "comment": "Empty state, medium and large widget.",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine bevorstehenden Vorlesungen"
+          }
+        }
+      }
+    },
+    "Shows your next lectures.": {
+      "comment": "Widget description in the gallery.",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeigt deine nächsten Vorlesungen."
+          }
+        }
+      }
+    },
+    "Today": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heute"
+          }
+        }
+      }
+    },
+    "Tomorrow": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Morgen"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

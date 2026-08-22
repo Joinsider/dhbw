@@ -8,8 +8,6 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
-    alias(libs.plugins.ksp)
-    alias(libs.plugins.androidx.room)
     alias(libs.plugins.kover)
     alias(libs.plugins.kotlinSerialization)
 }
@@ -21,15 +19,9 @@ kotlin {
         }
     }
 
-    listOf(
-        iosArm64(),
-        iosSimulatorArm64()
-    ).forEach { iosTarget ->
-        iosTarget.binaries.framework {
-            baseName = "ComposeApp"
-            isStatic = true
-        }
-    }
+    // No iOS targets since P7: the iOS app is SwiftUI and links `Shared.framework`. Compose
+    // here would only be dead weight in a binary nothing imports — and it would quietly re-open
+    // the door for a Compose dependency to reach `:presentation`.
 
     macosArm64()
     macosX64()
@@ -53,28 +45,46 @@ kotlin {
             // Use OkHttp DNS-over-HTTPS for fallback
             implementation(libs.okhttp.dnsoverhttps)
             // Foldable device support via WindowInfoTracker and FoldingFeature
+            implementation(libs.koin.android)
             implementation(libs.androidx.window)
         }
         commonMain.dependencies {
+            api(projects.core.common)
+            api(projects.domain)
+            api(projects.data)
+            api(projects.services)
+            api(projects.presentation)
+            api(projects.shared)
+            implementation(libs.koin.compose)
+            implementation(libs.koin.compose.viewmodel)
+
             implementation(compose.runtime)
             implementation(compose.foundation)
-            // Material3 Expressive Components:
-            // App uses Material3 Expressive (advanced animations, typography variations) which is only available in alpha releases.
-            // Do NOT upgrade to stable (1.10.0) release — it will break Expressive component imports.
-            // Keep current alpha version (1.10.0-alpha05 or newer alpha) for Expressive functionality.
-            // See Phase 12 decision D-11 for rationale.
+            // Pinned to an alpha on purpose, re-checked in P9.
+            //
+            // The UI is built on Material 3 Expressive: `MaterialExpressiveTheme` in Theme.kt, the
+            // expressive type scale in Type.kt, `LoadingIndicator` on the login and documents
+            // screens, `ButtonGroupDefaults` in the design settings. On the newest stable release
+            // (1.9.0) `ExperimentalMaterial3ExpressiveApi` is internal and `LoadingIndicator` does
+            // not exist — tried in P9, 45 compile errors.
+            //
+            // The old comment here warned against "upgrading to stable (1.10.0)". There is no such
+            // release: the artefact goes 1.9.0 → 1.10.0-alphaNN → 1.11.0-alphaNN. alpha05 is the
+            // last of the 1.10 line and matches the Compose Multiplatform runtime; the 1.11 and
+            // 1.12 alphas run ahead of it, so moving there is a runtime bump, not a version bump.
+            //
+            // Since P7 this only ships to Android, Desktop and macOS — the iOS app is SwiftUI and
+            // never sees Compose.
             implementation(libs.compose.material3)
             implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
-            implementation(libs.androidx.room.runtime)
-            implementation(libs.androidx.sqlite.bundled)
+            implementation(libs.androidx.navigation.compose)
             implementation(libs.kotlinx.datetime)
             implementation(libs.material.icons.extended)
             implementation(libs.napier)
-            implementation(libs.ktor.client.core)
             implementation(libs.kotlinx.datetime.v040)
             implementation(libs.kotlinx.serialization.json)
             implementation("com.materialkolor:material-kolor:4.0.5") {
@@ -83,6 +93,12 @@ kotlin {
         }
 
         commonTest.dependencies {
+            // Only the tests that belong to this module are left: the Compose UI, navigation and
+            // the Koin graph as the app assembles it. Everything below the UI moved into its own
+            // module's commonTest in P9.
+            implementation(projects.core.testing)
+            implementation(libs.androidx.sqlite.bundled)
+            implementation(libs.ktor.client.core)
             implementation(libs.kotlin.test)
             @OptIn(ExperimentalComposeLibrary::class)
             implementation(compose.uiTest)
@@ -94,12 +110,31 @@ kotlin {
             implementation(libs.robolectric)
         }
 
-        iosMain.dependencies {
-            implementation(libs.ktor.client.darwin)
+        // The instrumented suite had no dependencies at all, so it had not compiled since the
+        // module split — which is how eight tests that assert nothing survived unnoticed. It runs
+        // on a device (`:composeApp:connectedDebugAndroidTest`) and is not part of the gate.
+        androidInstrumentedTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.junit)
+            implementation(libs.androidx.testExt.junit)
+            implementation(libs.androidx.test.core)
+            implementation(libs.androidx.test.runner)
+            implementation(libs.androidx.work.testing)
+            implementation(libs.androidx.work.runtime.ktx)
+            implementation(libs.glance.appwidget)
         }
 
         macosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+        }
+
+        val desktopTest by getting {
+            dependencies {
+                implementation(libs.koin.test)
+                // MigrationTestHelper reads the schema exports in data/schemas/ and opens real
+                // database files — the migration guard cannot run against an in-memory database.
+                implementation(libs.androidx.room.testing)
+            }
         }
 
         val desktopMain by getting {
@@ -171,7 +206,14 @@ android {
             all {
                 // Exclude Compose UI tests from Android unit tests
                 // These tests work on iOS and JVM but require instrumented tests on Android
-                it.exclude("**/AppTest.class", "**/LoginFormTest.class", "**/ui/**/*Test.class")
+                it.exclude(
+                    "**/AppTest.class",
+                    "**/AppRoutingTest.class",
+                    "**/LoginFormTest.class",
+                    "**/ui/**/*Test.class",
+                    // Renders Compose UI, needs an Android runtime (Build.FINGERPRINT); covered by desktopTest.
+                    "**/Phase8StabilityTest.class"
+                )
             }
         }
     }
@@ -182,12 +224,14 @@ android {
 
 dependencies {
     debugImplementation(compose.uiTooling)
-    add("kspAndroid", libs.androidx.room.compiler)
-    add("kspIosSimulatorArm64", libs.androidx.room.compiler)
-    add("kspIosArm64", libs.androidx.room.compiler)
-    add("kspMacosArm64", libs.androidx.room.compiler)
-    add("kspMacosX64", libs.androidx.room.compiler)
-    add("kspDesktop", libs.androidx.room.compiler)
+
+    // Aggregate the library modules into this project's coverage report — after the module split
+    // the report would otherwise only cover the UI layer.
+    kover(projects.core.common)
+    kover(projects.domain)
+    kover(projects.data)
+    kover(projects.services)
+    kover(projects.presentation)
 }
 
 compose.desktop {
@@ -243,10 +287,6 @@ compose.resources {
     packageOfResClass = "de.fampopprol.dhbwhorb.resources"
     publicResClass = true
     generateResClass = always
-}
-
-room {
-    schemaDirectory("$projectDir/schemas")
 }
 
 // ─── Kover — KMP-unified coverage ────────────────────────────────────────────
