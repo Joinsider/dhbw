@@ -12,6 +12,8 @@ boundaries do not change package names, so imports are identical across the spli
 ```
 :core:common     Outcome/AppError, platform detection,
                  appCoroutineScope                               (no dependencies)
+:core:testing    Repository fakes, in-memory DAOs, the test Koin
+                 graph — depended on only from a `commonTest`    -> :presentation
 :domain          Dualis models, domain models, repository
                  interfaces, use cases, TimeHelper               -> :core:common
 :data            Ktor client, HTML parsers, Dualis services,
@@ -20,7 +22,7 @@ boundaries do not change package names, so imports are identical across the spli
 :services        Notifications, widget use cases, FileViewer     -> :data
 :presentation    MVI stores: State / Intent / Msg / Effect,
                  reducers                                       -> :services
-:shared          Umbrella; exports the five modules above as
+:shared          Umbrella; exports the five production modules above as
                  `Shared.framework` for Apple targets — no Compose,
                  plus the Swift bridge in `shared/iosMain/…/ios/`
 :composeApp      Compose UI, navigation, platform entry points,
@@ -46,14 +48,14 @@ Verify the framework stays Compose-free after changes:
 nm -gU shared/build/bin/iosSimulatorArm64/debugFramework/Shared.framework/Shared | grep -c androidx.compose   # must be 0
 ```
 
-Three service locators exist as bridges and are meant to disappear once the classes behind them
-become interfaces with per-platform implementations: `AndroidAppContext` (`:core:common`) hands the
-Android Context to `:data`, `WidgetRefreshTrigger` (`:services`) lets background work request a
-Glance refresh that only `:composeApp` can perform, and `NotificationDispatcher` (`:services`)
-holds its Android Context statically because `expect class` forbids a platform-specific
-constructor parameter. All three are initialised from `DualisApplication.onCreate()`; forgetting
-one is not a compile error, and dropping the dispatcher's call in P2 crashed the settings screen
-until P4.
+There are no service locators left. Three used to exist as bridges, each initialised from
+`DualisApplication.onCreate()`, and each one a call that was not a compile error to forget —
+dropping the notification dispatcher's in P2 crashed the settings screen until P4. All three are
+now interfaces with a per-platform implementation, with Koin supplying the Android Context. The
+last of them, `NotificationDispatcher`, went in P9; it had held its Context statically because
+`expect class` forbids a platform-specific constructor parameter. **When a platform class needs a
+Context, give it a constructor parameter and bind it in `servicesPlatformModule()` /
+`dataPlatformModule()` — do not add a static field back.**
 
 **Background monitoring runs at two speeds.** `LectureChangeMonitor` checks the current week in
 full on every run — the grid plus one request per lecture, because lecturers and rooms only exist
@@ -179,8 +181,9 @@ second login path — `SessionManager` no longer has an `isReAuthenticating` fla
 that it let one caller through and rejected the rest.
 
 ### Expect/Actual
-Used for `getDatabaseBuilder()`, `NotificationDispatcher`, `getPlatform(): PlatformType`, and the
-two DI entry points `dataPlatformModule()` / `servicesPlatformModule()`.
+Used for `getDatabaseBuilder()`, `getPlatform(): PlatformType`, and the two DI entry points
+`dataPlatformModule()` / `servicesPlatformModule()`. Not for anything that needs a constructor
+parameter on one platform — that is what the interfaces above are for.
 
 ### Two storages, on purpose
 `SecureStorageInterface` holds **secrets** (credentials, session, cookie). `PlatformSettings` holds
@@ -234,7 +237,9 @@ Classes the framework instantiates (WorkManager workers, schedulers) implement `
 resolve themselves; `Application.onCreate()` always runs first, so the graph is ready.
 
 `App()` and the screens take no service parameters. Tests override the graph instead:
-`WithTestKoin { … }` for Compose tests, `testKoin()` for plain ones — both in `testutil/TestKoin.kt`.
+`testKoin()` for plain tests (`:core:testing`, `testutil/TestKoin.kt`) and `WithTestKoin { … }` for
+Compose tests (`:composeApp` commonTest — it is a composable, and `:core:testing` has no Compose
+because `:presentation`'s tests depend on it).
 `KoinGraphTest` verifies every module and builds the real graph, so a missing binding fails in CI
 rather than when a user opens the screen.
 
@@ -349,12 +354,16 @@ Files must include SPDX headers:
 
 ## Build & Test Commands
 
+Tests live in the module they test, since P9. The task names are unqualified on purpose — that
+runs every module's own suite, and a qualified `:composeApp:desktopTest` now covers only the
+Compose UI.
+
 ```bash
 # Android unit tests (Compose UI tests are excluded on Android – run on Desktop instead)
-./gradlew :composeApp:testDebugUnitTest
+./gradlew testDebugUnitTest
 
 # Desktop (JVM) tests – includes Compose UI tests
-./gradlew :composeApp:desktopTest
+./gradlew desktopTest
 
 # All tests + coverage report (Kover)
 ./gradlew :composeApp:koverXmlReportKmpCoverage
@@ -406,6 +415,8 @@ cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration 
 | `services/…/notifications/LectureMonitorScheduler.ios.kt` | `BGTaskScheduler` registration, submission and the background check |
 | `iosApp/TimetableWidgetExtension.entitlements` | App Group + keychain group for the extension (the app's are in `iosApp/iosApp/iosApp.entitlements`) |
 | `iosApp/iosApp/Localizable.xcstrings` | iOS strings (en/de); the Compose UI has its own in `composeResources` |
+| `iosApp/TimetableWidget/Localizable.xcstrings` | The widget extension's strings (en/de) — a bundle of its own, not the app's |
+| `core/testing/src/commonMain/…/testutil/` | The fakes every module's tests build on |
 | `…/data/storage/database/AppDatabase.kt` | Room DB definition; `clearAllData()` for logout |
 | `…/data/storage/database/AppDatabaseMigrations.kt` | Schema version, migration list, destructive-fallback allowlist |
 | `data/schemas/` | Room schema exports (auto-generated, do not edit) |
