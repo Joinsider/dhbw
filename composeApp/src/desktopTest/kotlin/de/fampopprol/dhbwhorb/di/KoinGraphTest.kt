@@ -106,6 +106,9 @@ class KoinGraphTest {
             assertNotNull(koin.get<NotificationPreferencesInteractor>())
             assertNotNull(koin.get<ThemePreferences>())
             assertNotNull(koin.get<de.fampopprol.dhbwhorb.data.storage.settings.SettingsStorage>())
+            // initKoin() resolves this one before the app has drawn anything; a missing binding
+            // would take the whole start down.
+            assertNotNull(koin.get<de.fampopprol.dhbwhorb.data.storage.credentials.CredentialsInstallGuard>())
 
             // The repository interfaces are what everything above :data now depends on, so a
             // missing binding here would break every screen at once.

@@ -9,6 +9,7 @@ package de.fampopprol.dhbwhorb.shared
 import de.fampopprol.dhbwhorb.core.di.coreModule
 import de.fampopprol.dhbwhorb.data.di.dataModule
 import de.fampopprol.dhbwhorb.data.di.dataPlatformModule
+import de.fampopprol.dhbwhorb.data.storage.credentials.CredentialsInstallGuard
 import de.fampopprol.dhbwhorb.services.di.servicesModule
 import de.fampopprol.dhbwhorb.presentation.di.presentationModule
 import de.fampopprol.dhbwhorb.services.di.servicesPlatformModule
@@ -44,4 +45,10 @@ fun initKoin(
         presentationModule,
         *extraModules.toTypedArray()
     )
+}.also { application ->
+    // Deleting an app takes its account with it. The Keychain does not play along by itself —
+    // it outlives the app on purpose — so this is where credentials from a previous installation
+    // are dropped. Here rather than in the four entry points: forgetting it in one of them is not
+    // a compile error, and P2 is the story of what that costs.
+    application.koin.get<CredentialsInstallGuard>().purgeIfReinstalled()
 }

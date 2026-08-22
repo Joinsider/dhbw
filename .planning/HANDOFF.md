@@ -1,7 +1,8 @@
 # Handoff — v3-Umbau
 
-> Stand: 2026-08-22 · Phasen P-1 bis P8 abgeschlossen, dazu zwei Fixes außerhalb der
-> Phasenkette: Desktop-TLS und die Trennung von Geheimnissen und Einstellungen
+> Stand: 2026-08-22 · Phasen P-1 bis P8 abgeschlossen, dazu drei Fixes außerhalb der
+> Phasenkette: Desktop-TLS, die Trennung von Geheimnissen und Einstellungen, und der
+> Zugangsdaten-Wächter beim Neuinstallieren (`CredentialsInstallGuard`)
 > Arbeitsverzeichnis sauber · nichts gepusht
 > Nächste Phase: **P9 — Aufräumen**
 
@@ -114,10 +115,12 @@ until [ "$($ADB shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do slee
   erklärt, warum ein Testlauf den Schlüsselbund verändert.
 * Auf dem **Android-Emulator ist eine echte Sitzung gespeichert.** Die App startet dort eingeloggt
   und mit echten Daten — praktisch zum Durchklicken, aber Vorsicht: das sind reale Dualis-Requests.
-* **Auf dem iOS-Simulator ebenso, und ein `simctl uninstall` ändert daran nichts:** die
-  Zugangsdaten liegen im Schlüsselbund, und den räumt eine Deinstallation nicht mit ab. Nach einer
-  Neuinstallation startet die App also wieder eingeloggt und stellt echte Dualis-Requests. Die
-  Datenbank ist dagegen weg — sie liegt im App-Group-Container.
+* **Auf dem iOS-Simulator ebenso — aber seit dem Install-Guard nicht mehr über eine
+  Neuinstallation hinweg.** Der Schlüsselbund überlebt ein `simctl uninstall`, der
+  App-Group-Container nicht; `CredentialsInstallGuard` vergleicht beides und räumt die
+  Zugangsdaten weg, sobald sie aus einer früheren Installation stammen. Ein erneutes `install`
+  über die bestehende App hinweg (der Update-Fall) lässt sie in Ruhe. Wer die angemeldete Sitzung
+  auf dem Simulator behalten will, deinstalliert also nicht.
 * **Widget-Daten kommen aus der App-Group-Datenbank, und die lässt sich von Hand füllen.** Für
   Prüfungen, in denen der echte Stundenplan leer ist (Praxisphase), ist das der Weg zu sichtbaren
   Vorlesungen ohne weitere Dualis-Requests — und der einzige, der beweist, dass die Extension
@@ -161,7 +164,7 @@ ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew \
   :composeApp:testDebugUnitTest :composeApp:desktopTest --rerun-tasks
 ```
 
-**Sollwerte nach P8:** `testDebugUnitTest` **297**, `desktopTest` **403**, 0 Fehler,
+**Sollwerte nach P8:** `testDebugUnitTest` **302**, `desktopTest` **408**, 0 Fehler,
 **0 übersprungen**. Es gibt seit P4 keinen einzigen `@Ignore` mehr im Projekt — wenn einer
 auftaucht, gehören ein Grund und eine Phase dazu.
 

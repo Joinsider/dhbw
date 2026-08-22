@@ -55,6 +55,18 @@ constructor parameter. All three are initialised from `DualisApplication.onCreat
 one is not a compile error, and dropping the dispatcher's call in P2 crashed the settings screen
 until P4.
 
+**Deleting the app takes the account with it.** That is what a user deleting an app expects, and
+it is what app data does on both platforms — except the Keychain, which outlives an uninstall by
+design. `CredentialsInstallGuard` closes that: it keeps the identity of the installation that wrote
+the credentials *next to* them, and `initKoin()` clears them when it no longer matches. The identity
+comes from `currentInstallStamp()` — on iOS the App Group container's creation date (the App Group,
+not the app's own home directory, because the widget extension runs the same code from a different
+one), and `null` everywhere else, which disables the guard because there the credential store is
+already inside the app data. A store with no stamp yet is adopted rather than wiped, so the update
+that introduces this does not log anyone out. Android's second door is Auto Backup, closed by
+excluding `dualis_secure_prefs.xml` in `res/xml/backup_rules.xml` and
+`res/xml/data_extraction_rules.xml`.
+
 Platform entry points: `composeApp/androidMain/MainActivity.kt`, `composeApp/desktopMain/main.kt`,
 `composeApp/macosMain/main.kt`, and `iosApp/iosApp/iOSApp.swift` (which calls `SharedApp.start()`).
 
@@ -341,6 +353,7 @@ cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration 
 | `…/data/dualis/remote/services/DualisPageGateway.kt` | Authenticated page fetch with one re-auth retry |
 | `…/data/dualis/remote/session/ReAuthenticator.kt` | Single-flight re-login |
 | `…/core/error/Outcome.kt`, `…/core/error/AppError.kt` | The error channel |
+| `…/data/storage/credentials/CredentialsInstallGuard.kt` | Drops credentials that outlived the installation that stored them |
 | `presentation/…/presentation/store/BaseStore.kt` | The store contract every feature inherits |
 | `composeApp/…/ui/store/StoreCompose.kt` | The only Compose-aware part of the store plumbing |
 | `shared/src/iosMain/…/ios/SharedApp.kt` | The one door Swift uses: starts Koin, hands out the six bridges |
