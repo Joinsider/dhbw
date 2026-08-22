@@ -79,8 +79,8 @@ actual class NotificationDispatcher {
     /**
      * Show a notification using system tray.
      */
-    actual suspend fun showNotification(title: String, message: String, lectureId: Long) {
-        Napier.d("showNotification (desktop) requested: lectureId=$lectureId, title='$title', message='$message'", tag = TAG)
+    actual suspend fun showNotification(title: String, message: String, notificationKey: String) {
+        Napier.d("showNotification (desktop) requested: notificationKey=$notificationKey, title='$title', message='$message'", tag = TAG)
         val icon = trayIcon
         if (icon == null) {
             Napier.w("Cannot show notification: system tray not available", tag = TAG)
@@ -89,7 +89,7 @@ actual class NotificationDispatcher {
 
         try {
             icon.displayMessage(title, message, TrayIcon.MessageType.INFO)
-            Napier.d("Notification shown for lecture $lectureId (desktop)", tag = TAG)
+            Napier.d("Notification shown for lecture $notificationKey (desktop)", tag = TAG)
         } catch (e: Exception) {
             Napier.e("Failed to show notification: ${e.message}", tag = TAG)
         }

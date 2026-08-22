@@ -14,6 +14,7 @@ import de.fampopprol.dhbwhorb.data.dualis.remote.parser.HtmlParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.TimetableParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.temp_models.TempLectureModel
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
+import de.fampopprol.dhbwhorb.data.helpers.TimeHelper
 import de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LectureEventDao
 import de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LectureLecturerCrossRefDao
 import de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LecturerDao
@@ -21,8 +22,11 @@ import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureEv
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureLecturerCrossRef
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LecturerEntity
 import io.github.aakira.napier.Napier
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.atTime
+import kotlinx.datetime.plus
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
@@ -53,6 +57,13 @@ open class DualisLectureService(
         private const val TAG = "DualisLectureService"
         private const val BASE_URL = "https://dualis.dhbw.de/scripts/mgrqispi.dll"
         private const val SOURCE = "timetable"
+
+        /**
+         * How far back the cache keeps lectures. Two months covers "what did I have in the exam
+         * week" and nothing beyond it — the timetable of a past week answers no question the app
+         * asks, and the table used to keep every week it had ever seen.
+         */
+        private const val CACHE_RETENTION_DAYS = 60
     }
 
     /**
@@ -199,14 +210,21 @@ open class DualisLectureService(
     /**
      * Replace the stored lectures between [weekStart] and [weekEnd] with [lectures].
      *
+     * Also drops everything that ended more than [CACHE_RETENTION_DAYS] ago. Here rather than in a
+     * separate housekeeping task because this is the one function every write path goes through:
+     * a pruner somewhere else would be a second thing to remember, and the reason the table grew
+     * without bound in the first place is that nobody ever remembered.
+     *
      * @return the same lectures, carrying the ids the database assigned
      */
-    suspend fun saveLecturesToDatabase(
+    open suspend fun saveLecturesToDatabase(
         lectures: List<LectureEventEntity>,
         weekStart: LocalDateTime,
         weekEnd: LocalDateTime
     ): Outcome<List<LectureEventEntity>> {
         return try {
+            pruneExpiredLectures()
+
             // Replace rather than merge: a cancelled lecture has to disappear.
             lectureEventDao.deleteInRange(weekStart, weekEnd)
 
@@ -232,6 +250,23 @@ open class DualisLectureService(
         } catch (e: Exception) {
             Napier.e("Could not save lectures: ${e.message}", e, tag = TAG)
             Outcome.Err(AppError.Storage("saving the timetable: ${e.message}"))
+        }
+    }
+
+    /**
+     * Removes lectures that ended more than [CACHE_RETENTION_DAYS] ago.
+     *
+     * Failing to prune is not worth failing a save over — the cache is merely bigger than it needs
+     * to be, and the next write tries again.
+     */
+    private suspend fun pruneExpiredLectures() {
+        try {
+            val cutoff = TimeHelper.now().date
+                .plus(-CACHE_RETENTION_DAYS, DateTimeUnit.DAY)
+                .atTime(0, 0)
+            lectureEventDao.deleteEndedBefore(cutoff)
+        } catch (e: Exception) {
+            Napier.w("Could not prune the timetable cache: ${e.message}", e, tag = TAG)
         }
     }
 

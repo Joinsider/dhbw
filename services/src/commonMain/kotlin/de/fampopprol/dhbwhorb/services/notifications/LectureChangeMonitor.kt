@@ -6,281 +6,348 @@
 
 package de.fampopprol.dhbwhorb.services.notifications
 
+import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisLectureService
 import de.fampopprol.dhbwhorb.data.helpers.TimeHelper
+import de.fampopprol.dhbwhorb.data.storage.database.dao.SyncMetadataDao
 import de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LectureEventDao
-import de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LectureLecturerCrossRefDao
+import de.fampopprol.dhbwhorb.data.storage.database.entities.SyncMetadataEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureEventEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureWithLecturers
 import io.github.aakira.napier.Napier
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.atTime
+import kotlinx.datetime.plus
+import kotlin.math.abs
 
 /**
  * Detects what changed between the timetable Dualis serves now and the one in the local cache.
  *
- * Compares first and writes second: the fetched week only replaces the cached one once a change
- * has been found, so an unchanged week costs no database writes and the "old" side of every
- * comparison is genuinely the previous state.
+ * **Two speeds, because the two questions cost differently.** A full check of a week is one request
+ * for the grid plus one per lecture, because lecturers and rooms only exist on a lecture's own
+ * page. The grid alone is a single request. So the current week — where a change matters today —
+ * is checked in full on every run, and the next [FUTURE_WEEKS] weeks are checked by their grid
+ * only, at most every [FUTURE_SWEEP_HOURS] hours. A future week whose grid moved is then fetched
+ * in full, so the detailed comparison still happens; it just happens for one week instead of five.
+ *
+ * **Nothing that has already happened is reported.** Both sides of every comparison drop lectures
+ * that ended before now, and no week before the current one is looked at at all. A notification
+ * about last Monday helps nobody.
+ *
+ * **Compares first and writes second:** a week is only replaced in the cache once a change has been
+ * found, so an unchanged week costs no database writes and the "old" side is genuinely the
+ * previous state.
  */
 class LectureChangeMonitor(
     private val dualisLectureServiceFactory: () -> DualisLectureService,
     private val lectureEventDao: LectureEventDao,
-    private val lectureLecturerCrossRefDao: LectureLecturerCrossRefDao
+    private val syncMetadataDao: SyncMetadataDao,
+    private val clock: () -> LocalDateTime = { TimeHelper.now() },
 ) {
     private val dualisLectureService by lazy { dualisLectureServiceFactory() }
 
     companion object {
         private const val TAG = "LectureChangeMonitor"
+
+        /**
+         * How far ahead the grid sweep looks. Beyond a month a timetable is provisional anyway,
+         * and pulling to refresh in the app covers the rest.
+         */
+        const val FUTURE_WEEKS = 4
+
+        /** The grid sweep is this much lazier than the hourly run that carries it. */
+        const val FUTURE_SWEEP_HOURS = 4
+
+        private const val SYNC_KEY_FUTURE_SWEEP = "lecture_monitor_future_sweep"
     }
 
-    /**
-     * Check for lecture changes by comparing current Dualis data with database.
-     * Detects time changes, lecturer changes, type changes, location changes, and cancellations.
-     *
-     * @return MonitorResult containing detected changes or errors
-     */
     suspend fun checkForChanges(): MonitorResult {
-        try {
-            Napier.d("🔍 Starting lecture change check", tag = TAG)
-
-            // Get current week date range for filtering
-            val (weekStart, weekEnd) = TimeHelper.getCurrentWeekDates()
-            Napier.d("📅 Current week range: $weekStart to $weekEnd", tag = TAG)
-
-            // Step 1: Get OLD stored lectures from database BEFORE fetching from Dualis
-            Napier.d(
-                "💾 Step 1: Retrieving OLD lectures from database (current week only)...",
-                tag = TAG
-            )
-            val allStoredLecturesOld = lectureEventDao.getAllWithLecturers()
-            val storedLecturesOld = allStoredLecturesOld.filter { lectureWithLecturers ->
-                val lecture = lectureWithLecturers.lecture
-                // Check if lecture overlaps with current week
-                lecture.startTime < weekEnd && lecture.endTime > weekStart
-            }
-            Napier.d(
-                "✅ Retrieved ${storedLecturesOld.size} OLD lectures from database (filtered from ${allStoredLecturesOld.size} total)",
-                tag = TAG
-            )
-
-            // Step 2: Fetch current lectures from Dualis (IN MEMORY, not saved to DB yet)
-            Napier.d("📥 Step 2: Fetching current lectures from Dualis (in memory)...", tag = TAG)
-            val newLectures: List<LectureEventEntity> =
-                when (val fetched = dualisLectureService.getWeeklyLecturesForWeek(weekStart, weekEnd)) {
-                    is Outcome.Ok -> fetched.value
-                    is Outcome.Err -> {
-                        Napier.e("❌ Failed to fetch current lectures: ${fetched.error}", tag = TAG)
-                        return MonitorResult.Error("Failed to fetch lectures: ${fetched.error}", null)
-                    }
-                }
-            Napier.d(
-                "✅ Fetched ${newLectures.size} lectures from Dualis (in memory, not saved yet)",
-                tag = TAG
-            )
-
-            // Step 3: Compare OLD (from DB) with NEW (from Dualis in memory)
-            Napier.d("🔍 Step 3: Detecting changes...", tag = TAG)
+        return try {
+            val now = clock()
             val changes = mutableListOf<LectureChange>()
+            var lecturesChecked: Int
 
-            // Convert new lectures to map for comparison (use the same comparison key as DB)
-            val newLectureMap: Map<String, LectureEventEntity> = newLectures.associateBy {
-                it.toComparisonKey()
+            // ── The current week, in full ────────────────────────────────────────────────────
+            val (weekStart, weekEnd) = weekAround(now, offset = 0)
+            Napier.d("Full check of $weekStart..$weekEnd, ignoring anything before $now", tag = TAG)
+
+            val current = when (val outcome = checkWeekInFull(now, weekStart, weekEnd)) {
+                is Outcome.Ok -> outcome.value
+                is Outcome.Err -> return MonitorResult.Error(outcome.error)
             }
+            changes += current.changes
+            lecturesChecked = current.lecturesChecked
 
-            Napier.d("📊 Comparison setup:", tag = TAG)
-            Napier.d("   OLD lectures: ${storedLecturesOld.size} from database", tag = TAG)
-            Napier.d("   NEW lectures: ${newLectures.size} from Dualis (in memory)", tag = TAG)
-
-            // Create old lecture map for comparison
-            val oldLectureMap = storedLecturesOld.associateBy { it.toComparisonKey() }
-
-            // Check for modifications and deletions (cancellations)
-            Napier.d("🔄 Checking for modifications and cancellations...", tag = TAG)
-            for (oldLecture in storedLecturesOld) {
-                val comparisonKey = oldLecture.toComparisonKey()
-                val newLecture = newLectureMap[comparisonKey]
-
-                if (newLecture == null) {
-                    // Lecture was cancelled
-                    Napier.d("🚫 Cancelled lecture detected: ${oldLecture.lecture.shortSubjectName}", tag = TAG)
-                    changes.add(
-                        LectureChange.Cancellation(
-                            lectureId = oldLecture.lecture.lectureId,
-                            courseName = oldLecture.lecture.shortSubjectName,
-                            cancelledLecture = oldLecture.lecture,
-                            confirmedAfterDelay = false // Not using delay confirmation anymore
-                        )
-                    )
-                } else {
-                    // Compare existing lecture for changes (OLD from DB, NEW from memory)
-                    Napier.d("🔎 Comparing lecture: ${oldLecture.lecture.shortSubjectName}", tag = TAG)
-                    val lectureChanges = detectLectureChangesFromMemory(oldLecture, newLecture)
-                    if (lectureChanges.isNotEmpty()) {
-                        Napier.d("   📝 Found ${lectureChanges.size} change(s) in this lecture", tag = TAG)
-                        lectureChanges.forEach { change ->
-                            Napier.d("      - ${change::class.simpleName}", tag = TAG)
+            // ── The next few weeks, by their grid ────────────────────────────────────────────
+            if (isFutureSweepDue(now)) {
+                Napier.d("Grid sweep of the next $FUTURE_WEEKS week(s)", tag = TAG)
+                for (offset in 1..FUTURE_WEEKS) {
+                    when (val outcome = checkFutureWeekByGrid(now, offset)) {
+                        is Outcome.Ok -> {
+                            changes += outcome.value.changes
+                            lecturesChecked += outcome.value.lecturesChecked
                         }
-                    } else {
-                        Napier.d("   ✅ No changes detected", tag = TAG)
-                    }
-                    changes.addAll(lectureChanges)
-                }
-            }
-
-            // Check for new lectures
-            Napier.d("➕ Checking for new lectures...", tag = TAG)
-            for (newLecture in newLectures) {
-                val comparisonKey = newLecture.toComparisonKey()
-                if (!oldLectureMap.containsKey(comparisonKey)) {
-                    Napier.d("🆕 New lecture detected: ${newLecture.shortSubjectName}", tag = TAG)
-                    changes.add(
-                        LectureChange.NewLecture(
-                            lectureId = 0, // Temporary, will be assigned when saved
-                            courseName = newLecture.shortSubjectName,
-                            lecture = newLecture
+                        // One unreachable week must not discard what the current week found.
+                        is Outcome.Err -> Napier.w(
+                            "Week +$offset could not be checked: ${outcome.error}",
+                            tag = TAG,
                         )
-                    )
-                }
-            }
-
-            Napier.d(
-                "📊 Change detection complete: ${changes.size} total change(s) found",
-                tag = TAG
-            )
-            if (changes.isNotEmpty()) {
-                Napier.d("📋 Summary of changes:", tag = TAG)
-                changes.groupBy { it::class.simpleName }.forEach { (type, list) ->
-                    Napier.d("   - $type: ${list.size}", tag = TAG)
-                }
-            }
-
-            // Step 4: If changes detected, save new lectures to database
-            val savedLectureCount: Int
-            if (changes.isNotEmpty()) {
-                Napier.d(
-                    "💾 Step 4: Changes detected! Saving ${newLectures.size} new lectures to database...",
-                    tag = TAG
-                )
-                when (val saved = dualisLectureService.saveLecturesToDatabase(newLectures, weekStart, weekEnd)) {
-                    is Outcome.Ok -> Napier.d("✅ Database updated with new lectures", tag = TAG)
-                    is Outcome.Err -> {
-                        // The changes were detected against data that is now not persisted, so
-                        // the next run would report them again. Better to say so than to notify.
-                        Napier.e("❌ Could not persist the new lectures: ${saved.error}", tag = TAG)
-                        return MonitorResult.Error("Could not persist lectures: ${saved.error}", null)
                     }
                 }
-                savedLectureCount = newLectures.size
+                recordFutureSweep(now)
             } else {
-                Napier.d("✅ Step 4: No changes detected, database left untouched", tag = TAG)
-                savedLectureCount = storedLecturesOld.size
+                Napier.d("Grid sweep not due yet", tag = TAG)
             }
 
-            return if (changes.isEmpty()) {
-                MonitorResult.NoChanges(savedLectureCount)
+            if (changes.isEmpty()) {
+                MonitorResult.NoChanges(lecturesChecked)
             } else {
+                changes.groupBy { it::class.simpleName }.forEach { (type, list) ->
+                    Napier.d("$type: ${list.size}", tag = TAG)
+                }
                 MonitorResult.Changes(changes)
             }
-
         } catch (e: Exception) {
             Napier.e("Exception during change check: ${e.message}", e, tag = TAG)
-            return MonitorResult.Error("Exception: ${e.message}", e)
+            MonitorResult.Error(AppError.Unexpected(e.message ?: "lecture monitoring"))
         }
     }
 
+    private data class WeekOutcome(val changes: List<LectureChange>, val lecturesChecked: Int)
+
     /**
-     * Detect specific changes between an old lecture (from DB) and new lecture (from memory).
-     *
-     * @param oldLecture The old lecture from database (LectureWithLecturers)
-     * @param newLecture The new lecture from Dualis in memory (LectureEventEntity with lecturers field)
+     * Fetches [weekStart]..[weekEnd] with lecturers and rooms and compares it against the cache.
      */
-    private fun detectLectureChangesFromMemory(
-        oldLecture: LectureWithLecturers,
-        newLecture: LectureEventEntity
+    private suspend fun checkWeekInFull(
+        now: LocalDateTime,
+        weekStart: LocalDateTime,
+        weekEnd: LocalDateTime,
+    ): Outcome<WeekOutcome> {
+        val old = cachedLectures(weekStart, weekEnd).stillAhead(now)
+
+        val fetched = when (val outcome = dualisLectureService.getWeeklyLecturesForWeek(weekStart, weekEnd)) {
+            is Outcome.Ok -> outcome.value
+            is Outcome.Err -> return outcome
+        }
+
+        val changes = diff(old, fetched.filter { it.endTime > now })
+        if (changes.isNotEmpty()) {
+            // The whole week is written back, not just the part that is still ahead: the cache
+            // holds the timetable, and half a week would be a worse answer than a stale one.
+            when (val saved = dualisLectureService.saveLecturesToDatabase(fetched, weekStart, weekEnd)) {
+                is Outcome.Ok -> Unit
+                is Outcome.Err -> {
+                    // The changes were found against a state that is now not persisted, so the
+                    // next run would find them again. Better to say so than to notify twice.
+                    Napier.e("Could not persist the new lectures: ${saved.error}", tag = TAG)
+                    return Outcome.Err(saved.error)
+                }
+            }
+        }
+        return Outcome.Ok(WeekOutcome(changes, old.size))
+    }
+
+    /**
+     * Checks one future week using the weekly grid, and only pays for the detail pages if the grid
+     * says something moved.
+     *
+     * The grid knows no lecturers, and its room string is not the one the cache holds (the cache
+     * keeps the rooms from each lecture's own page). So the grid comparison looks only at what both
+     * sides describe the same way — subject, start, end, exam flag — and any difference at all is
+     * the signal to go and look properly.
+     *
+     * A week with nothing cached is skipped: there is no previous state to compare against, and
+     * announcing an entire week as new lectures is not news.
+     */
+    private suspend fun checkFutureWeekByGrid(now: LocalDateTime, weekOffset: Int): Outcome<WeekOutcome> {
+        val (start, end) = weekAround(now, weekOffset)
+        val old = cachedLectures(start, end).stillAhead(now)
+        if (old.isEmpty()) {
+            Napier.d("Week +$weekOffset is not cached, skipping", tag = TAG)
+            return Outcome.Ok(WeekOutcome(emptyList(), 0))
+        }
+
+        val grid = when (val outcome = dualisLectureService.getWeeklySkeletonForWeek(start, end)) {
+            is Outcome.Ok -> outcome.value.filter { it.endTime > now }
+            is Outcome.Err -> return outcome
+        }
+
+        val before = old.map { it.lecture.gridShape() }.toSet()
+        val after = grid.map { it.gridShape() }.toSet()
+        if (before == after) {
+            Napier.d("Week +$weekOffset unchanged in the grid", tag = TAG)
+            return Outcome.Ok(WeekOutcome(emptyList(), old.size))
+        }
+
+        Napier.d("Week +$weekOffset moved — fetching it in full", tag = TAG)
+        return checkWeekInFull(now, start, end)
+    }
+
+    // ── Matching ────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Pairs the cached lectures with the fetched ones and describes the difference.
+     *
+     * Pairing used to be a lookup by `subject_start_end`, which meant a lecture that moved could
+     * never be *recognised* as having moved: its key changed, so the old entry found no partner
+     * and the new one looked unrelated. Every shift arrived as a cancellation plus a new lecture —
+     * two notifications for one event, and the most common event there is.
+     *
+     * Now the pairing happens per subject, in two passes:
+     *
+     * 1. **Exact slots first.** Anything that still sits at the same start and end is paired
+     *    before anything else. This is what keeps a weekly lecture on Monday *and* Wednesday from
+     *    being read as "Monday moved to Wednesday" when only Monday was cancelled.
+     * 2. **Then the nearest survivors.** Whatever is left is paired closest-first by how far apart
+     *    the start times are, which is what a moved lecture looks like.
+     *
+     * What no pass claims is a cancellation (old side) or a new lecture (new side).
+     */
+    private fun diff(old: List<LectureWithLecturers>, new: List<LectureEventEntity>): List<LectureChange> {
+        val changes = mutableListOf<LectureChange>()
+        val subjects = (old.map { it.lecture.shortSubjectName } + new.map { it.shortSubjectName }).toSet()
+
+        for (subject in subjects) {
+            val remainingOld = old.filter { it.lecture.shortSubjectName == subject }.toMutableList()
+            val remainingNew = new.filter { it.shortSubjectName == subject }.toMutableList()
+
+            // Pass 1 — same slot.
+            for (candidate in remainingOld.toList()) {
+                val match = remainingNew.firstOrNull {
+                    it.startTime == candidate.lecture.startTime && it.endTime == candidate.lecture.endTime
+                } ?: continue
+                remainingOld.remove(candidate)
+                remainingNew.remove(match)
+                changes += detailChanges(candidate, match)
+            }
+
+            // Pass 2 — closest survivor wins.
+            while (remainingOld.isNotEmpty() && remainingNew.isNotEmpty()) {
+                val pair = remainingOld
+                    .flatMap { o -> remainingNew.map { n -> o to n } }
+                    .minBy { (o, n) -> abs(o.lecture.startTime.asMinutes() - n.startTime.asMinutes()) }
+                remainingOld.remove(pair.first)
+                remainingNew.remove(pair.second)
+
+                val moved = pair.first.lecture
+                val to = pair.second
+                changes += LectureChange.TimeChange(
+                    lectureId = moved.lectureId,
+                    courseName = moved.shortSubjectName,
+                    oldStartTime = moved.startTime,
+                    newStartTime = to.startTime,
+                    oldEndTime = moved.endTime,
+                    newEndTime = to.endTime,
+                )
+                changes += detailChanges(pair.first, to)
+            }
+
+            remainingOld.forEach {
+                changes += LectureChange.Cancellation(
+                    lectureId = it.lecture.lectureId,
+                    courseName = it.lecture.shortSubjectName,
+                    cancelledLecture = it.lecture,
+                )
+            }
+            remainingNew.forEach {
+                changes += LectureChange.NewLecture(
+                    // The row does not exist yet; the id is assigned when the week is written.
+                    lectureId = 0,
+                    courseName = it.shortSubjectName,
+                    lecture = it,
+                )
+            }
+        }
+
+        return changes
+    }
+
+    /** Everything about a paired lecture other than when it happens. */
+    private fun detailChanges(
+        old: LectureWithLecturers,
+        new: LectureEventEntity,
     ): List<LectureChange> {
         val changes = mutableListOf<LectureChange>()
-        val old = oldLecture.lecture
+        val lecture = old.lecture
 
-        // Check time changes
-        if (old.startTime != newLecture.startTime || old.endTime != newLecture.endTime) {
-            Napier.d("      ⏰ Time change: ${old.startTime} -> ${newLecture.startTime}", tag = TAG)
-            changes.add(
-                LectureChange.TimeChange(
-                    lectureId = old.lectureId,
-                    courseName = old.shortSubjectName,
-                    oldStartTime = old.startTime,
-                    newStartTime = newLecture.startTime,
-                    oldEndTime = old.endTime,
-                    newEndTime = newLecture.endTime
-                )
+        if (lecture.location != new.location) {
+            changes += LectureChange.LocationChange(
+                lectureId = lecture.lectureId,
+                courseName = lecture.shortSubjectName,
+                occursAt = new.startTime,
+                oldLocation = lecture.location,
+                newLocation = new.location,
             )
         }
 
-        // Check location changes
-        if (old.location != newLecture.location) {
-            Napier.d(
-                "      📍 Location change: '${old.location}' -> '${newLecture.location}'",
-                tag = TAG
-            )
-            changes.add(
-                LectureChange.LocationChange(
-                    lectureId = old.lectureId,
-                    courseName = old.shortSubjectName,
-                    oldLocation = old.location,
-                    newLocation = newLecture.location
-                )
+        if (lecture.isTest != new.isTest) {
+            changes += LectureChange.TypeChange(
+                lectureId = lecture.lectureId,
+                courseName = lecture.shortSubjectName,
+                occursAt = new.startTime,
+                oldIsTest = lecture.isTest,
+                newIsTest = new.isTest,
             )
         }
 
-        // Check type changes (lecture <-> test)
-        if (old.isTest != newLecture.isTest) {
-            Napier.d(
-                "      📝 Type change: ${if (old.isTest) "Test" else "Lecture"} -> ${if (newLecture.isTest) "Test" else "Lecture"}",
-                tag = TAG
-            )
-            changes.add(
-                LectureChange.TypeChange(
-                    lectureId = old.lectureId,
-                    courseName = old.shortSubjectName,
-                    oldIsTest = old.isTest,
-                    newIsTest = newLecture.isTest
-                )
-            )
-        }
-
-        // Check lecturer changes
-        val oldLecturerNames = oldLecture.lecturers.map { it.lecturerName }
-        val newLecturerNames = newLecture.lecturers ?: emptyList()
-
-        if (oldLecturerNames.sorted() != newLecturerNames.sorted()) {
-            Napier.d("      👨‍🏫 Lecturer change:", tag = TAG)
-            Napier.d("         Old: ${oldLecturerNames.joinToString(", ")}", tag = TAG)
-            Napier.d("         New: ${newLecturerNames.joinToString(", ")}", tag = TAG)
-            changes.add(
-                LectureChange.LecturerChange(
-                    lectureId = old.lectureId,
-                    courseName = old.shortSubjectName,
-                    oldLecturers = oldLecturerNames,
-                    newLecturers = newLecturerNames
-                )
+        val oldLecturers = old.lecturers.map { it.lecturerName }.sorted()
+        val newLecturers = new.lecturers.orEmpty().sorted()
+        if (oldLecturers != newLecturers) {
+            changes += LectureChange.LecturerChange(
+                lectureId = lecture.lectureId,
+                courseName = lecture.shortSubjectName,
+                occursAt = new.startTime,
+                oldLecturers = oldLecturers,
+                newLecturers = newLecturers,
             )
         }
 
         return changes
     }
 
-    /**
-     * Convert a lecture to a unique key for comparison.
-     * Does NOT use lectureId since IDs are auto-generated and change between DB queries.
-     */
-    private fun LectureEventEntity.toComparisonKey(): String {
-        return "${shortSubjectName}_${startTime}_${endTime}"
-    }
+    // ── Helpers ─────────────────────────────────────────────────────────────────────────────
 
     /**
-     * Convert a lecture with lecturers to a unique key for comparison.
+     * Monday 00:00 to Sunday 23:59 of the week [offset] weeks from the one containing [now].
+     *
+     * Derived from the injected clock rather than from `TimeHelper`, which reads the system clock:
+     * with half the time source injected and half of it not, a test could set the hour but not the
+     * week, and every comparison silently ran against an empty window.
      */
-    private fun LectureWithLecturers.toComparisonKey(): String {
-        return lecture.toComparisonKey()
+    private fun weekAround(now: LocalDateTime, offset: Int): Pair<LocalDateTime, LocalDateTime> {
+        val monday = now.date.plus(-now.dayOfWeek.ordinal + offset * 7, DateTimeUnit.DAY)
+        val sunday = monday.plus(6, DateTimeUnit.DAY)
+        return monday.atTime(0, 0, 0) to sunday.atTime(23, 59, 59)
+    }
+
+    private suspend fun cachedLectures(
+        start: LocalDateTime,
+        end: LocalDateTime,
+    ): List<LectureWithLecturers> = lectureEventDao.getAllWithLecturers().filter {
+        it.lecture.startTime < end && it.lecture.endTime > start
+    }
+
+    private fun List<LectureWithLecturers>.stillAhead(now: LocalDateTime) =
+        filter { it.lecture.endTime > now }
+
+    /** What the weekly grid and the cache describe identically. */
+    private fun LectureEventEntity.gridShape() =
+        "$shortSubjectName|$startTime|$endTime|$isTest"
+
+    /** Minutes since the epoch, for "how far did this move". */
+    private fun LocalDateTime.asMinutes(): Long =
+        date.toEpochDays().toLong() * 24 * 60 + hour * 60 + minute
+
+    private suspend fun isFutureSweepDue(now: LocalDateTime): Boolean {
+        val last = syncMetadataDao.getSyncMetadata(SYNC_KEY_FUTURE_SWEEP)?.lastSyncTimestamp
+            ?: return true
+        val elapsedHours = (now.asMinutes() - last.asMinutes()) / 60
+        return elapsedHours >= FUTURE_SWEEP_HOURS
+    }
+
+    private suspend fun recordFutureSweep(now: LocalDateTime) {
+        syncMetadataDao.insert(SyncMetadataEntity(SYNC_KEY_FUTURE_SWEEP, now))
     }
 }

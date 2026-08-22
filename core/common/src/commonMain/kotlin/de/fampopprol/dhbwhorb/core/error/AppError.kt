@@ -49,3 +49,24 @@ sealed interface AppError {
     /** Nothing above fits. Every occurrence is a candidate for a more precise case. */
     data class Unexpected(val hint: String) : AppError
 }
+
+/**
+ * Whether trying the same thing again later could plausibly work.
+ *
+ * For background work deciding between "ask me again soon" and "stop asking". A parse failure or
+ * a rejected password will fail exactly the same way in five minutes; a lost connection will not.
+ *
+ * Lives here rather than in the worker that needs it because the answer is a property of the
+ * error, and the Android worker used to derive it by searching the error *message* for the words
+ * "network", "auth" and "connection" — which quietly stopped matching whenever a message was
+ * reworded.
+ */
+val AppError.isTransient: Boolean
+    get() = when (this) {
+        AppError.Offline, AppError.SessionExpired -> true
+        // 5xx is the server having a bad minute; 4xx is us, and repeating it will not help.
+        is AppError.Http -> code >= 500
+        is AppError.Storage -> true
+        AppError.InvalidCredentials, AppError.NoCredentials -> false
+        is AppError.Parse, is AppError.Unsupported, is AppError.Unexpected -> false
+    }

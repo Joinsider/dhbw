@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import SwiftUI
+import WidgetKit
 import Shared
 
 @main
@@ -22,7 +23,15 @@ struct iOSApp: App {
         // arrives after the app has finished launching, and the failure is a crash on the next
         // submit rather than an error at registration time. Whether the task is ever *submitted*
         // is a different question, and one the settings switches answer — see `AppModel`.
-        SharedApp.shared.start().lectureMonitor.registerTaskHandler()
+        let shared = SharedApp.shared.start()
+        shared.lectureMonitor.registerTaskHandler()
+
+        // WidgetCenter is Swift-only, so Kotlin cannot reach it. The background check needs it:
+        // without this, a lecture change found while the app was closed would update the database
+        // and leave the widget showing yesterday.
+        shared.setWidgetReload {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
     }
 
     var body: some Scene {

@@ -138,7 +138,7 @@ actual class NotificationDispatcher {
      * Show a notification for a single lecture change.
      */
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
-    actual suspend fun showNotification(title: String, message: String, lectureId: Long) {
+    actual suspend fun showNotification(title: String, message: String, notificationKey: String) {
         if (!hasPermission()) {
             Napier.w("Cannot show notification: permission not granted", tag = TAG)
             return
@@ -164,10 +164,12 @@ actual class NotificationDispatcher {
 
             val notification = notificationBuilder.build()
 
-            val notificationId = (NOTIFICATION_ID_BASE + lectureId % 1000).toInt()
+            // Offset by one so a single change can never collide with the summary,
+            // which always sits on NOTIFICATION_ID_BASE itself.
+            val notificationId = NOTIFICATION_ID_BASE + 1 + (notificationKey.hashCode().mod(1000))
             NotificationManagerCompat.from(context).notify(notificationId, notification)
 
-            Napier.d("Notification shown for lecture $lectureId (id=$notificationId)", tag = TAG)
+            Napier.d("Notification shown for $notificationKey (id=$notificationId)", tag = TAG)
         } catch (e: SecurityException) {
             Napier.e("SecurityException showing notification: ${e.message}", tag = TAG)
         }

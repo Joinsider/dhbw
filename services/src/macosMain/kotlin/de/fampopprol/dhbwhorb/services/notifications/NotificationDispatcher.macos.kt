@@ -64,7 +64,7 @@ actual class NotificationDispatcher {
     /**
      * Show a notification for a single lecture change.
      */
-    actual suspend fun showNotification(title: String, message: String, lectureId: Long) {
+    actual suspend fun showNotification(title: String, message: String, notificationKey: String) {
         if (!hasPermission()) {
             Napier.w("Cannot show notification: permission not granted", tag = TAG)
             return
@@ -77,7 +77,7 @@ actual class NotificationDispatcher {
             setCategoryIdentifier(CATEGORY_LECTURE_CHANGE)
         }
 
-        val identifier = "lecture_$lectureId"
+        val identifier = "lecture_$notificationKey"
         val request = UNNotificationRequest.requestWithIdentifier(
             identifier = identifier,
             content = content,
@@ -89,7 +89,7 @@ actual class NotificationDispatcher {
             if (error != null) {
                 Napier.e("Error showing notification: $error", tag = TAG)
             } else {
-                Napier.d("Notification shown for lecture $lectureId", tag = TAG)
+                Napier.d("Notification shown for lecture $notificationKey", tag = TAG)
             }
         }
     }

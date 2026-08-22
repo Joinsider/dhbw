@@ -1,8 +1,9 @@
 # Handoff — v3-Umbau
 
-> Stand: 2026-08-22 · Phasen P-1 bis P8 abgeschlossen, dazu drei Fixes außerhalb der
-> Phasenkette: Desktop-TLS, die Trennung von Geheimnissen und Einstellungen, und der
-> Zugangsdaten-Wächter beim Neuinstallieren (`CredentialsInstallGuard`)
+> Stand: 2026-08-22 · Phasen P-1 bis P8 abgeschlossen, dazu vier Arbeiten außerhalb der
+> Phasenkette: Desktop-TLS, die Trennung von Geheimnissen und Einstellungen, der
+> Zugangsdaten-Wächter beim Neuinstallieren (`CredentialsInstallGuard`), und der Umbau der
+> Änderungserkennung (Stundentakt, zwei Geschwindigkeiten, echte Verschiebungserkennung)
 > Arbeitsverzeichnis sauber · nichts gepusht
 > Nächste Phase: **P9 — Aufräumen**
 
@@ -164,7 +165,7 @@ ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew \
   :composeApp:testDebugUnitTest :composeApp:desktopTest --rerun-tasks
 ```
 
-**Sollwerte nach P8:** `testDebugUnitTest` **302**, `desktopTest` **408**, 0 Fehler,
+**Sollwerte nach P8:** `testDebugUnitTest` **314**, `desktopTest` **420**, 0 Fehler,
 **0 übersprungen**. Es gibt seit P4 keinen einzigen `@Ignore` mehr im Projekt — wenn einer
 auftaucht, gehören ein Grund und eine Phase dazu.
 
@@ -360,12 +361,15 @@ Alle sind im Code kommentiert und im Plan vermerkt — nichts davon ist vergesse
 | **Die Widget-Texte sind hart auf Deutsch.** „JETZT", „Keine Vorlesungen", „Heute"/„Morgen" stehen als Literale in `WidgetViews.swift`; die Extension hat keinen String-Katalog. Stammt aus der Zeit vor P8 und ist dort nicht angefasst worden. | `iosApp/TimetableWidget/WidgetViews.swift` | offen |
 | **Das Widget lebt mit Room, Ktor und Koin in einem Prozess mit engem Speicherlimit.** Auf dem Simulator unauffällig; auf einem Gerät sind ~30 MB die Grenze für eine Widget-Extension. Wenn das Widget dort leer bleibt, ist das der erste Verdacht — und die Antwort wäre ein kleinerer Graph nur für die Extension. | `WidgetSnapshot.kt` | beim ersten Gerätetest |
 | **Dass der Background-Task auch feuert, ist ungeprüft.** Registrierung und Einreichung sind auf dem Simulator belegt, das Auslösen nicht — dafür braucht es ein Gerät am Debugger (`_simulateLaunchForTaskWithIdentifier`). | `LectureMonitorScheduler.ios.kt` | beim nächsten Gerätetest |
-| **Benachrichtigungs-Kategorien und -Actions („Woche öffnen") gibt es nicht.** Der Plan hatte sie für P8 vorgesehen; da `NotificationDispatcher.ios.kt` bereits eine vollständige Kotlin-Zustellung ist, wurde sie nicht nach Swift kopiert — und die Actions damit auch nicht gebaut. | `NotificationDispatcher.ios.kt` | offen |
+| **Benachrichtigungs-Kategorien und -Actions („Woche öffnen") gibt es nicht.** Der Plan hatte sie für P8 vorgesehen; da `NotificationDispatcher.ios.kt` bereits eine vollständige Kotlin-Zustellung ist, wurde sie nicht nach Swift kopiert — und die Actions damit auch nicht gebaut. Der Text selbst ist seit dem Monitor-Umbau übersetzt. | `NotificationDispatcher.ios.kt` | offen |
 | `NotificationDispatcher` hält seinen Android-Context statisch, weil `expect class` keinen plattformspezifischen Konstruktorparameter erlaubt. Wie bei `SecureStorage` in P2 ist die Lösung ein Interface mit je einer Implementierung pro Plattform. Bis dahin: `DualisApplication.onCreate()` **muss** `initialize()` rufen — das zu vergessen hat die App von P2 bis P4 beim Öffnen der Einstellungen abstürzen lassen. | `NotificationDispatcher.android.kt` | P8/P9 |
 | Die Repository-Fakes liegen in `composeApp/commonTest/testutil/fakes/`, nicht in einem `:core:testing`. Bewusst so, solange alle Tests in `:composeApp` liegen — beides zusammen umziehen. | `testutil/fakes/` | P9 |
 | Tests liegen alle in `:composeApp`, nicht in ihren Modulen. Die Gates bleiben dadurch unverändert; der Umzug braucht pro Modul eigene Test-Abhängigkeiten. | `composeApp/src/commonTest` | P9 |
 | `composeApp/commonTest/…/data/database/DatabaseFactoryTest.kt` besteht aus vier Tests, die nur prüfen, dass `::createRoomDatabase` nicht null ist. Sie testen nichts. Seit P6 gibt es mit `AppDatabaseMigrationTest` echte Abdeckung derselben Stelle. | `DatabaseFactoryTest.kt` | P9 |
 | Der Widget-UseCase liefert bei einem Lesefehler des Caches eine leere Liste statt eines Fehlers — ein Widget hat keine Fehlerdarstellung. Bewusst so, im Code begründet. | `WidgetTimetableUseCase.kt` | — |
+| **Der Rastervergleich der Zukunftswochen sieht keine Dozenten- und keine Detail-Raumwechsel.** Das Wochenraster kennt beides nicht, und seine Raumangabe ist eine andere Zeichenkette als die gespeicherte. Bewusst: die laufende Woche wird vollständig geprüft, in Woche +3 fällt so etwas auf, sobald sie zur laufenden wird. | `LectureChangeMonitor.checkFutureWeekByGrid()` | — |
+| **Eine Vorlesung, die in eine andere Woche verschoben wird, bleibt Absage plus Neuanlage.** Die Paarung läuft innerhalb einer Woche. Wochenübergreifend zu paaren hieße, alle beobachteten Wochen gleichzeitig zu vergleichen. | `LectureChangeMonitor.diff()` | offen |
+| **Die Meldungstexte sind der einzige Nutzertext außerhalb der beiden Ressourcensysteme.** Begründet (ein Hintergrund-Worker hat weder Compose- noch Bundle-Kontext), aber es ist eine dritte Stelle, an der Sprache lebt. | `LectureChangeMessages.kt` | — |
 | 48 × `catch (e: Exception)` übrig (von ursprünglich 69). Drei Sorten, alle bewusst: die Parser (schlucken eine kaputte Zeile, nicht die Seite), die Klassifikationsstellen selbst (`toAppError`, DB-Zugriffe in den Repositories), und die Plattformschicht (FileViewer, Dispatcher, Scheduler, DNS, SecureStorage). Im Dualis-Datenpfad ist keines mehr. | `:data`, `:services`, `:composeApp` | — |
 
 ---

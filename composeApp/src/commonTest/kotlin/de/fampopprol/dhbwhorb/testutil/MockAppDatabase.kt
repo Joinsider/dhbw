@@ -32,7 +32,8 @@ class MockAppDatabase : AppDatabase() {
     override fun clearAllTables() {}
 }
 
-class MockLectureEventDao : LectureEventDao {
+// Open so a test can answer one query for real without reimplementing the other twelve.
+open class MockLectureEventDao : LectureEventDao {
     override suspend fun insert(lecture: LectureEventEntity): Long = 0L
     override suspend fun insertAll(lectures: List<LectureEventEntity>) {}
     override suspend fun update(lecture: LectureEventEntity) {}
@@ -46,6 +47,7 @@ class MockLectureEventDao : LectureEventDao {
     override suspend fun deleteById(id: Long) {}
     override suspend fun deleteAll() {}
     override suspend fun deleteInRange(start: LocalDateTime, end: LocalDateTime) {}
+    override suspend fun deleteEndedBefore(cutoff: LocalDateTime) {}
 }
 
 class MockLecturerDao : LecturerDao {

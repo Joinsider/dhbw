@@ -48,4 +48,14 @@ interface LectureEventDao {
 
     @Query("DELETE FROM lecture WHERE startTime >= :start AND endTime <= :end")
     suspend fun deleteInRange(start: kotlinx.datetime.LocalDateTime, end: kotlinx.datetime.LocalDateTime)
+
+    /**
+     * Drops lectures that ended before [cutoff].
+     *
+     * Nothing used to remove anything from this table, so it grew by every week the user ever
+     * paged to and kept them forever. A timetable from two months ago answers no question anyone
+     * asks; it only costs disk and makes every full scan slower.
+     */
+    @Query("DELETE FROM lecture WHERE endTime < :cutoff")
+    suspend fun deleteEndedBefore(cutoff: kotlinx.datetime.LocalDateTime)
 }
