@@ -73,8 +73,8 @@ struct TimetableWidget: Widget {
             TimetableWidgetEntryView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
-        .configurationDisplayName("DHBW Stundenplan")
-        .description("Zeigt deine nächsten Vorlesungen.")
+        .configurationDisplayName("DHBW Timetable")
+        .description("Shows your next lectures.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

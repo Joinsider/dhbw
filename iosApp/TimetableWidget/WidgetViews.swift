@@ -15,7 +15,7 @@ struct SmallWidgetView: View {
     var body: some View {
         if let lecture = entry.snapshot.upNext {
             upNextCard(
-                label: entry.snapshot.upNextIsRunning ? "JETZT" : "NÄCHSTE",
+                label: entry.snapshot.upNextIsRunning ? String(localized: "NOW") : String(localized: "NEXT"),
                 labelColor: entry.snapshot.upNextIsRunning ? .red : .accentColor,
                 lecture: lecture
             )
@@ -95,7 +95,7 @@ struct MediumWidgetView: View {
                         }
 
                         if day.lectures.count > 3 {
-                            Text("+\(day.lectures.count - 3) weitere")
+                            Text("+\(day.lectures.count - 3) more")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }
@@ -159,7 +159,7 @@ private struct DaySectionView: View {
             }
 
             if day.lectures.count > 5 {
-                Text("+\(day.lectures.count - 5) weitere")
+                Text("+\(day.lectures.count - 5) more")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -215,7 +215,7 @@ struct ClassRowView: View {
                     if lecture.isTest {
                         // Ohne die beiden Modifier bricht „KLAUSUR" im Medium-Widget mitten
                         // im Wort um, sobald der Raumname die Zeile schon fast füllt.
-                        Text("KLAUSUR")
+                        Text("EXAM")
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.red)
                             .lineLimit(1)
@@ -235,7 +235,7 @@ func noClassesView(compact: Bool) -> some View {
         Image(systemName: "calendar.badge.checkmark")
             .font(compact ? .title2 : .largeTitle)
             .foregroundStyle(.secondary)
-        Text(compact ? "Keine Vorlesungen" : "Keine bevorstehenden Vorlesungen")
+        Text(compact ? "No lectures" : "No upcoming lectures")
             .font(compact ? .caption : .callout)
             .multilineTextAlignment(.center)
             .foregroundStyle(.secondary)
@@ -248,13 +248,17 @@ func noClassesView(compact: Bool) -> some View {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 extension WidgetDay {
-    /// Gibt „Heute", „Morgen" oder „Mo, 12.03." zurück (auf Deutsch).
+    /// „Heute", „Morgen" oder „Mo, 12.03." — in der Sprache des Geräts.
+    ///
+    /// `setLocalizedDateFormatFromTemplate` statt eines festen Musters: das Datumsformat war hier
+    /// zusammen mit den Texten hart auf Deutsch verdrahtet, und ein englisches Gerät bekam dann
+    /// „Mo, 12.03." neben englischen Beschriftungen.
     var dayLabel: String {
-        if Calendar.current.isDateInToday(date)    { return "Heute" }
-        if Calendar.current.isDateInTomorrow(date) { return "Morgen" }
+        if Calendar.current.isDateInToday(date)    { return String(localized: "Today") }
+        if Calendar.current.isDateInTomorrow(date) { return String(localized: "Tomorrow") }
         let fmt = DateFormatter()
-        fmt.dateFormat = "EEE, dd.MM."
-        fmt.locale = Locale(identifier: "de_DE")
+        fmt.locale = .current
+        fmt.setLocalizedDateFormatFromTemplate("EEEddMM")
         return fmt.string(from: date)
     }
 }
