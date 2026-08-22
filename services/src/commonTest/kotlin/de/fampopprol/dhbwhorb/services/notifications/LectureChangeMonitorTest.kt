@@ -70,7 +70,7 @@ class LectureChangeMonitorTest {
     }
 
     @Test
-    fun `cancelling one of two weekly slots is a cancellation, not a move`() = runTest {
+    fun `cancelling one of two weekly slots is a cancellation and not a move`() = runTest {
         // The trap for a naive nearest-match: MATHE runs Thursday and Friday, Thursday is dropped.
         // Pairing the survivors by distance would call that "Thursday moved to Friday".
         val thursday = lecture("MATHE", day = 5, from = 10, to = 12)

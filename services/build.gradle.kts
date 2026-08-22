@@ -34,6 +34,7 @@ kotlin {
         }
 
         commonTest.dependencies {
+            implementation(projects.core.testing)
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
         }
@@ -68,6 +69,15 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    // Napier logs through android.util.Log, which is a stub in a unit test — without this every
+    // test that logs dies with "Method println in android.util.Log not mocked".
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
     }
 }
 

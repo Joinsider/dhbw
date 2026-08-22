@@ -28,7 +28,7 @@ class LectureReminderPlannerTest {
     private val now = LocalDateTime(2026, 3, 4, 9, 0)
 
     @Test
-    fun `plans one reminder per upcoming lecture, at the chosen lead time`() = runTest {
+    fun `plans one reminder per upcoming lecture at the chosen lead time`() = runTest {
         val scheduler = RecordingScheduler()
         planner(
             lectures = listOf(lecture("MATHE", day = 4, from = 14), lecture("PROG", day = 5, from = 10)),

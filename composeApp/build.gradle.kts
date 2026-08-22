@@ -93,9 +93,10 @@ kotlin {
         }
 
         commonTest.dependencies {
-            // The test suite still lives here while the module contracts settle (see P1 notes).
-            // It builds Room databases and Ktor mocks directly, so it needs those artefacts even
-            // though :data keeps them as implementation details.
+            // Only the tests that belong to this module are left: the Compose UI, navigation and
+            // the Koin graph as the app assembles it. Everything below the UI moved into its own
+            // module's commonTest in P9.
+            implementation(projects.core.testing)
             implementation(libs.androidx.sqlite.bundled)
             implementation(libs.ktor.client.core)
             implementation(libs.kotlin.test)

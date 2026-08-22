@@ -39,6 +39,7 @@ kotlin {
         }
 
         commonTest.dependencies {
+            implementation(projects.core.testing)
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.ktor.client.mock)
@@ -69,6 +70,15 @@ kotlin {
             implementation(libs.ktor.client.okhttp)
             }
         }
+
+        val desktopTest by getting {
+            dependencies {
+                // MigrationTestHelper reads the schema exports in data/schemas/ and opens real
+                // database files — the migration guard cannot run against an in-memory database.
+                implementation(libs.androidx.room.testing)
+                implementation(libs.androidx.sqlite.bundled)
+            }
+        }
     }
 }
 
@@ -83,6 +93,15 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    // Napier logs through android.util.Log, which is a stub in a unit test — without this every
+    // test that logs dies with "Method println in android.util.Log not mocked".
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
     }
 }
 

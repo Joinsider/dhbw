@@ -33,6 +33,7 @@ plugins {
 }
 
 include(":core:common")
+include(":core:testing")
 include(":domain")
 include(":data")
 include(":services")

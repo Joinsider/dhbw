@@ -88,7 +88,7 @@ class SettingsStorageTest {
     }
 
     @Test
-    fun `preferences write to settings, never to secure storage`() {
+    fun `preferences write to settings and never to secure storage`() {
         val legacy = CountingSecureStorage()
         val settings = TestPlatformSettings()
         val preferences = ThemePreferences(SettingsStorage(settings, legacy))

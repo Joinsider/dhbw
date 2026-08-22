@@ -6,7 +6,6 @@
 
 package de.fampopprol.dhbwhorb.testutil
 
-import androidx.compose.runtime.Composable
 import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
 import de.fampopprol.dhbwhorb.data.dualis.remote.models.AuthData
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
@@ -64,7 +63,6 @@ import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import org.koin.compose.KoinApplication
 import org.koin.core.Koin
 import org.koin.dsl.koinApplication
 import org.koin.core.module.Module
@@ -200,20 +198,3 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
  */
 fun testKoin(authenticated: Boolean = false): Koin =
     koinApplication { modules(testAppModule(authenticated)) }.koin
-
-/**
- * Scopes Koin to the composition instead of starting it globally, so tests stay independent of
- * each other and need no teardown.
- */
-@Composable
-fun WithTestKoin(
-    authenticated: Boolean = false,
-    overrides: Module? = null,
-    content: @Composable () -> Unit
-) {
-    KoinApplication(application = {
-        modules(listOfNotNull(testAppModule(authenticated), overrides))
-    }) {
-        content()
-    }
-}
