@@ -32,59 +32,45 @@ class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent
      */
     fun schedule() {
         if (monitorJob?.isActive == true) {
-            Napier.d("⚠️  Lecture monitoring already running, not starting again", tag = TAG)
+            Napier.d("Already running, not starting a second loop", tag = TAG)
             return
         }
 
-        Napier.d("🖥️  Desktop Scheduler: Starting coroutine-based monitoring...", tag = TAG)
-        Napier.d("   ✓ Interval: $REPEAT_INTERVAL", tag = TAG)
-
         monitorJob = scope.launch {
-            Napier.d("╔════════════════════════════════════════════════════════════════════╗", tag = TAG)
-            Napier.d("║  🖥️  Desktop Scheduler: Starting (every $REPEAT_INTERVAL)         ║", tag = TAG)
-            Napier.d("╚════════════════════════════════════════════════════════════════════╝", tag = TAG)
+            Napier.d("Monitoring started, every $REPEAT_INTERVAL", tag = TAG)
 
             while (isActive) {
                 try {
-                    Napier.d("⏰ Scheduler tick - checking for changes...", tag = TAG)
-
-                    // Check if NotificationManager is initialized
                     val notificationManager = getKoin().getOrNull<NotificationManager>()
                     if (notificationManager != null) {
-                        Napier.d("🚀 Calling notificationManager.checkAndNotify()...", tag = TAG)
-                        val success = notificationManager.checkAndNotify() is Outcome.Ok
-                        if (success) {
-                            Napier.d("✅ Check completed successfully, waiting $REPEAT_INTERVAL until next check", tag = TAG)
+                        if (notificationManager.checkAndNotify() is Outcome.Ok) {
+                            Napier.d("Check done, next one in $REPEAT_INTERVAL", tag = TAG)
                         } else {
-                            Napier.w("⚠️  Check failed, will retry on next interval", tag = TAG)
+                            Napier.w("Check failed, retrying on the next interval", tag = TAG)
                         }
                     } else {
-                        Napier.w("⚠️  NotificationManager not initialized, skipping check", tag = TAG)
+                        Napier.w("NotificationManager not in the graph, skipping the check", tag = TAG)
                     }
 
                 } catch (e: CancellationException) {
-                    Napier.d("🛑 Scheduler cancelled", tag = TAG)
+                    Napier.d("Cancelled", tag = TAG)
                     throw e // Re-throw to stop the loop
                 } catch (e: Exception) {
-                    Napier.e("❌ Error during lecture monitoring: ${e.message}", e, tag = TAG)
+                    Napier.e("Error during lecture monitoring: ${e.message}", e, tag = TAG)
                 }
 
-                Napier.d("💤 Sleeping for $REPEAT_INTERVAL...", tag = TAG)
                 delay(REPEAT_INTERVAL)
             }
         }
-
-        Napier.d("✅ Lecture monitoring coroutine started", tag = TAG)
     }
 
     /**
      * Cancel scheduled lecture monitoring.
      */
     fun cancel() {
-        Napier.d("🛑 Desktop Scheduler: Cancelling monitoring coroutine...", tag = TAG)
         monitorJob?.cancel()
         monitorJob = null
-        Napier.d("✅ Lecture monitoring cancelled", tag = TAG)
+        Napier.d("Monitoring cancelled", tag = TAG)
     }
 
     /**

@@ -4,15 +4,20 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-@file:Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
-
 package de.fampopprol.dhbwhorb.services.notifications
 
 /**
- * Platform-specific notification dispatcher for showing lecture change notifications.
- * Implementations handle permission requests and notification display per platform.
+ * Shows a notification through whatever the platform offers.
+ *
+ * An interface with one implementation per platform, like [de.fampopprol.dhbwhorb.services.reminders.LectureReminderScheduler]
+ * and [de.fampopprol.dhbwhorb.services.widget.WidgetRefresher]. It used to be an `expect class`,
+ * and because `expect class` forbids a platform-specific constructor parameter, the Android side
+ * kept its `Context` in a static field that `DualisApplication.onCreate()` had to fill. Forgetting
+ * that call was not a compile error — it crashed the settings screen from P2 to P4. The Context is
+ * now a constructor parameter that Koin supplies, so there is nothing left to forget.
  */
-expect class NotificationDispatcher() {
+interface NotificationDispatcher {
+
     /**
      * Request notification permission from the user.
      * @return true if permission is granted, false otherwise
@@ -43,4 +48,3 @@ expect class NotificationDispatcher() {
      */
     suspend fun showSummaryNotification(title: String, message: String, changeCount: Int)
 }
-

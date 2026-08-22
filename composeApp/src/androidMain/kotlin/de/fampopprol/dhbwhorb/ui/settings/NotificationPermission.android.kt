@@ -19,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
+import org.koin.compose.koinInject
 
 /**
  * Android-specific composable that handles notification permission requests.
@@ -55,9 +56,9 @@ actual fun rememberNotificationPermissionRequest(
 @Composable
 actual fun checkNotificationPermission(): Boolean {
     var hasPermission by remember { mutableStateOf(false) }
+    val dispatcher: NotificationDispatcher = koinInject()
 
-    LaunchedEffect(Unit) {
-        val dispatcher = NotificationDispatcher()
+    LaunchedEffect(dispatcher) {
         hasPermission = dispatcher.hasPermission()
     }
 

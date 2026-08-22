@@ -6,6 +6,7 @@
 
 package de.fampopprol.dhbwhorb.services.di
 
+import de.fampopprol.dhbwhorb.services.notifications.IosNotificationDispatcher
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
 import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
 import de.fampopprol.dhbwhorb.services.reminders.IosLectureReminderScheduler
@@ -16,7 +17,7 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 
 actual fun servicesPlatformModule(): Module = module {
-    single { NotificationDispatcher() }
+    single<NotificationDispatcher> { IosNotificationDispatcher() }
     single { LectureMonitorScheduler(scope = get()) }
 
     // Bound as both types: the background check resolves the interface, and SharedApp needs the

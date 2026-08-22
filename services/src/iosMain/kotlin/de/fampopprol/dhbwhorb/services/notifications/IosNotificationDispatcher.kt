@@ -14,10 +14,10 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
 /**
- * iOS implementation of NotificationDispatcher using UNUserNotificationCenter.
+ * iOS implementation of [NotificationDispatcher] using UNUserNotificationCenter.
  */
 @OptIn(ExperimentalForeignApi::class)
-actual class NotificationDispatcher {
+class IosNotificationDispatcher : NotificationDispatcher {
 
     companion object {
         private const val TAG = "NotificationDispatcher"
@@ -33,7 +33,7 @@ actual class NotificationDispatcher {
     /**
      * Request notification permission from the user.
      */
-    actual suspend fun requestPermission(): Boolean = suspendCoroutine { continuation ->
+    override suspend fun requestPermission(): Boolean = suspendCoroutine { continuation ->
         Napier.d("requestPermission (iOS) called", tag = TAG)
         notificationCenter.requestAuthorizationWithOptions(
             UNAuthorizationOptionAlert or UNAuthorizationOptionSound or UNAuthorizationOptionBadge
@@ -51,7 +51,7 @@ actual class NotificationDispatcher {
     /**
      * Check if notification permission is currently granted.
      */
-    actual suspend fun hasPermission(): Boolean = suspendCoroutine { continuation ->
+    override suspend fun hasPermission(): Boolean = suspendCoroutine { continuation ->
         Napier.d("hasPermission (iOS) checking current authorization status", tag = TAG)
         notificationCenter.getNotificationSettingsWithCompletionHandler { settings ->
             val granted = settings?.authorizationStatus == UNAuthorizationStatusAuthorized
@@ -63,7 +63,7 @@ actual class NotificationDispatcher {
     /**
      * Show a notification for a single lecture change.
      */
-    actual suspend fun showNotification(title: String, message: String, notificationKey: String) {
+    override suspend fun showNotification(title: String, message: String, notificationKey: String) {
         if (!hasPermission()) {
             Napier.w("Cannot show notification: permission not granted", tag = TAG)
             return
@@ -95,7 +95,7 @@ actual class NotificationDispatcher {
     /**
      * Show a summary notification for multiple lecture changes.
      */
-    actual suspend fun showSummaryNotification(title: String, message: String, changeCount: Int) {
+    override suspend fun showSummaryNotification(title: String, message: String, changeCount: Int) {
         if (!hasPermission()) {
             Napier.w("Cannot show notification: permission not granted", tag = TAG)
             return

@@ -99,6 +99,19 @@ kotlin {
             implementation(libs.robolectric)
         }
 
+        // The instrumented suite had no dependencies at all, so it had not compiled since the
+        // module split — which is how eight tests that assert nothing survived unnoticed. It runs
+        // on a device (`:composeApp:connectedDebugAndroidTest`) and is not part of the gate.
+        androidInstrumentedTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.junit)
+            implementation(libs.androidx.testExt.junit)
+            implementation(libs.androidx.test.core)
+            implementation(libs.androidx.work.testing)
+            implementation(libs.androidx.work.runtime.ktx)
+            implementation(libs.glance.appwidget)
+        }
+
         macosMain.dependencies {
             implementation(libs.ktor.client.darwin)
         }

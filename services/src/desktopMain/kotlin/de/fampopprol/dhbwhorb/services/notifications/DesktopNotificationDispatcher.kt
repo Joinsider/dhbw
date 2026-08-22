@@ -12,10 +12,9 @@ import java.awt.TrayIcon
 import java.awt.Toolkit
 
 /**
- * Desktop (JVM) implementation of NotificationDispatcher using AWT SystemTray.
+ * Desktop (JVM) implementation of [NotificationDispatcher] using AWT SystemTray.
  */
-@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
-actual class NotificationDispatcher {
+class DesktopNotificationDispatcher : NotificationDispatcher {
 
     companion object {
         private const val TAG = "NotificationDispatcher"
@@ -61,7 +60,7 @@ actual class NotificationDispatcher {
     /**
      * Request notification permission (always granted on desktop).
      */
-    actual suspend fun requestPermission(): Boolean {
+    override suspend fun requestPermission(): Boolean {
         val supported = SystemTray.isSupported()
         Napier.d("requestPermission (desktop) -> $supported", tag = TAG)
         return supported
@@ -70,7 +69,7 @@ actual class NotificationDispatcher {
     /**
      * Check if notification permission is granted (always true if system tray supported).
      */
-    actual suspend fun hasPermission(): Boolean {
+    override suspend fun hasPermission(): Boolean {
         val supported = SystemTray.isSupported()
         Napier.d("hasPermission (desktop) -> $supported", tag = TAG)
         return supported
@@ -79,7 +78,7 @@ actual class NotificationDispatcher {
     /**
      * Show a notification using system tray.
      */
-    actual suspend fun showNotification(title: String, message: String, notificationKey: String) {
+    override suspend fun showNotification(title: String, message: String, notificationKey: String) {
         Napier.d("showNotification (desktop) requested: notificationKey=$notificationKey, title='$title', message='$message'", tag = TAG)
         val icon = trayIcon
         if (icon == null) {
@@ -98,7 +97,7 @@ actual class NotificationDispatcher {
     /**
      * Show a summary notification for multiple lecture changes.
      */
-    actual suspend fun showSummaryNotification(title: String, message: String, changeCount: Int) {
+    override suspend fun showSummaryNotification(title: String, message: String, changeCount: Int) {
         Napier.d("showSummaryNotification (desktop) requested: count=$changeCount, title='$title', message='$message'", tag = TAG)
         val icon = trayIcon
         if (icon == null) {

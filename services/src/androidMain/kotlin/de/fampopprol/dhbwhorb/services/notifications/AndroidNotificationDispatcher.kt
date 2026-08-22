@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-@file:Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
-
 package de.fampopprol.dhbwhorb.services.notifications
 
 import android.Manifest
@@ -29,9 +27,9 @@ import io.github.aakira.napier.Napier
 import androidx.core.graphics.createBitmap
 
 /**
- * Android implementation of NotificationDispatcher using NotificationCompat.
+ * Android implementation of [NotificationDispatcher] using NotificationCompat.
  */
-actual class NotificationDispatcher {
+class AndroidNotificationDispatcher(private val context: Context) : NotificationDispatcher {
 
     companion object {
         private const val TAG = "NotificationDispatcher"
@@ -39,40 +37,6 @@ actual class NotificationDispatcher {
         private const val CHANNEL_NAME = "Lecture Changes"
         private const val CHANNEL_DESCRIPTION = "Notifications for lecture time and content changes"
         private const val NOTIFICATION_ID_BASE = 10000
-
-        @Volatile
-        private var applicationContext: Context? = null
-
-        /**
-         * Initialize the NotificationDispatcher with application context.
-         * This should be called from Application.onCreate() or MainActivity.onCreate()
-         */
-        fun initialize(context: Context) {
-            applicationContext = context.applicationContext
-            Napier.d("NotificationDispatcher.initialize called", tag = TAG)
-        }
-
-        /**
-         * Get the application context.
-         * Returns null if NotificationDispatcher has not been initialized.
-         */
-        fun getContext(): Context? {
-            return applicationContext
-        }
-
-        private fun requireContext(): Context {
-            return applicationContext
-                ?: throw IllegalStateException(
-                    "NotificationDispatcher not initialized. Call NotificationDispatcher.initialize(context) first."
-                )
-        }
-    }
-
-    private val context: Context
-        get() = requireContext()
-
-    init {
-        Napier.d("NotificationDispatcher instance created", tag = TAG)
     }
 
     /**
@@ -98,7 +62,7 @@ actual class NotificationDispatcher {
     /**
      * Request notification permission from the user (Android 13+).
      */
-    actual suspend fun requestPermission(): Boolean {
+    override suspend fun requestPermission(): Boolean {
         createNotificationChannel() // Ensure channel exists when requesting permission
         Napier.d("requestPermission called (returns current permission state)", tag = TAG)
         // Permission request must be initiated from an Activity
@@ -112,18 +76,10 @@ actual class NotificationDispatcher {
     /**
      * Check if notification permission is currently granted.
      */
-    actual suspend fun hasPermission(): Boolean {
-        // A permission probe must never take the app down. Without a context we cannot know, and
-        // "not granted" is both the safe answer and the one the settings screen can render —
-        // this used to throw, which crashed the app on opening Settings.
-        val ctx = getContext() ?: run {
-            Napier.w("hasPermission asked before initialize(); reporting no permission", tag = TAG)
-            return false
-        }
-
+    override suspend fun hasPermission(): Boolean {
         val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ActivityCompat.checkSelfPermission(
-                ctx,
+                context,
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
         } else {
@@ -138,7 +94,7 @@ actual class NotificationDispatcher {
      * Show a notification for a single lecture change.
      */
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
-    actual suspend fun showNotification(title: String, message: String, notificationKey: String) {
+    override suspend fun showNotification(title: String, message: String, notificationKey: String) {
         if (!hasPermission()) {
             Napier.w("Cannot show notification: permission not granted", tag = TAG)
             return
@@ -179,7 +135,7 @@ actual class NotificationDispatcher {
      * Show a summary notification for multiple lecture changes.
      */
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
-    actual suspend fun showSummaryNotification(title: String, message: String, changeCount: Int) {
+    override suspend fun showSummaryNotification(title: String, message: String, changeCount: Int) {
         if (!hasPermission()) {
             Napier.w("Cannot show notification: permission not granted", tag = TAG)
             return

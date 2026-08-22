@@ -42,13 +42,11 @@ class LectureMonitorScheduler(private val context: Context) {
      * Schedule periodic lecture monitoring work.
      */
     fun schedule() {
-        Napier.d("📱 Android Scheduler: Scheduling WorkManager job...", tag = TAG)
-
-        // Use more permissive constraints that work even when device is locked
+        // Network is the only constraint, so the job still runs in Doze maintenance windows and
+        // on a locked device.
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
-        Napier.d("   ✓ Constraints: Network required (works in Doze maintenance windows)", tag = TAG)
 
         val workRequest = PeriodicWorkRequestBuilder<LectureMonitorWorker>(
             REPEAT_INTERVAL_MINUTES,
@@ -57,10 +55,6 @@ class LectureMonitorScheduler(private val context: Context) {
             .setConstraints(constraints)
             .setInitialDelay(1, TimeUnit.MINUTES) // Wait 1 minute after app start
             .build()
-        Napier.d("   ✓ Work request created: every $REPEAT_INTERVAL_MINUTES minutes", tag = TAG)
-        Napier.d("   ✓ Initial delay: 1 minute", tag = TAG)
-        Napier.d("   ℹ️  Note: Job will run during Doze maintenance windows even when device is locked", tag = TAG)
-
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             WORK_NAME,
             // UPDATE, not KEEP: with KEEP an installation that already has the job keeps whatever
@@ -70,16 +64,15 @@ class LectureMonitorScheduler(private val context: Context) {
             workRequest
         )
 
-        Napier.d("✅ Lecture monitoring scheduled successfully", tag = TAG)
+        Napier.d("Scheduled: every $REPEAT_INTERVAL_MINUTES minutes, first run in 1 minute", tag = TAG)
     }
 
     /**
      * Cancel scheduled lecture monitoring work.
      */
     fun cancel() {
-        Napier.d("🛑 Android Scheduler: Cancelling WorkManager job...", tag = TAG)
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
-        Napier.d("✅ Lecture monitoring cancelled", tag = TAG)
+        Napier.d("Monitoring cancelled", tag = TAG)
     }
 
     /**
@@ -101,25 +94,19 @@ class LectureMonitorWorker(
     }
 
     override suspend fun doWork(): Result {
-        Napier.d("╔════════════════════════════════════════════════════════════════════╗", tag = TAG)
-        Napier.d("║  🔔 Background Worker: Starting lecture change monitoring work    ║", tag = TAG)
-        Napier.d("╚════════════════════════════════════════════════════════════════════╝", tag = TAG)
+        Napier.d("Background check starting", tag = TAG)
 
         return try {
             // The worker is created by WorkManager, so it resolves its dependencies itself.
             val notificationManager = getKoin().getOrNull<NotificationManager>()
             if (notificationManager == null) {
-                Napier.e("❌ NotificationManager not available, cannot perform background check", tag = TAG)
-                Napier.d("╚════════════════════════════════════════════════════════════════════╝", tag = TAG)
+                Napier.e("NotificationManager not in the graph, cannot check", tag = TAG)
                 return Result.failure()
             }
-            Napier.d("✅ NotificationManager retrieved successfully", tag = TAG)
 
-            // Perform the monitoring check
-            Napier.d("🚀 Calling notificationManager.checkAndNotify()...", tag = TAG)
             when (val outcome = notificationManager.checkAndNotify()) {
                 is Outcome.Ok -> {
-                    Napier.d("║  ✅ Background Worker: Completed successfully                      ║", tag = TAG)
+                    Napier.d("Background check done", tag = TAG)
                     Result.success()
                 }
 
@@ -128,10 +115,10 @@ class LectureMonitorWorker(
                     // its message — which is how this used to be decided.
                     val error = outcome.error
                     if (error.isTransient) {
-                        Napier.w("⏭️  Transient failure ($error), retrying later", tag = TAG)
+                        Napier.w("Transient failure ($error), retrying later", tag = TAG)
                         Result.retry()
                     } else {
-                        Napier.e("❌ Permanent failure ($error), not retrying", tag = TAG)
+                        Napier.e("Permanent failure ($error), not retrying", tag = TAG)
                         Result.failure()
                     }
                 }

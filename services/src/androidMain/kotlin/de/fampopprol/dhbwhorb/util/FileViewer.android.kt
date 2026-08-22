@@ -4,23 +4,31 @@
 package de.fampopprol.dhbwhorb.util
 
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
-import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
 import io.github.aakira.napier.Napier
+import org.koin.mp.KoinPlatform
 import java.io.File
-import java.io.FileOutputStream
 
 private const val TAG = "FileViewer"
 
+/**
+ * The Android Context, from the graph rather than from a static field.
+ *
+ * `openFile`/`saveFileWithDialog` are top-level `actual fun`s, so there is nothing to inject
+ * into. Koin holds the Context because `DualisApplication` hands it to `androidContext()`; this
+ * used to read a static field on the notification dispatcher instead, which meant a document
+ * could only be opened once somebody had remembered to initialise the notification code.
+ */
+private fun appContext(): Context = KoinPlatform.getKoin().get()
+
 actual fun openFile(byteArray: ByteArray, fileName: String) {
-    val context = NotificationDispatcher.getContext()
-        ?: throw IllegalStateException("NotificationDispatcher not initialized with Android context")
-    
+    val context = appContext()
     try {
         val cacheDir = context.cacheDir
         val file = File(cacheDir, fileName)
@@ -43,8 +51,7 @@ actual fun openFile(byteArray: ByteArray, fileName: String) {
 }
 
 actual fun saveFileWithDialog(byteArray: ByteArray, fileName: String) {
-    val context = NotificationDispatcher.getContext()
-        ?: throw IllegalStateException("NotificationDispatcher not initialized with Android context")
+    val context = appContext()
 
     try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

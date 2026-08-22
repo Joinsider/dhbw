@@ -90,7 +90,7 @@ class WidgetSyncWorker(
                 ExistingPeriodicWorkPolicy.KEEP,
                 request,
             )
-            Napier.d("✓ Periodic widget sync scheduled every $REPEAT_INTERVAL_MINUTES min (active widgets detected)", tag = TAG)
+            Napier.d("Periodic widget sync scheduled every $REPEAT_INTERVAL_MINUTES min (active widgets detected)", tag = TAG)
         }
 
         /** Enqueue an immediate one-time sync (e.g. from onUpdate). */
