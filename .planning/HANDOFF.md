@@ -116,12 +116,17 @@ until [ "$($ADB shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do slee
   erklärt, warum ein Testlauf den Schlüsselbund verändert.
 * Auf dem **Android-Emulator ist eine echte Sitzung gespeichert.** Die App startet dort eingeloggt
   und mit echten Daten — praktisch zum Durchklicken, aber Vorsicht: das sind reale Dualis-Requests.
-* **Auf dem iOS-Simulator ebenso — aber seit dem Install-Guard nicht mehr über eine
-  Neuinstallation hinweg.** Der Schlüsselbund überlebt ein `simctl uninstall`, der
-  App-Group-Container nicht; `CredentialsInstallGuard` vergleicht beides und räumt die
-  Zugangsdaten weg, sobald sie aus einer früheren Installation stammen. Ein erneutes `install`
-  über die bestehende App hinweg (der Update-Fall) lässt sie in Ruhe. Wer die angemeldete Sitzung
-  auf dem Simulator behalten will, deinstalliert also nicht.
+* **Der iOS-Simulator ist seit dem 22.08.2026 abgemeldet.** Beim Nachweis des Install-Guards
+  wurde die App deinstalliert; damit sind die Zugangsdaten weg, und ein Durchklicken hinter dem
+  Login braucht dort wieder einen Login von Hand. Der Weg über die Zwischenablage steht weiter
+  unten.
+* **`simctl uninstall` meldet auf iOS jetzt ab — das ist der Guard, kein Fehler.** Der
+  Schlüsselbund überlebt eine Deinstallation, der App-Group-Container nicht;
+  `CredentialsInstallGuard` vergleicht dessen Erstellungsdatum mit dem gespeicherten Stempel. Am
+  22.08. an allen drei Fällen belegt: Neuinstallation räumt auf („Credentials belong to a previous
+  installation"), zweiter Start derselben Installation schweigt, `install` über die bestehende App
+  (der Update-Fall) schweigt ebenfalls. **Wer die angemeldete Sitzung behalten will,
+  deinstalliert nicht** — ein `install` drüber genügt.
 * **Widget-Daten kommen aus der App-Group-Datenbank, und die lässt sich von Hand füllen.** Für
   Prüfungen, in denen der echte Stundenplan leer ist (Praxisphase), ist das der Weg zu sichtbaren
   Vorlesungen ohne weitere Dualis-Requests — und der einzige, der beweist, dass die Extension
