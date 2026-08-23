@@ -268,12 +268,29 @@ compose.desktop {
             macOS {
                 iconFile.set(project.file("icon.icns"))
                 bundleID = "de.fampopprol.dhbw"
-                // For Mac App Store, you'll need to configure signing:
-                // signing {
-                //     sign.set(true)
-                //     identity.set("3rd Party Mac Developer Application: Your Name (TEAM_ID)")
-                // }
-                // appStore.set(true)
+
+                // Developer ID signing + notarization for distribution outside the App
+                // Store.  Every value comes from the environment so that neither the
+                // identity nor the app-specific password lands in the repo or shows up in
+                // the process list, as it would with -P properties.  When
+                // APPLE_SIGN_IDENTITY is unset (Linux/Windows runners, ordinary dev
+                // builds) the build stays unsigned and behaves exactly as before.
+                val signIdentity = project.providers.environmentVariable("APPLE_SIGN_IDENTITY")
+                signing {
+                    sign.set(signIdentity.map { it.isNotBlank() }.orElse(false))
+                    identity.set(signIdentity)
+                }
+                notarization {
+                    appleID.set(project.providers.environmentVariable("APPLE_ID"))
+                    password.set(project.providers.environmentVariable("APPLE_APP_PASSWORD"))
+                    teamID.set(project.providers.environmentVariable("APPLE_TEAM_ID"))
+                }
+                // entitlementsFile is deliberately left unset: the Compose plugin defaults
+                // (allow-jit, allow-unsigned-executable-memory, disable-library-validation)
+                // are exactly what the JVM needs under the hardened runtime.
+                // macOS.entitlements is App Store / sandbox specific and would break a
+                // Developer ID build.
+                // appStore.set(true)  // only for the Mac App Store route (PKG instead of DMG)
             }
             linux {
                 iconFile.set(project.file("icon.png"))
@@ -282,6 +299,19 @@ compose.desktop {
     }
 }
 
+
+// The Compose notarization task holds an `ascProvider` property deprecated at
+// DeprecationLevel.ERROR whose provider always throws when read.  The configuration
+// cache serializes the whole settings bean and trips over it, so `notarizeDmg` never
+// starts while the cache is enabled (Compose 1.10.3).  The property cannot be
+// neutralized from the build script because ERROR deprecation blocks any reference to
+// it, so mark the tasks as cache-incompatible instead: Gradle then disables the
+// configuration cache for that single run rather than failing the build.
+tasks.matching { it.name.startsWith("notarize") }.configureEach {
+    notCompatibleWithConfigurationCache(
+        "Compose 1.10.3: MacOSNotarizationSettings.ascProvider is not serializable"
+    )
+}
 
 compose.resources {
     packageOfResClass = "de.fampopprol.dhbwhorb.resources"
