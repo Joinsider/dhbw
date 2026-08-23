@@ -235,18 +235,30 @@ dependencies {
     kover(projects.presentation)
 }
 
+val javaToolchains = extensions.getByType<JavaToolchainService>()
+
 compose.desktop {
     application {
         mainClass = "de.fampopprol.dhbwhorb.MainKt"
 
-        // jpackage ships only with a full JDK.  gradle/gradle-daemon-jvm.properties pins
-        // the daemon to a JetBrains 21, but Gradle picks any matching installation — and
-        // the JBR bundled inside Android Studio has no jpackage, which fails checkRuntime.
-        // JPACKAGE_JAVA_HOME points the packaging tasks at a specific JDK; unset, the
-        // Gradle JVM is used exactly as before.
-        project.providers.environmentVariable("JPACKAGE_JAVA_HOME").orNull
-            ?.takeIf { it.isNotBlank() }
-            ?.let { javaHome = it }
+        // jpackage ships only with a full JDK, and by default the packaging tasks inherit
+        // whatever JVM the Gradle daemon happens to run on.  That is not dependable:
+        // gradle/gradle-daemon-jvm.properties asks for "a JetBrains 21" without naming a
+        // specific installation, and the JBR bundled inside Android Studio satisfies that
+        // while shipping no jpackage — checkRuntime then fails with "'jpackage' is
+        // missing".  Asking for a JetBrains toolchain here does not help, because Gradle
+        // resolves that against the same set of installations and favours a matching JVM
+        // it is already running on.
+        //
+        // Temurin is requested instead: Android Studio's JBR cannot satisfy an Adoptium
+        // vendor constraint, every Temurin build carries jpackage, the CI runners already
+        // install it via setup-java, and the foojay resolver in settings.gradle.kts
+        // provisions it anywhere else.  That makes the packaging JDK the same everywhere,
+        // whatever JVM the daemon ended up on.
+        javaHome = javaToolchains.launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(21))
+            vendor.set(JvmVendorSpec.AZUL)
+        }.get().metadata.installationPath.asFile.absolutePath
 
         buildTypes.release.proguard {
             isEnabled.set(false)
