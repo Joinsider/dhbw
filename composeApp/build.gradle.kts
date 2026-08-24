@@ -1,5 +1,6 @@
 import org.jetbrains.compose.ExperimentalComposeLibrary
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -234,9 +235,30 @@ dependencies {
     kover(projects.presentation)
 }
 
+val javaToolchains = extensions.getByType<JavaToolchainService>()
+
 compose.desktop {
     application {
         mainClass = "de.fampopprol.dhbwhorb.MainKt"
+
+        // jpackage ships only with a full JDK, and by default the packaging tasks inherit
+        // whatever JVM the Gradle daemon happens to run on.  That is not dependable:
+        // gradle/gradle-daemon-jvm.properties asks for "a JetBrains 21" without naming a
+        // specific installation, and the JBR bundled inside Android Studio satisfies that
+        // while shipping no jpackage — checkRuntime then fails with "'jpackage' is
+        // missing".  Asking for a JetBrains toolchain here does not help, because Gradle
+        // resolves that against the same set of installations and favours a matching JVM
+        // it is already running on.
+        //
+        // Temurin is requested instead: Android Studio's JBR cannot satisfy an Adoptium
+        // vendor constraint, every Temurin build carries jpackage, the CI runners already
+        // install it via setup-java, and the foojay resolver in settings.gradle.kts
+        // provisions it anywhere else.  That makes the packaging JDK the same everywhere,
+        // whatever JVM the daemon ended up on.
+        javaHome = javaToolchains.launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(21))
+            vendor.set(JvmVendorSpec.AZUL)
+        }.get().metadata.installationPath.asFile.absolutePath
 
         buildTypes.release.proguard {
             isEnabled.set(false)
@@ -299,6 +321,82 @@ compose.desktop {
     }
 }
 
+
+// Three gaps the Compose plugin leaves open on the way to a notarized DMG:
+//
+//  * The app image contains one native library the plugin does not sign.  Its jar
+//    signing processor matches only .dylib and .jnilib, while jkeychain ships
+//    osxkeychain.so — Apple's notary service rejects the whole submission over it.
+//    packaging/macos/sign-jar-natives.sh signs it and re-seals the bundle.
+//  * notarizeDmg tickets the disk image only, so an app dragged out of it needs an
+//    online Gatekeeper check on first launch.  packaging/macos/notarize-app.sh
+//    notarizes and staples the bundle itself; jpackage copies the app image into the
+//    DMG without re-signing, so that ticket survives into the disk image.
+//  * jpackage signs the .app but never the .dmg container around it, a long-standing
+//    JDK limitation, and `stapler` cannot attach a ticket to an unsigned disk image.
+//
+// Every hook runs after the task that produces its input and before notarizeDmg
+// consumes it.  Without APPLE_SIGN_IDENTITY they are no-ops, matching the unsigned
+// build path used on the Linux and Windows runners.
+tasks.withType<AbstractJPackageTask>().configureEach {
+    val format = targetFormat
+    if (format != TargetFormat.AppImage && format != TargetFormat.Dmg) return@configureEach
+
+    val signIdentity = project.providers.environmentVariable("APPLE_SIGN_IDENTITY")
+    val appleId = project.providers.environmentVariable("APPLE_ID")
+    val appPassword = project.providers.environmentVariable("APPLE_APP_PASSWORD")
+    val teamId = project.providers.environmentVariable("APPLE_TEAM_ID")
+    val outputDir = destinationDir
+    val scripts = project.rootProject.layout.projectDirectory.dir("packaging/macos")
+    val signJarNatives = scripts.file("sign-jar-natives.sh").asFile
+    val notarizeApp = scripts.file("notarize-app.sh").asFile
+
+    doLast {
+        val identity = signIdentity.orNull?.takeIf { it.isNotBlank() } ?: return@doLast
+        val outputs = outputDir.get().asFile.listFiles().orEmpty()
+
+        // Each step pairs a command with what to feed it on stdin — the app-specific
+        // password travels that way so it never lands in the argument list.
+        val steps = mutableListOf<Pair<List<String>, String?>>()
+
+        if (format == TargetFormat.AppImage) {
+            val app = outputs.single { it.extension == "app" }
+            steps += listOf(
+                "/bin/bash", signJarNatives.absolutePath, app.absolutePath, identity
+            ) to null
+
+            val id = appleId.orNull
+            val team = teamId.orNull
+            val password = appPassword.orNull
+            if (!id.isNullOrBlank() && !team.isNullOrBlank() && !password.isNullOrBlank()) {
+                steps += listOf(
+                    "/bin/bash", notarizeApp.absolutePath, app.absolutePath, id, team
+                ) to password
+            } else {
+                logger.lifecycle(
+                    "Skipping app notarization: APPLE_ID, APPLE_APP_PASSWORD or APPLE_TEAM_ID is unset."
+                )
+            }
+        } else {
+            val dmg = outputs.single { it.extension == "dmg" }
+            steps += listOf(
+                "/usr/bin/codesign", "--force", "--timestamp", "--sign", identity, dmg.absolutePath
+            ) to null
+            // codesign stays silent on success, so name the artifact explicitly.
+            logger.lifecycle("Signing ${dmg.name} with $identity")
+        }
+
+        for ((command, stdin) in steps) {
+            val process = ProcessBuilder(command).redirectErrorStream(true).start()
+            process.outputStream.bufferedWriter().use { writer ->
+                if (stdin != null) writer.appendLine(stdin)
+            }
+            val output = process.inputStream.bufferedReader().readText().trim()
+            check(process.waitFor() == 0) { "${command.first()} failed:\n$output" }
+            if (output.isNotEmpty()) logger.lifecycle(output)
+        }
+    }
+}
 
 // The Compose notarization task holds an `ascProvider` property deprecated at
 // DeprecationLevel.ERROR whose provider always throws when read.  The configuration
