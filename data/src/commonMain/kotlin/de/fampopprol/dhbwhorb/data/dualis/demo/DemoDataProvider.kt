@@ -1,12 +1,17 @@
 package de.fampopprol.dhbwhorb.data.dualis.demo
 
 import de.fampopprol.dhbwhorb.data.dualis.models.DualisDocument
+import de.fampopprol.dhbwhorb.data.helpers.TimeHelper
+import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureEventEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LecturerEntity
+import de.fampopprol.dhbwhorb.domain.model.Semester
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.isoDayNumber
+import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.ExperimentalTime
@@ -259,32 +264,249 @@ object DemoDataProvider {
      * Generate demo lecturers.
      */
     /**
+     * The semesters the demo account has studied, newest first — the order Dualis fills its
+     * dropdown in.
+     *
+     * Derived from the current date rather than written down, for the same reason the demo
+     * timetable is generated around the current week: a fixture with "WiSe 2024/25" in it looks
+     * abandoned two years later, and the demo account is the first thing a new user sees.
+     *
+     * @param today the date the demo is being looked at, injectable for the tests
+     */
+    fun demoSemesters(today: LocalDate = TimeHelper.now().date): List<Semester> {
+        val current = semesterOf(today)
+        return listOf(current, current.previous(), current.previous().previous())
+            .mapIndexed { index, term ->
+                // Index 0 is the current semester, so the id counts backwards: the oldest of the
+                // three is the student's first.
+                Semester(id = "$DEMO_SEMESTER_ID_PREFIX${DEMO_SEMESTER_COUNT - index}", name = term.displayName)
+            }
+    }
+
+    /**
+     * The grades of one demo semester, or an empty list for a semester the demo does not have.
+     *
+     * Three semesters of a dual computer science course: two finished, the current one still
+     * running. The mix is deliberate — numeric grades, a "b" for a module that is only ever
+     * passed or failed, and modules with no grade yet — because those are the three cases the
+     * grades screen and the average have to survive, and a fixture where every module has a
+     * number tests none of them.
+     *
+     * The current semester holds the modules the demo timetable teaches, so the two screens
+     * describe the same student.
+     */
+    fun demoGrades(semester: Semester, studentId: String): List<GradeEntity> {
+        val modules = when (semester.id) {
+            "${DEMO_SEMESTER_ID_PREFIX}1" -> firstSemesterModules
+            "${DEMO_SEMESTER_ID_PREFIX}2" -> secondSemesterModules
+            "${DEMO_SEMESTER_ID_PREFIX}3" -> currentSemesterModules
+            else -> return emptyList()
+        }
+
+        return modules.map { module ->
+            GradeEntity(
+                studentId = studentId,
+                semesterId = semester.id,
+                semesterName = semester.name,
+                moduleNumber = module.number,
+                moduleName = module.name,
+                grade = module.grade,
+                credits = module.credits,
+                // Dualis writes the German words, and the app shows the column as it comes.
+                status = if (module.grade == null) "offen" else "bestanden"
+            )
+        }
+    }
+
+    /** One row of the grade table, before it knows which semester or student it belongs to. */
+    private data class DemoModule(
+        val number: String,
+        val name: String,
+        val grade: String?,
+        val credits: Double
+    )
+
+    private val firstSemesterModules = listOf(
+        DemoModule("T3INF1001", "Mathematik I", "1,7", 6.0),
+        DemoModule("T3INF1002", "Programmierung 1", "1,3", 8.0),
+        DemoModule("T3INF1003", "Theoretische Informatik I", "2,3", 5.0),
+        DemoModule("T3INF1004", "Grundlagen der Informatik", "2,0", 5.0),
+        // Passed or not passed, never a number — the case that makes numericGrade null on a
+        // module that is nonetheless finished and whose credits count.
+        DemoModule("T3INF1900", "Praxisprojekt I", "b", 6.0)
+    )
+
+    private val secondSemesterModules = listOf(
+        DemoModule("T3INF2001", "Mathematik II", "2,0", 6.0),
+        DemoModule("T3INF2002", "Algorithmen und Datenstrukturen", "1,7", 6.0),
+        DemoModule("T3INF2003", "Programmierung 2", "1,3", 6.0),
+        DemoModule("T3INF2004", "Technische Informatik", "2,7", 5.0),
+        DemoModule("T3INF2005", "Betriebswirtschaftslehre", "2,3", 4.0),
+        DemoModule("T3INF2900", "Praxisprojekt II", "b", 8.0)
+    )
+
+    private val currentSemesterModules = listOf(
+        DemoModule("T3INF3001", "Software Engineering", "1,7", 5.0),
+        DemoModule("T3INF3002", "Projektmanagement", "2,0", 4.0),
+        DemoModule("T3INF3003", "Web Engineering", null, 5.0),
+        DemoModule("T3INF3004", "Datenbanken und Informationssysteme", null, 6.0),
+        DemoModule("T3INF3005", "Theoretische Informatik II", null, 5.0),
+        DemoModule("T3INF3006", "Netzwerktechnik", null, 5.0)
+    )
+
+    private const val DEMO_SEMESTER_ID_PREFIX = "demo-semester-"
+    private const val DEMO_SEMESTER_COUNT = 3
+
+    /** A term as Dualis names it: "WiSe 2025/26" or "SoSe 2026". */
+    private data class Term(val startYear: Int, val isWinter: Boolean) {
+        val displayName: String
+            get() = if (isWinter) {
+                // Two digits, so 2099/2100 reads "2099/00" the way Dualis writes it.
+                val endYear = ((startYear + 1) % 100).toString().padStart(2, '0')
+                "WiSe $startYear/$endYear"
+            } else {
+                "SoSe $startYear"
+            }
+
+        /** The term before this one. Winter starts the academic year, so it follows that summer. */
+        fun previous(): Term =
+            if (isWinter) Term(startYear, isWinter = false) else Term(startYear - 1, isWinter = true)
+    }
+
+    /**
+     * The term [date] falls into: the summer one from March to August, the winter one otherwise —
+     * and a winter term is named after the year it *starts* in, so January belongs to the term
+     * that began the previous autumn.
+     */
+    private fun semesterOf(date: LocalDate): Term {
+        val month = date.month.number
+        return when {
+            month in 3..8 -> Term(date.year, isWinter = false)
+            month >= 9 -> Term(date.year, isWinter = true)
+            else -> Term(date.year - 1, isWinter = true)
+        }
+    }
+
+    /**
      * The documents the demo account shows.
      *
-     * They are listed but cannot be downloaded — there is no file behind the URLs, which is why
-     * [de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService.downloadDocument]
-     * reports them as unsupported rather than letting the request fail.
+     * Each of them downloads: [demoDocumentContent] renders the PDF the viewer opens, so the
+     * demo goes all the way through the list-open-save flow rather than stopping at a message.
      */
-    fun demoDocuments(): List<DualisDocument> = listOf(
+    fun demoDocuments(today: LocalDate = TimeHelper.now().date): List<DualisDocument> = listOf(
         DualisDocument(
             title = "Studienbescheinigung",
-            date = "25.03.26",
+            // Dated relative to today for the same reason the timetable is: a demo whose newest
+            // document is from two years ago looks like a broken account, not like a preview.
+            date = today.minusDays(12).asDualisDate(),
             time = "09:40",
-            downloadUrl = "/scripts/filetransfer.exe?demo_cert"
+            downloadUrl = DEMO_DOCUMENT_CERTIFICATE
         ),
         DualisDocument(
             title = "Zahlungsinformation Semesterbeiträge",
-            date = "19.02.26",
+            date = today.minusDays(34).asDualisDate(),
             time = "14:47",
-            downloadUrl = "/scripts/filetransfer.exe?demo_payment"
+            downloadUrl = DEMO_DOCUMENT_PAYMENT
         ),
         DualisDocument(
             title = "Semesternotenbescheid - Download",
-            date = "11.02.26",
+            date = today.minusDays(61).asDualisDate(),
             time = "15:52",
-            downloadUrl = "/scripts/filetransfer.exe?demo_grades"
+            downloadUrl = DEMO_DOCUMENT_GRADES
         )
     )
+
+    /**
+     * The file behind a demo document, or null for a URL that is not one of them.
+     *
+     * A real PDF rather than a placeholder: the download path ends in the platform's own viewer
+     * and save dialog, and handing those an empty array or a text file is how the demo would
+     * "work" everywhere except on a device.
+     *
+     * Keyed by [downloadUrl] because that is all Dualis gives a caller to ask for a file with,
+     * and the demo behaves the same way.
+     */
+    fun demoDocumentContent(
+        downloadUrl: String,
+        today: LocalDate = TimeHelper.now().date
+    ): ByteArray? {
+        val document = demoDocuments(today).find { it.downloadUrl == downloadUrl } ?: return null
+        val issued = "${document.date}, ${document.time} Uhr"
+        val student = "Max Mustermann, Matrikelnummer 1234567"
+
+        return when (document.downloadUrl) {
+            DEMO_DOCUMENT_CERTIFICATE -> DemoPdf.render(
+                title = "Studienbescheinigung",
+                lines = listOf(
+                    "Duale Hochschule Baden-Württemberg",
+                    "Studiengang Informatik (T3INF)",
+                    "",
+                    student,
+                    "Semester: ${demoSemesters(today).first().name}",
+                    "Ausgestellt am $issued",
+                    "",
+                    "Hiermit wird bescheinigt, dass die oben genannte Person im",
+                    "laufenden Semester ordentlich immatrikuliert ist.",
+                    "",
+                    DEMO_FOOTER
+                )
+            )
+
+            DEMO_DOCUMENT_PAYMENT -> DemoPdf.render(
+                title = "Zahlungsinformation Semesterbeiträge",
+                lines = listOf(
+                    student,
+                    "Semester: ${demoSemesters(today).first().name}",
+                    "Ausgestellt am $issued",
+                    "",
+                    "Verwaltungskostenbeitrag         70,00 EUR",
+                    "Studierendenwerksbeitrag         89,00 EUR",
+                    "Studierendenschaftsbeitrag        9,00 EUR",
+                    "-----------------------------------------",
+                    "Gesamtbetrag                    168,00 EUR",
+                    "",
+                    "Der Betrag wurde vollständig verbucht.",
+                    "",
+                    DEMO_FOOTER
+                )
+            )
+
+            DEMO_DOCUMENT_GRADES -> {
+                val semester = demoSemesters(today)[1]
+                DemoPdf.render(
+                    title = "Semesternotenbescheid",
+                    lines = listOf(
+                        student,
+                        "Semester: ${semester.name}",
+                        "Ausgestellt am $issued",
+                        ""
+                    ) + demoGrades(semester, studentId = student).map { grade ->
+                        // Padded into columns; the page is set in Courier so they line up.
+                        "${grade.moduleNumber}  ${grade.moduleName.padEnd(36).take(36)}" +
+                            "${(grade.grade ?: "-").padStart(4)}   " +
+                            "${grade.credits.toString().replace('.', ',')} ECTS"
+                    } + listOf("", DEMO_FOOTER),
+                    monospacedBody = true
+                )
+            }
+
+            else -> null
+        }
+    }
+
+    private const val DEMO_DOCUMENT_CERTIFICATE = "/scripts/filetransfer.exe?demo_cert"
+    private const val DEMO_DOCUMENT_PAYMENT = "/scripts/filetransfer.exe?demo_payment"
+    private const val DEMO_DOCUMENT_GRADES = "/scripts/filetransfer.exe?demo_grades"
+
+    private const val DEMO_FOOTER =
+        "Beispieldokument des Demo-Kontos - keine gültige Bescheinigung."
+
+    /** Dualis writes dates as `dd.MM.yy`. */
+    private fun LocalDate.asDualisDate(): String =
+        "${day.toString().padStart(2, '0')}.${month.number.toString().padStart(2, '0')}." +
+            "${(year % 100).toString().padStart(2, '0')}"
+
+    private fun LocalDate.minusDays(days: Int): LocalDate = plus(-days, DateTimeUnit.DAY)
 
     fun generateDemoLecturers(): List<LecturerEntity> {
         return listOf(

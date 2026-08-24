@@ -50,7 +50,7 @@ class MockAuthenticationService(
         return Outcome.Ok(Session(userFullName = null, isDemo = false))
     }
 
-    override fun logout() {
+    override suspend fun logout() {
         sessionManager.logout()
     }
 

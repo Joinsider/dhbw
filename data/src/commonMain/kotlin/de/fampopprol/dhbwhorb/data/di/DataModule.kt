@@ -46,6 +46,7 @@ import de.fampopprol.dhbwhorb.domain.usecase.LoginWithCredentials
 import de.fampopprol.dhbwhorb.domain.usecase.Logout
 import de.fampopprol.dhbwhorb.domain.usecase.RefreshTimetable
 import de.fampopprol.dhbwhorb.domain.usecase.RestoreSession
+import de.fampopprol.dhbwhorb.net.ClearableCookiesStorage
 import de.fampopprol.dhbwhorb.net.HttpClientFactory
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
@@ -70,12 +71,17 @@ private const val NETWORK_TIMEOUT_MILLIS = 30_000L
  */
 val dataModule = module {
 
+    // Ours rather than the plugin's default, because logout has to be able to empty it — see
+    // ClearableCookiesStorage.
+    single { ClearableCookiesStorage() }
+
     // Cookie storage lives in the client, so authentication and every subsequent request must
     // share this instance — otherwise the session cookie is lost after login.
     single {
+        val cookies: ClearableCookiesStorage = get()
         HttpClientFactory.create {
             expectSuccess = false
-            install(HttpCookies)
+            install(HttpCookies) { storage = cookies }
             install(HttpTimeout) {
                 socketTimeoutMillis = NETWORK_TIMEOUT_MILLIS
                 connectTimeoutMillis = NETWORK_TIMEOUT_MILLIS
@@ -86,7 +92,9 @@ val dataModule = module {
 
     single { DualisApiClient(client = get()) }
     single { SessionManager(secureStorage = get()) }
-    single { AuthenticationService(sessionManager = get(), client = get()) }
+    single {
+        AuthenticationService(sessionManager = get(), client = get(), cookiesStorage = get())
+    }
     single { CredentialsStorageProvider(secureStorage = get()) }
 
     // One re-authenticator for the whole app: it is what makes concurrent 401s share a single
@@ -171,7 +179,9 @@ val dataModule = module {
     // Use cases are factories: they hold no state, so there is nothing to share between callers.
     factory { LoginWithCredentials(authRepository = get()) }
     factory { RestoreSession(sessionRepository = get(), authRepository = get()) }
-    factory { Logout(authRepository = get()) }
+    // The cleaner comes from :services, which this module cannot see and which is loaded next to
+    // it — getOrNull, so a graph without it (the tests, the widget extension) still logs out.
+    factory { Logout(authRepository = get(), cleaner = getOrNull()) }
 
     factory { GetWeekTimetable(repository = get()) }
     factory { AwaitFullWeekTimetable(repository = get()) }

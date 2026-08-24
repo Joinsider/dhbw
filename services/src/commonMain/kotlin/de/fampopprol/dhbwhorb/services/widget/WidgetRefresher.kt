@@ -15,6 +15,6 @@ package de.fampopprol.dhbwhorb.services.widget
  *
  * Background work resolves it optionally — a missing widget refresh must never fail the caller.
  */
-interface WidgetRefresher {
+fun interface WidgetRefresher {
     fun requestRefresh()
 }

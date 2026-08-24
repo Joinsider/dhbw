@@ -11,6 +11,7 @@ import de.fampopprol.dhbwhorb.domain.repository.SessionRepository
 import de.fampopprol.dhbwhorb.domain.usecase.Logout
 import de.fampopprol.dhbwhorb.presentation.store.BaseStore
 import de.fampopprol.dhbwhorb.presentation.store.EffectScope
+import de.fampopprol.dhbwhorb.presentation.store.SessionScopedStore
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -23,7 +24,14 @@ import kotlinx.coroutines.CoroutineScope
 class AppStore(
     private val sessionRepository: SessionRepository,
     private val logout: Logout,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    /**
+     * The stores holding account data, resolved when a logout happens.
+     *
+     * A lambda rather than the list itself: these stores and this one are all singletons in the
+     * same graph, and asking for them while this one is being built is a cycle.
+     */
+    private val sessionScopedStores: () -> List<SessionScopedStore> = { emptyList() }
 ) : BaseStore<AppState, AppIntent, AppMsg, AppEffect>(
     initialState = AppState(),
     scope = scope
@@ -49,6 +57,12 @@ class AppStore(
 
             AppIntent.LogoutRequested -> {
                 val result = logout()
+
+                // The screens are singletons and would otherwise still be holding the previous
+                // user's grades and timetable when the next one logs in — visible until the first
+                // fetch replaces them.
+                sessionScopedStores().forEach { it.reset() }
+
                 // The session is gone either way, so the UI leaves regardless; a cache that could
                 // not be wiped is worth telling the user about, not worth blocking on.
                 emit(AppMsg.LoggedOut)

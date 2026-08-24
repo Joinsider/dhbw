@@ -6,9 +6,12 @@
 
 package de.fampopprol.dhbwhorb.services.di
 
+import de.fampopprol.dhbwhorb.domain.session.SessionDataCleaner
 import de.fampopprol.dhbwhorb.services.notifications.LectureChangeMonitor
 import de.fampopprol.dhbwhorb.services.notifications.NotificationManager
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminderPlanner
+import de.fampopprol.dhbwhorb.services.session.AppSessionDataCleaner
+import de.fampopprol.dhbwhorb.services.session.CachedFileCleaner
 import de.fampopprol.dhbwhorb.services.widget.WidgetRefresher
 import de.fampopprol.dhbwhorb.services.widget.WidgetTimetableUseCase
 import org.koin.core.module.Module
@@ -39,6 +42,17 @@ val servicesModule = module {
             // Android binds a Glance refresher in :composeApp, iOS one that calls into Swift.
             // Desktop binds none, and nothing about that is a failure.
             widgetRefresher = getOrNull<WidgetRefresher>()
+        )
+    }
+
+    // What logout has to undo outside the database. Resolved by the Logout use case, which lives
+    // in :domain and cannot see any of these types.
+    single<SessionDataCleaner> {
+        AppSessionDataCleaner(
+            reminders = get(),
+            notifications = get(),
+            widgetRefresher = getOrNull<WidgetRefresher>(),
+            cachedFiles = getOrNull<CachedFileCleaner>(),
         )
     }
 

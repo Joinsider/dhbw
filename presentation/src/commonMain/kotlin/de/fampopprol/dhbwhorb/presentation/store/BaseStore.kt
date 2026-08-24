@@ -58,6 +58,8 @@ abstract class BaseStore<S : Any, I : Any, M : Any, E : Any>(
     // close() cancels this store's work without touching the scope it was given.
     private val storeScope = scope + SupervisorJob(scope.coroutineContext[Job])
 
+    private val initial = initialState
+
     private val _state = MutableStateFlow(initialState)
     override val state = _state.asStateFlow()
 
@@ -131,6 +133,20 @@ abstract class BaseStore<S : Any, I : Any, M : Any, E : Any>(
             }
         }
         job.start()
+    }
+
+    /**
+     * Drop the state and everything still running, and start over.
+     *
+     * For logout: the store outlives the session, so what it holds has to be taken from it. The
+     * in-flight effects go first — a load that started before the logout would otherwise emit the
+     * previous user's data into the freshly emptied state.
+     */
+    open fun reset() {
+        val inFlight = running.value.values
+        running.value = emptyMap()
+        inFlight.forEach { it.cancel() }
+        _state.value = initial
     }
 
     override fun close() {

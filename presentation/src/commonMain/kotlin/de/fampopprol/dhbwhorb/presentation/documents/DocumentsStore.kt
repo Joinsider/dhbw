@@ -14,6 +14,7 @@ import de.fampopprol.dhbwhorb.domain.usecase.DownloadDocument
 import de.fampopprol.dhbwhorb.domain.usecase.ListDocuments
 import de.fampopprol.dhbwhorb.presentation.store.BaseStore
 import de.fampopprol.dhbwhorb.presentation.store.EffectScope
+import de.fampopprol.dhbwhorb.presentation.store.SessionScopedStore
 import kotlinx.coroutines.CoroutineScope
 
 class DocumentsStore(
@@ -24,7 +25,7 @@ class DocumentsStore(
 ) : BaseStore<DocumentsState, DocumentsIntent, DocumentsMsg, DocumentsEffect>(
     initialState = DocumentsState(),
     scope = scope
-) {
+), SessionScopedStore {
 
     /**
      * One list fetch at a time, and one download per document. Two different documents may

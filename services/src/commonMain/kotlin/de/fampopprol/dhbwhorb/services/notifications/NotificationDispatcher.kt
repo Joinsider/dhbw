@@ -41,6 +41,17 @@ interface NotificationDispatcher {
     suspend fun showNotification(title: String, message: String, notificationKey: String)
 
     /**
+     * Remove the notifications this app has already delivered.
+     *
+     * Called on logout: a notification saying a lecture moved is as much the previous user's data
+     * as the row it was derived from, and it survives the app being closed.
+     *
+     * Default-empty rather than abstract, because on the desktop a notification is handed to the
+     * system and forgotten — there is nothing left to take back.
+     */
+    suspend fun cancelAllDelivered() {}
+
+    /**
      * Show a notification for multiple lecture changes (summary).
      * @param title Notification title
      * @param message Notification message body

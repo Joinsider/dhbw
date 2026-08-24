@@ -11,6 +11,8 @@ import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.domain.model.Session
 import de.fampopprol.dhbwhorb.domain.repository.AuthRepository
 import de.fampopprol.dhbwhorb.domain.repository.SessionRepository
+import de.fampopprol.dhbwhorb.domain.session.SessionDataCleaner
+import io.github.aakira.napier.Napier
 
 /** Log in with the credentials the user just typed. */
 class LoginWithCredentials(private val authRepository: AuthRepository) {
@@ -35,7 +37,37 @@ class RestoreSession(
     }
 }
 
-/** End the session and wipe everything derived from it. */
-class Logout(private val authRepository: AuthRepository) {
-    suspend operator fun invoke(): Outcome<Unit> = authRepository.logout()
+/**
+ * End the session and wipe everything derived from it.
+ *
+ * "Everything" is wider than the repository can reach: [AuthRepository.logout] clears the session,
+ * the credentials and the cached tables, and [cleaner] clears what the app handed to the system —
+ * scheduled reminders, the widget, cached document files. Both run on every logout; the next
+ * person to use this device must not find any of it.
+ *
+ * @param cleaner absent in the tests and on platforms that hand nothing to the system.
+ */
+class Logout(
+    private val authRepository: AuthRepository,
+    private val cleaner: SessionDataCleaner? = null
+) {
+    suspend operator fun invoke(): Outcome<Unit> {
+        val result = authRepository.logout()
+
+        // After the repository, so a cleaner that reads the database — the widget refresh does —
+        // sees it already empty.
+        val cleanerResult = cleaner?.let { clearWithCleaner(it) } ?: Outcome.Ok(Unit)
+
+        // The session is gone either way. Report the repository's failure first: a cache that is
+        // still on disk matters more than a widget that is still drawing.
+        return if (result is Outcome.Err) result else cleanerResult
+    }
+
+    private suspend fun clearWithCleaner(cleaner: SessionDataCleaner): Outcome<Unit> = try {
+        cleaner.clearSessionData()
+        Outcome.Ok(Unit)
+    } catch (e: Exception) {
+        Napier.e("Could not clear session data on logout: ${e.message}", e, tag = "Logout")
+        Outcome.Err(AppError.Storage("clearing session data on logout: ${e.message}"))
+    }
 }

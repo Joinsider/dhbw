@@ -28,7 +28,14 @@ import org.koin.dsl.module
 val presentationModule = module {
 
     single {
-        AppStore(sessionRepository = get(), logout = get(), scope = get())
+        AppStore(
+            sessionRepository = get(),
+            logout = get(),
+            scope = get(),
+            sessionScopedStores = {
+                listOf(get<TimetableStore>(), get<GradesStore>(), get<DocumentsStore>())
+            }
+        )
     }
 
     single {

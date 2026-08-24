@@ -15,6 +15,7 @@ import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
 import de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades
 import de.fampopprol.dhbwhorb.presentation.store.BaseStore
 import de.fampopprol.dhbwhorb.presentation.store.EffectScope
+import de.fampopprol.dhbwhorb.presentation.store.SessionScopedStore
 import kotlinx.coroutines.CoroutineScope
 
 class GradesStore(
@@ -25,7 +26,7 @@ class GradesStore(
 ) : BaseStore<GradesState, GradesIntent, GradesMsg, GradesEffect>(
     initialState = GradesState(),
     scope = scope
-) {
+), SessionScopedStore {
 
     /** Every intent loads grades, so only one of them may be in flight. */
     override fun dedupeKey(intent: GradesIntent): Any = "grades"
