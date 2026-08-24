@@ -15,6 +15,7 @@ import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
 import de.fampopprol.dhbwhorb.data.error.httpStatusToAppError
 import de.fampopprol.dhbwhorb.data.error.toAppError
 import de.fampopprol.dhbwhorb.domain.model.Session
+import de.fampopprol.dhbwhorb.net.ClearableCookiesStorage
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.cookies.cookies
@@ -39,6 +40,7 @@ import io.ktor.http.isSuccess
 open class AuthenticationService(
     val sessionManager: SessionManager,
     private val client: HttpClient,
+    private val cookiesStorage: ClearableCookiesStorage? = null,
     private val authParser: AuthParser = AuthParser(),
     private val htmlParser: HtmlParser = HtmlParser()
 ) {
@@ -192,9 +194,13 @@ open class AuthenticationService(
 
     open fun isAuthenticated(): Boolean = sessionManager.isAuthenticated()
 
-    open fun logout() {
+    open suspend fun logout() {
         Napier.d("Logging out", tag = TAG)
         sessionManager.logout()
+
+        // The session cookie is held by the client, not by the session manager. Leaving it there
+        // meant the next login started by presenting the previous account's cookie.
+        cookiesStorage?.clear()
     }
 
     fun close() {

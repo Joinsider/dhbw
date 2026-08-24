@@ -166,6 +166,37 @@ class BaseStoreTest {
     }
 
     @Test
+    fun reset_dropsTheStateAndKeepsTheStoreUsable() = runTest {
+        val store = CounterStore()
+
+        store.dispatch(CounterIntent.Increment)
+        assertEquals(1, store.state.value.value)
+
+        store.reset()
+        assertEquals(CounterState(), store.state.value, "logout leaves nothing behind")
+
+        // Unlike close(), the store lives on — the next login uses the same instance.
+        store.dispatch(CounterIntent.Increment)
+        assertEquals(1, store.state.value.value)
+        store.close()
+    }
+
+    @Test
+    fun reset_cancelsWorkThatWouldLandAfterwards() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val store = CounterStore(gate)
+
+        store.dispatch(CounterIntent.SlowIncrement)
+        store.reset()
+        gate.complete(Unit)
+
+        // A load started before the logout must not write the previous user's data into the
+        // emptied state.
+        assertEquals(CounterState(), store.state.value)
+        store.close()
+    }
+
+    @Test
     fun effectsAreNotReplayed() = runTest {
         val store = CounterStore()
 

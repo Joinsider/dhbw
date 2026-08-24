@@ -19,8 +19,8 @@ interface DocumentRepository {
     /**
      * Download one document's bytes.
      *
-     * Fails with [de.fampopprol.dhbwhorb.core.error.AppError.Unsupported] in demo mode, where the
-     * listed documents are fixtures with no file behind them.
+     * In demo mode the bytes are a generated PDF rather than a request to Dualis, so the demo
+     * account reaches the viewer and the save dialog like any other.
      */
     suspend fun downloadDocument(document: DualisDocument): Outcome<ByteArray>
 }

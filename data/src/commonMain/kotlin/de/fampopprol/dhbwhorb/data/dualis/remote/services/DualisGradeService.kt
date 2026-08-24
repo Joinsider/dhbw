@@ -9,6 +9,7 @@ package de.fampopprol.dhbwhorb.data.dualis.remote.services
 import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.core.error.map
+import de.fampopprol.dhbwhorb.data.dualis.demo.DemoDataProvider
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.GradeParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.HtmlParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
@@ -45,6 +46,11 @@ class DualisGradeService(
 
     /** The semesters Dualis lists in its dropdown. */
     suspend fun getSemesters(): Outcome<List<Semester>> {
+        if (sessionManager.isDemoMode()) {
+            Napier.d("Returning demo semesters", tag = TAG)
+            return Outcome.Ok(DemoDataProvider.demoSemesters())
+        }
+
         val html = gateway.fetchPage(
             source = "semesters",
             isValid = { htmlParser.isValidGradePage(it) },
@@ -64,6 +70,11 @@ class DualisGradeService(
         forceRefresh: Boolean = false
     ): Outcome<List<GradeEntity>> {
         val studentId = currentStudentId()
+
+        if (sessionManager.isDemoMode()) {
+            Napier.d("Returning demo grades for semester ${semester.id}", tag = TAG)
+            return Outcome.Ok(DemoDataProvider.demoGrades(semester, studentId))
+        }
 
         if (!forceRefresh) {
             when (val cached = readValidCache(studentId, semester.id)) {

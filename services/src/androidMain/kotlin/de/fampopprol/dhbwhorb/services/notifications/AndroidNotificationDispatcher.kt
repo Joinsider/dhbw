@@ -135,6 +135,11 @@ class AndroidNotificationDispatcher(private val context: Context) : Notification
      * Show a summary notification for multiple lecture changes.
      */
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
+    override suspend fun cancelAllDelivered() {
+        Napier.d("Cancelling all delivered notifications", tag = TAG)
+        NotificationManagerCompat.from(context).cancelAll()
+    }
+
     override suspend fun showSummaryNotification(title: String, message: String, changeCount: Int) {
         if (!hasPermission()) {
             Napier.w("Cannot show notification: permission not granted", tag = TAG)

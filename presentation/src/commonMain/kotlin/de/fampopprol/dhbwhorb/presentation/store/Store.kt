@@ -39,3 +39,17 @@ interface Store<S : Any, I : Any, E : Any> {
     /** Cancel any work still running. After this the store is unusable. */
     fun close()
 }
+
+/**
+ * A store whose contents belong to one login.
+ *
+ * The stores are singletons that live as long as the app does — that is what makes switching tabs
+ * free. It also means the grades, the timetable and the document list survive a logout, and the
+ * next person to log in on this device saw them until the first fetch replaced them. Anything
+ * holding account data implements this so the root store can empty it.
+ */
+fun interface SessionScopedStore {
+
+    /** Throw away everything held and go back to the state a fresh store starts in. */
+    fun reset()
+}

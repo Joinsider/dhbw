@@ -12,6 +12,7 @@ import de.fampopprol.dhbwhorb.domain.model.Session
 import de.fampopprol.dhbwhorb.domain.usecase.Logout
 import de.fampopprol.dhbwhorb.presentation.TestScopes
 import de.fampopprol.dhbwhorb.presentation.collectEffects
+import de.fampopprol.dhbwhorb.presentation.store.SessionScopedStore
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeAuthRepository
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeSessionRepository
 import kotlinx.coroutines.test.runTest
@@ -25,11 +26,13 @@ class AppStoreTest {
 
     private fun store(
         session: FakeSessionRepository,
-        auth: FakeAuthRepository = FakeAuthRepository()
+        auth: FakeAuthRepository = FakeAuthRepository(),
+        sessionScopedStores: () -> List<SessionScopedStore> = { emptyList() }
     ) = AppStore(
         sessionRepository = session,
         logout = Logout(auth),
-        scope = TestScopes.immediate()
+        scope = TestScopes.immediate(),
+        sessionScopedStores = sessionScopedStores
     )
 
     @Test
@@ -90,6 +93,23 @@ class AppStoreTest {
         assertFalse(state.isLoggedIn)
         assertNull(state.userFullName)
         assertFalse(state.isRestoring, "Logging out is not a restore")
+        store.close()
+    }
+
+    @Test
+    fun loggingOut_emptiesTheScreensThatHoldTheAccountsData() = runTest {
+        // The stores are singletons: without this the next person to log in on this device sees
+        // the previous one's grades until the first fetch comes back.
+        var resets = 0
+        val screens = List(3) { SessionScopedStore { resets++ } }
+        val store = store(
+            FakeSessionRepository(session = Session("Max Mustermann")),
+            sessionScopedStores = { screens }
+        )
+
+        store.dispatch(AppIntent.LogoutRequested)
+
+        assertEquals(3, resets)
         store.close()
     }
 

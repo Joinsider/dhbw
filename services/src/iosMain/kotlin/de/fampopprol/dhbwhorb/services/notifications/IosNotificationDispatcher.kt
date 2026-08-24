@@ -95,6 +95,11 @@ class IosNotificationDispatcher : NotificationDispatcher {
     /**
      * Show a summary notification for multiple lecture changes.
      */
+    override suspend fun cancelAllDelivered() {
+        Napier.d("Cancelling all delivered notifications (iOS)", tag = TAG)
+        notificationCenter.removeAllDeliveredNotifications()
+    }
+
     override suspend fun showSummaryNotification(title: String, message: String, changeCount: Int) {
         if (!hasPermission()) {
             Napier.w("Cannot show notification: permission not granted", tag = TAG)

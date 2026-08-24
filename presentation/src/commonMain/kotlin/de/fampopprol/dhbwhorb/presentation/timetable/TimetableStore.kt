@@ -13,6 +13,7 @@ import de.fampopprol.dhbwhorb.domain.usecase.GetWeekTimetable
 import de.fampopprol.dhbwhorb.domain.usecase.RefreshTimetable
 import de.fampopprol.dhbwhorb.presentation.store.BaseStore
 import de.fampopprol.dhbwhorb.presentation.store.EffectScope
+import de.fampopprol.dhbwhorb.presentation.store.SessionScopedStore
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -30,7 +31,7 @@ class TimetableStore(
 ) : BaseStore<TimetableState, TimetableIntent, TimetableMsg, TimetableEffect>(
     initialState = TimetableState(),
     scope = scope
-) {
+), SessionScopedStore {
 
     /**
      * One load per week at a time. Refresh shares the key with load, so pulling to refresh while

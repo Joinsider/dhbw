@@ -58,9 +58,12 @@ class DualisDocumentService(
      */
     suspend fun downloadDocument(url: String): Outcome<ByteArray> {
         if (sessionManager.isDemoMode()) {
-            // Demo documents are fixtures with no file behind them; saying so is more useful than
-            // a download that fails with a network error.
-            return Outcome.Err(AppError.Unsupported("Documents cannot be downloaded in demo mode"))
+            // The demo documents carry their own generated PDF, so the whole download path —
+            // including the platform's viewer and save dialog — works without a Dualis account.
+            val content = DemoDataProvider.demoDocumentContent(url)
+                ?: return Outcome.Err(AppError.Unsupported("Unknown demo document: $url"))
+            Napier.d("Serving demo document (${content.size} bytes)", tag = TAG)
+            return Outcome.Ok(content)
         }
 
         // Dualis hands out relative paths like /scripts/filetransfer.exe?…
