@@ -10,6 +10,7 @@ import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.domain.model.GradeAttempts
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
+import de.fampopprol.dhbwhorb.domain.model.ModuleResultDetails
 import de.fampopprol.dhbwhorb.domain.model.Semester
 import de.fampopprol.dhbwhorb.domain.repository.GradeRepository
 
@@ -24,6 +25,17 @@ class GetGradesForSemester(private val repository: GradeRepository) {
         semester: Semester,
         forceRefresh: Boolean = false
     ): Outcome<List<GradeEntry>> = repository.getGrades(semester, forceRefresh)
+}
+
+/**
+ * The exams behind one module result.
+ *
+ * Separate from [GetGradesForSemester] because it is loaded on demand — opening the details of
+ * one module must not mean fetching them for every module in the list.
+ */
+class GetModuleDetails(private val repository: GradeRepository) {
+    suspend operator fun invoke(resultId: String): Outcome<ModuleResultDetails> =
+        repository.getModuleDetails(resultId)
 }
 
 /**

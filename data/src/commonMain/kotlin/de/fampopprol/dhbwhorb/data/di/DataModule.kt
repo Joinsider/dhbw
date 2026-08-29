@@ -37,6 +37,7 @@ import de.fampopprol.dhbwhorb.domain.usecase.AwaitFullWeekTimetable
 import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
 import de.fampopprol.dhbwhorb.domain.usecase.DownloadDocument
 import de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades
+import de.fampopprol.dhbwhorb.domain.usecase.GetModuleDetails
 import de.fampopprol.dhbwhorb.domain.usecase.GetCachedLectures
 import de.fampopprol.dhbwhorb.domain.usecase.GetGradesForSemester
 import de.fampopprol.dhbwhorb.domain.usecase.GetSemesters
@@ -191,6 +192,7 @@ val dataModule = module {
     factory { GetSemesters(repository = get()) }
     factory { GetGradesForSemester(repository = get()) }
     factory { GetAllGrades(getSemesters = get(), getGradesForSemester = get()) }
+    factory { GetModuleDetails(repository = get()) }
     factory { ComputeGpa() }
 
     factory { ListDocuments(repository = get()) }

@@ -40,6 +40,7 @@ import de.fampopprol.dhbwhorb.domain.usecase.AwaitFullWeekTimetable
 import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
 import de.fampopprol.dhbwhorb.domain.usecase.DownloadDocument
 import de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades
+import de.fampopprol.dhbwhorb.domain.usecase.GetModuleDetails
 import de.fampopprol.dhbwhorb.domain.usecase.GetCachedLectures
 import de.fampopprol.dhbwhorb.domain.usecase.GetGradesForSemester
 import de.fampopprol.dhbwhorb.domain.usecase.GetSemesters
@@ -167,6 +168,7 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
     factory { GetSemesters(repository = get()) }
     factory { GetGradesForSemester(repository = get()) }
     factory { GetAllGrades(getSemesters = get(), getGradesForSemester = get()) }
+    factory { GetModuleDetails(repository = get()) }
     factory { ComputeGpa() }
     factory { ListDocuments(repository = get()) }
     factory { DownloadDocument(repository = get()) }
@@ -181,7 +183,7 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
     }
     single {
         GradesStore(
-            getAllGrades = get(), computeGpa = get(), sessionRepository = get(), scope = get()
+            getAllGrades = get(), getModuleDetails = get(), computeGpa = get(), sessionRepository = get(), scope = get()
         )
     }
     single {

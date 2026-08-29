@@ -12,6 +12,7 @@ import de.fampopprol.dhbwhorb.data.dualis.models.DualisDocument
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
 import de.fampopprol.dhbwhorb.domain.model.Lecture
+import de.fampopprol.dhbwhorb.domain.model.ModuleResultDetails
 import de.fampopprol.dhbwhorb.domain.model.Semester
 import de.fampopprol.dhbwhorb.domain.model.Session
 import de.fampopprol.dhbwhorb.domain.model.TimetableWeek
@@ -81,8 +82,12 @@ class FakeGradeRepository(
     var semesters: Outcome<List<Semester>> = Outcome.Ok(emptyList()),
     var grades: Outcome<List<GradeEntry>> = Outcome.Ok(emptyList()),
     /** Per-semester answers, for tests about ordering; [grades] answers anything not listed. */
-    var gradesBySemester: Map<String, List<GradeEntry>> = emptyMap()
+    var gradesBySemester: Map<String, List<GradeEntry>> = emptyMap(),
+    var moduleDetails: Outcome<ModuleResultDetails> = Outcome.Err(AppError.Unexpected("no details configured"))
 ) : GradeRepository {
+
+    /** Every result id the details were asked for, in order. */
+    val detailRequests = mutableListOf<String>()
 
     /** Every (semester id, forceRefresh) pair this was asked for, in order. */
     val requests = mutableListOf<Pair<String, Boolean>>()
@@ -95,6 +100,11 @@ class FakeGradeRepository(
     ): Outcome<List<GradeEntry>> {
         requests += semester.id to forceRefresh
         return gradesBySemester[semester.id]?.let { Outcome.Ok(it) } ?: grades
+    }
+
+    override suspend fun getModuleDetails(resultId: String): Outcome<ModuleResultDetails> {
+        detailRequests += resultId
+        return moduleDetails
     }
 }
 

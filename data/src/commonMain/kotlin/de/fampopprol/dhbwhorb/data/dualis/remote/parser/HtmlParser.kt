@@ -210,6 +210,29 @@ class HtmlParser {
      * Check if a grade page is valid by looking for expected content.
      * @returns true if the page appears to be a valid grade page
      */
+    /**
+     * The "Ergebnisdetails" pop-up of a single module result.
+     *
+     * It is a pop-up template, so none of the markers of the full pages apply: no navigation, no
+     * semester dropdown. What it always carries is the pop-up body and its results table; a
+     * module with no attempt recorded yet still ships both, only with no data rows.
+     */
+    fun isValidModuleDetailsPage(htmlContent: String): Boolean {
+        val isPopUp = htmlContent.contains("popUpBody", ignoreCase = true) ||
+            htmlContent.contains("pageContentPopUp", ignoreCase = true)
+        val hasResultsTable = htmlContent.contains("class=\"tb\"", ignoreCase = true)
+        val isNotRedirect = !isRedirectPage(htmlContent)
+
+        val isValid = isPopUp && hasResultsTable && isNotRedirect
+        if (!isValid) {
+            Napier.w(
+                "Invalid module details page: isPopUp=$isPopUp, hasResultsTable=$hasResultsTable, isNotRedirect=$isNotRedirect",
+                tag = TAG
+            )
+        }
+        return isValid
+    }
+
     fun isValidGradePage(htmlContent: String): Boolean {
         // A valid grade page should have the semester dropdown
         val hasSemesterDropdown = htmlContent.contains("id=\"semester\"", ignoreCase = true)

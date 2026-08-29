@@ -19,7 +19,14 @@ data class GradeEntry(
     val moduleName: String,
     val grade: String?,
     val credits: Double,
-    val status: String?
+    val status: String?,
+    /**
+     * Id of the module's details page in Dualis, when its row links one.
+     *
+     * Null means the details cannot be looked up for this entry — the screen then offers no way
+     * in rather than opening an empty sheet.
+     */
+    val resultId: String? = null
 ) {
     /** The grade as a number, or null when it is not numeric ("b", "n.b.", not graded yet). */
     val numericGrade: Double? get() = grade?.replace(',', '.')?.toDoubleOrNull()

@@ -13,6 +13,7 @@ import de.fampopprol.dhbwhorb.domain.model.SemesterOrder
 import de.fampopprol.dhbwhorb.domain.repository.SessionRepository
 import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
 import de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades
+import de.fampopprol.dhbwhorb.domain.usecase.GetModuleDetails
 import de.fampopprol.dhbwhorb.presentation.store.BaseStore
 import de.fampopprol.dhbwhorb.presentation.store.EffectScope
 import de.fampopprol.dhbwhorb.presentation.store.SessionScopedStore
@@ -20,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 
 class GradesStore(
     private val getAllGrades: GetAllGrades,
+    private val getModuleDetails: GetModuleDetails,
     private val computeGpa: ComputeGpa,
     private val sessionRepository: SessionRepository,
     scope: CoroutineScope
@@ -28,8 +30,16 @@ class GradesStore(
     scope = scope
 ), SessionScopedStore {
 
-    /** Every intent loads grades, so only one of them may be in flight. */
-    override fun dedupeKey(intent: GradesIntent): Any = "grades"
+    /**
+     * One grade load at a time — but opening a module is its own piece of work.
+     *
+     * Sharing the key would mean a tap on a module gets dropped while a pull-to-refresh is still
+     * running, which is exactly when the user is most likely to tap something.
+     */
+    override fun dedupeKey(intent: GradesIntent): Any = when (intent) {
+        is GradesIntent.ModuleOpened, GradesIntent.ModuleClosed -> "module-details"
+        else -> "grades"
+    }
 
     override fun reduce(state: GradesState, msg: GradesMsg): GradesState = reduceGrades(state, msg)
 
@@ -46,6 +56,28 @@ class GradesStore(
             }
 
             GradesIntent.Refresh -> load(isRefresh = true)
+
+            is GradesIntent.ModuleOpened -> openModule(intent.entry)
+
+            GradesIntent.ModuleClosed -> emit(GradesMsg.DetailsDismissed)
+        }
+    }
+
+    /**
+     * Opens the details sheet and fetches what Dualis records behind the module.
+     *
+     * The sheet opens first and fills in afterwards: the rows the app already has are shown while
+     * the page loads, so a slow network delays the breakdown, not the reaction to the tap. A row
+     * without a result id has no page to fetch — the sheet then shows only what is known locally.
+     */
+    private suspend fun EffectScope<GradesMsg, GradesEffect>.openModule(entry: GradeEntry) {
+        emit(GradesMsg.DetailsRequested(entry))
+
+        val resultId = entry.resultId ?: return
+
+        when (val result = getModuleDetails(resultId)) {
+            is Outcome.Ok -> emit(GradesMsg.DetailsLoaded(result.value))
+            is Outcome.Err -> emit(GradesMsg.DetailsFailed(result.error))
         }
     }
 
@@ -120,4 +152,30 @@ fun reduceGrades(state: GradesState, msg: GradesMsg): GradesState = when (msg) {
     GradesMsg.LoginRequired -> state.copy(requiresLogin = true, error = null)
 
     GradesMsg.LoadFinished -> state.copy(isLoading = false, isRefreshing = false)
+
+    is GradesMsg.DetailsRequested -> state.copy(
+        selectedModule = msg.entry,
+        moduleDetails = null,
+        detailsError = null,
+        // Nothing to wait for when the row carries no id, so the sheet must not spin forever.
+        isLoadingDetails = msg.entry.resultId != null
+    )
+
+    is GradesMsg.DetailsLoaded -> state.copy(
+        moduleDetails = msg.details,
+        detailsError = null,
+        isLoadingDetails = false
+    )
+
+    is GradesMsg.DetailsFailed -> state.copy(
+        detailsError = msg.error,
+        isLoadingDetails = false
+    )
+
+    GradesMsg.DetailsDismissed -> state.copy(
+        selectedModule = null,
+        moduleDetails = null,
+        detailsError = null,
+        isLoadingDetails = false
+    )
 }

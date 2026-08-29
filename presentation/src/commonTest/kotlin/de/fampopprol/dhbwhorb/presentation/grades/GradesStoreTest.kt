@@ -8,11 +8,15 @@ package de.fampopprol.dhbwhorb.presentation.grades
 
 import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.core.error.Outcome
+import de.fampopprol.dhbwhorb.domain.model.ExamResult
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
+import de.fampopprol.dhbwhorb.domain.model.ModuleAttempt
+import de.fampopprol.dhbwhorb.domain.model.ModuleResultDetails
 import de.fampopprol.dhbwhorb.domain.model.Semester
 import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
 import de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades
 import de.fampopprol.dhbwhorb.domain.usecase.GetGradesForSemester
+import de.fampopprol.dhbwhorb.domain.usecase.GetModuleDetails
 import de.fampopprol.dhbwhorb.domain.usecase.GetSemesters
 import de.fampopprol.dhbwhorb.presentation.TestScopes
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeGradeRepository
@@ -34,7 +38,8 @@ class GradesStoreTest {
         value: String?,
         credits: Double,
         semester: Semester,
-        status: String = "bestanden"
+        status: String = "bestanden",
+        resultId: String? = null
     ) = GradeEntry(
         semesterId = semester.id,
         semesterName = semester.name,
@@ -42,7 +47,8 @@ class GradesStoreTest {
         moduleName = module,
         grade = value,
         credits = credits,
-        status = status
+        status = status,
+        resultId = resultId
     )
 
     private fun store(
@@ -52,6 +58,7 @@ class GradesStoreTest {
         val getSemesters = GetSemesters(grades)
         return GradesStore(
             getAllGrades = GetAllGrades(getSemesters, GetGradesForSemester(grades)),
+            getModuleDetails = GetModuleDetails(grades),
             computeGpa = ComputeGpa(),
             sessionRepository = session,
             scope = TestScopes.immediate()
@@ -167,6 +174,107 @@ class GradesStoreTest {
         assertEquals(6.0, state.totalCreditsEarned)
         assertEquals(1, state.modulesCompleted)
         assertEquals(2, state.grades.size, "both attempts stay visible in the semester list")
+        store.close()
+    }
+
+    @Test
+    fun openingAModule_loadsTheExamsBehindIt() = runTest {
+        val entry = grade("T4INF2001", "3,2", 6.0, sose2026, resultId = "394485214191519")
+        val details = ModuleResultDetails(
+            moduleNumber = "T4INF2001",
+            moduleName = "Mathematik III",
+            semesterName = "WiSe 2025/26",
+            attempts = listOf(
+                ModuleAttempt(
+                    number = 2,
+                    exams = listOf(
+                        ExamResult("T4INF2001.1 Angewandte Mathematik", "WiSe 2025/26", "Klausur", 100.0, null, "3,6"),
+                        ExamResult("T4INF2001.2 Statistik", "SoSe 2026", "Klausur", 100.0, null, "2,8")
+                    ),
+                    result = "3,2 bestanden (Wh.)"
+                )
+            ),
+            units = emptyList()
+        )
+        val repository = FakeGradeRepository(
+            semesters = Outcome.Ok(listOf(sose2026)),
+            grades = Outcome.Ok(listOf(entry)),
+            moduleDetails = Outcome.Ok(details)
+        )
+        val store = store(repository)
+        store.dispatch(GradesIntent.Load)
+
+        store.dispatch(GradesIntent.ModuleOpened(entry))
+
+        val state = store.state.value
+        assertEquals(listOf("394485214191519"), repository.detailRequests)
+        assertEquals(details, state.moduleDetails)
+        assertFalse(state.isLoadingDetails)
+        assertEquals(listOf("3,6", "2,8"), state.moduleDetails?.attempts?.single()?.exams?.map { it.grade })
+        store.close()
+    }
+
+    @Test
+    fun aModuleWithoutADetailsLinkOpensWithoutWaiting() = runTest {
+        // No id means no page to fetch; the sheet still opens, on what the list already knows.
+        val entry = grade("T4INF2006", null, 5.0, sose2026, status = "offen")
+        val repository = FakeGradeRepository(
+            semesters = Outcome.Ok(listOf(sose2026)),
+            grades = Outcome.Ok(listOf(entry))
+        )
+        val store = store(repository)
+        store.dispatch(GradesIntent.Load)
+
+        store.dispatch(GradesIntent.ModuleOpened(entry))
+
+        val state = store.state.value
+        assertEquals(entry, state.selectedModule)
+        assertFalse(state.isLoadingDetails, "nothing is being fetched")
+        assertTrue(repository.detailRequests.isEmpty())
+        store.close()
+    }
+
+    @Test
+    fun theSheetOffersEveryRowOfTheModuleWhileItLoads() = runTest {
+        // A repeated module has one row per semester, and both belong in the sheet.
+        val failed = grade("T4INF2001", "4,6", 6.0, wise2526, status = "unvollständig", resultId = "1")
+        val passed = grade("T4INF2001", "3,2", 6.0, sose2026, status = "bestanden (Wh.)", resultId = "1")
+        val other = grade("T4INF2004", "2,9", 6.0, wise2526)
+        val repository = FakeGradeRepository(
+            semesters = Outcome.Ok(listOf(wise2526)),
+            grades = Outcome.Ok(listOf(failed, passed, other)),
+            moduleDetails = Outcome.Err(AppError.Offline)
+        )
+        val store = store(repository)
+        store.dispatch(GradesIntent.Load)
+
+        store.dispatch(GradesIntent.ModuleOpened(passed))
+
+        val state = store.state.value
+        assertEquals(listOf("4,6", "3,2"), state.selectedModuleEntries.map { it.grade })
+        assertEquals(AppError.Offline, state.detailsError, "a failed fetch is not a failed screen")
+        store.close()
+    }
+
+    @Test
+    fun closingTheSheet_forgetsWhatWasInIt() = runTest {
+        val entry = grade("T4INF4211", "1,0", 5.0, sose2026, resultId = "396314694963893")
+        val repository = FakeGradeRepository(
+            semesters = Outcome.Ok(listOf(sose2026)),
+            grades = Outcome.Ok(listOf(entry)),
+            moduleDetails = Outcome.Ok(
+                ModuleResultDetails("T4INF4211", "Compilerbau", "SoSe 2026", emptyList(), emptyList())
+            )
+        )
+        val store = store(repository)
+        store.dispatch(GradesIntent.Load)
+        store.dispatch(GradesIntent.ModuleOpened(entry))
+
+        store.dispatch(GradesIntent.ModuleClosed)
+
+        val state = store.state.value
+        assertNull(state.selectedModule)
+        assertNull(state.moduleDetails)
         store.close()
     }
 

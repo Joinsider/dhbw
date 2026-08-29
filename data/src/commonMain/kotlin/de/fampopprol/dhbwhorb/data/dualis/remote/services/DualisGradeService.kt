@@ -12,11 +12,13 @@ import de.fampopprol.dhbwhorb.core.error.map
 import de.fampopprol.dhbwhorb.data.dualis.demo.DemoDataProvider
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.GradeParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.HtmlParser
+import de.fampopprol.dhbwhorb.data.dualis.remote.parser.ModuleDetailsParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
 import de.fampopprol.dhbwhorb.data.storage.database.dao.grades.GradeCacheMetadataDao
 import de.fampopprol.dhbwhorb.data.storage.database.dao.grades.GradeDao
 import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeCacheMetadata
 import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeEntity
+import de.fampopprol.dhbwhorb.domain.model.ModuleResultDetails
 import de.fampopprol.dhbwhorb.domain.model.Semester
 import io.github.aakira.napier.Napier
 import kotlin.time.Clock
@@ -34,6 +36,7 @@ class DualisGradeService(
     private val gradeDao: GradeDao,
     private val gradeCacheMetadataDao: GradeCacheMetadataDao,
     private val gradeParser: GradeParser = GradeParser(),
+    private val moduleDetailsParser: ModuleDetailsParser = ModuleDetailsParser(),
     private val htmlParser: HtmlParser = HtmlParser()
 ) {
     companion object {
@@ -100,6 +103,34 @@ class DualisGradeService(
         // A failed cache write must not fail the request: the grades are already in hand.
         cacheGrades(grades, studentId, semester.id)
         return Outcome.Ok(grades)
+    }
+
+    /**
+     * The exams behind one module result — Dualis' "Ergebnisdetails" pop-up.
+     *
+     * Not cached: it is opened for one module at a time, on demand, and a stale attempt list is
+     * worse than a short wait. The menu argument is the grade page's (`-N000307`), because that
+     * is the page the id was read from.
+     */
+    suspend fun getModuleDetails(resultId: String): Outcome<ModuleResultDetails> {
+        if (sessionManager.isDemoMode()) {
+            return DemoDataProvider.demoModuleDetails(resultId)
+                ?.let { Outcome.Ok(it) }
+                ?: Outcome.Err(AppError.Parse("module details", "no result recorded for $resultId"))
+        }
+
+        val html = gateway.fetchPage(
+            source = "module details",
+            isValid = { htmlParser.isValidModuleDetailsPage(it) },
+            buildUrl = { auth -> "$BASE_URL?APPNAME=CampusNet&PRGNAME=RESULTDETAILS&ARGUMENTS=-N${auth.sessionId},-N000307,-N$resultId" }
+        )
+
+        return when (html) {
+            is Outcome.Ok -> moduleDetailsParser.parse(html.value)
+                ?.let { Outcome.Ok(it) }
+                ?: Outcome.Err(AppError.Parse("module details", "the page carried no attempt table"))
+            is Outcome.Err -> html
+        }
     }
 
     /** The stored username doubles as the student id; it is stable and never leaves the device. */

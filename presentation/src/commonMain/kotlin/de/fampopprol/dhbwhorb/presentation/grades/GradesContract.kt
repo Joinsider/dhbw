@@ -8,6 +8,7 @@ package de.fampopprol.dhbwhorb.presentation.grades
 
 import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
+import de.fampopprol.dhbwhorb.domain.model.ModuleResultDetails
 
 /** One semester's results, in the order [GradesState.sections] puts them. */
 data class SemesterGrades(
@@ -51,8 +52,24 @@ data class GradesState(
      * load *if one is needed* rather than unconditionally — otherwise the store survives the
      * switch but the page refetches anyway, which is the reload P4 removed.
      */
-    val hasLoaded: Boolean = false
+    val hasLoaded: Boolean = false,
+    /** The module whose details are open; null when the sheet is closed. */
+    val selectedModule: GradeEntry? = null,
+    /** What Dualis lists behind [selectedModule], once it has arrived. */
+    val moduleDetails: ModuleResultDetails? = null,
+    val isLoadingDetails: Boolean = false,
+    val detailsError: AppError? = null
 ) {
+    /**
+     * Every row the list holds for the open module, oldest semester first.
+     *
+     * The local answer to "which grades are recorded": a repeated module has one row per
+     * semester, and they are worth showing even when the details page cannot be reached.
+     */
+    val selectedModuleEntries: List<GradeEntry>
+        get() = selectedModule?.let { open -> grades.filter { it.moduleNumber == open.moduleNumber } }
+            .orEmpty()
+
     /**
      * The grades grouped into the sections both UIs draw.
      *
@@ -72,6 +89,10 @@ sealed interface GradesIntent {
     /** Load only if nothing has been loaded yet. Dispatched when the screen appears. */
     data object EnsureLoaded : GradesIntent
     data object Refresh : GradesIntent
+
+    /** Open the details of one module — its attempts and the exams they are made of. */
+    data class ModuleOpened(val entry: GradeEntry) : GradesIntent
+    data object ModuleClosed : GradesIntent
 }
 
 sealed interface GradesMsg {
@@ -85,6 +106,11 @@ sealed interface GradesMsg {
     data class Failed(val error: AppError) : GradesMsg
     data object LoginRequired : GradesMsg
     data object LoadFinished : GradesMsg
+
+    data class DetailsRequested(val entry: GradeEntry) : GradesMsg
+    data class DetailsLoaded(val details: ModuleResultDetails) : GradesMsg
+    data class DetailsFailed(val error: AppError) : GradesMsg
+    data object DetailsDismissed : GradesMsg
 }
 
 sealed interface GradesEffect {

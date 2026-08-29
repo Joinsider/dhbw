@@ -5,6 +5,10 @@ import de.fampopprol.dhbwhorb.data.helpers.TimeHelper
 import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureEventEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LecturerEntity
+import de.fampopprol.dhbwhorb.domain.model.ExamResult
+import de.fampopprol.dhbwhorb.domain.model.ModuleAttempt
+import de.fampopprol.dhbwhorb.domain.model.ModuleResultDetails
+import de.fampopprol.dhbwhorb.domain.model.ModuleUnit
 import de.fampopprol.dhbwhorb.domain.model.Semester
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -313,10 +317,63 @@ object DemoDataProvider {
                 grade = module.grade,
                 credits = module.credits,
                 // Dualis writes the German words, and the app shows the column as it comes.
-                status = if (module.grade == null) "offen" else "bestanden"
+                status = if (module.grade == null) "offen" else "bestanden",
+                // The demo student can open the details of any module that has a grade.
+                resultId = module.grade?.let { "$DEMO_RESULT_ID_PREFIX${module.number}" }
             )
         }
     }
+
+    /**
+     * The exam breakdown behind a demo module.
+     *
+     * Two Bausteine for Mathematik II, one for everything else — the demo has to show the case
+     * the feature exists for, a module grade that is two exam grades together.
+     */
+    fun demoModuleDetails(resultId: String): ModuleResultDetails? {
+        val moduleNumber = resultId.removePrefix(DEMO_RESULT_ID_PREFIX)
+        val semester = demoSemesters().firstOrNull { semester ->
+            demoGrades(semester, studentId = "demo").any { it.moduleNumber == moduleNumber }
+        } ?: return null
+
+        val module = demoGrades(semester, studentId = "demo")
+            .firstOrNull { it.moduleNumber == moduleNumber } ?: return null
+
+        val exams = if (moduleNumber == "T3INF2001") {
+            listOf(
+                ExamResult("$moduleNumber.1 Analysis", semester.name, "Klausur", 100.0, null, "1,7"),
+                ExamResult("$moduleNumber.2 Lineare Algebra", semester.name, "Klausur", 100.0, null, "2,3")
+            )
+        } else {
+            listOf(
+                ExamResult("Modulabschlussleistungen", semester.name, "Klausur", 100.0, null, module.grade)
+            )
+        }
+
+        return ModuleResultDetails(
+            moduleNumber = moduleNumber,
+            moduleName = module.moduleName,
+            semesterName = semester.name,
+            attempts = listOf(
+                ModuleAttempt(
+                    number = 1,
+                    exams = exams,
+                    result = module.grade?.let { "$it bestanden" }
+                )
+            ),
+            units = exams.mapIndexed { index, exam ->
+                ModuleUnit(
+                    number = "$moduleNumber.${index + 1}",
+                    name = exam.unitName.orEmpty(),
+                    event = exam.unitName.orEmpty(),
+                    attended = true
+                )
+            }
+        )
+    }
+
+    /** Marks a demo id as one, so a real Dualis id can never be confused with it. */
+    private const val DEMO_RESULT_ID_PREFIX = "demo-result-"
 
     /** One row of the grade table, before it knows which semester or student it belongs to. */
     private data class DemoModule(

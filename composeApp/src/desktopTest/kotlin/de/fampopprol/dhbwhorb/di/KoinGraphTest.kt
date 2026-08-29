@@ -186,6 +186,7 @@ class KoinGraphTest {
             de.fampopprol.dhbwhorb.domain.usecase.GetSemesters::class,
             de.fampopprol.dhbwhorb.domain.usecase.GetGradesForSemester::class,
             de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades::class,
+            de.fampopprol.dhbwhorb.domain.usecase.GetModuleDetails::class,
             de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa::class,
             de.fampopprol.dhbwhorb.domain.usecase.ListDocuments::class,
             de.fampopprol.dhbwhorb.domain.usecase.DownloadDocument::class
