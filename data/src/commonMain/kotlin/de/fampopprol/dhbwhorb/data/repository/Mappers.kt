@@ -47,5 +47,6 @@ fun GradeEntity.toDomain(): GradeEntry =
         moduleName = moduleName,
         grade = grade,
         credits = credits,
-        status = status
+        status = status,
+        resultId = resultId
     )
