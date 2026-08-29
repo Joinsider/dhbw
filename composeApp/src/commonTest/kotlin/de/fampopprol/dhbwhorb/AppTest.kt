@@ -14,8 +14,7 @@ import androidx.compose.ui.test.runComposeUiTest
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
-import de.fampopprol.dhbwhorb.testutil.MockAuthenticationService
-import de.fampopprol.dhbwhorb.testutil.MockCredentialsProvider
+import de.fampopprol.dhbwhorb.testutil.WithTestKoin
 import kotlin.test.Test
 
 @OptIn(ExperimentalTestApi::class)
@@ -25,19 +24,11 @@ class AppTest {
         override val viewModelStore = ViewModelStore()
     }
 
-    private fun createMockAuthService(authenticated: Boolean = false) =
-        MockAuthenticationService(authenticated)
-
-    private fun createMockCredentialsProvider() = MockCredentialsProvider()
-
     @Test
     fun app_displaysAppContainer_initially() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                App(
-                    testAuthenticationService = createMockAuthService(authenticated = false),
-                    testCredentialsProvider = createMockCredentialsProvider()
-                )
+                WithTestKoin { App() }
             }
         }
 
@@ -49,10 +40,7 @@ class AppTest {
     fun app_displaysAppTitle_initially() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                App(
-                    testAuthenticationService = createMockAuthService(authenticated = false),
-                    testCredentialsProvider = createMockCredentialsProvider()
-                )
+                WithTestKoin { App() }
             }
         }
 
@@ -67,10 +55,7 @@ class AppTest {
     fun app_displaysLoginForm_initially() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                App(
-                    testAuthenticationService = createMockAuthService(authenticated = false),
-                    testCredentialsProvider = createMockCredentialsProvider()
-                )
+                WithTestKoin { App() }
             }
         }
 
@@ -85,10 +70,7 @@ class AppTest {
     fun app_showsLoginFormComponents() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                App(
-                    testAuthenticationService = createMockAuthService(authenticated = false),
-                    testCredentialsProvider = createMockCredentialsProvider()
-                )
+                WithTestKoin { App() }
             }
         }
 
@@ -106,10 +88,7 @@ class AppTest {
     fun app_usesCorrectTheme() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                App(
-                    testAuthenticationService = createMockAuthService(authenticated = false),
-                    testCredentialsProvider = createMockCredentialsProvider()
-                )
+                WithTestKoin { App() }
             }
         }
 
@@ -124,10 +103,7 @@ class AppTest {
     fun app_hasCorrectLayout_onWelcomeScreen() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                App(
-                    testAuthenticationService = createMockAuthService(authenticated = false),
-                    testCredentialsProvider = createMockCredentialsProvider()
-                )
+                WithTestKoin { App() }
             }
         }
 

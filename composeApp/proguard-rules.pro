@@ -49,3 +49,10 @@
 # Prevent obfuscation of Room classes
 -keepnames class * extends androidx.room.RoomDatabase
 -keepnames class androidx.room.RoomDatabase
+
+# ─── Jetpack Glance / Widget ─────────────────────────────────────────────────
+-keep class androidx.glance.** { *; }
+-keep class * extends androidx.glance.appwidget.GlanceAppWidget { *; }
+-keep class * extends androidx.glance.appwidget.GlanceAppWidgetReceiver { *; }
+-keep class de.fampopprol.dhbwhorb.widget.** { *; }
+-dontwarn androidx.glance.**

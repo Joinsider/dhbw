@@ -22,7 +22,7 @@ jobs:
     steps:
       # ── Checkout ─────────────────────────────────────────────────────────────
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Full history is required for SonarCloud blame / new-code analysis
           fetch-depth: 0
@@ -45,23 +45,35 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
+      # ── SonarQube scanner cache ────────────────────────────────────────────────
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
       # ── Gradle wrapper permission ─────────────────────────────────────────────
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ── Android unit tests ────────────────────────────────────────────────────
-      - name: Run Android unit tests
-        run: ./gradlew :composeApp:testDebugUnitTest --no-daemon --stacktrace
-
-      # ── Desktop / JVM tests ───────────────────────────────────────────────────
-      - name: Run Desktop (JVM) tests
-        run: ./gradlew :composeApp:desktopTest --no-daemon --stacktrace
+      # ── Android + Desktop tests ────────────────────────────────────────────────
+      # Unqualified, so every module runs its own: since P9 the tests live next to the code they
+      # test, not all together in :composeApp. One invocation (instead of two) avoids paying for
+      # project configuration twice; org.gradle.parallel (gradle.properties) lets the independent
+      # Android/Desktop task graphs run concurrently across modules.
+      - name: Run Android + Desktop tests
+        run: ./gradlew testDebugUnitTest desktopTest --continue --no-daemon --stacktrace
 
       # ── Kover – generate unified XML + HTML coverage report ───────────────────
+      # Unqualified, so every module with a kmpCoverage variant reports (domain, data, services,
+      # presentation, shared, core/common, composeApp) — not just composeApp. Sonar's coverage
+      # import lists every one of these paths (see build.gradle.kts); missing a module here means
+      # its code shows up as 0% covered on SonarCloud even though it has real tests.
       - name: Generate Kover coverage report (XML + HTML)
         # Always run so SonarCloud gets a report even when some tests fail
         if: always()
-        run: ./gradlew :composeApp:koverXmlReportKmpCoverage :composeApp:koverHtmlReportKmpCoverage --no-daemon
+        run: ./gradlew koverXmlReportKmpCoverage koverHtmlReportKmpCoverage --no-daemon
 
       # ── Upload JUnit test results ─────────────────────────────────────────────
       - name: Upload JUnit test results
@@ -70,8 +82,10 @@ jobs:
         with:
           name: junit-test-results
           path: |
-            composeApp/build/reports/tests/testDebugUnitTest/
-            composeApp/build/reports/tests/desktopTest/
+            */build/reports/tests/testDebugUnitTest/
+            */build/reports/tests/desktopTest/
+            core/*/build/reports/tests/testDebugUnitTest/
+            core/*/build/reports/tests/desktopTest/
           retention-days: 14
 
       # ── Upload Kover HTML report ──────────────────────────────────────────────
@@ -80,46 +94,98 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kover-coverage-report
-          path: composeApp/build/reports/kover/html/
+          path: |
+            */build/reports/kover/html/
+            core/*/build/reports/kover/html/
           retention-days: 14
 
       # ── Publish test results as PR check annotations ──────────────────────────
       - name: Publish test results
         if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
+        uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
         with:
           files: |
-            composeApp/build/test-results/testDebugUnitTest/**/*.xml
-            composeApp/build/test-results/desktopTest/**/*.xml
+            */build/test-results/testDebugUnitTest/**/*.xml
+            */build/test-results/desktopTest/**/*.xml
+            core/*/build/test-results/testDebugUnitTest/**/*.xml
+            core/*/build/test-results/desktopTest/**/*.xml
 
       # ── SonarCloud analysis ───────────────────────────────────────────────────
+      # Uses the org.sonarqube Gradle plugin (configured in build.gradle.kts) instead of the
+      # sonarcloud-github-action: it reads source sets and compiled-class locations from the
+      # Gradle model directly, so it can't drift out of sync the way hand-maintained paths in a
+      # sonar-project.properties file can. Test/coverage tasks already ran above; this just
+      # analyzes what's on disk.
       - name: SonarCloud analysis
         if: always()
-        uses: SonarSource/sonarcloud-github-action@v3
         env:
           # Set SONAR_TOKEN in:  Settings → Secrets → Actions → New repository secret
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew sonar --no-daemon -Dsonar.scm.revision=${{ github.sha }}
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Apple job: the shared framework, the Compose-free check, and the Xcode build.
+  #
+  # None of this is covered by the JVM job above — an Xcode build failure or a Compose dependency
+  # creeping into :presentation compiles perfectly well on Linux. There are no Swift tests to run
+  # yet; the iOS app has no test target.
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-apple:
+    name: Apple (Shared framework + iOS app)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          # All project settings are read from sonar-project.properties at the root
-          args: >
-            -Dsonar.scm.revision=${{ github.sha }}
+          java-version: '17'
+          distribution: 'temurin'
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # iOS / macOS native test job  (requires Apple runner & Xcode)
-  # Uncomment this job once the project is set up for iOS simulator testing.
-  # ─────────────────────────────────────────────────────────────────────────────
-  # test-ios:
-  #   name: iOS Simulator Tests
-  #   runs-on: macos-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-java@v4
-  #       with:
-  #         java-version: '17'
-  #         distribution: 'temurin'
-  #     - name: Grant execute permission
-  #       run: chmod +x gradlew
-  #     - name: Run iOS Simulator tests
-  #       run: ./gradlew :composeApp:iosSimulatorArm64Test --no-daemon
+      # Every Gradle invocation configures :composeApp, which carries the Android plugin — so even
+      # a pure iOS build needs an SDK location.
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
 
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.konan
+          key: gradle-apple-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
+          restore-keys: |
+            gradle-apple-${{ runner.os }}-
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Link Shared.framework
+        run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --no-daemon --stacktrace
+
+      # The SwiftUI app links this framework. A Compose dependency reaching :presentation compiles
+      # without complaint and breaks the app at runtime — this is what notices.
+      - name: Shared.framework must stay Compose-free
+        run: |
+          count=$(nm -gU shared/build/bin/iosSimulatorArm64/debugFramework/Shared.framework/Shared \
+            | grep -c androidx.compose || true)
+          echo "androidx.compose symbols: $count"
+          test "$count" -eq 0
+
+      # Without CODE_SIGNING_ALLOWED=NO the runner would need a signing identity. It also means no
+      # entitlements are embedded, so this proves the build, not the App Group or the Keychain
+      # group — those are checked by hand on a simulator (see .planning/HANDOFF.md §4.3).
+      - name: Build the iOS app
+        working-directory: iosApp
+        run: |
+          xcodebuild -project iosApp.xcodeproj -scheme iosApp \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
+
+      - name: Build the macOS app
+        run: ./gradlew :composeApp:compileKotlinMacosArm64 --no-daemon --stacktrace

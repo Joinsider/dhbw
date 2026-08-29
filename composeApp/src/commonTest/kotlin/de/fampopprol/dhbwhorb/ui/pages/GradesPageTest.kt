@@ -9,47 +9,57 @@ package de.fampopprol.dhbwhorb.ui.pages
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runComposeUiTest
+import de.fampopprol.dhbwhorb.core.error.Outcome
+import de.fampopprol.dhbwhorb.domain.model.Semester
+import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
+import de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades
+import de.fampopprol.dhbwhorb.domain.usecase.GetGradesForSemester
+import de.fampopprol.dhbwhorb.domain.usecase.GetModuleDetails
+import de.fampopprol.dhbwhorb.domain.usecase.GetSemesters
+import de.fampopprol.dhbwhorb.presentation.TestScopes
+import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
+import de.fampopprol.dhbwhorb.testutil.WithTestKoin
+import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
+import de.fampopprol.dhbwhorb.ui.navigation.navItemTestTag
+import de.fampopprol.dhbwhorb.testutil.fakes.FakeGradeRepository
+import de.fampopprol.dhbwhorb.testutil.fakes.FakeSessionRepository
 import kotlin.test.Test
 
+/**
+ * The page renders inside the logged-in graph, so there is no "not logged in" variant of it any
+ * more — the root shows the login screen instead. `AppRoutingTest` covers that.
+ */
 @OptIn(ExperimentalTestApi::class)
 class GradesPageTest {
 
-    @Test
-    fun gradesPage_displaysBottomNavigation_whenLoggedIn() = runComposeUiTest {
-        setContent {
-            GradesPage(
-                isLoggedIn = true
-            )
-        }
+    private val wise2526 = Semester(id = "000000015168000", name = "WiSe 2025/26")
 
-        waitForIdle()
-
-        // Page title should be visible
-        onNodeWithTag("gradesPageTitle").assertIsDisplayed()
-
-        // Bottom navigation should be visible when logged in
-        onNodeWithText("Timetable").assertIsDisplayed()
-        onNodeWithText("Settings").assertIsDisplayed()
+    private fun store(): GradesStore {
+        val repository = FakeGradeRepository(
+            semesters = Outcome.Ok(listOf(wise2526)),
+            grades = Outcome.Ok(emptyList())
+        )
+        return GradesStore(
+            getAllGrades = GetAllGrades(GetSemesters(repository), GetGradesForSemester(repository)),
+            getModuleDetails = GetModuleDetails(repository),
+            computeGpa = ComputeGpa(),
+            sessionRepository = FakeSessionRepository(canAuthenticate = true),
+            scope = TestScopes.immediate()
+        )
     }
 
     @Test
-    fun gradesPage_hidesBottomNavigation_whenNotLoggedIn() = runComposeUiTest {
-        setContent {
-            GradesPage(
-                isLoggedIn = false
-            )
-        }
-
+    fun gradesPage_displaysBottomNavigation() = runComposeUiTest {
+        val store = store()
+        setContent { WithTestKoin { GradesPage(store = store) } }
         waitForIdle()
 
-        // Page title should still be visible
         onNodeWithTag("gradesPageTitle").assertIsDisplayed()
-
-        // Bottom navigation should not be visible when not logged in
-        onNodeWithText("Timetable").assertDoesNotExist()
-        onNodeWithText("Settings").assertDoesNotExist()
+        // Tags instead of labels: nav captions are localised string resources.
+        onNodeWithTag(navItemTestTag(BottomNavItem.TIMETABLE)).assertIsDisplayed()
+        onNodeWithTag(navItemTestTag(BottomNavItem.SETTINGS)).assertIsDisplayed()
+        store.close()
     }
+
 }
-

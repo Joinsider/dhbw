@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.de.fampopprol.dhbwhorb</string>
+	</array>
+	<!-- Same group, and first in the list, as in iosApp.entitlements. The keychain puts an item
+	     into the first group of the process that writes it and looks it up the same way, so
+	     listing the app's group here is what lets the extension read the credentials the app
+	     stored — no access group has to be named in code, which is good, because the team prefix
+	     that completes it is only known at signing time. -->
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)de.fampopprol.dhbw</string>
+	</array>
+</dict>
+</plist>

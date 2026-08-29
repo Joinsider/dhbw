@@ -2,11 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Keychain Access for SecureStorage -->
-    <key>keychain-access-groups</key>
-    <array>
-        <string>$(AppIdentifierPrefix)de.fampopprol.dhbw</string>
-    </array>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.de.fampopprol.dhbwhorb</string>
+	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)de.fampopprol.dhbw</string>
+	</array>
 </dict>
 </plist>
-
