@@ -6,6 +6,7 @@
 
 package de.fampopprol.dhbwhorb.services.notifications
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -26,6 +27,7 @@ import kotlin.test.assertTrue
  * up yet would see. What's under test here is the scheduler's own state machine: starting,
  * ignoring a second start, and stopping — not what a completed check does.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class LectureMonitorSchedulerTest {
 
     @BeforeTest

@@ -83,9 +83,12 @@ private fun HelpActionButtons(onLogout: () -> Unit, showLogout: Boolean) {
                 PrivacyPolicyButton(modifier = Modifier.weight(1f).height(48.dp))
                 GithubIssuesButton(modifier = Modifier.weight(1f).height(48.dp))
                 if (showLogout) {
+                    // weight(1f), not fillMaxWidth(): a fillMaxWidth() sibling in a Row is measured
+                    // before its weighted siblings and claims the whole row for itself, leaving the
+                    // other two at zero width — invisible next to a logout button spanning the row.
                     LogoutButton(
                         onLogout = onLogout,
-                        modifier = Modifier.testTag("logoutButton").fillMaxWidth().height(48.dp)
+                        modifier = Modifier.testTag("logoutButton").weight(1f).height(48.dp)
                     )
                 }
             }
@@ -117,7 +120,7 @@ private fun PrivacyPolicyButton(modifier: Modifier = Modifier) {
             hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
             uriHandler.openUri("https://www.datenschutz.dhbw.joinside.de")
         },
-        modifier = modifier,
+        modifier = modifier.testTag("privacyPolicyButton"),
         shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
@@ -149,7 +152,7 @@ private fun GithubIssuesButton(modifier: Modifier = Modifier) {
             hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
             uriHandler.openUri("https://github.com/Joinsider/dhbw/issues/")
         },
-        modifier = modifier,
+        modifier = modifier.testTag("githubIssuesButton"),
         shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,

@@ -174,6 +174,7 @@ private fun UsernameField(
         supportingText = {
             usernameError?.let {
                 Text(
+                    modifier = Modifier.testTag("usernameErrorText"),
                     text = it.toMessage(), color = MaterialTheme.colorScheme.error
                 )
             }
@@ -196,7 +197,7 @@ private fun handleUsernameFieldKeyEvent(
 @Composable
 private fun UsernameClearButton(isVisible: Boolean, onClear: () -> Unit) {
     if (isVisible) {
-        IconButton(onClick = onClear) {
+        IconButton(onClick = onClear, modifier = Modifier.testTag("usernameClearButton")) {
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = stringResource(Res.string.cancel)
@@ -259,6 +260,7 @@ private fun PasswordField(
         supportingText = {
             passwordError?.let { error ->
                 Text(
+                    modifier = Modifier.testTag("passwordErrorText"),
                     text = error.toMessage(), color = MaterialTheme.colorScheme.error
                 )
             }
@@ -300,7 +302,7 @@ private fun PasswordVisibilityToggle(
     onToggle: () -> Unit
 ) {
     if (isVisible) {
-        IconButton(onClick = onToggle) {
+        IconButton(onClick = onToggle, modifier = Modifier.testTag("passwordVisibilityToggle")) {
             Icon(
                 imageVector = if (isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                 contentDescription = if (isPasswordVisible) "Hide password" else "Show password"

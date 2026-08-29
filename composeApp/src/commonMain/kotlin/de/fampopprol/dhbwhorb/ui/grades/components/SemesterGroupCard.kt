@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
@@ -46,7 +47,7 @@ fun SemesterGroupCard(
     var expanded by remember { mutableStateOf(false) }
 
     ElevatedCard(
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth().testTag("semesterGroupCard_$semesterName")
     ) {
         Column(
             modifier = Modifier.fillMaxWidth()
@@ -75,6 +76,7 @@ private fun SemesterCardHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("semesterCardHeader")
             .clickable(onClick = onToggleExpanded)
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -148,6 +150,7 @@ private fun GradeRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .testTag("gradeRow_${grade.moduleNumber}")
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically

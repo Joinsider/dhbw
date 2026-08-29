@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -49,6 +50,7 @@ fun EventModule(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .testTag("eventModule_${lecture.id}")
             .pointerInput(Unit) {
                 detectTapGestures(onTap = { onClick() })
             }

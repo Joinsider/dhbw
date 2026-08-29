@@ -113,7 +113,8 @@ private fun GradesLoginRequiredMessage() {
     ) {
         Text(
             text = stringResource(Res.string.login_required_for_grades),
-            style = MaterialTheme.typography.bodyLarge
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.testTag("gradesLoginRequiredMessage")
         )
     }
 }
@@ -160,7 +161,7 @@ private fun GradesErrorState(error: AppError, onRetry: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge
             )
 
-            Button(onClick = onRetry) {
+            Button(onClick = onRetry, modifier = Modifier.testTag("gradesRetryButton")) {
                 Text(text = stringResource(Res.string.retry))
             }
         }

@@ -45,6 +45,13 @@ kotlin {
             implementation(libs.androidx.core.ktx)
         }
 
+        androidUnitTest.dependencies {
+            // BroadcastReceiver.goAsync()'s PendingResult only behaves like the real thing under
+            // Robolectric's shadow — a plain JVM test sees the unimplemented android.jar stub.
+            implementation(libs.robolectric)
+            implementation(libs.androidx.test.core)
+        }
+
         iosMain.dependencies {
         }
 

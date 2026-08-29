@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.resources.Res
@@ -64,6 +65,7 @@ fun LectureDetailsDialog(
     val hapticFeedback = LocalHapticFeedback.current
 
     AlertDialog(
+        modifier = Modifier.testTag("lectureDetailsDialog"),
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -75,6 +77,7 @@ fun LectureDetailsDialog(
         text = { LectureDetailsContent(lecture) },
         confirmButton = {
             TextButton(
+                modifier = Modifier.testTag("lectureDetailsCloseButton"),
                 onClick = {
                     onDismiss()
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -96,7 +99,8 @@ private fun LectureDetailsContent(lecture: Lecture) {
         // Subject name (use full name, fallback to short name)
         DetailRow(
             label = stringResource(Res.string.subject),
-            value = lecture.displayName
+            value = lecture.displayName,
+            valueTestTag = "lectureDetailsSubjectValue"
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -147,10 +151,12 @@ private fun LectureLocationRow(lecture: Lecture) {
     if (lecture.location.isEmpty()) return
 
     val roomCount = lecture.location.count { it == ',' } + 1
-    DetailRow(
-        label = if (roomCount > 1) stringResource(Res.string.rooms) else stringResource(Res.string.room),
-        value = lecture.location
-    )
+    Column(modifier = Modifier.testTag("lectureLocationRow")) {
+        DetailRow(
+            label = if (roomCount > 1) stringResource(Res.string.rooms) else stringResource(Res.string.room),
+            value = lecture.location
+        )
+    }
     Spacer(modifier = Modifier.height(8.dp))
 }
 
@@ -159,11 +165,13 @@ private fun LectureLecturersRow(lecture: Lecture) {
     // Lecturer
     if (lecture.lecturers.isEmpty() || lecture.lecturers.all { it == "Unknown" }) return
 
-    DetailRow(
-        label = if (lecture.lecturers.size > 1) stringResource(Res.string.lecturers) else stringResource(Res.string.lecturer),
-        // value should be one lecturer per line for better readability
-        value = lecture.lecturers.joinToString("\n")
-    )
+    Column(modifier = Modifier.testTag("lectureLecturersRow")) {
+        DetailRow(
+            label = if (lecture.lecturers.size > 1) stringResource(Res.string.lecturers) else stringResource(Res.string.lecturer),
+            // value should be one lecturer per line for better readability
+            value = lecture.lecturers.joinToString("\n")
+        )
+    }
     Spacer(modifier = Modifier.height(8.dp))
 }
 
@@ -176,6 +184,7 @@ private fun LectureTestExamBanner(lecture: Lecture) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("lectureTestExamBanner")
             .background(
                 MaterialTheme.colorScheme.errorContainer,
                 shape = RoundedCornerShape(8.dp)
@@ -197,7 +206,8 @@ private fun LectureTestExamBanner(lecture: Lecture) {
 @Composable
 private fun DetailRow(
     label: String,
-    value: String
+    value: String,
+    valueTestTag: String? = null
 ) {
     Column {
         Text(
@@ -208,6 +218,7 @@ private fun DetailRow(
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
+            modifier = valueTestTag?.let { Modifier.testTag(it) } ?: Modifier,
             text = value,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface
