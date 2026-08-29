@@ -80,7 +80,8 @@ class GradesStore(
         return GradesMsg.GradesLoaded(
             grades = ordered,
             average = gpa.average,
-            earnedCredits = gpa.earnedCredits
+            earnedCredits = gpa.earnedCredits,
+            completedModules = gpa.completedModules
         )
     }
 }
@@ -103,6 +104,7 @@ fun reduceGrades(state: GradesState, msg: GradesMsg): GradesState = when (msg) {
         grades = msg.grades,
         overallGpa = msg.average,
         totalCreditsEarned = msg.earnedCredits,
+        modulesCompleted = msg.completedModules,
         error = null,
         hasLoaded = true
     )

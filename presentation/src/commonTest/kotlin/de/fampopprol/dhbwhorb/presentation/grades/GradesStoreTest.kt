@@ -29,16 +29,21 @@ class GradesStoreTest {
     private val wise2526 = Semester(id = "000000015168000", name = "WiSe 2025/26")
     private val sose2026 = Semester(id = "000000015158000", name = "SoSe 2026")
 
-    private fun grade(module: String, value: String?, credits: Double, semester: Semester) =
-        GradeEntry(
-            semesterId = semester.id,
-            semesterName = semester.name,
-            moduleNumber = module,
-            moduleName = module,
-            grade = value,
-            credits = credits,
-            status = "bestanden"
-        )
+    private fun grade(
+        module: String,
+        value: String?,
+        credits: Double,
+        semester: Semester,
+        status: String = "bestanden"
+    ) = GradeEntry(
+        semesterId = semester.id,
+        semesterName = semester.name,
+        moduleNumber = module,
+        moduleName = module,
+        grade = value,
+        credits = credits,
+        status = status
+    )
 
     private fun store(
         grades: FakeGradeRepository,
@@ -136,6 +141,32 @@ class GradesStoreTest {
 
         assertEquals(2.0, store.state.value.overallGpa)
         assertEquals(2, store.state.value.modulesCompleted, "'b' counts as completed, null does not")
+        store.close()
+    }
+
+    @Test
+    fun aRepeatedModuleIsCountedOnce() = runTest {
+        // Dualis lists each attempt under the semester it happened in, so a module that was
+        // failed and repeated arrives twice. Counting both credited the failed attempt's credits
+        // and pulled the average towards a grade the transcript no longer holds.
+        val repository = FakeGradeRepository(
+            semesters = Outcome.Ok(listOf(wise2526)),
+            grades = Outcome.Ok(
+                listOf(
+                    grade("T4INF2001", "4,6", 6.0, wise2526, status = "unvollständig"),
+                    grade("T4INF2001", "3,2", 6.0, sose2026, status = "bestanden (Wh.)")
+                )
+            )
+        )
+        val store = store(repository)
+
+        store.dispatch(GradesIntent.Load)
+
+        val state = store.state.value
+        assertEquals(3.2, state.overallGpa!!, absoluteTolerance = 1e-9)
+        assertEquals(6.0, state.totalCreditsEarned)
+        assertEquals(1, state.modulesCompleted)
+        assertEquals(2, state.grades.size, "both attempts stay visible in the semester list")
         store.close()
     }
 
