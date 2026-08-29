@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  Android 12+. Two paths, both of which would otherwise carry the credentials to a fresh install:
+  cloud backup, and the device-to-device transfer when someone sets up a new phone.
+
+  See backup_rules.xml for why the file is excluded rather than restored-and-cleared.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="dualis_secure_prefs.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="dualis_secure_prefs.xml" />
+    </device-transfer>
+</data-extraction-rules>

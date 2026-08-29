@@ -1,0 +1,124 @@
+================================================================================
+                    PHASE 8 QUICK REFERENCE CARD
+================================================================================
+
+WHAT IS THIS PLAN?
+  Complete specification for Phase 8: Critical Stability Fixes
+  24 atomic, testable tasks organized in 6 groups
+  Maps 9 architecture decisions to concrete implementation steps
+  3-4 week timeline with profiler-based verification
+
+WHERE DO I START?
+  1. README.md — Entry point for all roles
+  2. PLAN_OVERVIEW.md — Executive summary (5 min read)
+  3. TASKS_INDEX.md — Pick your task
+  4. 08-PLAN.md — Full details with implementation steps
+
+WHAT ARE THE 24 TASKS?
+
+  Group 1 (MainActivity Refactoring)
+    1.1 — Early UI rendering with skeleton states (3-4 days)
+    1.2 — Async database initialization (2-3 days)
+    1.3 — Async HttpClient initialization (2-3 days)
+    1.4 — Lazy-load API clients per feature (3-4 days)
+
+  Group 2 (ViewModel Lifecycle)
+    2.1 — Add cleanup() methods to ViewModels (1-2 days)
+    2.2 — Call cleanup on composable disposal (2-3 days)
+    2.3 — Timeout fallback for slow init (1-2 days)
+
+  Group 3 (Service Initialization)
+    3.1 — Document service initialization order (1 day)
+    3.2 — Add null safety checks (2 days)
+
+  Group 4 (Memory Verification)
+    4.1 — Verify no orphaned coroutines (1-2 days)
+    4.2 — Verify memory stability (2-3 days)
+
+  Group 5 (Startup Performance)
+    5.1 — Verify ANR elimination via Profiler (2-3 days)
+    5.2 — Document performance baseline (1 day)
+
+  Group 6 (Testing & Sign-Off)
+    6.1 — Create integration test suite (2-3 days)
+    6.2 — Verification checklist & sign-off (1 day)
+
+TOTAL: 3-4 weeks
+
+HOW DO I VERIFY SUCCESS?
+
+  Startup Performance: T2 < 2 seconds (SystemTrace)
+  ANR Elimination: Zero ANR in next release cycle (Profiler)
+  Memory Stability: <5% growth after 5+ transitions (Memory Profiler)
+  Visual Loading: Skeleton UI within 500ms (UI verification)
+  Test Coverage: Unit + integration tests passing (CI/CD)
+
+WHAT'S THE RISK LEVEL?
+
+  HIGH:   MainActivity.kt split (Task 1.1)
+  MEDIUM: DatabaseInitializer, HttpClientInitializer (Tasks 1.2-1.3)
+  MEDIUM: ViewModel cleanup() calling (Task 2.2)
+  LOW:    Null checks and documentation (Tasks 3.1-3.2)
+
+WHICH FILES CHANGE?
+
+  Create New (7 files):
+    DatabaseInitializer.kt
+    HttpClientInitializer.kt
+    ViewModelCleanupTest.kt
+    LazyLoadingTest.kt
+    StartupPerformanceTest.kt
+    SERVICE_INITIALIZATION_ORDER.md
+    TEST_RESULTS_*.md (3 files)
+
+  Modify Existing (~20 files):
+    MainActivity.kt (major refactor)
+    TimetableViewModel.kt, GradesViewModel.kt, DocumentsViewModel.kt
+    TimetablePage.kt, GradesPage.kt, DocumentsPage.kt
+    LectureService.kt, DualisLectureService.kt
+    DualisApiClient.kt, AuthenticationService.kt
+    (See 08-PLAN.md for complete list)
+
+HOW DO I TRACK PROGRESS?
+
+  1. Open TASKS_INDEX.md
+  2. Check off tasks as they complete
+  3. Verify all "Success Criteria" met before moving to dependent tasks
+  4. Final sign-off in SIGN_OFF.md when all 24 tasks complete
+
+WHAT IF I HAVE QUESTIONS?
+
+  Architecture decisions & rationale → 08-CONTEXT.md
+  Discussion & Q&A → 08-DISCUSSION-LOG.md
+  Implementation steps → 08-PLAN.md (specific task section)
+  Testing procedures → 08-PLAN.md Task Groups 4-6
+  High-level overview → PLAN_OVERVIEW.md
+
+WHEN CAN WE START?
+
+  Immediately. Plan is ready for execution.
+  Assign Task 1.1 to first developer.
+  Set up Android Profiler environment in parallel.
+  Daily syncs first 2 weeks to establish async initialization pattern.
+
+WHAT'S THE SUCCESS DEFINITION?
+
+  All 24 tasks complete + all success criteria verified + all tests passing
+  + Phase 8 SIGN_OFF.md signed off by tech lead
+
+================================================================================
+
+LOCATION: /Users/johannes/StudioProjects/dhbw/.planning/phases/08-critical-stability/
+
+KEY FILES:
+  08-PLAN.md ............. Full specification (START HERE for developers)
+  README.md .............. Entry point (START HERE for all roles)
+  PLAN_OVERVIEW.md ....... Executive summary (5-minute read)
+  TASKS_INDEX.md ......... Task lookup and progress tracking
+  08-CONTEXT.md .......... Architecture decisions and rationale
+  08-DISCUSSION-LOG.md ... Discussion record and Q&A
+
+CREATED: 2026-04-10
+STATUS: ✅ Ready for Execution
+
+================================================================================

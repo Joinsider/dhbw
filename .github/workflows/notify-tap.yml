@@ -1,0 +1,25 @@
+name: Notify Homebrew Tap on Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag to dispatch (e.g. v2.1.0)"
+        required: true
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger homebrew-apps update
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+          repository: Joinsider/homebrew-apps
+          event-type: new-dhbw-release
+          client-payload: |
+            {
+              "version": "${{ github.event.release.tag_name || github.event.inputs.version }}"
+            }
