@@ -17,6 +17,16 @@ struct GradesScreen: View {
 
     private var state: GradesState { model.grades.state }
 
+    /// The store owns which module is open; the sheet only reports being dismissed.
+    private var detailsPresented: Binding<Bool> {
+        Binding(
+            get: { state.selectedModule != nil },
+            set: { isPresented in
+                if !isPresented { model.grades.dispatch(GradesIntentModuleClosed()) }
+            }
+        )
+    }
+
     var body: some View {
         List {
             if state.requiresLogin {
@@ -58,7 +68,16 @@ struct GradesScreen: View {
                     ForEach(visibleSections, id: \.semesterName) { section in
                         Section {
                             ForEach(section.grades, id: \.moduleNumber) { entry in
+                                // A tap gesture rather than a Button: a Button in these rows
+                                // never receives the tap — verified on the simulator, where the
+                                // action never ran. The trait keeps VoiceOver told what it is.
                                 GradeRow(entry: entry)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        model.grades.dispatch(GradesIntentModuleOpened(entry: entry))
+                                    }
+                                    .accessibilityAddTraits(.isButton)
+                                    .accessibilityIdentifier("gradeRow_\(entry.moduleNumber)")
                             }
                         } header: {
                             SemesterHeader(section: section)
@@ -71,6 +90,17 @@ struct GradesScreen: View {
         .navigationTitle("grades.title")
         .searchable(text: $searchText, prompt: Text("grades.searchPrompt"))
         .refreshable { model.grades.dispatch(GradesIntentRefresh()) }
+        .sheet(isPresented: detailsPresented) {
+            if let module = state.selectedModule {
+                ModuleDetailsSheet(
+                    module: module,
+                    entries: state.selectedModuleEntries,
+                    details: state.moduleDetails,
+                    isLoading: state.isLoadingDetails,
+                    error: state.detailsError
+                )
+            }
+        }
         .task {
             // EnsureLoaded, not Load: the store outlives the tab, and asking for a reload on every
             // appearance is the request storm P4 removed.
@@ -166,17 +196,13 @@ private struct SemesterHeader: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// Credit-weighted, the same rule `ComputeGpa` applies — but for one section only, which the
-    /// store does not carry. Modules without a numeric grade or without credits do not count.
+    /// `ComputeGpa` for one section, which is what the store does not carry.
+    ///
+    /// Called rather than reimplemented: this used to be the same loop written a second time in
+    /// Swift, and when the shared rule learnt to skip failed attempts and repeated modules, the
+    /// header kept averaging them — a semester average that disagreed with the total above it.
     private var semesterAverage: Double? {
-        var points = 0.0
-        var credits = 0.0
-        for entry in section.grades {
-            guard let value = entry.numericGrade?.doubleValue, entry.credits > 0 else { continue }
-            points += value * entry.credits
-            credits += entry.credits
-        }
-        return credits > 0 ? points / credits : nil
+        ComputeGpa().invoke(grades: section.grades).average?.doubleValue
     }
 }
 

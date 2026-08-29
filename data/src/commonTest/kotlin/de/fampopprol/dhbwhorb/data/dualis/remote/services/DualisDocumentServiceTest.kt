@@ -6,6 +6,7 @@ import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
 import de.fampopprol.dhbwhorb.data.dualis.remote.models.AuthData
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.DocumentParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.HtmlParser
+import de.fampopprol.dhbwhorb.data.dualis.remote.parser.fixtures.DownloadFixtures
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.fixtures.DualisFixtures
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.ReAuthenticator
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
@@ -25,6 +26,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
@@ -259,4 +261,77 @@ class DualisDocumentServiceTest {
 
         assertEquals(Outcome.Err(AppError.Offline), result)
     }
+
+    /**
+     * The login flow a re-authentication needs, as a mock engine: form post, then the redirect.
+     */
+    private fun workingAuthService(): AuthenticationService {
+        var authRequestCount = 0
+        val authMockEngine = MockEngine {
+            authRequestCount++
+            if (authRequestCount == 1) {
+                respond(
+                    content = ByteReadChannel("Redirecting..."),
+                    status = HttpStatusCode.OK,
+                    headers = headers {
+                        append("refresh", "0; URL=https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=MLSSTART&ARGUMENTS=-Nnew_session")
+                        append(HttpHeaders.SetCookie, "cnsc=new_cookie")
+                    }
+                )
+            } else {
+                respond(
+                    content = ByteReadChannel("<html><body>Herzlich willkommen, Test User! Home Notenspiegel</body></html>"),
+                    status = HttpStatusCode.OK,
+                    headers = headers { append(HttpHeaders.ContentType, "text/html") }
+                )
+            }
+        }
+        val authClient = HttpClient(authMockEngine) {
+            install(HttpCookies)
+            expectSuccess = false
+        }
+        return AuthenticationService(sessionManager, authClient)
+    }
+
+    @Test
+    fun downloadDocument_retriesWhenDualisAnswersWithItsTimeoutPage() = runTest {
+        // The download endpoint reports an expired session with HTTP 200 and a page, so the
+        // status code cannot be what decides. Before this, the page itself was handed on as the
+        // document and shown to the user as a PDF that no viewer could open.
+        var downloads = 0
+        val mockEngine = MockEngine {
+            downloads++
+            val body = if (downloads == 1) DownloadFixtures.SESSION_TIMEOUT_PAGE else pdfBytes
+            respond(content = ByteReadChannel(body), status = HttpStatusCode.OK)
+        }
+
+        sessionManager.storeCredentials("user", "pass")
+        sessionManager.storeAuthData(AuthData(sessionId = "old_session", cookie = "old_cookie"))
+
+        val service = createService(mockEngine, workingAuthService())
+        val result = service.downloadDocument("/scripts/filetransfer.exe?token123")
+
+        assertContentEquals(pdfBytes, assertIs<Outcome.Ok<ByteArray>>(result).value)
+        assertEquals(2, downloads, "the download is retried once the session is fresh")
+    }
+
+    @Test
+    fun downloadDocument_givesUpWhenThePageComesBackAgain() = runTest {
+        var downloads = 0
+        val mockEngine = MockEngine {
+            downloads++
+            respond(content = ByteReadChannel(DownloadFixtures.SESSION_TIMEOUT_PAGE), status = HttpStatusCode.OK)
+        }
+
+        sessionManager.storeCredentials("user", "pass")
+        sessionManager.storeAuthData(AuthData(sessionId = "old_session", cookie = "old_cookie"))
+
+        val service = createService(mockEngine, workingAuthService())
+        val result = service.downloadDocument("/scripts/filetransfer.exe?token123")
+
+        assertEquals(AppError.SessionExpired, assertIs<Outcome.Err>(result).error)
+        assertEquals(2, downloads, "one retry, not an endless loop")
+    }
+
+    private val pdfBytes = DownloadFixtures.PDF_HEADER
 }

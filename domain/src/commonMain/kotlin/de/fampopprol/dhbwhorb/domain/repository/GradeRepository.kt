@@ -8,6 +8,7 @@ package de.fampopprol.dhbwhorb.domain.repository
 
 import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
+import de.fampopprol.dhbwhorb.domain.model.ModuleResultDetails
 import de.fampopprol.dhbwhorb.domain.model.Semester
 
 /**
@@ -24,4 +25,11 @@ interface GradeRepository {
      * @param forceRefresh skip the local cache even if it is still considered fresh
      */
     suspend fun getGrades(semester: Semester, forceRefresh: Boolean = false): Outcome<List<GradeEntry>>
+
+    /**
+     * The attempts and individual exams behind one module result.
+     *
+     * @param resultId [GradeEntry.resultId] of the row the user opened
+     */
+    suspend fun getModuleDetails(resultId: String): Outcome<ModuleResultDetails>
 }

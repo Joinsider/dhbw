@@ -16,6 +16,7 @@ import de.fampopprol.dhbwhorb.data.dualis.remote.session.ReAuthenticator
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
 import de.fampopprol.dhbwhorb.data.repository.AuthRepositoryImpl
 import de.fampopprol.dhbwhorb.data.repository.DocumentRepositoryImpl
+import de.fampopprol.dhbwhorb.data.storage.documents.DocumentCache
 import de.fampopprol.dhbwhorb.data.repository.GradeRepositoryImpl
 import de.fampopprol.dhbwhorb.data.repository.PreferencesRepositoryImpl
 import de.fampopprol.dhbwhorb.data.repository.SessionRepositoryImpl
@@ -37,11 +38,13 @@ import de.fampopprol.dhbwhorb.domain.usecase.AwaitFullWeekTimetable
 import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
 import de.fampopprol.dhbwhorb.domain.usecase.DownloadDocument
 import de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades
+import de.fampopprol.dhbwhorb.domain.usecase.GetModuleDetails
 import de.fampopprol.dhbwhorb.domain.usecase.GetCachedLectures
 import de.fampopprol.dhbwhorb.domain.usecase.GetGradesForSemester
 import de.fampopprol.dhbwhorb.domain.usecase.GetSemesters
 import de.fampopprol.dhbwhorb.domain.usecase.GetWeekTimetable
 import de.fampopprol.dhbwhorb.domain.usecase.ListDocuments
+import de.fampopprol.dhbwhorb.domain.usecase.PurgeExpiredDocuments
 import de.fampopprol.dhbwhorb.domain.usecase.LoginWithCredentials
 import de.fampopprol.dhbwhorb.domain.usecase.Logout
 import de.fampopprol.dhbwhorb.domain.usecase.RefreshTimetable
@@ -109,6 +112,7 @@ val dataModule = module {
     single { get<AppDatabase>().lectureLecturerCrossRefDao() }
     single { get<AppDatabase>().gradeDao() }
     single { get<AppDatabase>().gradeCacheMetadataDao() }
+    single { get<AppDatabase>().cachedDocumentDao() }
     single { get<AppDatabase>().syncMetadataDao() }
 
     single {
@@ -171,7 +175,8 @@ val dataModule = module {
         )
     }
     single<GradeRepository> { GradeRepositoryImpl(gradeService = get()) }
-    single<DocumentRepository> { DocumentRepositoryImpl(documentService = get()) }
+    single { DocumentCache(dao = get()) }
+    single<DocumentRepository> { DocumentRepositoryImpl(documentService = get(), cache = get()) }
     single<PreferencesRepository> {
         PreferencesRepositoryImpl(themePreferences = get(), notificationPreferences = get())
     }
@@ -191,8 +196,10 @@ val dataModule = module {
     factory { GetSemesters(repository = get()) }
     factory { GetGradesForSemester(repository = get()) }
     factory { GetAllGrades(getSemesters = get(), getGradesForSemester = get()) }
+    factory { GetModuleDetails(repository = get()) }
     factory { ComputeGpa() }
 
     factory { ListDocuments(repository = get()) }
     factory { DownloadDocument(repository = get()) }
+    factory { PurgeExpiredDocuments(repository = get()) }
 }

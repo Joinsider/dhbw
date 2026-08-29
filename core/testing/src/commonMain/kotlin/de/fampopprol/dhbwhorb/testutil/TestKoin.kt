@@ -17,6 +17,7 @@ import de.fampopprol.dhbwhorb.data.dualis.remote.session.ReAuthenticator
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
 import de.fampopprol.dhbwhorb.data.repository.AuthRepositoryImpl
 import de.fampopprol.dhbwhorb.data.repository.DocumentRepositoryImpl
+import de.fampopprol.dhbwhorb.data.storage.documents.DocumentCache
 import de.fampopprol.dhbwhorb.data.repository.GradeRepositoryImpl
 import de.fampopprol.dhbwhorb.data.repository.PreferencesRepositoryImpl
 import de.fampopprol.dhbwhorb.data.repository.SessionRepositoryImpl
@@ -40,6 +41,7 @@ import de.fampopprol.dhbwhorb.domain.usecase.AwaitFullWeekTimetable
 import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
 import de.fampopprol.dhbwhorb.domain.usecase.DownloadDocument
 import de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades
+import de.fampopprol.dhbwhorb.domain.usecase.GetModuleDetails
 import de.fampopprol.dhbwhorb.domain.usecase.GetCachedLectures
 import de.fampopprol.dhbwhorb.domain.usecase.GetGradesForSemester
 import de.fampopprol.dhbwhorb.domain.usecase.GetSemesters
@@ -47,6 +49,7 @@ import de.fampopprol.dhbwhorb.domain.usecase.GetWeekTimetable
 import de.fampopprol.dhbwhorb.domain.usecase.ListDocuments
 import de.fampopprol.dhbwhorb.domain.usecase.LoginWithCredentials
 import de.fampopprol.dhbwhorb.domain.usecase.Logout
+import de.fampopprol.dhbwhorb.domain.usecase.PurgeExpiredDocuments
 import de.fampopprol.dhbwhorb.domain.usecase.RefreshTimetable
 import de.fampopprol.dhbwhorb.domain.usecase.RestoreSession
 import de.fampopprol.dhbwhorb.presentation.app.AppStore
@@ -106,6 +109,7 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
     single { get<AppDatabase>().lectureLecturerCrossRefDao() }
     single { get<AppDatabase>().gradeDao() }
     single { get<AppDatabase>().gradeCacheMetadataDao() }
+    single { get<AppDatabase>().cachedDocumentDao() }
     single { get<AppDatabase>().syncMetadataDao() }
 
     single<CoroutineScope> { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
@@ -152,7 +156,8 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
         )
     }
     single<GradeRepository> { GradeRepositoryImpl(gradeService = get()) }
-    single<DocumentRepository> { DocumentRepositoryImpl(documentService = get()) }
+    single { DocumentCache(dao = get()) }
+    single<DocumentRepository> { DocumentRepositoryImpl(documentService = get(), cache = get()) }
     single<PreferencesRepository> {
         PreferencesRepositoryImpl(themePreferences = get(), notificationPreferences = get())
     }
@@ -167,11 +172,13 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
     factory { GetSemesters(repository = get()) }
     factory { GetGradesForSemester(repository = get()) }
     factory { GetAllGrades(getSemesters = get(), getGradesForSemester = get()) }
+    factory { GetModuleDetails(repository = get()) }
     factory { ComputeGpa() }
     factory { ListDocuments(repository = get()) }
     factory { DownloadDocument(repository = get()) }
+    factory { PurgeExpiredDocuments(repository = get()) }
 
-    single { AppStore(sessionRepository = get(), logout = get(), scope = get()) }
+    single { AppStore(sessionRepository = get(), logout = get(), purgeExpiredDocuments = get(), scope = get()) }
     single { AuthStore(loginWithCredentials = get(), scope = get()) }
     single {
         TimetableStore(
@@ -181,7 +188,7 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
     }
     single {
         GradesStore(
-            getAllGrades = get(), computeGpa = get(), sessionRepository = get(), scope = get()
+            getAllGrades = get(), getModuleDetails = get(), computeGpa = get(), sessionRepository = get(), scope = get()
         )
     }
     single {

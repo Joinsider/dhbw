@@ -7,8 +7,10 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
+import de.fampopprol.dhbwhorb.data.storage.database.dao.documents.CachedDocumentDao
 import de.fampopprol.dhbwhorb.data.storage.database.dao.grades.GradeDao
 import de.fampopprol.dhbwhorb.data.storage.database.dao.grades.GradeCacheMetadataDao
+import de.fampopprol.dhbwhorb.data.storage.database.entities.documents.CachedDocumentEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeCacheMetadata
 import de.fampopprol.dhbwhorb.data.storage.database.converters.DateTimeConverter
@@ -25,6 +27,7 @@ import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LecturerE
     entities = [
         GradeEntity::class,
         GradeCacheMetadata::class,
+        CachedDocumentEntity::class,
         LectureEventEntity::class,
         LecturerEntity::class,
         LectureLecturerCrossRef::class,
@@ -38,6 +41,7 @@ import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LecturerE
 abstract class AppDatabase : RoomDatabase() {
     abstract fun gradeDao(): GradeDao
     abstract fun gradeCacheMetadataDao(): GradeCacheMetadataDao
+    abstract fun cachedDocumentDao(): CachedDocumentDao
 
     abstract fun lectureDao(): LectureEventDao
     abstract fun lecturerDao(): LecturerDao
@@ -55,6 +59,7 @@ abstract class AppDatabase : RoomDatabase() {
         lecturerDao().deleteAll()
         gradeDao().deleteAll()
         gradeCacheMetadataDao().deleteAll()
+        cachedDocumentDao().deleteAll()
         syncMetadataDao().clearAllSyncMetadata()
     }
 }
