@@ -1,0 +1,8 @@
+// SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package de.fampopprol.dhbwhorb.util
+
+expect fun openFile(byteArray: ByteArray, fileName: String)
+
+expect fun saveFileWithDialog(byteArray: ByteArray, fileName: String)

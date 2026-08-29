@@ -1,12 +1,14 @@
 package de.fampopprol.dhbwhorb.ui.pages
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -17,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -37,172 +40,192 @@ import de.fampopprol.dhbwhorb.resources.november_short
 import de.fampopprol.dhbwhorb.resources.october_short
 import de.fampopprol.dhbwhorb.resources.september_short
 import de.fampopprol.dhbwhorb.resources.this_week
+import de.fampopprol.dhbwhorb.presentation.timetable.TimetableIntent
+import de.fampopprol.dhbwhorb.presentation.timetable.TimetableStore
+import de.fampopprol.dhbwhorb.ui.error.toUserMessage
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
+import de.fampopprol.dhbwhorb.ui.store.collectState
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
 import de.fampopprol.dhbwhorb.ui.schedule.modules.dialogs.LectureDetailsDialog
-import de.fampopprol.dhbwhorb.ui.schedule.models.LectureModel
-import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableUiState
-import de.fampopprol.dhbwhorb.ui.schedule.viewModels.TimetableViewModel
-import de.fampopprol.dhbwhorb.ui.schedule.viewModels.WeekLabelData
+import de.fampopprol.dhbwhorb.ui.schedule.modules.week.WeekNavigationBar
 import de.fampopprol.dhbwhorb.ui.schedule.views.WeeklyLecturesView
 import de.fampopprol.dhbwhorb.util.isMobilePlatform
+import org.koin.compose.koinInject
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.Month
+import kotlinx.datetime.plus
 import org.jetbrains.compose.resources.InternalResourceApi
 import org.jetbrains.compose.resources.stringResource
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, InternalResourceApi::class,
     ExperimentalMaterial3ExpressiveApi::class
 )
 @Composable
 fun TimetablePage(
-    viewModel: TimetableViewModel? = null,
-    onNavigateToGrades: () -> Unit = {},
-    onNavigateToSettings: () -> Unit = {},
-    isLoggedIn: Boolean = true,
-    modifier: Modifier = Modifier
+    /** Week offset from a deep link; null opens the current week. */
+    initialWeek: Int? = null,
+    onNavigate: (BottomNavItem) -> Unit = {},
+    modifier: Modifier = Modifier,
+    store: TimetableStore = koinInject()
 ) {
-    val uiState = viewModel?.uiState ?: TimetableUiState()
-
-    // State for selected lecture dialog
-    var selectedLecture by remember { mutableStateOf<LectureModel?>(null) }
-
+    val uiState by store.collectState()
     val hapticFeedback = LocalHapticFeedback.current
 
-    //  lectures when page is displayed
-    LaunchedEffect(Unit) {
-        viewModel?.loadLecturesForCurrentWeek()
+    // The pager fakes an infinite range around the current week.
+    val initialPage = 1000
+    val pagerState = rememberPagerState(
+        initialPage = initialPage + (initialWeek ?: 0),
+        pageCount = { 2001 }
+    )
+
+    // The pager owns the scroll position; the store owns everything that follows from it.
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }
+            .distinctUntilChanged()
+            .collect { page ->
+                store.dispatch(TimetableIntent.WeekFocused(page - initialPage))
+            }
     }
 
     Scaffold(
-        modifier = if (isMobilePlatform()) {
-            modifier.statusBarsPadding()
-        } else {
-            modifier
-        },
+        modifier = if (isMobilePlatform()) modifier.statusBarsPadding() else modifier,
         bottomBar = {
-            if (isLoggedIn) {
-                BottomNavigationBar(
-                    currentItem = BottomNavItem.TIMETABLE,
-                    onItemSelected = { item ->
-                        when (item) {
-                            BottomNavItem.TIMETABLE -> { /* Already here */ }
-                            BottomNavItem.GRADES -> onNavigateToGrades()
-                            BottomNavItem.SETTINGS -> onNavigateToSettings()
-                        }
-                    }
-                )
-            }
+            BottomNavigationBar(
+                currentItem = BottomNavItem.TIMETABLE,
+                onItemSelected = onNavigate
+            )
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = paddingValues.calculateBottomPadding())
         ) {
-            // Always show weekly grid; use isRefreshing/isReloading to disable interactions and show message
-            val weekLabel = uiState.weekLabelData?.let { data ->
-                formatWeekLabel(data)
-            } ?: stringResource(Res.string.this_week)
+            // Shared Navigation Bar for all pages
+            WeekLabelDisplay(
+                start = uiState.currentWeek.start,
+                end = uiState.currentWeek.end,
+                isRefreshing = uiState.currentWeek.isRefreshing,
+                onRefresh = {
+                    store.dispatch(TimetableIntent.Refresh(pagerState.currentPage - initialPage))
+                },
+                initialPage = initialPage,
+                pagerState = pagerState
+            )
 
-            val isBusy = uiState.isRefreshing || uiState.isLoading
-
-            if (isMobilePlatform()) {
-                PullToRefreshBox(
-                    isRefreshing = uiState.isRefreshing,
-                    onRefresh = { viewModel?.refreshLectures() },
+            Box(modifier = Modifier.fillMaxSize()) {
+                HorizontalPager(
+                    state = pagerState,
                     modifier = Modifier.fillMaxSize(),
-                    indicator = {
-                        if (uiState.isRefreshing) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(top = 58.dp),
-                                contentAlignment = Alignment.TopCenter
-                            ) {
-                                LoadingIndicator()
-                            }
+                    beyondViewportPageCount = 1
+                ) { page ->
+                    val offset = page - initialPage
+                    val week = uiState.week(offset)
+
+                    PullToRefreshBox(
+                        isRefreshing = week.isRefreshing,
+                        onRefresh = {
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-                        }
-                    }
-                ) {
-                    WeeklyLecturesView(
-                        lectures = uiState.lectures,
-                        weekLabel = weekLabel,
-                        onPreviousWeek = { viewModel?.goToPreviousWeek() },
-                        onNextWeek = { viewModel?.goToNextWeek() },
-                        onWeekLabelClick = {
-                            if (uiState.currentWeekOffset != 0) viewModel?.loadLecturesForCurrentWeek()
+                            store.dispatch(TimetableIntent.Refresh(offset))
                         },
-                        onLectureClick = { lecture -> selectedLecture = lecture },
-                        onRefresh = { viewModel?.refreshLectures() },
-                        isRefreshing = isBusy,
                         modifier = Modifier.fillMaxSize()
-                    )
+                    ) {
+                        WeeklyLecturesView(
+                            lectures = week.lectures,
+                            onLectureClick = { store.dispatch(TimetableIntent.LectureOpened(it)) },
+                            isRefreshing = week.isLoading || week.isRefreshing,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
-            } else {
-                WeeklyLecturesView(
-                    lectures = uiState.lectures,
-                    weekLabel = weekLabel,
-                    onPreviousWeek = { viewModel?.goToPreviousWeek() },
-                    onNextWeek = { viewModel?.goToNextWeek() },
-                    onWeekLabelClick = {
-                        if (uiState.currentWeekOffset != 0) viewModel?.loadLecturesForCurrentWeek()
-                    },
-                    onLectureClick = { lecture -> selectedLecture = lecture },
-                    onRefresh = { viewModel?.refreshLectures() },
-                    isRefreshing = isBusy,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
 
-            // Error banner (non-blocking)
-            if (uiState.error != null) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.BottomCenter
-                ) {
-                    Text(
-                        text = stringResource(Res.string.error_loading_lectures),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(16.dp)
-                    )
+                // Error banner (non-blocking): the week may still show cached lectures.
+                uiState.currentWeek.error?.let { error ->
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                        Text(
+                            text = error.toUserMessage(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
                 }
             }
+        }
 
-            // Show lecture details dialog when a lecture is selected
-            selectedLecture?.let { lecture ->
-                LectureDetailsDialog(
-                    lecture = lecture,
-                    onDismiss = { selectedLecture = null }
-                )
-                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-            }
+        // Selected lecture dialog
+        uiState.selectedLecture?.let { lecture ->
+            LectureDetailsDialog(
+                lecture = lecture,
+                onDismiss = { store.dispatch(TimetableIntent.LectureDismissed) }
+            )
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
         }
     }
 }
 
-/**
- * Format WeekLabelData into a localized string.
- * Examples: "04 - 08 Nov" or "28 Nov - 02 Dec"
- */
 @Composable
-private fun formatWeekLabel(data: WeekLabelData): String {
-    val mondayMonthStr = stringResource(getMonthResource(data.mondayMonth))
-    val fridayMonthStr = stringResource(getMonthResource(data.fridayMonth))
-
-    return if (data.mondayMonth == data.fridayMonth) {
-        // Same month: "04 - 08 Nov"
-        "${data.mondayDay.toString().padStart(2, '0')} - ${data.fridayDay.toString().padStart(2, '0')} $mondayMonthStr"
+private fun WeekLabelDisplay(
+    start: LocalDateTime?,
+    end: LocalDateTime?,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+    initialPage: Int,
+    pagerState: androidx.compose.foundation.pager.PagerState
+) {
+    // The dates come from the store, which got them from the same calendar arithmetic the
+    // repository uses. The label is a pure function of them.
+    val weekLabel = if (start != null && end != null) {
+        formatWeekLabel(start, end)
     } else {
-        // Different months: "28 Nov - 02 Dec"
-        "${data.mondayDay.toString().padStart(2, '0')} $mondayMonthStr - ${data.fridayDay.toString().padStart(2, '0')} $fridayMonthStr"
+        stringResource(Res.string.this_week)
+    }
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+
+    WeekNavigationBar(
+        weekLabel = weekLabel,
+        onPreviousWeek = {
+            coroutineScope.launch {
+                pagerState.animateScrollToPage(pagerState.currentPage - 1)
+            }
+        },
+        onNextWeek = {
+            coroutineScope.launch {
+                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+            }
+        },
+        onWeekLabelClick = {
+            coroutineScope.launch {
+                pagerState.animateScrollToPage(initialPage)
+            }
+        },
+        onRefresh = onRefresh,
+        isRefreshing = isRefreshing,
+        modifier = Modifier.padding(8.dp)
+    )
+}
+
+/** "17 - 21 Aug", or "29 Dec - 02 Jan" when the week straddles a month. */
+@Composable
+private fun formatWeekLabel(start: LocalDateTime, end: LocalDateTime): String {
+    // The bar shows the working week, so it ends on Friday rather than on the range's Sunday.
+    val friday = start.date.plus(4, DateTimeUnit.DAY)
+    val startMonth = stringResource(getMonthResource(start.month))
+    val endMonth = stringResource(getMonthResource(friday.month))
+
+    val startDay = start.day.toString().padStart(2, '0')
+    val endDay = friday.day.toString().padStart(2, '0')
+
+    return if (start.month == friday.month) {
+        "$startDay - $endDay $startMonth"
+    } else {
+        "$startDay $startMonth - $endDay $endMonth"
     }
 }
 
-/**
- * Map Month enum to string resource.
- */
 private fun getMonthResource(month: Month) = when (month) {
     Month.JANUARY -> Res.string.january_short
     Month.FEBRUARY -> Res.string.february_short

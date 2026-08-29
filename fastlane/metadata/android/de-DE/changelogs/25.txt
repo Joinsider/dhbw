@@ -1,0 +1,1 @@
+Version 2.1.1  Löst ein Problem, dass kein Neuladen auf der Stundenplanansicht möglich war. Außerdem verbessert dieses Update das Laden der Noten Ansicht.

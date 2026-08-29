@@ -1,11 +1,11 @@
 name: Build and Release Multi-Platform Packages
 
 on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main
+  #pull_request:
+  #  types:
+  #    - closed
+  #  branches:
+  #    - main
   # -- Manual trigger -----------------------------------------------------------
   # Choose how the version should be incremented before building.
   # On a PR merge the default (patch) is used automatically.
@@ -24,6 +24,14 @@ on:
           - preminor
           - premajor
           - none
+      changelog_en:
+        description: 'Release notes (English)'
+        required: false
+        type: string
+      changelog_de:
+        description: 'Release notes (Deutsch)'
+        required: false
+        type: string
 
 jobs:
   # -----------------------------------------------------------------------------
@@ -42,9 +50,10 @@ jobs:
     outputs:
       new_version: ${{ steps.semver.outputs.new_version }}
       new_tag: ${{ steps.semver.outputs.new_tag }}
+      new_code: ${{ steps.versioncode.outputs.new_code }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ssh-key: ${{ secrets.DEPLOY_KEY }}
@@ -146,10 +155,57 @@ jobs:
             cat iosApp/Configuration/Config.xcconfig
           fi
 
+      - name: Validate all version fields
+        if: steps.semver.outputs.skipped != 'true'
+        run: |
+           NEW="${{ steps.semver.outputs.new_version }}"
+           NEW_CODE="${{ steps.versioncode.outputs.new_code }}"
+           
+           echo "Verifying all versions..."
+           ERRORS=0
+           
+           # Android (2 fields)
+           if ! grep -q "versionName.*"v$NEW"" composeApp/build.gradle.kts; then
+             echo "❌ ERROR: Android versionName not updated to v$NEW"
+             ERRORS=$((ERRORS + 1))
+           fi
+           if ! grep -q "versionCode.*$NEW_CODE" composeApp/build.gradle.kts; then
+             echo "❌ ERROR: Android versionCode not updated to $NEW_CODE"
+             ERRORS=$((ERRORS + 1))
+           fi
+           
+           # Desktop (2 fields: packageVersion, archiveVersion)
+           if ! grep -q "packageVersion.*"$NEW"" composeApp/build.gradle.kts; then
+             echo "❌ ERROR: Desktop packageVersion not updated to $NEW"
+             ERRORS=$((ERRORS + 1))
+           fi
+           if ! grep -Fq "archiveVersion.set(\"$NEW\")" composeApp/build.gradle.kts; then
+             echo "❌ ERROR: Desktop archiveVersion not updated to $NEW"
+             ERRORS=$((ERRORS + 1))
+           fi
+           
+           # iOS (2 fields)
+           if ! grep -q "MARKETING_VERSION.*$NEW" iosApp/Configuration/Config.xcconfig; then
+             echo "❌ ERROR: iOS MARKETING_VERSION not updated to $NEW"
+             ERRORS=$((ERRORS + 1))
+           fi
+           if ! grep -q "CURRENT_PROJECT_VERSION.*$NEW_CODE" iosApp/Configuration/Config.xcconfig; then
+             echo "❌ ERROR: iOS CURRENT_PROJECT_VERSION not updated to $NEW_CODE"
+             ERRORS=$((ERRORS + 1))
+           fi
+           
+           if [ $ERRORS -gt 0 ]; then
+             echo "❌ Version validation FAILED with $ERRORS errors"
+             exit 1
+           fi
+           
+           echo "✅ All 9 version fields verified successfully"
+
       - name: Commit & push version bump
         if: steps.semver.outputs.skipped != 'true'
         run: |
           NEW="${{ steps.semver.outputs.new_version }}"
+          TARGET_BRANCH="${{ github.base_ref || github.ref_name }}"
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add composeApp/build.gradle.kts iosApp/Configuration/Config.xcconfig
@@ -157,23 +213,69 @@ jobs:
             echo "Versions already up to date — nothing to commit."
           else
             git commit -m "chore: bump version to v$NEW"
-            git push origin HEAD:${{ github.ref_name }}
+            git push origin "HEAD:$TARGET_BRANCH"
           fi
+
+      - name: Write fastlane changelogs
+        if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
+        run: |
+           VERSION_CODE="${{ steps.versioncode.outputs.new_code }}"
+           CHANGELOG_EN="${{ github.event.inputs.changelog_en }}"
+           CHANGELOG_DE="${{ github.event.inputs.changelog_de }}"
+           
+           if [ -z "$CHANGELOG_EN" ]; then
+             echo "Skipping changelog write: no changelog_en provided"
+             exit 0
+           fi
+           
+           EN_FILE="fastlane/metadata/android/en-US/changelogs/$VERSION_CODE.txt"
+           mkdir -p "$(dirname "$EN_FILE")"
+           printf '%s\n' "$CHANGELOG_EN" > "$EN_FILE"
+           echo "✅ Created English changelog at $EN_FILE"
+           
+           if [ -n "$CHANGELOG_DE" ]; then
+             DE_FILE="fastlane/metadata/android/de-DE/changelogs/$VERSION_CODE.txt"
+             mkdir -p "$(dirname "$DE_FILE")"
+             printf '%s\n' "$CHANGELOG_DE" > "$DE_FILE"
+             echo "✅ Created German changelog at $DE_FILE"
+           fi
+
+      - name: Commit changelog files
+        if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
+        run: |
+           VERSION_CODE="${{ steps.versioncode.outputs.new_code }}"
+           
+           git config user.name  "github-actions[bot]"
+           git config user.email "github-actions[bot]@users.noreply.github.com"
+           
+           git add "fastlane/metadata/android/en-US/changelogs/$VERSION_CODE.txt" || true
+           git add "fastlane/metadata/android/de-DE/changelogs/$VERSION_CODE.txt" || true
+           
+           if git diff --cached --quiet; then
+             echo "No changelog changes to commit"
+           else
+             git commit -m "chore: add multilingual release notes for v${{ steps.semver.outputs.new_version }}"
+             git push origin "HEAD:${{ github.base_ref || github.ref_name }}"
+           fi
 
   create-release:
     runs-on: ubuntu-latest
     environment: production
     needs: [ bump-version ]
     if: always() && !failure() && !cancelled()
+    permissions:
+      contents: write
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       skipped: ${{ steps.check-tag.outputs.skipped }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          ref: ${{ github.ref_name }}
+          fetch-tags: true
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          ref: ${{ github.base_ref || github.ref_name }}
 
       - name: Read composeApp version
         id: version
@@ -186,29 +288,83 @@ jobs:
           echo "version=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION_NAME"    >> "$GITHUB_OUTPUT"
 
-      - name: Check if release tag already exists
+      - name: Check release and git tag state
         id: check-tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.version.outputs.tag }}"
+          RELEASE_EXISTS="false"
+          TAG_EXISTS="false"
+
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            echo "Release $TAG already exists — skipping creation."
+            RELEASE_EXISTS="true"
+            echo "Release $TAG already exists."
+          else
+            echo "Release $TAG does not exist yet."
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null 2>&1; then
+            TAG_EXISTS="true"
+            echo "Git tag $TAG already exists in origin."
+          else
+            echo "Git tag $TAG is missing in origin."
+          fi
+
+          echo "release_exists=$RELEASE_EXISTS" >> "$GITHUB_OUTPUT"
+          echo "tag_exists=$TAG_EXISTS" >> "$GITHUB_OUTPUT"
+
+          if [ "$RELEASE_EXISTS" = "true" ] && [ "$TAG_EXISTS" = "true" ]; then
             echo "skipped=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Release $TAG does not exist yet — will create."
             echo "skipped=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Ensure Git tag exists in remote
+        if: steps.check-tag.outputs.tag_exists != 'true'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null 2>&1; then
+            echo "Tag $TAG already exists in origin."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "refs/tags/$TAG"
+
+      - name: Wait until tag is visible
+        if: steps.check-tag.outputs.tag_exists != 'true'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          for i in {1..10}; do
+            if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null 2>&1; then
+              echo "Tag $TAG is visible in origin."
+              exit 0
+            fi
+            echo "Tag $TAG not visible yet (attempt $i/10), waiting..."
+            sleep 3
+          done
+          echo "Tag $TAG was not visible in origin in time."
+          exit 1
+
       - name: Create Release
-        if: steps.check-tag.outputs.skipped != 'true'
+        if: steps.check-tag.outputs.release_exists != 'true'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: v${{ steps.version.outputs.version }}
+          body: |
+            ## English
+            ${{ github.event.inputs.changelog_en || 'No English release notes provided.' }}
+
+            ## Deutsch
+            ${{ github.event.inputs.changelog_de || 'Keine deutschen Release-Notizen angegeben.' }}
           draft: true
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -217,9 +373,11 @@ jobs:
     if: needs.create-release.outputs.skipped != 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.create-release.outputs.tag }}
+          ref: refs/tags/${{ needs.create-release.outputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -241,15 +399,48 @@ jobs:
       - name: Find DEB file
         id: find-deb
         run: |
-          DEB_FILE=$(find composeApp/build/compose/binaries/main/deb -name "*.deb" -type f)
+          DEB_FILE=$(find composeApp/build/compose/binaries/main/deb -name "*.deb" -type f | head -n 1)
+          if [ -z "$DEB_FILE" ]; then
+            echo "Error: No DEB file found"
+            exit 1
+          fi
           echo "deb_file=$DEB_FILE" >> $GITHUB_OUTPUT
           echo "deb_name=$(basename $DEB_FILE)" >> $GITHUB_OUTPUT
+
+      - name: Rename DEB package
+        id: rename-deb
+        if: success()
+        run: |
+          ORIGINAL_DEB="${{ steps.find-deb.outputs.deb_file }}"
+          echo "deb_renamed=$ORIGINAL_DEB" >> $GITHUB_OUTPUT
+          DEB_FILE=$(find composeApp/build/compose/binaries/main/deb -name "dhbw-*.deb" -type f)
+          if [ -z "$DEB_FILE" ]; then
+            echo "Skipping DEB rename: file not found"
+            exit 0
+          fi
+          VERSION="${{ needs.create-release.outputs.version }}"
+          DEB_DIR=$(dirname "$DEB_FILE")
+          NEW_NAME="$DEB_DIR/dhbw-student-app-v$VERSION.deb"
+          mv "$DEB_FILE" "$NEW_NAME"
+          echo "deb_renamed=$NEW_NAME" >> $GITHUB_OUTPUT
+          echo "✅ Renamed DEB to $(basename $NEW_NAME)"
+
+      - name: Verify DEB metadata
+        if: success()
+        run: |
+          DEB_FILE=$(find composeApp/build/compose/binaries/main/deb -name "dhbw-student-app-v*.deb" -type f | head -n 1)
+          if [ -f "$DEB_FILE" ]; then
+            echo "DEB Control Info:"
+            dpkg-deb -I "$DEB_FILE" | grep -E "Package:|Version:|Architecture:"
+            echo "✅ DEB metadata verified"
+          fi
+
 
       - name: Upload DEB artifact
         uses: actions/upload-artifact@v4
         with:
           name: deb-amd64
-          path: ${{ steps.find-deb.outputs.deb_file }}
+          path: ${{ steps.rename-deb.outputs.deb_renamed || steps.find-deb.outputs.deb_file }}
           retention-days: 1
 
 
@@ -258,9 +449,11 @@ jobs:
     if: needs.create-release.outputs.skipped != 'true'
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.create-release.outputs.tag }}
+          ref: refs/tags/${{ needs.create-release.outputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -287,11 +480,29 @@ jobs:
           echo "dmg_file=$DMG_FILE" >> $GITHUB_OUTPUT
           echo "dmg_name=$(basename $DMG_FILE)" >> $GITHUB_OUTPUT
 
+      - name: Rename DMG package
+        id: rename-dmg
+        if: success()
+        run: |
+          ORIGINAL_DMG="${{ steps.find-dmg.outputs.dmg_file }}"
+          echo "dmg_renamed=$ORIGINAL_DMG" >> $GITHUB_OUTPUT
+          DMG_FILE=$(find composeApp/build/compose/binaries/main/dmg -name "*.dmg" -type f | head -n 1)
+          if [ -z "$DMG_FILE" ]; then
+            echo "Skipping DMG rename: file not found"
+            exit 0
+          fi
+          VERSION="${{ needs.create-release.outputs.version }}"
+          DMG_DIR=$(dirname "$DMG_FILE")
+          NEW_NAME="$DMG_DIR/dhbw-student-app-v$VERSION.dmg"
+          mv "$DMG_FILE" "$NEW_NAME"
+          echo "dmg_renamed=$NEW_NAME" >> $GITHUB_OUTPUT
+          echo "✅ Renamed DMG to $(basename $NEW_NAME)"
+
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
           name: dmg-macos
-          path: ${{ steps.find-dmg.outputs.dmg_file }}
+          path: ${{ steps.rename-dmg.outputs.dmg_renamed || steps.find-dmg.outputs.dmg_file }}
           retention-days: 1
 
   build-android-apk:
@@ -299,9 +510,11 @@ jobs:
     if: needs.create-release.outputs.skipped != 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.create-release.outputs.tag }}
+          ref: refs/tags/${{ needs.create-release.outputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -371,9 +584,11 @@ jobs:
     if: needs.create-release.outputs.skipped != 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.create-release.outputs.tag }}
+          ref: refs/tags/${{ needs.create-release.outputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -435,9 +650,15 @@ jobs:
     if: needs.create-release.outputs.skipped != 'true'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.create-release.outputs.tag }}
+          ref: refs/tags/${{ needs.create-release.outputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
+          sparse-checkout: |
+            /*
+            !/.planning/
+          sparse-checkout-cone-mode: false
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -467,6 +688,21 @@ jobs:
           Copy-Item -Path $msi.FullName -Destination $renamed -Force
           "msi_path=$renamed" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "MSI ready at: $renamed"
+
+      - name: Rename MSI package
+        if: success()
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE 'composeApp/build/compose/binaries/main/msi') -Filter 'dhbw-*.msi' -Recurse -File | Select-Object -First 1
+          if (-not $msi) {
+            Write-Host "Skipping MSI rename: file not found"
+            exit 0
+          }
+          $version = "${{ needs.create-release.outputs.version }}"
+          $dir = $msi.Directory.FullName
+          $newName = Join-Path $dir "dhbw-student-app-v$version.msi"
+          Move-Item -Path $msi.FullName -Destination $newName -Force
+          Write-Host "✅ Renamed MSI to $(Split-Path -Leaf $newName)"
 
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4

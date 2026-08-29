@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  Auto Backup for Android 11 and below.
+
+  Everything else may travel: the theme, the notification toggles and the Dualis cache all cost
+  nothing to lose and nothing to leak. The credentials must not. Uninstalling takes them with it —
+  and a backup that quietly carried them to the next install would undo exactly that.
+
+  Excluding the file is also the only thing that works. EncryptedSharedPreferences is sealed with a
+  key from the Android Keystore, and the Keystore is never backed up: a restored copy on another
+  device is undecryptable bytes that the app has to detect and throw away.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="dualis_secure_prefs.xml" />
+</full-backup-content>
