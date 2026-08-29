@@ -13,8 +13,10 @@ import kotlinx.coroutines.*
 import kotlin.time.Duration.Companion.minutes
 
 /**
- * macOS coroutine-based periodic scheduler for lecture change monitoring.
- * Runs hourly, in step with the other platforms, and only while the app is open.
+ * Coroutine-based periodic monitoring for lecture changes, shared by desktop and macOS.
+ *
+ * Runs hourly, in step with Android and iOS. Only while the app is open — neither build has a
+ * background service, so closing the window ends the monitoring with it.
  */
 class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent {
 
@@ -83,4 +85,3 @@ class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent
      */
     fun isScheduled(): Boolean = monitorJob?.isActive == true
 }
-

@@ -52,6 +52,18 @@ sonar {
                 "**/generated/**"
             ).joinToString(",")
         )
+
+        // LectureNotificationTexts.kt is a parallel DE/EN translation table: the two objects mirror
+        // each other's shape by necessity (one entry per LectureChange case), but the strings
+        // themselves differ — including grammatical case in German that English has no equivalent
+        // for — so templating them into one shared implementation would make the translations more
+        // fragile, not less duplicated in any way that matters. This is content, not copy-pasted
+        // logic, so it's excluded from duplication detection rather than "fixed".
+        property(
+            "sonar.cpd.exclusions", listOf(
+                "**/services/src/commonMain/kotlin/de/fampopprol/dhbwhorb/services/notifications/LectureNotificationTexts.kt"
+            ).joinToString(",")
+        )
     }
 }
 
