@@ -57,15 +57,13 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ── Android unit tests ────────────────────────────────────────────────────
+      # ── Android + Desktop tests ────────────────────────────────────────────────
       # Unqualified, so every module runs its own: since P9 the tests live next to the code they
-      # test, not all together in :composeApp.
-      - name: Run Android unit tests
-        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
-
-      # ── Desktop / JVM tests ───────────────────────────────────────────────────
-      - name: Run Desktop (JVM) tests
-        run: ./gradlew desktopTest --no-daemon --stacktrace
+      # test, not all together in :composeApp. One invocation (instead of two) avoids paying for
+      # project configuration twice; org.gradle.parallel (gradle.properties) lets the independent
+      # Android/Desktop task graphs run concurrently across modules.
+      - name: Run Android + Desktop tests
+        run: ./gradlew testDebugUnitTest desktopTest --continue --no-daemon --stacktrace
 
       # ── Kover – generate unified XML + HTML coverage report ───────────────────
       - name: Generate Kover coverage report (XML + HTML)
