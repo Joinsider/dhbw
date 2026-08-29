@@ -45,6 +45,14 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
+      # ── SonarQube scanner cache ────────────────────────────────────────────────
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
       # ── Gradle wrapper permission ─────────────────────────────────────────────
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -99,17 +107,18 @@ jobs:
             core/*/build/test-results/desktopTest/**/*.xml
 
       # ── SonarCloud analysis ───────────────────────────────────────────────────
+      # Uses the org.sonarqube Gradle plugin (configured in build.gradle.kts) instead of the
+      # sonarcloud-github-action: it reads source sets and compiled-class locations from the
+      # Gradle model directly, so it can't drift out of sync the way hand-maintained paths in a
+      # sonar-project.properties file can. Test/coverage tasks already ran above; this just
+      # analyzes what's on disk.
       - name: SonarCloud analysis
         if: always()
-        uses: SonarSource/sonarcloud-github-action@v3
         env:
           # Set SONAR_TOKEN in:  Settings → Secrets → Actions → New repository secret
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          # All project settings are read from sonar-project.properties at the root
-          args: >
-            -Dsonar.scm.revision=${{ github.sha }}
+        run: ./gradlew sonar --no-daemon -Dsonar.scm.revision=${{ github.sha }}
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Apple job: the shared framework, the Compose-free check, and the Xcode build.
