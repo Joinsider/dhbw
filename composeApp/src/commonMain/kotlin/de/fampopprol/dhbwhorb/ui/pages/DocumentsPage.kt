@@ -32,65 +32,41 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.ui.documents.components.DocumentCard
-import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsViewModel
+import de.fampopprol.dhbwhorb.presentation.documents.DocumentsEffect
+import de.fampopprol.dhbwhorb.presentation.documents.DocumentsIntent
+import de.fampopprol.dhbwhorb.presentation.documents.DocumentsStore
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
 import de.fampopprol.dhbwhorb.util.isMobilePlatform
+import org.koin.compose.koinInject
 import de.fampopprol.dhbwhorb.ui.components.DocumentCardSkeleton
-import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService
-import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-
-import de.fampopprol.dhbwhorb.ui.documents.viewModels.DocumentsUiState
-import kotlinx.coroutines.flow.MutableStateFlow
+import de.fampopprol.dhbwhorb.ui.store.HandleEffects
+import de.fampopprol.dhbwhorb.ui.store.collectState
+import de.fampopprol.dhbwhorb.util.openFile
+import de.fampopprol.dhbwhorb.util.saveFileWithDialog
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DocumentsPage(
-    viewModel: DocumentsViewModel? = null,
-    authenticationService: de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService? = null,
-    sharedHttpClient: io.ktor.client.HttpClient? = null,
-    sessionManager: de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager? = null,
-    onNavigateToTimetable: () -> Unit,
-    onNavigateToGrades: () -> Unit,
-    onNavigateToSettings: () -> Unit,
-    isLoggedIn: Boolean,
-    modifier: Modifier = Modifier
+    onNavigate: (BottomNavItem) -> Unit = {},
+    modifier: Modifier = Modifier,
+    store: DocumentsStore = koinInject()
 ) {
-    // Truly lazy initialization of ViewModel if not provided
-    val composableScope = rememberCoroutineScope()
-    val actualViewModel = viewModel ?: remember(authenticationService, sharedHttpClient, sessionManager) {
-        if (authenticationService != null && sharedHttpClient != null && sessionManager != null) {
-            val documentService = DualisDocumentService(
-                apiClient = DualisApiClient(sharedHttpClient),
-                sessionManager = sessionManager,
-                authenticationService = authenticationService
-            )
-            DocumentsViewModel(
-                coroutineScope = composableScope,
-                dualisDocumentService = documentService
-            )
-        } else {
-            null
+
+    val uiState by store.collectState()
+
+    // Opening and saving a file are platform calls, so the store asks for them by effect instead
+    // of making them itself — which is what keeps :presentation free of platform APIs.
+    store.HandleEffects { effect ->
+        when (effect) {
+            is DocumentsEffect.OpenFile -> openFile(effect.bytes, effect.fileName)
+            is DocumentsEffect.SaveFile -> saveFileWithDialog(effect.bytes, effect.fileName)
+            is DocumentsEffect.DownloadFailed -> Unit // already reflected in the state
         }
     }
 
-    // Call cleanup on disposal
-    DisposableEffect(actualViewModel) {
-        onDispose {
-            actualViewModel?.cleanup()
-        }
-    }
-
-    val uiState by (actualViewModel?.uiState ?: MutableStateFlow(DocumentsUiState())).collectAsState()
-
-    // If we were previously blocked due to missing login and the app is now logged in, try again once
-    LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn && uiState.requiresLogin) {
-            actualViewModel?.loadDocuments()
-        }
-    }
+    // The store outlives the composition, so this loads once and costs nothing on a tab switch.
+    LaunchedEffect(Unit) { store.dispatch(DocumentsIntent.EnsureLoaded) }
 
     Scaffold(
         modifier = if (isMobilePlatform()) {
@@ -99,21 +75,10 @@ fun DocumentsPage(
             modifier
         },
         bottomBar = {
-            if (isLoggedIn) {
-                BottomNavigationBar(
-                    currentItem = BottomNavItem.DOCUMENTS,
-                    onItemSelected = { item ->
-                        when (item) {
-                            BottomNavItem.TIMETABLE -> onNavigateToTimetable()
-                            BottomNavItem.GRADES -> onNavigateToGrades()
-                            BottomNavItem.DOCUMENTS -> { /* Already here */
-                            }
-
-                            BottomNavItem.SETTINGS -> onNavigateToSettings()
-                        }
-                    }
-                )
-            }
+            BottomNavigationBar(
+                currentItem = BottomNavItem.DOCUMENTS,
+                onItemSelected = onNavigate
+            )
         }
     ) { paddingValues ->
         Box(
@@ -121,7 +86,7 @@ fun DocumentsPage(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (uiState.requiresLogin && !isLoggedIn) {
+            if (uiState.requiresLogin) {
                 // Show login required message
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -140,7 +105,7 @@ fun DocumentsPage(
                 ) {
                     OutlinedTextField(
                         value = uiState.searchQuery,
-                        onValueChange = { actualViewModel?.onSearchQueryChange(it) },
+                        onValueChange = { store.dispatch(DocumentsIntent.SearchChanged(it)) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 16.dp, bottom = 8.dp),
@@ -153,7 +118,7 @@ fun DocumentsPage(
                         },
                         trailingIcon = {
                             if (uiState.searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { actualViewModel?.onSearchQueryChange("") }) {
+                                IconButton(onClick = { store.dispatch(DocumentsIntent.SearchChanged("")) }) {
                                     Icon(
                                         imageVector = Icons.Default.Clear,
                                         contentDescription = "Clear Search"
@@ -164,7 +129,7 @@ fun DocumentsPage(
                         singleLine = true
                     )
 
-                    if ((uiState.isLoading || actualViewModel == null) && uiState.documents.isEmpty()) {
+                    if (uiState.isLoading && uiState.documents.isEmpty()) {
                         // Skeleton UI for Documents
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
@@ -178,16 +143,16 @@ fun DocumentsPage(
                     } else {
                         PullToRefreshBox(
                             isRefreshing = uiState.isRefreshing,
-                            onRefresh = { actualViewModel?.refreshDocuments() },
+                            onRefresh = { store.dispatch(DocumentsIntent.Refresh) },
                         ) {
-                            if (uiState.documents.isEmpty() && uiState.searchQuery.isNotEmpty() && !uiState.isLoading && actualViewModel != null) {
+                            if (uiState.documents.isEmpty() && uiState.searchQuery.isNotEmpty() && !uiState.isLoading) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text("No documents found matching your search.")
                                 }
-                            } else if (uiState.documents.isEmpty() && !uiState.isLoading && actualViewModel != null) {
+                            } else if (uiState.documents.isEmpty() && !uiState.isLoading) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
@@ -201,22 +166,15 @@ fun DocumentsPage(
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     items(uiState.documents) { document ->
-                                        val documentKey =
-                                            "${document.title}|${document.date}|${document.time}"
                                         DocumentCard(
                                             document = document,
                                             onDownloadClick = {
-                                                actualViewModel?.downloadAndOpenDocument(
-                                                    document
-                                                )
+                                                store.dispatch(DocumentsIntent.Open(document))
                                             },
                                             onSaveToFiles = { doc ->
-                                                actualViewModel?.saveDocumentToFiles(
-                                                    doc
-                                                )
+                                                store.dispatch(DocumentsIntent.Save(doc))
                                             },
-                                            isDownloading = uiState.isDownloading[documentKey]
-                                                ?: false
+                                            isDownloading = uiState.isDownloading(document)
                                         )
                                     }
                                 }

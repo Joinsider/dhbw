@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.nav_documents
 import de.fampopprol.dhbwhorb.resources.nav_grades
@@ -40,6 +41,9 @@ fun getNavText(item: BottomNavItem): String {
     }
 }
 
+/** Stable, locale-independent test tag for a navigation item. */
+fun navItemTestTag(item: BottomNavItem): String = "navItem_${item.name}"
+
 @Composable
 fun BottomNavigationBar(
     currentItem: BottomNavItem,
@@ -53,6 +57,7 @@ fun BottomNavigationBar(
     ) {
         BottomNavItem.entries.forEach { item ->
             NavigationBarItem(
+                modifier = Modifier.testTag(navItemTestTag(item)),
                 selected = currentItem == item,
                 onClick = {
                     onItemSelected(item)
