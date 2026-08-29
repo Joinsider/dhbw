@@ -49,6 +49,13 @@
     <string name="allow_notifications_description">Erlaube der App verschiedene Benachrichtigungen zu senden</string>
     <string name="lecture_change_notification">Benachrichtigung für Vorlesungsänderungen</string>
     <string name="lecture_change_notification_description">Werde benachrichtigt, wenn sich die Uhrzeit oder der Ort einer Vorlesung ändert oder eine abgesagt wurde</string>
+    <string name="lecture_reminder">Erinnerung vor Vorlesungen</string>
+    <string name="lecture_reminder_description">Eine Benachrichtigung kurz vor Vorlesungsbeginn</string>
+    <string name="lecture_reminder_off">Aus</string>
+    <string name="lecture_reminder_minutes">%1$d Min.</string>
+    <string name="lecture_reminder_hour">1 Stunde</string>
+    <string name="lecture_reminder_inexact">Exakte Wecker sind für diese App ausgeschaltet, eine Erinnerung kann daher ein paar Minuten zu spät kommen.</string>
+    <string name="lecture_reminder_allow_exact">Exakte Wecker erlauben</string>
     <string name="notifications">Benachrichtigungen</string>
 
     <!-- Error messages -->
@@ -56,6 +63,12 @@
     <string name="unknown_error">Ein unbekannter Fehler ist aufgetreten.</string>
     <string name="invalid_credentials">Ungültiger Benutzername oder Passwort.</string>
     <string name="error_loading_lectures">Fehler beim Laden des Stundenplans.</string>
+    <string name="error_session_expired">Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.</string>
+    <string name="error_login_required">Bitte melde dich an, um fortzufahren.</string>
+    <string name="error_server">Dualis hat mit einem Fehler geantwortet (%1$d).</string>
+    <string name="error_unreadable_response">Dualis hat etwas geantwortet, das die App nicht lesen konnte. Möglicherweise wurde das Portal geändert.</string>
+    <string name="error_storage">Lokale Daten konnten nicht gelesen oder geschrieben werden.</string>
+    <string name="error_unsupported_in_demo">Das ist im Demo-Modus nicht verfügbar.</string>
 
     <!-- Timetable -->
     <string name="lecturers">Dozenten</string>

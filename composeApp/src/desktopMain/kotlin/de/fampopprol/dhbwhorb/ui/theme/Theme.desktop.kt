@@ -12,10 +12,16 @@ import androidx.compose.ui.graphics.Color
 import com.materialkolor.dynamicColorScheme
 
 /**
- * JVM/Desktop implementation: Uses MaterialKolor to generate dynamic schemes.
+ * Desktop has no system accent colour to read, so "Material You" here means the scheme generated
+ * from the seed colour the user picked; switching it off gives the app's own static palette.
+ *
+ * The flag used to be ignored entirely, which made the setting visible in the UI and inert.
  */
 @Composable
 actual fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean, seedColor: Color): ColorScheme {
+    if (!useMaterialYou) {
+        return if (darkTheme) DarkColorScheme else LightColorScheme
+    }
     return dynamicColorScheme(seedColor, darkTheme)
 }
 

@@ -320,6 +320,38 @@ See PLAN.md Wave 4 section for full UAT checklist. Key tests:
 
 ---
 
+## Post-Completion Hotfixes
+
+### 2026-04-10 — Workflow YAML syntax repair
+
+- Fixed invalid YAML indentation in `.github/workflows/build-release.yml` that caused GitHub to reject the workflow at line 159.
+- Corrected step/key alignment for:
+  - `Validate all version fields`
+  - `Write fastlane changelogs`
+  - `Commit changelog files`
+  - `Create GitHub Release with notes`
+- Result: workflow file parses successfully again while preserving Phase 13 release automation behavior.
+
+### 2026-04-10 — Archive version validation matcher fix
+
+- Fixed the `archiveVersion` verification expression in `.github/workflows/build-release.yml` to correctly match `archiveVersion.set("X.Y.Z")`.
+- Root cause: the previous grep pattern dropped quotes around `$NEW`, so valid `archiveVersion.set("2.1.0")` values were incorrectly reported as missing.
+- Updated check now uses fixed-string matching to avoid regex/quoting edge cases.
+
+### 2026-04-10 — Build-skip control flow fix for manual releases
+
+- Removed premature GitHub Release creation from `bump-version` (this could make `create-release` treat the run as already released and skip all build jobs).
+- Updated `create-release` checkout to use branch head (`${{ github.base_ref || github.ref_name }}`), so tagging/building follows the just-bumped commit.
+- Moved multilingual release note body injection into the `create-release` draft release step, preserving Phase 13 notes behavior without short-circuiting compilation.
+
+### 2026-04-10 — Renamed artifact upload path fix (DEB/DMG)
+
+- Root cause: upload steps used pre-rename outputs (`steps.find-*.outputs.*`), so artifacts were renamed successfully but upload searched for old paths.
+- Added `rename-deb` and `rename-dmg` step IDs with explicit `deb_renamed` / `dmg_renamed` outputs.
+- Upload steps now prefer renamed paths and fall back to original find outputs when rename is skipped.
+
+---
+
 *Phase 13 execution completed: 2026-04-10*  
 *Plan created: 2026-04-10*  
 *Summary created: 2026-04-10*

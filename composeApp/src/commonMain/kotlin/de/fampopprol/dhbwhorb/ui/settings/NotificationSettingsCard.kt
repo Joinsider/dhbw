@@ -8,7 +8,10 @@ package de.fampopprol.dhbwhorb.ui.settings
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.ChangeCircle
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsOff
@@ -27,6 +30,14 @@ import de.fampopprol.dhbwhorb.resources.allow_notifications
 import de.fampopprol.dhbwhorb.resources.allow_notifications_description
 import de.fampopprol.dhbwhorb.resources.lecture_change_notification
 import de.fampopprol.dhbwhorb.resources.lecture_change_notification_description
+import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferences
+import de.fampopprol.dhbwhorb.resources.lecture_reminder
+import de.fampopprol.dhbwhorb.resources.lecture_reminder_allow_exact
+import de.fampopprol.dhbwhorb.resources.lecture_reminder_description
+import de.fampopprol.dhbwhorb.resources.lecture_reminder_hour
+import de.fampopprol.dhbwhorb.resources.lecture_reminder_inexact
+import de.fampopprol.dhbwhorb.resources.lecture_reminder_minutes
+import de.fampopprol.dhbwhorb.resources.lecture_reminder_off
 import de.fampopprol.dhbwhorb.resources.notifications
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -38,6 +49,8 @@ fun NotificationSettingsCard(
     onNotificationsEnabledChange: (Boolean) -> Unit = {},
     lectureAlertsEnabled: Boolean = false,
     onLectureAlertsEnabledChange: (Boolean) -> Unit = {},
+    reminderLeadMinutes: Int = 0,
+    onReminderLeadChange: (Int) -> Unit = {},
     onManualCheckRequested: (suspend () -> Unit)? = null,  // NEW: callback for manual check
     modifier: Modifier = Modifier
 ) {
@@ -201,6 +214,84 @@ fun NotificationSettingsCard(
                         )
                     }
 
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
+                    // Reminder before a lecture. One picker rather than a switch plus a duration:
+                    // for the user it is one choice, and "off" is simply no lead time.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Alarm,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .padding(end = 8.dp)
+                        )
+                        Text(
+                            text = stringResource(Res.string.lecture_reminder),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Text(
+                        text = stringResource(Res.string.lecture_reminder_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 24.dp, top = 2.dp)
+                    )
+
+                    // FlowRow, not Row: four chips do not fit side by side on a narrow phone, and
+                    // a Row answers that by squeezing the last one into a column of single letters.
+                    FlowRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        NotificationPreferences.REMINDER_LEAD_CHOICES.forEach { minutes ->
+                            FilterChip(
+                                selected = reminderLeadMinutes == minutes,
+                                onClick = {
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                    onReminderLeadChange(minutes)
+                                },
+                                label = { Text(reminderLeadLabel(minutes), maxLines = 1) },
+                                modifier = Modifier.testTag(reminderLeadTestTag(minutes))
+                            )
+                        }
+                    }
+
+                    // Only worth saying when it is true, and only Android can make it false.
+                    val exactAlarmSettings = rememberExactAlarmSettingsOpener()
+                    if (reminderLeadMinutes > 0 && !remindersFireExactly()) {
+                        Text(
+                            text = stringResource(Res.string.lecture_reminder_inexact),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                        if (exactAlarmSettings != null) {
+                            TextButton(
+                                onClick = exactAlarmSettings,
+                                modifier = Modifier
+                                    .padding(top = 4.dp)
+                                    .testTag("allowExactAlarmsButton")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .padding(end = 4.dp)
+                                )
+                                Text(stringResource(Res.string.lecture_reminder_allow_exact))
+                            }
+                        }
+                    }
+
                     // Manual Check Button (only if callback provided)
                     if (onManualCheckRequested != null) {
                         Button(
@@ -301,3 +392,19 @@ fun NotificationSettingsCard(
         }
     }
 }
+
+/** "Off", "15 min before", "1 hour before" — the wording the picker shows for a lead time. */
+@Composable
+private fun reminderLeadLabel(minutes: Int): String = when (minutes) {
+    0 -> stringResource(Res.string.lecture_reminder_off)
+    60 -> stringResource(Res.string.lecture_reminder_hour)
+    else -> stringResource(Res.string.lecture_reminder_minutes, minutes)
+}
+
+/**
+ * A tag derived from the value rather than the label.
+ *
+ * The labels are localised, and a UI test that looks for "15 min before" is green on an English
+ * runner and red on this machine — see the locale trap in the handoff.
+ */
+internal fun reminderLeadTestTag(minutes: Int) = "reminderLead_$minutes"

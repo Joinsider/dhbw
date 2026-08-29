@@ -38,7 +38,8 @@ import de.fampopprol.dhbwhorb.resources.report_issue
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun HelpSelectionCard(
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    showLogout: Boolean = true
 ) {
     Card (
         modifier = Modifier
@@ -133,28 +134,30 @@ fun HelpSelectionCard(
                             }
                         )
 
-                        // Logout Button
-                        Button(
-                            onClick = {
-                                onLogout()
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                            },
-                            modifier = Modifier
-                                .testTag("logoutButton")
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Logout,
-                                contentDescription = stringResource(Res.string.logout),
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                            Text(stringResource(Res.string.logout))
+                        // Logout Button — only meaningful while a session exists
+                        if (showLogout) {
+                            Button(
+                                onClick = {
+                                    onLogout()
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                                },
+                                modifier = Modifier
+                                    .testTag("logoutButton")
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                shape = MaterialTheme.shapes.medium,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                                    contentDescription = stringResource(Res.string.logout),
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text(stringResource(Res.string.logout))
+                            }
                         }
                     }
                 } else {
@@ -220,28 +223,30 @@ fun HelpSelectionCard(
                             }
                         )
 
-                        // Logout Button
-                        Button(
-                            onClick = {
-                                onLogout()
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                            },
-                            modifier = Modifier
-                                .testTag("logoutButton")
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Logout,
-                                contentDescription = stringResource(Res.string.logout),
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                            Text(stringResource(Res.string.logout))
+                        // Logout Button — only meaningful while a session exists
+                        if (showLogout) {
+                            Button(
+                                onClick = {
+                                    onLogout()
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                                },
+                                modifier = Modifier
+                                    .testTag("logoutButton")
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                shape = MaterialTheme.shapes.medium,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                                    contentDescription = stringResource(Res.string.logout),
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text(stringResource(Res.string.logout))
+                            }
                         }
                     }
                 }

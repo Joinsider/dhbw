@@ -1,11 +1,11 @@
 name: Build and Release Multi-Platform Packages
 
 on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main
+  #pull_request:
+  #  types:
+  #    - closed
+  #  branches:
+  #    - main
   # -- Manual trigger -----------------------------------------------------------
   # Choose how the version should be incremented before building.
   # On a PR merge the default (patch) is used automatically.
@@ -156,8 +156,8 @@ jobs:
           fi
 
       - name: Validate all version fields
-         if: steps.semver.outputs.skipped != 'true'
-         run: |
+        if: steps.semver.outputs.skipped != 'true'
+        run: |
            NEW="${{ steps.semver.outputs.new_version }}"
            NEW_CODE="${{ steps.versioncode.outputs.new_code }}"
            
@@ -179,7 +179,7 @@ jobs:
              echo "❌ ERROR: Desktop packageVersion not updated to $NEW"
              ERRORS=$((ERRORS + 1))
            fi
-           if ! grep -q "archiveVersion\.set("$NEW")" composeApp/build.gradle.kts; then
+           if ! grep -Fq "archiveVersion.set(\"$NEW\")" composeApp/build.gradle.kts; then
              echo "❌ ERROR: Desktop archiveVersion not updated to $NEW"
              ERRORS=$((ERRORS + 1))
            fi
@@ -216,9 +216,9 @@ jobs:
             git push origin "HEAD:$TARGET_BRANCH"
           fi
 
-       - name: Write fastlane changelogs
-         if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
-         run: |
+      - name: Write fastlane changelogs
+        if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
+        run: |
            VERSION_CODE="${{ steps.versioncode.outputs.new_code }}"
            CHANGELOG_EN="${{ github.event.inputs.changelog_en }}"
            CHANGELOG_DE="${{ github.event.inputs.changelog_de }}"
@@ -240,9 +240,9 @@ jobs:
              echo "✅ Created German changelog at $DE_FILE"
            fi
 
-       - name: Commit changelog files
-         if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
-         run: |
+      - name: Commit changelog files
+        if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
+        run: |
            VERSION_CODE="${{ steps.versioncode.outputs.new_code }}"
            
            git config user.name  "github-actions[bot]"
@@ -257,29 +257,6 @@ jobs:
              git commit -m "chore: add multilingual release notes for v${{ steps.semver.outputs.new_version }}"
              git push origin "HEAD:${{ github.base_ref || github.ref_name }}"
            fi
-
-       - name: Create GitHub Release with notes
-         if: steps.semver.outputs.skipped != 'true' && github.event.inputs.changelog_en != ''
-         env:
-           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-         run: |
-           VERSION="${{ steps.semver.outputs.new_version }}"
-           CHANGELOG_EN="${{ github.event.inputs.changelog_en }}"
-           CHANGELOG_DE="${{ github.event.inputs.changelog_de }}"
-           
-           if [ -z "$CHANGELOG_EN" ]; then
-             echo "Skipping GitHub Release creation: no changelog_en provided"
-             exit 0
-           fi
-           
-           NOTES="## English\n$CHANGELOG_EN\n\n## Deutsch\n$CHANGELOG_DE"
-           
-           gh release create "v$VERSION" \
-             --title "v$VERSION" \
-             --notes "$(printf "$NOTES")" \
-             --target main || true
-           
-           echo "✅ GitHub Release v$VERSION created with multilingual notes"
 
   create-release:
     runs-on: ubuntu-latest
@@ -298,7 +275,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ssh-key: ${{ secrets.DEPLOY_KEY }}
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
+          ref: ${{ github.base_ref || github.ref_name }}
 
       - name: Read composeApp version
         id: version
@@ -379,9 +356,15 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: v${{ steps.version.outputs.version }}
+          body: |
+            ## English
+            ${{ github.event.inputs.changelog_en || 'No English release notes provided.' }}
+
+            ## Deutsch
+            ${{ github.event.inputs.changelog_de || 'Keine deutschen Release-Notizen angegeben.' }}
           draft: true
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -416,13 +399,20 @@ jobs:
       - name: Find DEB file
         id: find-deb
         run: |
-          DEB_FILE=$(find composeApp/build/compose/binaries/main/deb -name "*.deb" -type f)
+          DEB_FILE=$(find composeApp/build/compose/binaries/main/deb -name "*.deb" -type f | head -n 1)
+          if [ -z "$DEB_FILE" ]; then
+            echo "Error: No DEB file found"
+            exit 1
+          fi
           echo "deb_file=$DEB_FILE" >> $GITHUB_OUTPUT
           echo "deb_name=$(basename $DEB_FILE)" >> $GITHUB_OUTPUT
 
       - name: Rename DEB package
+        id: rename-deb
         if: success()
         run: |
+          ORIGINAL_DEB="${{ steps.find-deb.outputs.deb_file }}"
+          echo "deb_renamed=$ORIGINAL_DEB" >> $GITHUB_OUTPUT
           DEB_FILE=$(find composeApp/build/compose/binaries/main/deb -name "dhbw-*.deb" -type f)
           if [ -z "$DEB_FILE" ]; then
             echo "Skipping DEB rename: file not found"
@@ -432,6 +422,7 @@ jobs:
           DEB_DIR=$(dirname "$DEB_FILE")
           NEW_NAME="$DEB_DIR/dhbw-student-app-v$VERSION.deb"
           mv "$DEB_FILE" "$NEW_NAME"
+          echo "deb_renamed=$NEW_NAME" >> $GITHUB_OUTPUT
           echo "✅ Renamed DEB to $(basename $NEW_NAME)"
 
       - name: Verify DEB metadata
@@ -449,7 +440,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: deb-amd64
-          path: ${{ steps.find-deb.outputs.deb_file }}
+          path: ${{ steps.rename-deb.outputs.deb_renamed || steps.find-deb.outputs.deb_file }}
           retention-days: 1
 
 
@@ -490,8 +481,11 @@ jobs:
           echo "dmg_name=$(basename $DMG_FILE)" >> $GITHUB_OUTPUT
 
       - name: Rename DMG package
+        id: rename-dmg
         if: success()
         run: |
+          ORIGINAL_DMG="${{ steps.find-dmg.outputs.dmg_file }}"
+          echo "dmg_renamed=$ORIGINAL_DMG" >> $GITHUB_OUTPUT
           DMG_FILE=$(find composeApp/build/compose/binaries/main/dmg -name "*.dmg" -type f | head -n 1)
           if [ -z "$DMG_FILE" ]; then
             echo "Skipping DMG rename: file not found"
@@ -508,7 +502,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dmg-macos
-          path: ${{ steps.find-dmg.outputs.dmg_file }}
+          path: ${{ steps.rename-dmg.outputs.dmg_renamed || steps.find-dmg.outputs.dmg_file }}
           retention-days: 1
 
   build-android-apk:

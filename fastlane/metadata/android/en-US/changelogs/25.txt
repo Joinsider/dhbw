@@ -1,0 +1,1 @@
+Version 2.1.1  Fixes reloading functionality on timetable page and adds better handling to loading on grades page
