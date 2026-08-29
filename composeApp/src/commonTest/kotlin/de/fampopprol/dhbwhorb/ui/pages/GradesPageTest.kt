@@ -15,6 +15,7 @@ import de.fampopprol.dhbwhorb.domain.model.Semester
 import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
 import de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades
 import de.fampopprol.dhbwhorb.domain.usecase.GetGradesForSemester
+import de.fampopprol.dhbwhorb.domain.usecase.GetModuleDetails
 import de.fampopprol.dhbwhorb.domain.usecase.GetSemesters
 import de.fampopprol.dhbwhorb.presentation.TestScopes
 import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
@@ -41,6 +42,7 @@ class GradesPageTest {
         )
         return GradesStore(
             getAllGrades = GetAllGrades(GetSemesters(repository), GetGradesForSemester(repository)),
+            getModuleDetails = GetModuleDetails(repository),
             computeGpa = ComputeGpa(),
             sessionRepository = FakeSessionRepository(canAuthenticate = true),
             scope = TestScopes.immediate()

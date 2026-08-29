@@ -10,10 +10,12 @@ import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.domain.model.Session
 import de.fampopprol.dhbwhorb.domain.usecase.Logout
+import de.fampopprol.dhbwhorb.domain.usecase.PurgeExpiredDocuments
 import de.fampopprol.dhbwhorb.presentation.TestScopes
 import de.fampopprol.dhbwhorb.presentation.collectEffects
 import de.fampopprol.dhbwhorb.presentation.store.SessionScopedStore
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeAuthRepository
+import de.fampopprol.dhbwhorb.testutil.fakes.FakeDocumentRepository
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeSessionRepository
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -27,10 +29,12 @@ class AppStoreTest {
     private fun store(
         session: FakeSessionRepository,
         auth: FakeAuthRepository = FakeAuthRepository(),
+        documents: FakeDocumentRepository = FakeDocumentRepository(),
         sessionScopedStores: () -> List<SessionScopedStore> = { emptyList() }
     ) = AppStore(
         sessionRepository = session,
         logout = Logout(auth),
+        purgeExpiredDocuments = PurgeExpiredDocuments(documents),
         scope = TestScopes.immediate(),
         sessionScopedStores = sessionScopedStores
     )
@@ -138,5 +142,18 @@ class AppStoreTest {
 
         assertTrue(restored.isLoggedIn)
         assertEquals("Max", restored.userFullName)
+    }
+
+    @Test
+    fun startingTheApp_deletesDocumentsPastTheirDeadline() = runTest {
+        // The cache has a four-week limit. Enforcing it only when the documents screen opens
+        // would leave the files of someone who never opens it again on the device forever.
+        val documents = FakeDocumentRepository()
+        val store = store(FakeSessionRepository(session = null), documents = documents)
+
+        store.dispatch(AppIntent.Started)
+
+        assertEquals(1, documents.purges)
+        store.close()
     }
 }

@@ -16,13 +16,10 @@ class HtmlParser {
      * Check if the HTML content is a redirect page.
      */
     fun isRedirectPage(htmlContent: String): Boolean {
-        // Look specifically for <meta http-equiv="refresh" ... patterns
-        // Standard: <meta http-equiv="refresh" content="0; URL=...">
-        // Simple: <meta http-equiv="refresh" content="0">
+        // Look for <meta http-equiv="refresh" ...> — its content attribute's exact format
+        // (a bare delay, or "0; URL=...") doesn't change that the tag redirects the page.
         val refreshMetaPattern =
-            """<meta[^>]*http-equiv\s*=\s*['"]?refresh['"]?[^>]*content\s*=\s*['"]?\s*\d+\s*(?:;\s*url\s*=\s*[^'">]+)?['"]?""".toRegex(
-                RegexOption.IGNORE_CASE
-            )
+            """<meta[^>]*http-equiv\s*=\s*['"]?refresh['"]?[^>]*>""".toRegex(RegexOption.IGNORE_CASE)
         val isRedirect = refreshMetaPattern.containsMatchIn(htmlContent)
 
         Napier.d("Is redirect page: $isRedirect", tag = TAG)
@@ -100,32 +97,31 @@ class HtmlParser {
             val fullName = match.groupValues[1].trim()
             Napier.d("✓ Regex matched! Extracted user full name: '$fullName'", tag = TAG)
             return fullName
-        } else {
-            Napier.w("✗ Regex pattern did not match in HTML content", tag = TAG)
-
-            // Try alternative patterns for debugging and as fallback
-            val altH1Pattern =
-                """<h1>\s*(?:Herzlich willkommen|Welcome),\s*([^!<]+)!""".toRegex(RegexOption.IGNORE_CASE)
-            val altH1Match = altH1Pattern.find(htmlContent)
-            if (altH1Match != null) {
-                val candidate = altH1Match.groupValues[1].trim()
-                Napier.d("Alternative h1 pattern matched: '$candidate'", tag = TAG)
-                return candidate
-            }
-
-            val simplePattern =
-                """(?:Herzlich willkommen|Welcome),\s*([^!<]+)!""".toRegex(RegexOption.IGNORE_CASE)
-            val simpleMatch = simplePattern.find(htmlContent)
-            if (simpleMatch != null) {
-                val candidate = simpleMatch.groupValues[1].trim()
-                Napier.d("Alternative simple pattern matched: '$candidate'", tag = TAG)
-                return candidate
-            } else {
-                Napier.d("Even simple pattern didn't match", tag = TAG)
-            }
-
-            return null
         }
+
+        Napier.w("✗ Regex pattern did not match in HTML content", tag = TAG)
+
+        // Try alternative patterns for debugging and as fallback
+        val altH1Pattern =
+            """<h1>\s*(?:Herzlich willkommen|Welcome),\s*([^!<]+)!""".toRegex(RegexOption.IGNORE_CASE)
+        val altH1Match = altH1Pattern.find(htmlContent)
+        if (altH1Match != null) {
+            val candidate = altH1Match.groupValues[1].trim()
+            Napier.d("Alternative h1 pattern matched: '$candidate'", tag = TAG)
+            return candidate
+        }
+
+        val simplePattern =
+            """(?:Herzlich willkommen|Welcome),\s*([^!<]+)!""".toRegex(RegexOption.IGNORE_CASE)
+        val simpleMatch = simplePattern.find(htmlContent)
+        if (simpleMatch != null) {
+            val candidate = simpleMatch.groupValues[1].trim()
+            Napier.d("Alternative simple pattern matched: '$candidate'", tag = TAG)
+            return candidate
+        }
+
+        Napier.d("Even simple pattern didn't match", tag = TAG)
+        return null
     }
 
     /**
@@ -210,6 +206,29 @@ class HtmlParser {
      * Check if a grade page is valid by looking for expected content.
      * @returns true if the page appears to be a valid grade page
      */
+    /**
+     * The "Ergebnisdetails" pop-up of a single module result.
+     *
+     * It is a pop-up template, so none of the markers of the full pages apply: no navigation, no
+     * semester dropdown. What it always carries is the pop-up body and its results table; a
+     * module with no attempt recorded yet still ships both, only with no data rows.
+     */
+    fun isValidModuleDetailsPage(htmlContent: String): Boolean {
+        val isPopUp = htmlContent.contains("popUpBody", ignoreCase = true) ||
+            htmlContent.contains("pageContentPopUp", ignoreCase = true)
+        val hasResultsTable = htmlContent.contains("class=\"tb\"", ignoreCase = true)
+        val isNotRedirect = !isRedirectPage(htmlContent)
+
+        val isValid = isPopUp && hasResultsTable && isNotRedirect
+        if (!isValid) {
+            Napier.w(
+                "Invalid module details page: isPopUp=$isPopUp, hasResultsTable=$hasResultsTable, isNotRedirect=$isNotRedirect",
+                tag = TAG
+            )
+        }
+        return isValid
+    }
+
     fun isValidGradePage(htmlContent: String): Boolean {
         // A valid grade page should have the semester dropdown
         val hasSemesterDropdown = htmlContent.contains("id=\"semester\"", ignoreCase = true)

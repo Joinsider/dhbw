@@ -31,6 +31,7 @@ val presentationModule = module {
         AppStore(
             sessionRepository = get(),
             logout = get(),
+            purgeExpiredDocuments = get(),
             scope = get(),
             sessionScopedStores = {
                 listOf(get<TimetableStore>(), get<GradesStore>(), get<DocumentsStore>())
@@ -54,6 +55,7 @@ val presentationModule = module {
     single {
         GradesStore(
             getAllGrades = get(),
+            getModuleDetails = get(),
             computeGpa = get(),
             sessionRepository = get(),
             scope = get()
