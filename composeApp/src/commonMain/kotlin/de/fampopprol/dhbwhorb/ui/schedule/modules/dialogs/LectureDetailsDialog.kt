@@ -34,7 +34,7 @@ import de.fampopprol.dhbwhorb.resources.rooms
 import de.fampopprol.dhbwhorb.resources.start_time
 import de.fampopprol.dhbwhorb.resources.subject
 import de.fampopprol.dhbwhorb.resources.test_exam
-import de.fampopprol.dhbwhorb.ui.schedule.models.LectureModel
+import de.fampopprol.dhbwhorb.domain.model.Lecture
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.format
@@ -58,7 +58,7 @@ val TimeFormatter = LocalTime.Format {
  */
 @Composable
 fun LectureDetailsDialog(
-    lecture: LectureModel,
+    lecture: Lecture,
     onDismiss: () -> Unit
 ) {
     val hapticFeedback = LocalHapticFeedback.current
@@ -81,7 +81,7 @@ fun LectureDetailsDialog(
                 // Subject name (use full name, fallback to short name)
                 DetailRow(
                     label = stringResource(Res.string.subject),
-                    value = lecture.name
+                    value = lecture.displayName
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))

@@ -3,6 +3,7 @@
 
 import SwiftUI
 import WidgetKit
+import Shared
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MARK: – Small (.systemSmall)  ·  Nächste / aktuelle Vorlesung
@@ -12,20 +13,13 @@ struct SmallWidgetView: View {
     let entry: TimetableEntry
 
     var body: some View {
-        switch entry.upNext?.type {
-        case .currentlyRunning:
+        if let lecture = entry.snapshot.upNext {
             upNextCard(
-                label: "JETZT",
-                labelColor: .red,
-                lecture: entry.upNext!.lecture!
+                label: entry.snapshot.upNextIsRunning ? String(localized: "NOW") : String(localized: "NEXT"),
+                labelColor: entry.snapshot.upNextIsRunning ? .red : .accentColor,
+                lecture: lecture
             )
-        case .comingUp:
-            upNextCard(
-                label: "NÄCHSTE",
-                labelColor: .accentColor,
-                lecture: entry.upNext!.lecture!
-            )
-        default:
+        } else {
             noClassesView(compact: true)
         }
     }
@@ -33,7 +27,7 @@ struct SmallWidgetView: View {
     // ── Vorlesungskarte ───────────────────────────────────────────────────────
 
     @ViewBuilder
-    private func upNextCard(label: String, labelColor: Color, lecture: WidgetClassInfo) -> some View {
+    private func upNextCard(label: String, labelColor: Color, lecture: WidgetLecture) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             // Status-Label + Icon
             HStack(spacing: 4) {
@@ -63,7 +57,7 @@ struct SmallWidgetView: View {
                 .lineLimit(1)
 
             // Zeitfenster
-            Text("\(lecture.startTime) – \(lecture.endTime)")
+            Text("\(lecture.startText) – \(lecture.endText)")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
@@ -80,26 +74,28 @@ struct SmallWidgetView: View {
 struct MediumWidgetView: View {
     let entry: TimetableEntry
 
+    private var days: [WidgetDay] { Array(entry.snapshot.days.prefix(2)) }
+
     var body: some View {
-        if entry.multiDay.isEmpty {
+        if days.isEmpty {
             noClassesView(compact: false)
         } else {
             HStack(alignment: .top, spacing: 10) {
-                ForEach(entry.multiDay.prefix(2)) { day in
+                ForEach(Array(days.enumerated()), id: \.offset) { index, day in
                     VStack(alignment: .leading, spacing: 6) {
                         // Tag-Kopfzeile
-                        Text(day.localizedDayLabel)
+                        Text(day.dayLabel)
                             .font(.caption.weight(.bold))
                             .foregroundStyle(.secondary)
                             .textCase(.uppercase)
 
                         // Vorlesungsliste (kompakt, maximal 3 Einträge pro Tag)
-                        ForEach(day.classes.prefix(3)) { lecture in
+                        ForEach(day.lectures.prefix(3), id: \.start) { lecture in
                             ClassRowView(lecture: lecture, compact: true)
                         }
 
-                        if day.classes.count > 3 {
-                            Text("+\(day.classes.count - 3) weitere")
+                        if day.lectures.count > 3 {
+                            Text("+\(day.lectures.count - 3) more")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }
@@ -107,7 +103,7 @@ struct MediumWidgetView: View {
                     .frame(maxWidth: .infinity, alignment: .topLeading)
 
                     // Trennlinie zwischen Spalten (außer nach der letzten)
-                    if day.id != entry.multiDay.prefix(2).last?.id {
+                    if index < days.count - 1 {
                         Divider()
                     }
                 }
@@ -125,11 +121,11 @@ struct LargeWidgetView: View {
     let entry: TimetableEntry
 
     var body: some View {
-        if entry.multiDay.isEmpty {
+        if entry.snapshot.days.isEmpty {
             noClassesView(compact: false)
         } else {
             VStack(alignment: .leading, spacing: 12) {
-                ForEach(entry.multiDay.prefix(2)) { day in
+                ForEach(entry.snapshot.days.prefix(2), id: \.date) { day in
                     DaySectionView(day: day)
                 }
                 Spacer(minLength: 0)
@@ -141,31 +137,29 @@ struct LargeWidgetView: View {
 
 /// Tagesabschnitt für das Large-Widget: Kopfzeile + vollständige Detailkarten.
 private struct DaySectionView: View {
-    let day: WidgetDayInfo
+    let day: WidgetDay
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             // Tag-Kopfzeile mit Datumsstring
             HStack {
-                Text(day.localizedDayLabel)
+                Text(day.dayLabel)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.primary)
                 Spacer()
-                if let parsed = day.parsedDate {
-                    Text(parsed, format: .dateTime.day().month(.abbreviated))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                Text(day.date, format: .dateTime.day().month(.abbreviated))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .padding(.bottom, 2)
 
             // Vorlesungskarten (maximal 5 pro Tag – für Large realistisch)
-            ForEach(day.classes.prefix(5)) { lecture in
+            ForEach(day.lectures.prefix(5), id: \.start) { lecture in
                 ClassRowView(lecture: lecture, compact: false)
             }
 
-            if day.classes.count > 5 {
-                Text("+\(day.classes.count - 5) weitere")
+            if day.lectures.count > 5 {
+                Text("+\(day.lectures.count - 5) more")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -179,7 +173,7 @@ private struct DaySectionView: View {
 
 /// Eine einzelne Vorlesungszeile mit farbigem Statusstreifen links.
 struct ClassRowView: View {
-    let lecture: WidgetClassInfo
+    let lecture: WidgetLecture
     let compact: Bool
 
     private var accentColor: Color {
@@ -203,7 +197,7 @@ struct ClassRowView: View {
 
                 // Zeit + Raum in einer Zeile
                 HStack(spacing: 4) {
-                    Text("\(lecture.startTime)–\(lecture.endTime)")
+                    Text("\(lecture.startText)–\(lecture.endText)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
 
@@ -219,9 +213,13 @@ struct ClassRowView: View {
                     }
 
                     if lecture.isTest {
-                        Text("KLAUSUR")
+                        // Ohne die beiden Modifier bricht „KLAUSUR" im Medium-Widget mitten
+                        // im Wort um, sobald der Raumname die Zeile schon fast füllt.
+                        Text("EXAM")
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.red)
+                            .lineLimit(1)
+                            .fixedSize()
                     }
                 }
             }
@@ -237,7 +235,7 @@ func noClassesView(compact: Bool) -> some View {
         Image(systemName: "calendar.badge.checkmark")
             .font(compact ? .title2 : .largeTitle)
             .foregroundStyle(.secondary)
-        Text(compact ? "Keine Vorlesungen" : "Keine bevorstehenden Vorlesungen")
+        Text(compact ? "No lectures" : "No upcoming lectures")
             .font(compact ? .caption : .callout)
             .multilineTextAlignment(.center)
             .foregroundStyle(.secondary)
@@ -249,15 +247,18 @@ func noClassesView(compact: Bool) -> some View {
 // MARK: – Hilfserweiterungen
 // ═══════════════════════════════════════════════════════════════════════════════
 
-extension WidgetDayInfo {
-    /// Gibt „Heute", „Morgen" oder „Mo, 12.03." zurück (auf Deutsch).
-    var localizedDayLabel: String {
-        guard let date = parsedDate else { return self.date }
-        if Calendar.current.isDateInToday(date)     { return "Heute" }
-        if Calendar.current.isDateInTomorrow(date)  { return "Morgen" }
+extension WidgetDay {
+    /// „Heute", „Morgen" oder „Mo, 12.03." — in der Sprache des Geräts.
+    ///
+    /// `setLocalizedDateFormatFromTemplate` statt eines festen Musters: das Datumsformat war hier
+    /// zusammen mit den Texten hart auf Deutsch verdrahtet, und ein englisches Gerät bekam dann
+    /// „Mo, 12.03." neben englischen Beschriftungen.
+    var dayLabel: String {
+        if Calendar.current.isDateInToday(date)    { return String(localized: "Today") }
+        if Calendar.current.isDateInTomorrow(date) { return String(localized: "Tomorrow") }
         let fmt = DateFormatter()
-        fmt.dateFormat = "EEE, dd.MM."
-        fmt.locale = Locale(identifier: "de_DE")
+        fmt.locale = .current
+        fmt.setLocalizedDateFormatFromTemplate("EEEddMM")
         return fmt.string(from: date)
     }
 }

@@ -102,6 +102,118 @@
 **Validation:** Basic HTML validation in Parsers (`isValidGradePage`).
 **Authentication:** Managed via `SessionManager` and `AuthenticationService`, using `SecureStorage` for credentials.
 
+## Lifecycle & Ownership (Phase 12)
+
+### Initialization Sequence
+
+The app initializes in the following order to prevent race conditions and ensure services are available when needed:
+
+1. **MainActivity.onCreate()** (Android entry point)
+   - Calls `enableEdgeToEdge()` for system bar inset handling (Phase 10)
+   - Registers `HttpClientManager` as a lifecycle observer for resource cleanup
+   - Sets content with `App()` composable
+   - Launches `initializeServicesAsync()` on `lifecycleScope` (Dispatchers.IO)
+
+2. **initializeServicesAsync()** (lines 170-303 in MainActivity.kt)
+   - **Database:** `DatabaseInitializer.initializeDatabaseAsync()`
+     - Wrapped in try-catch with auto-recovery: delete corrupted DB, retry (Phase 12, D-03)
+     - On failure: logs ERROR via Napier; sets `databaseError` state
+   - **HttpClient:** `HttpClientInitializer.initializeHttpClientAsync()`
+     - Passed to `httpClientManager.setClient()` for lifecycle-aware cleanup
+   - **SecureStorage & SessionManager:** Created once; reused for all services
+   - **AuthenticationService:** Created with SessionManager
+   - **API Clients:** DualisApiClient, DualisLectureService, etc.
+   - **Parsers:** Lazy-loaded inside services (not on main thread)
+   - **Notification System:** Conditional initialization based on `notificationPreferencesInteractor.notificationsEnabled`
+     - If notifications disabled, NotificationManager and LectureMonitorScheduler skip initialization (Phase 11, BG-01)
+
+3. **App.kt Composition**
+   - **Theme Initialization (Phase 12, D-01, D-02):**
+     - LaunchedEffect reads theme preference from storage once
+     - CompositionLocal provides cached theme to all children
+     - Subscription to `notificationPreferencesInteractor.darkMode` Flow updates theme on user toggle
+   - **View Model Initialization:** TimetableViewModel created at activity scope (persists across rotations)
+   - **UI Composition:** Pages rendered with initialized services and ViewModels
+
+### Service Ownership Matrix
+
+| Service | Owner | Lifecycle | Cleanup | Phase |
+|---------|-------|-----------|---------|-------|
+| HttpClient | MainActivity | Activity lifecycle | `httpClientManager.onDestroy()` | 8, 11 |
+| AppDatabase | MainActivity | Application lifetime | Automatic (Room) | 8 |
+| SessionManager | MainActivity | Activity scope | Automatic (GC) | 8 |
+| AuthenticationService | MainActivity | Activity scope | Automatic (GC) | 8 |
+| TimetableViewModel | MainActivity | Activity scope (persists rotation) | `cleanup()` on new instance | 8 |
+| GradesViewModel | App scope | Composable lifetime | `cleanup()` on dispose | 8 |
+| DocumentsViewModel | App scope | Composable lifetime | `cleanup()` on dispose | 8 |
+| NotificationManager | MainActivity | Conditional (notifications enabled) | Activity lifecycle | 11 |
+| LectureMonitorScheduler | MainActivity | Conditional (notifications enabled) | WorkManager cleanup | 11 |
+| WidgetSyncWorker | System (WorkManager) | Conditional (active widgets) | WorkManager cleanup | 11 |
+| NotificationDispatcher | MainActivity | Activity lifecycle | Automatic (GC) | 8 |
+| LectureChangeMonitor | MainActivity | Activity lifetime | Automatic (GC) | 8 |
+| LectureService | MainActivity | Activity scope | Factory cleanup | 8 |
+
+### ViewModel Lifecycle Pattern (Phase 8)
+
+All ViewModels implement a **custom CoroutineScope + cleanup()** pattern instead of lifecycle-managed `viewModelScope`:
+
+**Rationale:** Kotlin Multiplatform compatibility. `viewModelScope` is Android-only; custom scope works across Android, iOS, macOS, and Desktop.
+
+**Implementation:**
+```kotlin
+class MyViewModel(
+    private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
+) {
+    fun cleanup() {
+        Napier.d("Cleaning up MyViewModel", tag = TAG)
+        coroutineScope.cancel()
+    }
+}
+```
+
+**Lifecycle Attachment (for TimetableViewModel only, as activity-scoped):**
+- TimetableViewModel created in `MainActivity.initializeServicesAsync()`
+- On activity recreation: new instance created, previous instance cleaned up
+- Caller (MainActivity or activity manager) must call `viewModel.cleanup()` when discarding
+
+**Lifecycle Attachment (for GradesViewModel, DocumentsViewModel, etc., as composable-scoped):**
+- Created via `rememberSaveable { GradesViewModel(...) }`
+- On composable disposal: `.cleanup()` called
+- Recomposition without disposal: same instance reused
+
+### Cleanup Responsibilities
+
+| Component | Resource | Responsible Party | When |
+|-----------|----------|-------------------|------|
+| HttpClient | Connection pool | HttpClientManager (observer) | Activity onDestroy |
+| Database | Query cursors | Room (automatic) | App shutdown |
+| CoroutineScopes | Active jobs | ViewModel.cleanup() | Activity/Composable disposal |
+| Preferences Flow | Subscription | LaunchedEffect cleanup | Composable disposal |
+| WorkManager jobs | Tasks | WorkManager (automatic) | User disables feature or app uninstall |
+
+### DI Framework Evaluation (Phase 12, D-06)
+
+**Current Status (v3.0):** Manual dependency injection via constructor parameters and `remember` blocks in App.kt.
+
+**Why not adopted:**
+- Explicit and debuggable; service creation order is clear
+- KMP compatibility; no platform-specific DI framework
+- Late-cycle adoption risk; manual DI is proven stable
+
+**Candidate Frameworks (Research Only):**
+- **Koin:** KMP support; ServiceLocator pattern; easy to adopt
+- **Hilt:** Android-only; tightly integrated with Lifecycle; excellent for Android but not KMP
+
+**Decision:** Maintain manual DI in v3.0. Plan Koin evaluation and adoption for Phase 13 (post-v3.0 cleanup phase).
+
+**Next Steps (Phase 13):**
+- Research Koin integration with existing manual DI
+- Prototype Koin configuration for viewModels
+- Measure adoption complexity and test coverage impact
+- If promising: plan Koin adoption for v3.1
+
 ---
 
-*Architecture analysis: 2025-03-11*
+*Lifecycle & Ownership documentation added in Phase 12*
+*Last updated: 2025-04-10*
+

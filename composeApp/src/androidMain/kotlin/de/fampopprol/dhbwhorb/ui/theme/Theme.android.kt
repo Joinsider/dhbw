@@ -68,8 +68,9 @@ actual fun SystemAppearance(darkTheme: Boolean, useMaterialYou: Boolean, seedCol
             // Set window background to match the theme background color
             window.decorView.setBackgroundColor(colorScheme.background.toArgb())
 
-            // Configure system bars for edge-to-edge
-            WindowCompat.setDecorFitsSystemWindows(window, false)
+            // Note: WindowCompat.setDecorFitsSystemWindows(window, false) is NOT called here.
+            // enableEdgeToEdge() in MainActivity.onCreate() already handles this correctly.
+            // Calling it again here would be redundant and may cause lint warnings.
 
             val insetsController = WindowCompat.getInsetsController(window, view)
 

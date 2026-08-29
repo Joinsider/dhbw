@@ -29,7 +29,7 @@ jobs:
         with:
           lfs: true
 
-      - name: Download AMD64 DEB from latest release
+      - name: Download DEB from latest release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -41,20 +41,21 @@ jobs:
           
           echo "Latest release tag: $RELEASE_TAG"
           
-          # Find and download the amd64.deb asset
-          ASSET_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | contains("amd64.deb")) | .url')
+          # Find and download the deb asset
+          ASSET_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | endswith(".deb")) | .url')
+          ASSET_NAME=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | endswith(".deb")) | .name')
           
           if [ -z "$ASSET_URL" ]; then
-            echo "Error: No amd64.deb asset found in release $RELEASE_TAG"
+            echo "Error: No .deb asset found in release $RELEASE_TAG"
             exit 1
           fi
           
-          echo "Downloading asset from: $ASSET_URL"
+          echo "Downloading asset from: $ASSET_URL (saving as $ASSET_NAME)"
           
           # Download the asset
           curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                -H "Accept: application/octet-stream" \
-               "$ASSET_URL" -o downloads/dhbw-next_amd64.deb
+               "$ASSET_URL" -o "downloads/$ASSET_NAME"
 
       - name: Setup APT repository structure
         run: |
@@ -86,8 +87,18 @@ jobs:
         run: |
           cd public
           
-          # Generate Packages for amd64
-          dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
+          # dpkg-scanpackages filters strict architecture matches when looking inside the deb control files. Let's enforce that dpkg finds our files
+          mkdir -p tmp_deb_extract
+          for f in pool/main/*.deb; do 
+            dpkg-deb -R "$f" tmp_deb_extract
+            sed -i 's/Architecture: .*/Architecture: amd64/' tmp_deb_extract/DEBIAN/control
+            dpkg-deb -b tmp_deb_extract "$f"
+            rm -rf tmp_deb_extract/*
+          done
+          rm -rf tmp_deb_extract
+          
+          # Now scan the fixed debs
+          dpkg-scanpackages -a amd64 pool/ > dists/stable/main/binary-amd64/Packages
           gzip -9 -k -f dists/stable/main/binary-amd64/Packages
 
       - name: Generate Release file
@@ -166,9 +177,9 @@ jobs:
               <h2>Step 2: Add Repository</h2>
               <pre>echo "deb [arch=amd64 signed-by=/usr/share/keyrings/dhbw-next.gpg] https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }} stable main" | sudo tee /etc/apt/sources.list.d/dhbw-next.list</pre>
           
-              <h2>Step 3: Install</h2>
+              <h2>Step 3: Install / Upgrade</h2>
               <pre>sudo apt update
-          sudo apt install dhbw-next</pre>
+          sudo apt install dhbw-horb-student-app</pre>
           
               <hr>
               <p><a href="pool/">Browse packages</a> | <a href="dists/">Browse distributions</a></p>
