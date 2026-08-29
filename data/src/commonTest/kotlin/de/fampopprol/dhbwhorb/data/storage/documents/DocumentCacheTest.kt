@@ -8,6 +8,7 @@ package de.fampopprol.dhbwhorb.data.storage.documents
 
 import de.fampopprol.dhbwhorb.core.hash.Sha256
 import de.fampopprol.dhbwhorb.data.dualis.models.DualisDocument
+import de.fampopprol.dhbwhorb.data.dualis.remote.parser.fixtures.DownloadFixtures
 import de.fampopprol.dhbwhorb.data.storage.database.entities.documents.CachedDocumentEntity
 import de.fampopprol.dhbwhorb.testutil.InMemoryCachedDocumentDao
 import kotlinx.coroutines.test.runTest
@@ -77,14 +78,36 @@ class DocumentCacheTest {
         // Now the first is over four weeks old and the second is not.
         clock += 1000
 
-        assertEquals(1, cache.purgeExpired())
+        assertEquals(1, cache.purge())
         assertEquals(1, dao.size)
         assertNotNull(cache.read(newer))
     }
 
     @Test
     fun purgingAnEmptyCacheRemovesNothing() = runTest {
-        assertEquals(0, cache.purgeExpired())
+        assertEquals(0, cache.purge())
+    }
+
+    @Test
+    fun purgingAlsoRemovesPagesThatAreNotDocuments() = runTest {
+        // Written by a version that did not yet recognise Dualis' timeout page. Reading it would
+        // drop it, but only if that document is ever opened again.
+        dao.insert(
+            CachedDocumentEntity(
+                downloadUrl = document.downloadUrl,
+                title = document.title,
+                contentHash = Sha256.hex(DownloadFixtures.SESSION_TIMEOUT_PAGE),
+                content = DownloadFixtures.SESSION_TIMEOUT_PAGE,
+                cachedAtTimestamp = clock
+            )
+        )
+        cache.write(
+            document.copy(downloadUrl = "/scripts/filetransfer.exe?doc=9"),
+            "%PDF-1.4 a real one".encodeToByteArray()
+        )
+
+        assertEquals(1, cache.purge())
+        assertEquals(1, dao.size, "the real document stays")
     }
 
     @Test
@@ -132,5 +155,32 @@ class DocumentCacheTest {
         assertEquals(clock, cached.cachedAtTimestamp)
         assertEquals(Sha256.hex(updated), cached.contentHash)
         assertTrue(cached.contentHash != Sha256.hex(content))
+    }
+
+    @Test
+    fun aDualisPageIsNotCached() = runTest {
+        // The download endpoint answers an expired session with its timeout page and HTTP 200.
+        // Caching that would serve Dualis' "please log in again" notice as the document for the
+        // next four weeks.
+        assertNull(cache.write(document, DownloadFixtures.SESSION_TIMEOUT_PAGE))
+
+        assertEquals(0, dao.size)
+    }
+
+    @Test
+    fun aPageCachedByAnOlderVersionIsDroppedOnRead() = runTest {
+        val page = DownloadFixtures.SESSION_TIMEOUT_PAGE
+        dao.insert(
+            CachedDocumentEntity(
+                downloadUrl = document.downloadUrl,
+                title = document.title,
+                contentHash = Sha256.hex(page),
+                content = page,
+                cachedAtTimestamp = clock
+            )
+        )
+
+        assertNull(cache.read(document), "its hash is intact, but it is not a document")
+        assertEquals(0, dao.size)
     }
 }

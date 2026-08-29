@@ -13,6 +13,7 @@ import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
 import de.fampopprol.dhbwhorb.data.dualis.remote.models.AuthData
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisDocumentService
+import de.fampopprol.dhbwhorb.data.dualis.remote.parser.fixtures.DownloadFixtures
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisPageGateway
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.ReAuthenticator
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
@@ -55,11 +56,11 @@ class DocumentRepositoryCacheTest {
 
     private var requests = 0
 
-    private fun repository(): DocumentRepositoryImpl {
+    private fun repository(answer: ByteArray = pdf): DocumentRepositoryImpl {
         val engine = MockEngine {
             requests++
             respond(
-                content = ByteReadChannel(pdf),
+                content = ByteReadChannel(answer),
                 status = HttpStatusCode.OK,
                 headers = headers { append(HttpHeaders.ContentType, "application/pdf") }
             )
@@ -122,5 +123,19 @@ class DocumentRepositoryCacheTest {
         val stored = assertNotNull(dao.get(document.downloadUrl))
         assertEquals(Sha256.hex(pdf), stored.contentHash)
         assertContentEquals(pdf, stored.content)
+    }
+
+    @Test
+    fun aTimeoutPageIsNeitherReturnedNorCached() = runTest {
+        // Dualis answers an expired session with a page and HTTP 200. The old code handed those
+        // bytes to the viewer as a PDF; the cache then kept them for four weeks.
+        val repository = repository(answer = DownloadFixtures.SESSION_TIMEOUT_PAGE)
+
+        val result = repository.downloadDocument(document)
+
+        // Which error depends on how the re-authentication it triggers goes — with no stored
+        // credentials it cannot go anywhere. What matters here is that the page is not the answer.
+        assertIs<Outcome.Err>(result)
+        assertEquals(0, dao.size, "a page must never take a document's place in the cache")
     }
 }

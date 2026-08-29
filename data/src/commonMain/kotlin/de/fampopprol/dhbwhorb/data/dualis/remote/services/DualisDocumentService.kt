@@ -11,6 +11,7 @@ import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.core.error.map
 import de.fampopprol.dhbwhorb.data.dualis.demo.DemoDataProvider
 import de.fampopprol.dhbwhorb.data.dualis.models.DualisDocument
+import de.fampopprol.dhbwhorb.data.dualis.remote.DownloadedBytes
 import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.DocumentParser
 import de.fampopprol.dhbwhorb.data.dualis.remote.parser.HtmlParser
@@ -87,7 +88,25 @@ class DualisDocumentService(
 
         val cookie = authData.cookie?.substringBefore(";")
         return when (val result = apiClient.getRawBytes(url, cookie)) {
-            is Outcome.Ok -> result
+            is Outcome.Ok -> {
+                // A 200 that is a page rather than a file means the session timed out: Dualis
+                // says so in HTML and in the status code says nothing at all. Handing those bytes
+                // on would save its timeout notice as the student's certificate.
+                if (DownloadedBytes.looksLikeHtmlPage(result.value)) {
+                    if (retried) {
+                        Napier.w("Download still answered with a page after re-authenticating", tag = TAG)
+                        Outcome.Err(AppError.SessionExpired)
+                    } else {
+                        Napier.w("Download answered with a page, re-authenticating once", tag = TAG)
+                        when (val reAuth = reAuthenticator.reAuthenticate()) {
+                            is Outcome.Ok -> downloadWithRetry(url, retried = true)
+                            is Outcome.Err -> reAuth
+                        }
+                    }
+                } else {
+                    result
+                }
+            }
             is Outcome.Err -> {
                 if (result.error is AppError.SessionExpired && !retried) {
                     Napier.w("Download rejected, re-authenticating once", tag = TAG)

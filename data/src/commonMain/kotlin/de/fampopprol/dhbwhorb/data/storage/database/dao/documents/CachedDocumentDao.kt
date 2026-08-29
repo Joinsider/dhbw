@@ -11,6 +11,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import de.fampopprol.dhbwhorb.data.storage.database.entities.documents.CachedDocumentEntity
+import de.fampopprol.dhbwhorb.data.storage.database.entities.documents.CachedDocumentHead
 
 @Dao
 interface CachedDocumentDao {
@@ -34,6 +35,15 @@ interface CachedDocumentDao {
      */
     @Query("DELETE FROM cached_documents WHERE cachedAtTimestamp <= :cutoffTimestamp")
     suspend fun deleteCachedAtOrBefore(cutoffTimestamp: Long): Int
+
+    /**
+     * The start of every cached document, for deciding what is one.
+     *
+     * `substr` on a blob returns a blob, so this reads a few hundred bytes per row rather than
+     * every cached file.
+     */
+    @Query("SELECT downloadUrl, substr(content, 1, :headLength) AS head FROM cached_documents")
+    suspend fun heads(headLength: Int): List<CachedDocumentHead>
 
     @Query("DELETE FROM cached_documents")
     suspend fun deleteAll()

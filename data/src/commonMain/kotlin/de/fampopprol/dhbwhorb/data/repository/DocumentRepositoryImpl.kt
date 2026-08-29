@@ -49,7 +49,7 @@ class DocumentRepositoryImpl(
     }
 
     override suspend fun purgeExpiredDocuments(): Int =
-        runCatchingCache("purging expired documents") { cache.purgeExpired() } ?: 0
+        runCatchingCache("purging the document cache") { cache.purge() } ?: 0
 
     private inline fun <T> runCatchingCache(what: String, block: () -> T): T? =
         try {

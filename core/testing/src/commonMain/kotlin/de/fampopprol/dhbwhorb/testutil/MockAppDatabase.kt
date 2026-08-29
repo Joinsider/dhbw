@@ -13,6 +13,7 @@ import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LecturerE
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureLecturerCrossRef
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureWithLecturers
 import de.fampopprol.dhbwhorb.data.storage.database.entities.documents.CachedDocumentEntity
+import de.fampopprol.dhbwhorb.data.storage.database.entities.documents.CachedDocumentHead
 import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeCacheMetadata
 import de.fampopprol.dhbwhorb.data.storage.database.entities.SyncMetadataEntity
@@ -127,6 +128,9 @@ open class InMemoryCachedDocumentDao : CachedDocumentDao {
         doomed.forEach { stored.remove(it) }
         return doomed.size
     }
+
+    override suspend fun heads(headLength: Int): List<CachedDocumentHead> =
+        stored.values.map { CachedDocumentHead(it.downloadUrl, it.content.copyOf(minOf(headLength, it.content.size))) }
 
     override suspend fun deleteAll() {
         stored.clear()

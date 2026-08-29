@@ -8,6 +8,7 @@ package de.fampopprol.dhbwhorb.data.storage.documents
 
 import de.fampopprol.dhbwhorb.core.hash.Sha256
 import de.fampopprol.dhbwhorb.data.dualis.models.DualisDocument
+import de.fampopprol.dhbwhorb.data.dualis.remote.DownloadedBytes
 import de.fampopprol.dhbwhorb.data.storage.database.dao.documents.CachedDocumentDao
 import de.fampopprol.dhbwhorb.data.storage.database.entities.documents.CachedDocumentEntity
 import io.github.aakira.napier.Napier
@@ -38,6 +39,9 @@ class DocumentCache(
 
         /** Four weeks, in milliseconds. */
         const val MAX_AGE_MS: Long = 28L * 24 * 60 * 60 * 1000
+
+        /** Enough of a file to recognise a page; see [DownloadedBytes]. */
+        private const val SNIFF_LENGTH = 512
     }
 
     /**
@@ -52,6 +56,15 @@ class DocumentCache(
         val age = now() - entry.cachedAtTimestamp
         if (age >= MAX_AGE_MS) {
             Napier.d("Dropping '${entry.title}' from the cache: ${age / DAY_MS} days old", tag = TAG)
+            dao.delete(entry.downloadUrl)
+            return null
+        }
+
+        // A cache entry that is a Dualis page rather than a document can only be one written
+        // before the download path learnt to recognise them. It would otherwise be served as the
+        // student's certificate for another four weeks.
+        if (DownloadedBytes.looksLikeHtmlPage(entry.content)) {
+            Napier.w("Cached '${entry.title}' is a page, not a document; discarding it", tag = TAG)
             dao.delete(entry.downloadUrl)
             return null
         }
@@ -76,8 +89,17 @@ class DocumentCache(
      * content is unchanged: the four weeks are counted from when the file was first seen, so a
      * repeated download cannot keep a copy alive indefinitely. Content that did change starts its
      * own four weeks, because it is a different file.
+     *
+     * @return null when there was nothing worth keeping — a Dualis page that arrived instead of
+     *   the document is refused here as well as upstream, because caching one pins the mistake
+     *   for four weeks instead of for one tap.
      */
-    suspend fun write(document: DualisDocument, content: ByteArray): CachedDocument {
+    suspend fun write(document: DualisDocument, content: ByteArray): CachedDocument? {
+        if (DownloadedBytes.looksLikeHtmlPage(content)) {
+            Napier.w("Refusing to cache '${document.title}': it is a page, not a document", tag = TAG)
+            return null
+        }
+
         val hash = Sha256.hex(content)
         val previous = dao.get(document.downloadUrl)
         val cachedAt = if (previous?.contentHash == hash) previous.cachedAtTimestamp else now()
@@ -95,10 +117,27 @@ class DocumentCache(
         return CachedDocument(content, hash, cachedAt)
     }
 
-    /** Deletes everything older than [MAX_AGE_MS]. @return how many went. */
-    suspend fun purgeExpired(): Int {
-        val deleted = dao.deleteCachedAtOrBefore(now() - MAX_AGE_MS)
+    /**
+     * Deletes what must not be kept: anything that reached [MAX_AGE_MS], and anything that is a
+     * Dualis page rather than a document.
+     *
+     * The second half is for entries written before the download path learnt to recognise those
+     * pages. Reading one drops it too, but only when someone opens that document again — and a
+     * copy of Dualis' timeout notice should not wait four weeks for that.
+     *
+     * @return how many entries went
+     */
+    suspend fun purge(): Int {
+        var deleted = dao.deleteCachedAtOrBefore(now() - MAX_AGE_MS)
         if (deleted > 0) Napier.d("Purged $deleted expired document(s)", tag = TAG)
+
+        for (head in dao.heads(SNIFF_LENGTH)) {
+            if (DownloadedBytes.looksLikeHtmlPage(head.head)) {
+                Napier.w("Purging a cached page that is not a document", tag = TAG)
+                dao.delete(head.downloadUrl)
+                deleted++
+            }
+        }
         return deleted
     }
 }

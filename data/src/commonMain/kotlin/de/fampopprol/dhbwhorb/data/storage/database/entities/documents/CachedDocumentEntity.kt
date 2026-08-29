@@ -30,3 +30,9 @@ class CachedDocumentEntity(
     /** When the document was first downloaded, in epoch milliseconds. */
     val cachedAtTimestamp: Long
 )
+
+/** Just enough of a cached document to tell whether it is one. */
+class CachedDocumentHead(
+    val downloadUrl: String,
+    val head: ByteArray
+)

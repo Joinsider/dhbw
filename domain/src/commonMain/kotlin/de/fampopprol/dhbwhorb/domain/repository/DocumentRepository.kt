@@ -25,7 +25,8 @@ interface DocumentRepository {
     suspend fun downloadDocument(document: DualisDocument): Outcome<ByteArray>
 
     /**
-     * Deletes cached documents that have reached their maximum age.
+     * Deletes cached documents that must not be kept: those that reached their maximum age, and
+     * those that turned out not to be documents at all.
      *
      * @return how many were deleted
      */
