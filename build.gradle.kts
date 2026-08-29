@@ -29,22 +29,6 @@ sonar {
 
         property("sonar.sourceEncoding", "UTF-8")
 
-        // Every module below defines its own kmpCoverage Kover variant (see each module's
-        // build.gradle.kts). composeApp renames its XML output to report.xml; the rest use
-        // Kover's default name for a named variant, reportKmpCoverage.xml. Missing one of these
-        // means that module's code shows up as 0% covered on SonarCloud despite having real tests.
-        property(
-            "sonar.coverage.jacoco.xmlReportPaths", listOf(
-                "composeApp/build/reports/kover/report.xml",
-                "domain/build/reports/kover/reportKmpCoverage.xml",
-                "data/build/reports/kover/reportKmpCoverage.xml",
-                "services/build/reports/kover/reportKmpCoverage.xml",
-                "presentation/build/reports/kover/reportKmpCoverage.xml",
-                "shared/build/reports/kover/reportKmpCoverage.xml",
-                "core/common/build/reports/kover/reportKmpCoverage.xml"
-            ).joinToString(",")
-        )
-
         property(
             "sonar.exclusions", listOf(
                 "**/build/**",
@@ -68,5 +52,28 @@ sonar {
                 "**/generated/**"
             ).joinToString(",")
         )
+    }
+}
+
+// sonar.coverage.jacoco.xmlReportPaths must be set per module, relative to that module's own
+// directory — Sonar resolves it that way, not relative to the root. Setting one root-relative
+// list (as before) made Sonar look for e.g. "domain/build/..." *inside* domain/, i.e.
+// "domain/domain/build/...", which never exists: every module silently got 0% coverage.
+// Every module defines its own kmpCoverage Kover variant (see each module's build.gradle.kts);
+// composeApp renames its XML output to report.xml, the rest use Kover's default name for a named
+// variant, reportKmpCoverage.xml.
+subprojects {
+    sonar {
+        properties {
+            property("sonar.coverage.jacoco.xmlReportPaths", "build/reports/kover/reportKmpCoverage.xml")
+        }
+    }
+}
+
+project(":composeApp") {
+    sonar {
+        properties {
+            property("sonar.coverage.jacoco.xmlReportPaths", "build/reports/kover/report.xml")
+        }
     }
 }
