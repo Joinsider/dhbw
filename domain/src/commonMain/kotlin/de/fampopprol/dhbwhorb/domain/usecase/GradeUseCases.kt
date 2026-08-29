@@ -8,6 +8,7 @@ package de.fampopprol.dhbwhorb.domain.usecase
 
 import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.core.error.Outcome
+import de.fampopprol.dhbwhorb.domain.model.GradeAttempts
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
 import de.fampopprol.dhbwhorb.domain.model.Semester
 import de.fampopprol.dhbwhorb.domain.repository.GradeRepository
@@ -64,29 +65,41 @@ class GetAllGrades(
 /**
  * Credit-weighted grade average over [grades].
  *
- * Pure and synchronous — no repository, no coroutine — so it is testable on its own. Modules
- * without a numeric grade or without credits do not take part; the result is null when nothing
+ * Pure and synchronous — no repository, no coroutine — so it is testable on its own. Only the
+ * attempt that counts per module takes part (see [GradeAttempts]), so a repeated module is
+ * weighed once and a failed attempt not at all; modules without a numeric grade or without
+ * credits stay out of the average but keep their credits. The average is null when nothing
  * countable is left, which means "no average yet", not "an error occurred".
  */
 class ComputeGpa {
     operator fun invoke(grades: List<GradeEntry>): Gpa {
-        var weightedPoints = 0.0
-        var countedCredits = 0.0
+        val counted = GradeAttempts.countable(grades)
 
-        for (grade in grades) {
+        var weightedPoints = 0.0
+        var gradedCredits = 0.0
+
+        for (grade in counted) {
             val value = grade.numericGrade ?: continue
             if (grade.credits <= 0.0) continue
             weightedPoints += value * grade.credits
-            countedCredits += grade.credits
+            gradedCredits += grade.credits
         }
 
-        val earnedCredits = grades.filter { it.grade != null }.sumOf { it.credits }
         return Gpa(
-            average = if (countedCredits > 0.0) weightedPoints / countedCredits else null,
-            earnedCredits = earnedCredits
+            average = if (gradedCredits > 0.0) weightedPoints / gradedCredits else null,
+            earnedCredits = counted.sumOf { it.credits },
+            completedModules = counted.size
         )
     }
 }
 
-/** @param average null when no module carries both a numeric grade and credits. */
-data class Gpa(val average: Double?, val earnedCredits: Double)
+/**
+ * @param average null when no module carries both a numeric grade and credits.
+ * @param earnedCredits the credits of every passed module, graded ("2,3") or not ("b").
+ * @param completedModules how many modules those credits came from.
+ */
+data class Gpa(
+    val average: Double?,
+    val earnedCredits: Double,
+    val completedModules: Int
+)

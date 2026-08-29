@@ -33,6 +33,14 @@ data class GradesState(
     val isRefreshing: Boolean = false,
     val overallGpa: Double? = null,
     val totalCreditsEarned: Double = 0.0,
+    /**
+     * How many modules those credits came from.
+     *
+     * Computed with the credits rather than derived from [grades] here: both answer "what
+     * counts", and one repeated module counted differently in the two places is exactly the kind
+     * of mismatch this screen is meant to be free of.
+     */
+    val modulesCompleted: Int = 0,
     val error: AppError? = null,
     /** The user has to log in first; not an error, so the screen shows a prompt. */
     val requiresLogin: Boolean = false,
@@ -45,8 +53,6 @@ data class GradesState(
      */
     val hasLoaded: Boolean = false
 ) {
-    val modulesCompleted: Int get() = grades.count { it.grade != null }
-
     /**
      * The grades grouped into the sections both UIs draw.
      *
@@ -73,7 +79,8 @@ sealed interface GradesMsg {
     data class GradesLoaded(
         val grades: List<GradeEntry>,
         val average: Double?,
-        val earnedCredits: Double
+        val earnedCredits: Double,
+        val completedModules: Int
     ) : GradesMsg
     data class Failed(val error: AppError) : GradesMsg
     data object LoginRequired : GradesMsg

@@ -166,17 +166,13 @@ private struct SemesterHeader: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// Credit-weighted, the same rule `ComputeGpa` applies — but for one section only, which the
-    /// store does not carry. Modules without a numeric grade or without credits do not count.
+    /// `ComputeGpa` for one section, which is what the store does not carry.
+    ///
+    /// Called rather than reimplemented: this used to be the same loop written a second time in
+    /// Swift, and when the shared rule learnt to skip failed attempts and repeated modules, the
+    /// header kept averaging them — a semester average that disagreed with the total above it.
     private var semesterAverage: Double? {
-        var points = 0.0
-        var credits = 0.0
-        for entry in section.grades {
-            guard let value = entry.numericGrade?.doubleValue, entry.credits > 0 else { continue }
-            points += value * entry.credits
-            credits += entry.credits
-        }
-        return credits > 0 ? points / credits : nil
+        ComputeGpa().invoke(grades: section.grades).average?.doubleValue
     }
 }
 
