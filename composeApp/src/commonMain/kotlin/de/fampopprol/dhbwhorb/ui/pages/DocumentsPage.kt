@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.ui.documents.components.DocumentCard
 import de.fampopprol.dhbwhorb.presentation.documents.DocumentsEffect
 import de.fampopprol.dhbwhorb.presentation.documents.DocumentsIntent
+import de.fampopprol.dhbwhorb.presentation.documents.DocumentsState
 import de.fampopprol.dhbwhorb.presentation.documents.DocumentsStore
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
@@ -87,102 +88,133 @@ fun DocumentsPage(
                 .padding(paddingValues)
         ) {
             if (uiState.requiresLogin) {
-                // Show login required message
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Please log in to view your documents",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
+                LoginRequiredMessage()
             } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp)
-                ) {
-                    OutlinedTextField(
-                        value = uiState.searchQuery,
-                        onValueChange = { store.dispatch(DocumentsIntent.SearchChanged(it)) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp, bottom = 8.dp),
-                        label = { Text("Search Documents") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Search"
-                            )
-                        },
-                        trailingIcon = {
-                            if (uiState.searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { store.dispatch(DocumentsIntent.SearchChanged("")) }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Clear,
-                                        contentDescription = "Clear Search"
-                                    )
-                                }
-                            }
-                        },
-                        singleLine = true
-                    )
+                DocumentsContent(uiState = uiState, store = store)
+            }
+        }
+    }
+}
 
-                    if (uiState.isLoading && uiState.documents.isEmpty()) {
-                        // Skeleton UI for Documents
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(vertical = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            items(6) {
-                                DocumentCardSkeleton()
-                            }
-                        }
-                    } else {
-                        PullToRefreshBox(
-                            isRefreshing = uiState.isRefreshing,
-                            onRefresh = { store.dispatch(DocumentsIntent.Refresh) },
-                        ) {
-                            if (uiState.documents.isEmpty() && uiState.searchQuery.isNotEmpty() && !uiState.isLoading) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("No documents found matching your search.")
-                                }
-                            } else if (uiState.documents.isEmpty() && !uiState.isLoading) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("No documents available.")
-                                }
-                            } else {
-                                LazyColumn(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(vertical = 16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    items(uiState.documents) { document ->
-                                        DocumentCard(
-                                            document = document,
-                                            onDownloadClick = {
-                                                store.dispatch(DocumentsIntent.Open(document))
-                                            },
-                                            onSaveToFiles = { doc ->
-                                                store.dispatch(DocumentsIntent.Save(doc))
-                                            },
-                                            isDownloading = uiState.isDownloading(document)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
+@Composable
+private fun LoginRequiredMessage() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Please log in to view your documents",
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
+}
+
+@Composable
+private fun DocumentsContent(uiState: DocumentsState, store: DocumentsStore) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        DocumentsSearchField(uiState = uiState, store = store)
+
+        if (uiState.isLoading && uiState.documents.isEmpty()) {
+            DocumentsSkeletonList()
+        } else {
+            DocumentsResults(uiState = uiState, store = store)
+        }
+    }
+}
+
+@Composable
+private fun DocumentsSearchField(uiState: DocumentsState, store: DocumentsStore) {
+    OutlinedTextField(
+        value = uiState.searchQuery,
+        onValueChange = { store.dispatch(DocumentsIntent.SearchChanged(it)) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp, bottom = 8.dp),
+        label = { Text("Search Documents") },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Search"
+            )
+        },
+        trailingIcon = {
+            if (uiState.searchQuery.isNotEmpty()) {
+                IconButton(onClick = { store.dispatch(DocumentsIntent.SearchChanged("")) }) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "Clear Search"
+                    )
                 }
             }
+        },
+        singleLine = true
+    )
+}
+
+@Composable
+private fun DocumentsSkeletonList() {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        items(6) {
+            DocumentCardSkeleton()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DocumentsResults(uiState: DocumentsState, store: DocumentsStore) {
+    PullToRefreshBox(
+        isRefreshing = uiState.isRefreshing,
+        onRefresh = { store.dispatch(DocumentsIntent.Refresh) },
+    ) {
+        when {
+            uiState.documents.isEmpty() && uiState.searchQuery.isNotEmpty() && !uiState.isLoading ->
+                EmptyDocumentsMessage("No documents found matching your search.")
+
+            uiState.documents.isEmpty() && !uiState.isLoading ->
+                EmptyDocumentsMessage("No documents available.")
+
+            else -> DocumentsList(uiState = uiState, store = store)
+        }
+    }
+}
+
+@Composable
+private fun EmptyDocumentsMessage(text: String) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text)
+    }
+}
+
+@Composable
+private fun DocumentsList(uiState: DocumentsState, store: DocumentsStore) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        items(uiState.documents) { document ->
+            DocumentCard(
+                document = document,
+                onDownloadClick = {
+                    store.dispatch(DocumentsIntent.Open(document))
+                },
+                onSaveToFiles = { doc ->
+                    store.dispatch(DocumentsIntent.Save(doc))
+                },
+                isDownloading = uiState.isDownloading(document)
+            )
         }
     }
 }

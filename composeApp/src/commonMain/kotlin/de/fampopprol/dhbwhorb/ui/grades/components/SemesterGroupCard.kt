@@ -51,63 +51,89 @@ fun SemesterGroupCard(
         Column(
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded }
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = semesterName,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "${grades.size} modules • ${grades.sumOf { it.credits }} credits",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            SemesterCardHeader(
+                semesterName = semesterName,
+                grades = grades,
+                semesterGpa = semesterGpa,
+                expanded = expanded,
+                onToggleExpanded = { expanded = !expanded }
+            )
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (semesterGpa != null) {
-                        Text(
-                            text = "Ø ${(round(semesterGpa * 100) / 100)}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    IconButton(onClick = { expanded = !expanded }) {
-                        Icon(
-                            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = if (expanded) "Collapse" else "Expand"
-                        )
-                    }
-                }
+            SemesterGradesList(expanded = expanded, grades = grades)
+        }
+    }
+}
+
+@Composable
+private fun SemesterCardHeader(
+    semesterName: String,
+    grades: List<GradeEntry>,
+    semesterGpa: Double?,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggleExpanded)
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = semesterName,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "${grades.size} modules • ${grades.sumOf { it.credits }} credits",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SemesterGpaLabel(semesterGpa)
+            IconButton(onClick = onToggleExpanded) {
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Collapse" else "Expand"
+                )
             }
+        }
+    }
+}
 
-            // Expandable content
-            AnimatedVisibility(
-                visible = expanded,
-                enter = expandVertically(),
-                exit = shrinkVertically()
-            ) {
-                Column {
-                    HorizontalDivider()
-                    grades.forEach { grade ->
-                        GradeRow(grade = grade)
-                        if (grade != grades.last()) {
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                        }
-                    }
+@Composable
+private fun SemesterGpaLabel(semesterGpa: Double?) {
+    if (semesterGpa == null) return
+
+    Text(
+        text = "Ø ${(round(semesterGpa * 100) / 100)}",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary
+    )
+}
+
+@Composable
+private fun SemesterGradesList(expanded: Boolean, grades: List<GradeEntry>) {
+    // Expandable content
+    AnimatedVisibility(
+        visible = expanded,
+        enter = expandVertically(),
+        exit = shrinkVertically()
+    ) {
+        Column {
+            HorizontalDivider()
+            grades.forEach { grade ->
+                GradeRow(grade = grade)
+                if (grade != grades.last()) {
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 }
             }
         }

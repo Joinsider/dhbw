@@ -80,6 +80,11 @@ kotlin {
             implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
+            // androidx.compose.ui.tooling.preview.Preview — the non-deprecated replacement for
+            // org.jetbrains.compose.ui.tooling.preview.Preview — ships to Android and Desktop as a
+            // side effect of other dependencies, but macOS/iOS commonMain code needs it declared
+            // explicitly to get the klib for those targets.
+            implementation(compose.preview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.androidx.navigation.compose)

@@ -38,29 +38,35 @@ class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent
             Napier.d("Monitoring started, every $REPEAT_INTERVAL", tag = TAG)
 
             while (isActive) {
-                try {
-                    val notificationManager = getKoin().getOrNull<NotificationManager>()
-                    if (notificationManager != null) {
-                        if (notificationManager.checkAndNotify() is Outcome.Ok) {
-                            Napier.d("Check done, next one in $REPEAT_INTERVAL", tag = TAG)
-                        } else {
-                            Napier.w("Check failed, retrying on the next interval", tag = TAG)
-                        }
-                    } else {
-                        Napier.w("NotificationManager not in the graph, skipping the check", tag = TAG)
-                    }
-
-                } catch (e: CancellationException) {
-                    Napier.d("Cancelled", tag = TAG)
-                    throw e // Re-throw to stop the loop
-                } catch (e: Exception) {
-                    Napier.e("Error during lecture monitoring: ${e.message}", e, tag = TAG)
-                }
-
+                runMonitoringCheck()
                 delay(REPEAT_INTERVAL)
             }
         }
+    }
 
+    private suspend fun runMonitoringCheck() {
+        try {
+            checkForLectureChanges()
+        } catch (e: CancellationException) {
+            Napier.d("Cancelled", tag = TAG)
+            throw e // Re-throw to stop the loop
+        } catch (e: Exception) {
+            Napier.e("Error during lecture monitoring: ${e.message}", e, tag = TAG)
+        }
+    }
+
+    private suspend fun checkForLectureChanges() {
+        val notificationManager = getKoin().getOrNull<NotificationManager>()
+        if (notificationManager == null) {
+            Napier.w("NotificationManager not in the graph, skipping the check", tag = TAG)
+            return
+        }
+
+        if (notificationManager.checkAndNotify() is Outcome.Ok) {
+            Napier.d("Check done, next one in $REPEAT_INTERVAL", tag = TAG)
+        } else {
+            Napier.w("Check failed, retrying on the next interval", tag = TAG)
+        }
     }
 
     /**

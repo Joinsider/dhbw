@@ -36,6 +36,12 @@ class DualisPageGateway(
         const val MAX_ATTEMPTS = 2
     }
 
+    /** The outcome of a single attempt: either the loop is done, or it should retry. */
+    private sealed interface AttemptOutcome {
+        data class Done(val outcome: Outcome<String>) : AttemptOutcome
+        data object Retry : AttemptOutcome
+    }
+
     /**
      * GET the page [buildUrl] produces and hand back its HTML.
      *
@@ -53,65 +59,95 @@ class DualisPageGateway(
         while (true) {
             val lastAttempt = attempt >= MAX_ATTEMPTS - 1
 
-            if (!sessionManager.isAuthenticated()) {
-                when (val reAuth = reAuthenticator.reAuthenticate()) {
-                    is Outcome.Ok -> Unit
-                    is Outcome.Err -> return reAuth
-                }
-            }
-
-            val authData = sessionManager.getAuthData()
-            if (authData == null || authData.sessionId.isEmpty()) {
-                Napier.w("No usable session id for $source", tag = TAG)
-                if (lastAttempt) return Outcome.Err(AppError.SessionExpired)
-                when (val reAuth = reAuthenticator.reAuthenticate()) {
-                    is Outcome.Ok -> Unit
-                    is Outcome.Err -> return reAuth
-                }
-                attempt++
-                continue
-            }
-
-            // The stored value is the raw Set-Cookie header; the Cookie header takes only the
-            // name=value part in front of the first attribute.
-            val cookie = authData.cookie?.substringBefore(";")
-
-            val html = when (val response = apiClient.get(buildUrl(authData), emptyMap(), cookie)) {
-                is Outcome.Ok -> response.value
-                is Outcome.Err -> {
-                    val retryable = response.error is AppError.SessionExpired
-                    if (!retryable || lastAttempt) return response
-                    when (val reAuth = reAuthenticator.reAuthenticate()) {
-                        is Outcome.Ok -> Unit
-                        is Outcome.Err -> return reAuth
-                    }
-                    attempt++
-                    continue
-                }
-            }
-
-            if (isValid(html) && !htmlParser.isErrorPage(html)) return Outcome.Ok(html)
-
-            val title = htmlParser.extractTitle(html)
-            Napier.w("Unexpected page for $source (title: '$title')", tag = TAG)
-
-            if (!lastAttempt) {
-                when (val reAuth = reAuthenticator.reAuthenticate()) {
-                    is Outcome.Ok -> Unit
-                    is Outcome.Err -> return reAuth
-                }
-                attempt++
-                continue
-            }
-
-            // A fresh session still did not produce the expected page. An error page means the
-            // account cannot reach this content; anything else means Dualis answers with
-            // something we no longer recognise, which is a scraping problem, not a session one.
-            return if (htmlParser.isErrorPage(html)) {
-                Outcome.Err(AppError.SessionExpired)
-            } else {
-                Outcome.Err(AppError.Parse(source, "unexpected page, title: '$title'"))
+            when (val result = attemptFetch(source, isValid, buildUrl, lastAttempt)) {
+                is AttemptOutcome.Done -> return result.outcome
+                AttemptOutcome.Retry -> attempt++
             }
         }
     }
+
+    /** One pass: re-authenticate if needed, fetch the page and validate it. */
+    private suspend fun attemptFetch(
+        source: String,
+        isValid: (String) -> Boolean,
+        buildUrl: (AuthData) -> String,
+        lastAttempt: Boolean
+    ): AttemptOutcome {
+        reAuthenticateIfUnauthenticated()?.let { return AttemptOutcome.Done(it) }
+
+        val authData = sessionManager.getAuthData()
+        if (authData == null || authData.sessionId.isEmpty()) {
+            return retryOrExpire(source, lastAttempt)
+        }
+
+        val html = when (val response = fetchHtml(authData, buildUrl)) {
+            is Outcome.Ok -> response.value
+            is Outcome.Err -> {
+                val retryable = response.error is AppError.SessionExpired
+                if (!retryable || lastAttempt) return AttemptOutcome.Done(response)
+                reAuthenticateOrErr()?.let { return AttemptOutcome.Done(it) }
+                return AttemptOutcome.Retry
+            }
+        }
+
+        if (isValid(html) && !htmlParser.isErrorPage(html)) {
+            return AttemptOutcome.Done(Outcome.Ok(html))
+        }
+
+        return handleUnexpectedPage(source, html, lastAttempt)
+    }
+
+    /** GET the page; the stored cookie is the raw Set-Cookie header, trimmed to name=value. */
+    private suspend fun fetchHtml(
+        authData: AuthData,
+        buildUrl: (AuthData) -> String
+    ): Outcome<String> {
+        val cookie = authData.cookie?.substringBefore(";")
+        return apiClient.get(buildUrl(authData), emptyMap(), cookie)
+    }
+
+    /** No usable session id: give up on the last attempt, otherwise re-authenticate and retry. */
+    private suspend fun retryOrExpire(source: String, lastAttempt: Boolean): AttemptOutcome {
+        Napier.w("No usable session id for $source", tag = TAG)
+        if (lastAttempt) return AttemptOutcome.Done(Outcome.Err(AppError.SessionExpired))
+        reAuthenticateOrErr()?.let { return AttemptOutcome.Done(it) }
+        return AttemptOutcome.Retry
+    }
+
+    /**
+     * A fresh session still did not produce the expected page. An error page means the account
+     * cannot reach this content; anything else means Dualis answers with something we no longer
+     * recognise, which is a scraping problem, not a session one.
+     */
+    private suspend fun handleUnexpectedPage(
+        source: String,
+        html: String,
+        lastAttempt: Boolean
+    ): AttemptOutcome {
+        val title = htmlParser.extractTitle(html)
+        Napier.w("Unexpected page for $source (title: '$title')", tag = TAG)
+
+        if (!lastAttempt) {
+            reAuthenticateOrErr()?.let { return AttemptOutcome.Done(it) }
+            return AttemptOutcome.Retry
+        }
+
+        val outcome = if (htmlParser.isErrorPage(html)) {
+            Outcome.Err(AppError.SessionExpired)
+        } else {
+            Outcome.Err(AppError.Parse(source, "unexpected page, title: '$title'"))
+        }
+        return AttemptOutcome.Done(outcome)
+    }
+
+    private suspend fun reAuthenticateIfUnauthenticated(): Outcome.Err? {
+        if (sessionManager.isAuthenticated()) return null
+        return reAuthenticateOrErr()
+    }
+
+    private suspend fun reAuthenticateOrErr(): Outcome.Err? =
+        when (val reAuth = reAuthenticator.reAuthenticate()) {
+            is Outcome.Ok -> null
+            is Outcome.Err -> reAuth
+        }
 }

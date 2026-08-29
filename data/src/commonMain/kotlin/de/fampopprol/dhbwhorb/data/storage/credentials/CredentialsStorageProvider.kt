@@ -76,16 +76,12 @@ open class CredentialsStorageProvider(private val secureStorage: SecureStorageIn
 
     /**
      * Clear all secure storage data.
-     * Future implementation will also clear Room database.
      *
-     * TODO: Add Room database clearing when Dualis API is implemented
+     * Room database clearing is a separate concern, handled by
+     * [de.fampopprol.dhbwhorb.data.storage.database.AppDatabase.clearAllData] directly wherever a
+     * logout needs to wipe cached data too.
      */
     fun clearAllData() {
-        // Clear all secure storage
         secureStorage.clear()
-
-        // TODO: Clear Room database
-        // This will be implemented when the Dualis API scraper is added
-        // Example: appDatabase.clearAllTables()
     }
 }

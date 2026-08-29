@@ -60,7 +60,7 @@ fun dualisTrustManager(): X509TrustManager {
 
 /** An [SSLContext] backed by [dualisTrustManager]. */
 fun dualisSslContext(trustManager: X509TrustManager): SSLContext =
-    SSLContext.getInstance("TLS").apply { init(null, arrayOf(trustManager), null) }
+    SSLContext.getInstance("TLSv1.2").apply { init(null, arrayOf(trustManager), null) }
 
 fun defaultTrustManager(): X509TrustManager {
     val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())

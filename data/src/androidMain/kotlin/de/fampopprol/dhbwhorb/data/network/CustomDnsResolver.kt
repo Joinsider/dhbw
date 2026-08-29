@@ -28,6 +28,16 @@ class CustomDnsResolver : Dns {
         // DoH endpoints
         private const val CLOUDFLARE_DOH = "https://cloudflare-dns.com/dns-query"
         private const val GOOGLE_DOH = "https://dns.google/dns-query"
+
+        // Bootstrap IPs for the DoH endpoints above: resolving cloudflare-dns.com/dns.google
+        // itself needs a DNS lookup, so DNS-over-HTTPS bootstraps from Cloudflare's and Google's
+        // own well-known public resolver addresses rather than depending on system DNS for that
+        // first hop. These are not configurable infrastructure — they're the two largest public
+        // DNS operators' fixed anycast addresses, the same ones OkHttp's own DoH docs bootstrap from.
+        private const val CLOUDFLARE_DNS_IPV4_PRIMARY = "1.1.1.1"
+        private const val CLOUDFLARE_DNS_IPV4_SECONDARY = "1.0.0.1"
+        private const val GOOGLE_DNS_IPV4_PRIMARY = "8.8.8.8"
+        private const val GOOGLE_DNS_IPV4_SECONDARY = "8.8.4.4"
     }
 
     private val baseClient: OkHttpClient = OkHttpClient.Builder()
@@ -42,8 +52,8 @@ class CustomDnsResolver : Dns {
         .url(CLOUDFLARE_DOH.toHttpUrl())
         .bootstrapDnsHosts(listOf(
             // Cloudflare IPv4 addresses to avoid dependency on system DNS for initial resolve
-            InetAddress.getByName("1.1.1.1"),
-            InetAddress.getByName("1.0.0.1")
+            InetAddress.getByName(CLOUDFLARE_DNS_IPV4_PRIMARY),
+            InetAddress.getByName(CLOUDFLARE_DNS_IPV4_SECONDARY)
         ))
         .build()
 
@@ -53,8 +63,8 @@ class CustomDnsResolver : Dns {
         .url(GOOGLE_DOH.toHttpUrl())
         .bootstrapDnsHosts(listOf(
             // Google Public DNS IPv4 addresses
-            InetAddress.getByName("8.8.8.8"),
-            InetAddress.getByName("8.8.4.4")
+            InetAddress.getByName(GOOGLE_DNS_IPV4_PRIMARY),
+            InetAddress.getByName(GOOGLE_DNS_IPV4_SECONDARY)
         ))
         .build()
 

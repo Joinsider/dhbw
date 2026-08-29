@@ -41,7 +41,7 @@ fun HelpSelectionCard(
     onLogout: () -> Unit,
     showLogout: Boolean = true
 ) {
-    Card (
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 16.dp),
@@ -49,11 +49,7 @@ fun HelpSelectionCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
         elevation = CardDefaults.elevatedCardElevation()
-    ){
-
-        val hapticFeedback = LocalHapticFeedback.current
-        val uriHandler = LocalUriHandler.current
-
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -66,191 +62,137 @@ fun HelpSelectionCard(
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            BoxWithConstraints(
-                modifier = Modifier.fillMaxWidth()
+            HelpActionButtons(onLogout = onLogout, showLogout = showLogout)
+        }
+    }
+}
+
+/** Buttons flow in a row on wide layouts and stack in a column on narrow ones. */
+@Composable
+private fun HelpActionButtons(onLogout: () -> Unit, showLogout: Boolean) {
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        val useRowLayout = maxWidth > 600.dp
+
+        if (useRowLayout) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                val useRowLayout = maxWidth > 600.dp
-
-                if (useRowLayout) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Privacy Policy Button
-                        Button(
-                            onClick = {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                                uriHandler.openUri("https://www.datenschutz.dhbw.joinside.de")
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            content = {
-                                Icon(
-                                    imageVector = Icons.Default.PrivacyTip,
-                                    contentDescription = stringResource(Res.string.privacy_button),
-                                    modifier = Modifier
-                                        .padding(end = 8.dp)
-                                )
-                                Text(
-                                    text = stringResource(Res.string.privacy_button),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        )
-
-                        // Github Issues Button
-                        Button(
-                            onClick = {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                                uriHandler.openUri("https://github.com/Joinsider/dhbw/issues/")
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            content = {
-                                Icon(
-                                    imageVector = Icons.Default.Commit,
-                                    contentDescription = stringResource(Res.string.report_issue),
-                                    modifier = Modifier
-                                        .padding(end = 8.dp)
-                                )
-                                Text(
-                                    text = stringResource(Res.string.github_issues),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        )
-
-                        // Logout Button — only meaningful while a session exists
-                        if (showLogout) {
-                            Button(
-                                onClick = {
-                                    onLogout()
-                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                                },
-                                modifier = Modifier
-                                    .testTag("logoutButton")
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                shape = MaterialTheme.shapes.medium,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Logout,
-                                    contentDescription = stringResource(Res.string.logout),
-                                    modifier = Modifier.padding(end = 8.dp)
-                                )
-                                Text(stringResource(Res.string.logout))
-                            }
-                        }
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Privacy Policy Button
-                        Button(
-                            onClick = {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                                uriHandler.openUri("https://www.datenschutz.dhbw.joinside.de")
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            content = {
-                                Icon(
-                                    imageVector = Icons.Default.PrivacyTip,
-                                    contentDescription = stringResource(Res.string.privacy_button),
-                                    modifier = Modifier
-                                        .padding(end = 8.dp)
-                                )
-                                Text(
-                                    text = stringResource(Res.string.privacy_button),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        )
-
-                        // Github Issues Button
-                        Button(
-                            onClick = {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                                uriHandler.openUri("https://github.com/Joinsider/dhbw/issues/")
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            content = {
-                                Icon(
-                                    imageVector = Icons.Default.Commit,
-                                    contentDescription = stringResource(Res.string.report_issue),
-                                    modifier = Modifier
-                                        .padding(end = 8.dp)
-                                )
-                                Text(
-                                    text = stringResource(Res.string.github_issues),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        )
-
-                        // Logout Button — only meaningful while a session exists
-                        if (showLogout) {
-                            Button(
-                                onClick = {
-                                    onLogout()
-                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                                },
-                                modifier = Modifier
-                                    .testTag("logoutButton")
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                shape = MaterialTheme.shapes.medium,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Logout,
-                                    contentDescription = stringResource(Res.string.logout),
-                                    modifier = Modifier.padding(end = 8.dp)
-                                )
-                                Text(stringResource(Res.string.logout))
-                            }
-                        }
-                    }
+                PrivacyPolicyButton(modifier = Modifier.weight(1f).height(48.dp))
+                GithubIssuesButton(modifier = Modifier.weight(1f).height(48.dp))
+                if (showLogout) {
+                    LogoutButton(
+                        onLogout = onLogout,
+                        modifier = Modifier.testTag("logoutButton").fillMaxWidth().height(48.dp)
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                PrivacyPolicyButton(modifier = Modifier.fillMaxWidth().height(48.dp))
+                GithubIssuesButton(modifier = Modifier.fillMaxWidth().height(48.dp))
+                if (showLogout) {
+                    LogoutButton(
+                        onLogout = onLogout,
+                        modifier = Modifier.testTag("logoutButton").fillMaxWidth().height(48.dp)
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PrivacyPolicyButton(modifier: Modifier = Modifier) {
+    val hapticFeedback = LocalHapticFeedback.current
+    val uriHandler = LocalUriHandler.current
+
+    Button(
+        onClick = {
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+            uriHandler.openUri("https://www.datenschutz.dhbw.joinside.de")
+        },
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        ),
+        content = {
+            Icon(
+                imageVector = Icons.Default.PrivacyTip,
+                contentDescription = stringResource(Res.string.privacy_button),
+                modifier = Modifier
+                    .padding(end = 8.dp)
+            )
+            Text(
+                text = stringResource(Res.string.privacy_button),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    )
+}
+
+@Composable
+private fun GithubIssuesButton(modifier: Modifier = Modifier) {
+    val hapticFeedback = LocalHapticFeedback.current
+    val uriHandler = LocalUriHandler.current
+
+    Button(
+        onClick = {
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+            uriHandler.openUri("https://github.com/Joinsider/dhbw/issues/")
+        },
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        ),
+        content = {
+            Icon(
+                imageVector = Icons.Default.Commit,
+                contentDescription = stringResource(Res.string.report_issue),
+                modifier = Modifier
+                    .padding(end = 8.dp)
+            )
+            Text(
+                text = stringResource(Res.string.github_issues),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    )
+}
+
+/** Only meaningful while a session exists — callers gate this on `showLogout`. */
+@Composable
+private fun LogoutButton(onLogout: () -> Unit, modifier: Modifier = Modifier) {
+    val hapticFeedback = LocalHapticFeedback.current
+
+    Button(
+        onClick = {
+            onLogout()
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+        },
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer
+        )
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.Logout,
+            contentDescription = stringResource(Res.string.logout),
+            modifier = Modifier.padding(end = 8.dp)
+        )
+        Text(stringResource(Res.string.logout))
     }
 }

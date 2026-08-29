@@ -18,18 +18,24 @@ import de.fampopprol.dhbwhorb.domain.model.Lecture
 import kotlinx.datetime.DayOfWeek
 
 
+/** The visible hour range and row scale shared by every [DayColumn] in a week. */
+data class DayColumnTimeline(
+    val startHour: Int = 8,
+    val endHour: Int = 18,
+    val hourHeight: Float = 80f,
+)
+
 @Composable
 fun DayColumn(
     dayOfWeek: DayOfWeek,
     lectures: List<Lecture>,
-    startHour: Int = 8,
-    endHour: Int = 18,
-    hourHeight: Float = 80f,
+    timeline: DayColumnTimeline = DayColumnTimeline(),
     modifier: Modifier = Modifier,
     width: Dp,
     onLectureClick: (Lecture) -> Unit = {},
     isSkeleton: Boolean = false
 ) {
+    val (startHour, endHour, hourHeight) = timeline
     Column(
         modifier = modifier
     ) {
