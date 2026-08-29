@@ -28,7 +28,22 @@ sonar {
         // of moving off sonar-project.properties in the first place.
 
         property("sonar.sourceEncoding", "UTF-8")
-        property("sonar.coverage.jacoco.xmlReportPaths", "composeApp/build/reports/kover/report.xml")
+
+        // Every module below defines its own kmpCoverage Kover variant (see each module's
+        // build.gradle.kts). composeApp renames its XML output to report.xml; the rest use
+        // Kover's default name for a named variant, reportKmpCoverage.xml. Missing one of these
+        // means that module's code shows up as 0% covered on SonarCloud despite having real tests.
+        property(
+            "sonar.coverage.jacoco.xmlReportPaths", listOf(
+                "composeApp/build/reports/kover/report.xml",
+                "domain/build/reports/kover/reportKmpCoverage.xml",
+                "data/build/reports/kover/reportKmpCoverage.xml",
+                "services/build/reports/kover/reportKmpCoverage.xml",
+                "presentation/build/reports/kover/reportKmpCoverage.xml",
+                "shared/build/reports/kover/reportKmpCoverage.xml",
+                "core/common/build/reports/kover/reportKmpCoverage.xml"
+            ).joinToString(",")
+        )
 
         property(
             "sonar.exclusions", listOf(
