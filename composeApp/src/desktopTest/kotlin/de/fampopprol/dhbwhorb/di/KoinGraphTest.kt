@@ -189,7 +189,8 @@ class KoinGraphTest {
             de.fampopprol.dhbwhorb.domain.usecase.GetModuleDetails::class,
             de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa::class,
             de.fampopprol.dhbwhorb.domain.usecase.ListDocuments::class,
-            de.fampopprol.dhbwhorb.domain.usecase.DownloadDocument::class
+            de.fampopprol.dhbwhorb.domain.usecase.DownloadDocument::class,
+            de.fampopprol.dhbwhorb.domain.usecase.PurgeExpiredDocuments::class
         )
     }
 }

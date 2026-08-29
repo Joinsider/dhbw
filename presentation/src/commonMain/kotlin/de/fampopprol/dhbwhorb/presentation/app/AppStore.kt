@@ -9,6 +9,7 @@ package de.fampopprol.dhbwhorb.presentation.app
 import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.domain.repository.SessionRepository
 import de.fampopprol.dhbwhorb.domain.usecase.Logout
+import de.fampopprol.dhbwhorb.domain.usecase.PurgeExpiredDocuments
 import de.fampopprol.dhbwhorb.presentation.store.BaseStore
 import de.fampopprol.dhbwhorb.presentation.store.EffectScope
 import de.fampopprol.dhbwhorb.presentation.store.SessionScopedStore
@@ -24,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 class AppStore(
     private val sessionRepository: SessionRepository,
     private val logout: Logout,
+    private val purgeExpiredDocuments: PurgeExpiredDocuments,
     scope: CoroutineScope,
     /**
      * The stores holding account data, resolved when a logout happens.
@@ -47,6 +49,10 @@ class AppStore(
     override suspend fun EffectScope<AppMsg, AppEffect>.handle(intent: AppIntent, state: AppState) {
         when (intent) {
             AppIntent.Started, AppIntent.LoggedIn -> {
+                // Housekeeping, not part of restoring the session: cached documents have a
+                // deletion deadline, and app start is the one moment every user reaches.
+                purgeExpiredDocuments()
+
                 val session = sessionRepository.currentSession()
                 if (session == null) {
                     emit(AppMsg.NoSession)

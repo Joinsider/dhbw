@@ -13,7 +13,7 @@ import androidx.sqlite.execSQL
  * Raising this constant obliges you to add the matching [Migration] to [APP_DATABASE_MIGRATIONS]
  * and to commit the schema export Room writes to `data/schemas/`. The guard test fails otherwise.
  */
-const val APP_DATABASE_VERSION = 5
+const val APP_DATABASE_VERSION = 6
 
 /**
  * Schema 5 adds `grades.resultId`, the key to a module's "Ergebnisdetails" page in Dualis.
@@ -29,12 +29,33 @@ private val MIGRATION_4_5 = object : Migration(4, 5) {
 }
 
 /**
+ * Schema 6 adds `cached_documents`, where a downloaded document is kept with its SHA-256 for at
+ * most four weeks.
+ *
+ * A new table only: nothing existing is touched, so an upgrade keeps every cached grade and
+ * lecture and simply starts out with no documents cached.
+ */
+private val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `cached_documents` (" +
+                "`downloadUrl` TEXT NOT NULL, " +
+                "`title` TEXT NOT NULL, " +
+                "`contentHash` TEXT NOT NULL, " +
+                "`content` BLOB NOT NULL, " +
+                "`cachedAtTimestamp` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`downloadUrl`))"
+        )
+    }
+}
+
+/**
  * Migrations for every schema step at or above [OLDEST_SUPPORTED_SCHEMA_VERSION].
  *
  * Raising [APP_DATABASE_VERSION] obliges you to add the matching step here; the guard test in
  * `:data` fails otherwise.
  */
-val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_4_5)
+val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_4_5, MIGRATION_5_6)
 
 /**
  * The oldest schema version that carries real user data.

@@ -115,11 +115,23 @@ open class FakeDocumentRepository(
 
     val downloaded = mutableListOf<String>()
 
+    /** How often the expired documents were purged, for the app-start housekeeping test. */
+    var purges = 0
+        private set
+
+    /** What [purgeExpiredDocuments] reports as deleted. */
+    var purged: Int = 0
+
     open override suspend fun listDocuments(): Outcome<List<DualisDocument>> = documents
 
     override suspend fun downloadDocument(document: DualisDocument): Outcome<ByteArray> {
         downloaded += document.title
         return download
+    }
+
+    override suspend fun purgeExpiredDocuments(): Int {
+        purges++
+        return purged
     }
 }
 

@@ -31,6 +31,7 @@ val presentationModule = module {
         AppStore(
             sessionRepository = get(),
             logout = get(),
+            purgeExpiredDocuments = get(),
             scope = get(),
             sessionScopedStores = {
                 listOf(get<TimetableStore>(), get<GradesStore>(), get<DocumentsStore>())

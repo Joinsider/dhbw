@@ -23,4 +23,11 @@ interface DocumentRepository {
      * account reaches the viewer and the save dialog like any other.
      */
     suspend fun downloadDocument(document: DualisDocument): Outcome<ByteArray>
+
+    /**
+     * Deletes cached documents that have reached their maximum age.
+     *
+     * @return how many were deleted
+     */
+    suspend fun purgeExpiredDocuments(): Int
 }

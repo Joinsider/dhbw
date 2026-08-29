@@ -1,6 +1,7 @@
 package de.fampopprol.dhbwhorb.testutil
 
 import de.fampopprol.dhbwhorb.data.storage.database.AppDatabase
+import de.fampopprol.dhbwhorb.data.storage.database.dao.documents.CachedDocumentDao
 import de.fampopprol.dhbwhorb.data.storage.database.dao.grades.GradeDao
 import de.fampopprol.dhbwhorb.data.storage.database.dao.grades.GradeCacheMetadataDao
 import de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LecturerDao
@@ -11,6 +12,7 @@ import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureEv
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LecturerEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureLecturerCrossRef
 import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureWithLecturers
+import de.fampopprol.dhbwhorb.data.storage.database.entities.documents.CachedDocumentEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeEntity
 import de.fampopprol.dhbwhorb.data.storage.database.entities.grades.GradeCacheMetadata
 import de.fampopprol.dhbwhorb.data.storage.database.entities.SyncMetadataEntity
@@ -25,6 +27,7 @@ class MockAppDatabase : AppDatabase() {
     override fun lectureLecturerCrossRefDao(): LectureLecturerCrossRefDao = MockLectureLecturerCrossRefDao()
     override fun gradeDao(): GradeDao = MockGradeDao()
     override fun gradeCacheMetadataDao(): GradeCacheMetadataDao = MockGradeCacheMetadataDao()
+    override fun cachedDocumentDao(): CachedDocumentDao = InMemoryCachedDocumentDao()
     override fun syncMetadataDao(): SyncMetadataDao = MockSyncMetadataDao()
     override fun createInvalidationTracker(): InvalidationTracker = throw NotImplementedError()
     
@@ -98,4 +101,37 @@ class MockSyncMetadataDao : SyncMetadataDao {
     override suspend fun clearAllSyncMetadata() {}
     override suspend fun getAllSyncMetadata(): List<SyncMetadataEntity> = emptyList()
     override suspend fun deleteByKey(key: String) {}
+}
+
+/**
+ * The document cache, in a map.
+ *
+ * Behaves like the real DAO rather than answering nothing: the cache's whole job is what it does
+ * on the second call, which a stub that always returns null can never show.
+ */
+open class InMemoryCachedDocumentDao : CachedDocumentDao {
+    private val stored = mutableMapOf<String, CachedDocumentEntity>()
+
+    override suspend fun insert(document: CachedDocumentEntity) {
+        stored[document.downloadUrl] = document
+    }
+
+    override suspend fun get(downloadUrl: String): CachedDocumentEntity? = stored[downloadUrl]
+
+    override suspend fun delete(downloadUrl: String) {
+        stored.remove(downloadUrl)
+    }
+
+    override suspend fun deleteCachedAtOrBefore(cutoffTimestamp: Long): Int {
+        val doomed = stored.values.filter { it.cachedAtTimestamp <= cutoffTimestamp }.map { it.downloadUrl }
+        doomed.forEach { stored.remove(it) }
+        return doomed.size
+    }
+
+    override suspend fun deleteAll() {
+        stored.clear()
+    }
+
+    /** For the assertions: how many documents are held right now. */
+    val size: Int get() = stored.size
 }
