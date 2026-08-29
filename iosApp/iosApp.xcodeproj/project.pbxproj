@@ -37,10 +37,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		8FA245AF3041F67000BE69E1 /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		8FBC13C32F640F9800803DDB /* TimetableWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TimetableWidgetExtension.entitlements; sourceTree = "<group>"; };
 		8FC8A4852F629DED005E3108 /* TimetableWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TimetableWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		8FC8A4872F629DED005E3108 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		8FC8A4892F629DED005E3108 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		8FCB097F303CE7C300C617F1 /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		8FF88F92303B8E6B0004600A /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		E3D9F0C275BF0BFDE5506549 /* DHBW-Horb.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "DHBW-Horb.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -127,6 +129,11 @@
 			);
 			sourceTree = "<group>";
 		};
+		8FA245B33041F67000BE69E1 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		8FC8A4862F629DED005E3108 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -134,6 +141,11 @@
 				8FC8A4892F629DED005E3108 /* SwiftUI.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		8FCB0983303CE7C300C617F1 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
 			sourceTree = "<group>";
 		};
 		8FF88F96303B8E6B0004600A /* Products */ = {
@@ -224,6 +236,14 @@
 			productRefGroup = 02732170D33EF15886F07EC8 /* Products */;
 			projectDirPath = "";
 			projectReferences = (
+				{
+					ProductGroup = 8FCB0983303CE7C300C617F1 /* Products */;
+					ProjectRef = 8FCB097F303CE7C300C617F1 /* iosApp.xcodeproj */;
+				},
+				{
+					ProductGroup = 8FA245B33041F67000BE69E1 /* Products */;
+					ProjectRef = 8FA245AF3041F67000BE69E1 /* iosApp.xcodeproj */;
+				},
 				{
 					ProductGroup = 8FF88F96303B8E6B0004600A /* Products */;
 					ProjectRef = 8FF88F92303B8E6B0004600A /* iosApp.xcodeproj */;

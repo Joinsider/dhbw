@@ -14,6 +14,23 @@ class GradeParser {
     private val htmlTagPattern = """<[^>]+>""".toRegex()
 
     /**
+     * The id of the "Ergebnisdetails" pop-up a module row links to.
+     *
+     * Dualis writes the same id twice per row — once in the `dl_popUp` call and once as the
+     * anchor's `result_id_…` — and the pop-up URL is the only place the individual exams behind a
+     * module grade are listed. Both spellings are accepted because the grade page and the
+     * transcript page use the same row template with different escaping.
+     */
+    private val resultIdPattern =
+        (
+            // ARGUMENTS carries three -N values: the session, the menu entry, and only then the
+            // result. Matching the first -N after RESULTDETAILS reads the session id into every
+            // row, which is the same id everywhere and points at no module at all.
+            """RESULTDETAILS[^"']*?ARGUMENTS=-N\d+,\s*-N\d+,\s*-N(\d{6,})""" +
+                """|result_id_(\d{6,})"""
+            ).toRegex(RegexOption.IGNORE_CASE)
+
+    /**
      * Extracts available semesters from the semester dropdown.
      * @return Map of Semester Name (key) -> Semester ID (value)
      */
@@ -83,6 +100,12 @@ class GradeParser {
                 val statusText = normalizeCell(cells[4])
                 val status = statusText.ifBlank { null }
 
+                // Read off the raw row: normalizeCell strips the markup this lives in.
+                val resultId = resultIdPattern.find(rowHtml)
+                    ?.groupValues
+                    ?.drop(1)
+                    ?.firstOrNull { it.isNotBlank() }
+
                 grades.add(
                     GradeEntity(
                         studentId = studentId,
@@ -92,7 +115,8 @@ class GradeParser {
                         moduleName = moduleName,
                         grade = finalGrade,
                         credits = credits,
-                        status = status
+                        status = status,
+                        resultId = resultId
                     )
                 )
             }

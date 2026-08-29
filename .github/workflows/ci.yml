@@ -57,21 +57,23 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ── Android unit tests ────────────────────────────────────────────────────
+      # ── Android + Desktop tests ────────────────────────────────────────────────
       # Unqualified, so every module runs its own: since P9 the tests live next to the code they
-      # test, not all together in :composeApp.
-      - name: Run Android unit tests
-        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
-
-      # ── Desktop / JVM tests ───────────────────────────────────────────────────
-      - name: Run Desktop (JVM) tests
-        run: ./gradlew desktopTest --no-daemon --stacktrace
+      # test, not all together in :composeApp. One invocation (instead of two) avoids paying for
+      # project configuration twice; org.gradle.parallel (gradle.properties) lets the independent
+      # Android/Desktop task graphs run concurrently across modules.
+      - name: Run Android + Desktop tests
+        run: ./gradlew testDebugUnitTest desktopTest --continue --no-daemon --stacktrace
 
       # ── Kover – generate unified XML + HTML coverage report ───────────────────
+      # Unqualified, so every module with a kmpCoverage variant reports (domain, data, services,
+      # presentation, shared, core/common, composeApp) — not just composeApp. Sonar's coverage
+      # import lists every one of these paths (see build.gradle.kts); missing a module here means
+      # its code shows up as 0% covered on SonarCloud even though it has real tests.
       - name: Generate Kover coverage report (XML + HTML)
         # Always run so SonarCloud gets a report even when some tests fail
         if: always()
-        run: ./gradlew :composeApp:koverXmlReportKmpCoverage :composeApp:koverHtmlReportKmpCoverage --no-daemon
+        run: ./gradlew koverXmlReportKmpCoverage koverHtmlReportKmpCoverage --no-daemon
 
       # ── Upload JUnit test results ─────────────────────────────────────────────
       - name: Upload JUnit test results
@@ -92,13 +94,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kover-coverage-report
-          path: composeApp/build/reports/kover/html/
+          path: |
+            */build/reports/kover/html/
+            core/*/build/reports/kover/html/
           retention-days: 14
 
       # ── Publish test results as PR check annotations ──────────────────────────
       - name: Publish test results
         if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
+        uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
         with:
           files: |
             */build/test-results/testDebugUnitTest/**/*.xml
@@ -144,7 +148,7 @@ jobs:
       # Every Gradle invocation configures :composeApp, which carries the Android plugin — so even
       # a pure iOS build needs an SDK location.
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
 
       - name: Cache Gradle packages
         uses: actions/cache@v4

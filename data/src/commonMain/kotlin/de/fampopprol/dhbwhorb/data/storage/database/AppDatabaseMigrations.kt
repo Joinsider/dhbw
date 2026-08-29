@@ -1,6 +1,7 @@
 package de.fampopprol.dhbwhorb.data.storage.database
 
 import androidx.room.migration.Migration
+import androidx.sqlite.execSQL
 
 /**
  * Schema version of [AppDatabase].
@@ -12,15 +13,49 @@ import androidx.room.migration.Migration
  * Raising this constant obliges you to add the matching [Migration] to [APP_DATABASE_MIGRATIONS]
  * and to commit the schema export Room writes to `data/schemas/`. The guard test fails otherwise.
  */
-const val APP_DATABASE_VERSION = 4
+const val APP_DATABASE_VERSION = 6
+
+/**
+ * Schema 5 adds `grades.resultId`, the key to a module's "Ergebnisdetails" page in Dualis.
+ *
+ * Added as a nullable column with no default: every cached row keeps its data and simply has no
+ * id until the next refresh reads one off the page. Dropping the cache instead would have been a
+ * silent re-download of every semester on first launch after the update.
+ */
+private val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("ALTER TABLE grades ADD COLUMN resultId TEXT")
+    }
+}
+
+/**
+ * Schema 6 adds `cached_documents`, where a downloaded document is kept with its SHA-256 for at
+ * most four weeks.
+ *
+ * A new table only: nothing existing is touched, so an upgrade keeps every cached grade and
+ * lecture and simply starts out with no documents cached.
+ */
+private val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `cached_documents` (" +
+                "`downloadUrl` TEXT NOT NULL, " +
+                "`title` TEXT NOT NULL, " +
+                "`contentHash` TEXT NOT NULL, " +
+                "`content` BLOB NOT NULL, " +
+                "`cachedAtTimestamp` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`downloadUrl`))"
+        )
+    }
+}
 
 /**
  * Migrations for every schema step at or above [OLDEST_SUPPORTED_SCHEMA_VERSION].
  *
- * Empty because version 4 is both the oldest released and the current schema — there is no step to
- * bridge yet. It stops being empty the moment an entity changes; see [APP_DATABASE_VERSION].
+ * Raising [APP_DATABASE_VERSION] obliges you to add the matching step here; the guard test in
+ * `:data` fails otherwise.
  */
-val APP_DATABASE_MIGRATIONS: Array<Migration> = emptyArray()
+val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_4_5, MIGRATION_5_6)
 
 /**
  * The oldest schema version that carries real user data.

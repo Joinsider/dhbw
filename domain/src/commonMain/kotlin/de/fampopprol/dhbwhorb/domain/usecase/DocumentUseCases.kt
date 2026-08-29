@@ -15,6 +15,17 @@ class ListDocuments(private val repository: DocumentRepository) {
     suspend operator fun invoke(): Outcome<List<DualisDocument>> = repository.listDocuments()
 }
 
+/**
+ * Deletes cached documents once they are too old to keep.
+ *
+ * Dispatched at app start rather than only when the documents screen is opened: the age limit is
+ * a deletion deadline, and a student who never opens that tab again must not keep a four-week-old
+ * copy of their certificates on the device because of it.
+ */
+class PurgeExpiredDocuments(private val repository: DocumentRepository) {
+    suspend operator fun invoke(): Int = repository.purgeExpiredDocuments()
+}
+
 /** Fetch one document's bytes, for opening or for saving. */
 class DownloadDocument(private val repository: DocumentRepository) {
     suspend operator fun invoke(document: DualisDocument): Outcome<ByteArray> =

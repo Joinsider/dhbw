@@ -19,5 +19,13 @@ data class GradeEntity(
     val moduleName: String,
     val grade: String?,
     val credits: Double,
-    val status: String?
+    val status: String?,
+    /**
+     * Id of the module's "Ergebnisdetails" page, when Dualis links one from the row.
+     *
+     * Nullable because a row without a link exists — a module that has no result recorded yet is
+     * plain text in Dualis — and because installations upgraded from schema 4 start out with the
+     * column empty until their next refresh.
+     */
+    val resultId: String? = null
 )

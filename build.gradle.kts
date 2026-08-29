@@ -20,31 +20,14 @@ sonar {
         property("sonar.organization", "joinsider")
         property("sonar.projectName", "DHBW Horb Student App")
 
-        property(
-            "sonar.sources", listOf(
-                "core/common/src/commonMain",
-                "domain/src/commonMain",
-                "data/src/commonMain", "data/src/androidMain", "data/src/desktopMain", "data/src/iosMain", "data/src/macosMain",
-                "services/src/commonMain", "services/src/androidMain", "services/src/desktopMain", "services/src/iosMain", "services/src/macosMain",
-                "presentation/src/commonMain",
-                "shared/src/commonMain", "shared/src/iosMain",
-                "composeApp/src/commonMain", "composeApp/src/androidMain", "composeApp/src/desktopMain"
-            ).joinToString(",")
-        )
-
-        property(
-            "sonar.tests", listOf(
-                "core/testing/src/commonMain",
-                "domain/src/commonTest",
-                "data/src/commonTest", "data/src/androidUnitTest", "data/src/desktopTest",
-                "services/src/commonTest",
-                "presentation/src/commonTest",
-                "composeApp/src/commonTest", "composeApp/src/androidUnitTest", "composeApp/src/desktopTest", "composeApp/src/androidTest"
-            ).joinToString(",")
-        )
+        // No manual sonar.sources/sonar.tests here: the Gradle plugin auto-detects each module's
+        // main/test source sets from the real Kotlin Multiplatform + Android model. Listing them
+        // by hand collided with that auto-detection (same file registered as both main and test —
+        // "can't be indexed twice", see SCANGRADLE-429 and the wider class of Sonar/KMP duplicate-
+        // registration bugs hit while wiring this up on 2026-08-29/30) and defeats the whole point
+        // of moving off sonar-project.properties in the first place.
 
         property("sonar.sourceEncoding", "UTF-8")
-        property("sonar.coverage.jacoco.xmlReportPaths", "composeApp/build/reports/kover/report.xml")
 
         property(
             "sonar.exclusions", listOf(
@@ -69,5 +52,28 @@ sonar {
                 "**/generated/**"
             ).joinToString(",")
         )
+    }
+}
+
+// sonar.coverage.jacoco.xmlReportPaths must be set per module, relative to that module's own
+// directory — Sonar resolves it that way, not relative to the root. Setting one root-relative
+// list (as before) made Sonar look for e.g. "domain/build/..." *inside* domain/, i.e.
+// "domain/domain/build/...", which never exists: every module silently got 0% coverage.
+// Every module defines its own kmpCoverage Kover variant (see each module's build.gradle.kts);
+// composeApp renames its XML output to report.xml, the rest use Kover's default name for a named
+// variant, reportKmpCoverage.xml.
+subprojects {
+    sonar {
+        properties {
+            property("sonar.coverage.jacoco.xmlReportPaths", "build/reports/kover/reportKmpCoverage.xml")
+        }
+    }
+}
+
+project(":composeApp") {
+    sonar {
+        properties {
+            property("sonar.coverage.jacoco.xmlReportPaths", "build/reports/kover/report.xml")
+        }
     }
 }
