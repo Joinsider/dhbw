@@ -46,6 +46,13 @@ import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.graphics.Color
 import de.fampopprol.dhbwhorb.ui.components.ColorPicker
 
+/**
+ * Stable test tag for a theme toggle button. Derived from the enum, not from the visible label —
+ * the label is a localised string resource and would make the tag locale-dependent.
+ */
+fun themeButtonTestTag(mode: ThemeMode): String =
+    "theme" + mode.name.lowercase().replaceFirstChar { it.uppercase() } + "Button"
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DesignSelectionCard(
@@ -105,7 +112,7 @@ fun DesignSelectionCard(
                         modifier = Modifier
                             .weight(1f)
                             .height(56.dp)
-                            .testTag("theme${label}Button"),
+                            .testTag(themeButtonTestTag(mode)),
                         shapes = when (index) {
                             0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
                             options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()

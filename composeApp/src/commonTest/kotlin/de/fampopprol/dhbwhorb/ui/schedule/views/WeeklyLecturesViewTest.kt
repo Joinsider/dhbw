@@ -12,7 +12,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runComposeUiTest
-import de.fampopprol.dhbwhorb.ui.schedule.models.LectureModel
+import de.fampopprol.dhbwhorb.domain.model.Lecture
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
 
@@ -33,8 +33,10 @@ class WeeklyLecturesViewTest {
 
     @Test
     fun weeklyLecturesView_displaysLectures_whenNotEmpty() = runComposeUiTest {
-        val lecture = LectureModel(
-            name = "Test Lecture",
+        val lecture = Lecture(
+            id = 0,
+            fullName = "Test Lecture",
+            shortName = "Test Lecture",
             isTest = false,
             start = LocalDateTime(2024, 6, 10, 9, 0),
             end = LocalDateTime(2024, 6, 10, 10, 30),
@@ -59,24 +61,30 @@ class WeeklyLecturesViewTest {
     @Test
     fun weeklyLecturesView_displaysMultipleLectures() = runComposeUiTest {
         val lectures = listOf(
-            LectureModel(
-                name = "Lecture 1",
+            Lecture(
+                id = 0,
+                fullName = "Lecture 1",
+                shortName = "Lecture 1",
                 isTest = false,
                 start = LocalDateTime(2024, 6, 10, 9, 0),
                 end = LocalDateTime(2024, 6, 10, 10, 30),
                 lecturers = listOf("Dr. One"),
                 location = "Room 101"
             ),
-            LectureModel(
-                name = "Lecture 2",
+            Lecture(
+                id = 0,
+                fullName = "Lecture 2",
+                shortName = "Lecture 2",
                 isTest = false,
                 start = LocalDateTime(2024, 6, 10, 11, 0),
                 end = LocalDateTime(2024, 6, 10, 12, 30),
                 lecturers = listOf("Dr. Two"),
                 location = "Room 102"
             ),
-            LectureModel(
-                name = "Lecture 3",
+            Lecture(
+                id = 0,
+                fullName = "Lecture 3",
+                shortName = "Lecture 3",
                 isTest = true,
                 start = LocalDateTime(2024, 6, 11, 14, 0),
                 end = LocalDateTime(2024, 6, 11, 15, 30),
@@ -101,8 +109,10 @@ class WeeklyLecturesViewTest {
 
     @Test
     fun weeklyLecturesView_displaysTimelineForLectures() = runComposeUiTest {
-        val lecture = LectureModel(
-            name = "Morning Lecture",
+        val lecture = Lecture(
+            id = 0,
+            fullName = "Morning Lecture",
+            shortName = "Morning Lecture",
             isTest = false,
             start = LocalDateTime(2024, 6, 10, 9, 0),
             end = LocalDateTime(2024, 6, 10, 10, 30),
@@ -126,16 +136,20 @@ class WeeklyLecturesViewTest {
     @Test
     fun weeklyLecturesView_groupsLecturesByDay() = runComposeUiTest {
         val lecturesOnDifferentDays = listOf(
-            LectureModel(
-                name = "Monday Lecture",
+            Lecture(
+                id = 0,
+                fullName = "Monday Lecture",
+                shortName = "Monday Lecture",
                 isTest = false,
                 start = LocalDateTime(2024, 6, 10, 9, 0), // Monday
                 end = LocalDateTime(2024, 6, 10, 10, 30),
                 lecturers = listOf("Dr. Monday"),
                 location = "Room 101"
             ),
-            LectureModel(
-                name = "Wednesday Lecture",
+            Lecture(
+                id = 0,
+                fullName = "Wednesday Lecture",
+                shortName = "Wednesday Lecture",
                 isTest = false,
                 start = LocalDateTime(2024, 6, 12, 9, 0), // Wednesday
                 end = LocalDateTime(2024, 6, 12, 10, 30),

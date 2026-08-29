@@ -1,0 +1,6 @@
+Version 2.0.3
+
+- Fügt neue Funktion hinzu:
+    - Benutzer können Dokumente von Dualis herunterladen und in der App anzeigen lassen
+- Fehlerbehebungen und Stabilitätsverbesserungen:
+    - Auf Android Versionen älter als 14 wurde ein Zertifikatsfehler behoben im Zusammenhang mit Dualis

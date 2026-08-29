@@ -17,38 +17,68 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import de.fampopprol.dhbwhorb.data.storage.database.createRoomDatabase
-import de.fampopprol.dhbwhorb.data.storage.database.getDatabaseBuilder
-import de.fampopprol.dhbwhorb.services.widget.DatabaseWidgetRepository
-import de.fampopprol.dhbwhorb.services.widget.WidgetServiceLocator
 import de.fampopprol.dhbwhorb.services.widget.WidgetTimetableUseCase
 import de.fampopprol.dhbwhorb.widget.TimetableGlanceWidget
 import de.fampopprol.dhbwhorb.widget.state.TimetableWidgetState
 import de.fampopprol.dhbwhorb.widget.state.WidgetStateCodec
 import io.github.aakira.napier.Napier
+import org.koin.core.component.KoinComponent
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.TimeUnit
 
 /**
- * WorkManager-backed worker that fetches all widget states from [WidgetServiceLocator],
+ * WorkManager-backed worker that fetches all widget states from [WidgetTimetableUseCase],
  * stores them via [WidgetStateCodec], then triggers a Glance UI refresh.
  *
- * If the app process was cold-started solely for this worker (i.e. no Activity has run),
- * [WidgetServiceLocator] may not be initialised yet. In that case the worker bootstraps
- * a DB-only [WidgetTimetableUseCase] itself before proceeding.
+ * The worker is created by WorkManager, so it resolves its dependencies from Koin itself. Even
+ * when the process is cold-started solely for this worker, Application.onCreate() has run first.
  */
 class WidgetSyncWorker(
     private val context: Context,
     params: WorkerParameters,
-) : CoroutineWorker(context, params) {
+) : CoroutineWorker(context, params), KoinComponent {
 
     companion object {
         private const val TAG = "WidgetSyncWorker"
         private const val WORK_NAME_PERIODIC = "widget_sync_periodic"
         private const val WORK_NAME_ONE_TIME  = "widget_sync_immediate"
+        /**
+         * WorkManager enforces a minimum of 15 minutes for periodic work (Android API constraint).
+         * Widget sync interval set to 30 minutes as a reasonable balance:
+         * - Long enough to minimize battery impact
+         * - Short enough to keep widgets reasonably fresh
+         * - Can be easily adjusted here for testing without code hunt
+         *
+         * NOT user-facing in Settings (v3.0) — this constant allows testers to verify behavior
+         * at different intervals by changing one line and rebuilding.
+         *
+         * Rationale: Widget updates are less critical than immediate data; 30-minute interval
+         * provides good responsiveness without excessive battery drain. Users with no widgets
+         * won't trigger this work at all (see smart scheduling in MainActivity.initializeServicesAsync).
+         */
         private const val REPEAT_INTERVAL_MINUTES = 30L
 
         /** Enqueue a periodic background sync (every 30 min, network required). */
         fun schedulePeriodicSync(context: Context) {
+            // Smart scheduling: only schedule if user has active widgets
+            // Rationale: Battery efficiency; users without widgets never trigger background work
+            val widgetManager = GlanceAppWidgetManager(context)
+            val hasActiveWidgets = try {
+                val widgetIds = runBlocking {
+                    widgetManager.getGlanceIds(TimetableGlanceWidget::class.java)
+                }
+                widgetIds.isNotEmpty()
+            } catch (e: Exception) {
+                Napier.w("Failed to check active widgets: ${e.message}", tag = TAG)
+                // On error, assume widgets may exist — err on the side of scheduling
+                true
+            }
+
+            if (!hasActiveWidgets) {
+                Napier.d("No active widgets detected — skipping periodic sync scheduling", tag = TAG)
+                return
+            }
+
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
@@ -60,7 +90,7 @@ class WidgetSyncWorker(
                 ExistingPeriodicWorkPolicy.KEEP,
                 request,
             )
-            Napier.d("Periodic widget sync scheduled every $REPEAT_INTERVAL_MINUTES min", tag = TAG)
+            Napier.d("Periodic widget sync scheduled every $REPEAT_INTERVAL_MINUTES min (active widgets detected)", tag = TAG)
         }
 
         /** Enqueue an immediate one-time sync (e.g. from onUpdate). */
@@ -78,23 +108,10 @@ class WidgetSyncWorker(
     override suspend fun doWork(): Result {
         Napier.d("Widget sync worker started", tag = TAG)
 
-        // Bootstrap the ServiceLocator if the app process was cold-started for this worker.
-        if (!WidgetServiceLocator.isInitialized()) {
-            Napier.w("WidgetServiceLocator not initialised – bootstrapping DB-only use case", tag = TAG)
-            try {
-                val db = createRoomDatabase(getDatabaseBuilder(context))
-                WidgetServiceLocator.initialize(
-                    WidgetTimetableUseCase(repository = DatabaseWidgetRepository(db.lectureDao()))
-                )
-            } catch (e: Exception) {
-                Napier.e("Failed to bootstrap WidgetServiceLocator: ${e.message}", e, tag = TAG)
-                // Retry later – WorkManager will back off automatically.
-                return Result.retry()
-            }
-        }
-
+        // No bootstrap needed: WorkManager cannot run a worker before Application.onCreate(),
+        // which starts Koin.
         return try {
-            val useCase  = WidgetServiceLocator.getUseCase()
+            val useCase: WidgetTimetableUseCase = getKoin().get()
             val upNext   = useCase.getUpNextState()
             val day0     = useCase.getDaySummaryState()
             val multiDay = useCase.getMultiDaySummaryState()

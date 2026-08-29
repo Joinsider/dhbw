@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  The lecture reminder needs the system to wake the app up at a wall-clock minute.
+
+  SCHEDULE_EXACT_ALARM is the permission for that. From Android 14 it is denied by default and the
+  user grants it in system settings; the app does not push them there. Without it the reminders are
+  scheduled inexactly instead — they still arrive, the system may just hold them back to save
+  power — and the settings screen says so rather than quietly being late.
+
+  RECEIVE_BOOT_COMPLETED, because a reboot clears every pending alarm. The receiver below replans
+  from the cache, which needs neither a session nor the network.
+
+  Declared here rather than in :composeApp so the permission sits next to the code that needs it;
+  the manifest merger folds it into the app.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application>
+        <receiver
+            android:name=".reminders.LectureReminderReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".reminders.LectureReminderBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

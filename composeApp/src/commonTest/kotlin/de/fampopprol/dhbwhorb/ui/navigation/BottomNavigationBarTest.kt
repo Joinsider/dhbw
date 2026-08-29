@@ -1,4 +1,3 @@
-
 /*
  * SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
  *
@@ -9,12 +8,12 @@ package de.fampopprol.dhbwhorb.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
 import kotlin.test.Test
@@ -22,15 +21,21 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
+/**
+ * Note: item labels come from localised string resources, so assertions use [navItemTestTag]
+ * instead of the visible text — otherwise these tests pass or fail depending on the locale of
+ * the machine running them (English on CI, German on a German dev machine).
+ */
 @OptIn(ExperimentalTestApi::class)
 class BottomNavigationBarTest {
 
     @Test
     fun bottomNavItem_hasCorrectEnumValues() {
         val values = BottomNavItem.entries
-        assertEquals(3, values.size, "Should have exactly 3 navigation items")
+        assertEquals(4, values.size, "Should have exactly 4 navigation items")
         assertTrue(values.contains(BottomNavItem.TIMETABLE))
         assertTrue(values.contains(BottomNavItem.GRADES))
+        assertTrue(values.contains(BottomNavItem.DOCUMENTS))
         assertTrue(values.contains(BottomNavItem.SETTINGS))
     }
 
@@ -38,24 +43,21 @@ class BottomNavigationBarTest {
     fun bottomNavItem_hasCorrectIcons() {
         assertEquals(Icons.Default.DateRange, BottomNavItem.TIMETABLE.icon)
         assertEquals(Icons.Default.Star, BottomNavItem.GRADES.icon)
+        assertEquals(Icons.Default.Description, BottomNavItem.DOCUMENTS.icon)
         assertEquals(Icons.Default.Settings, BottomNavItem.SETTINGS.icon)
     }
 
     @Test
     fun bottomNavigationBar_displaysAllItems() = runComposeUiTest {
         setContent {
-            BottomNavigationBar(
-                currentItem = BottomNavItem.TIMETABLE,
-                onItemSelected = {}
-            )
+            BottomNavigationBar(currentItem = BottomNavItem.TIMETABLE, onItemSelected = {})
         }
 
         waitForIdle()
 
-        // Verify navigation items are displayed (using the actual resource strings)
-        onNodeWithText("Timetable").assertIsDisplayed()
-        onNodeWithText("Grades").assertIsDisplayed()
-        onNodeWithText("Settings").assertIsDisplayed()
+        BottomNavItem.entries.forEach { item ->
+            onNodeWithTag(navItemTestTag(item)).assertIsDisplayed()
+        }
     }
 
     @Test
@@ -70,12 +72,9 @@ class BottomNavigationBarTest {
         }
 
         waitForIdle()
-
-        // Click on grades item
-        onNodeWithText("Grades").performClick()
+        onNodeWithTag(navItemTestTag(BottomNavItem.GRADES)).performClick()
         waitForIdle()
 
-        // Verify callback was called
         assertNotNull(selectedItem, "Selected item should not be null after click")
         assertEquals(BottomNavItem.GRADES, selectedItem)
     }
@@ -85,41 +84,26 @@ class BottomNavigationBarTest {
         var currentItem = BottomNavItem.TIMETABLE
 
         setContent {
-            BottomNavigationBar(
-                currentItem = currentItem,
-                onItemSelected = { currentItem = it }
-            )
+            BottomNavigationBar(currentItem = currentItem, onItemSelected = { currentItem = it })
         }
 
         waitForIdle()
-
-        // Click on settings
-        onNodeWithText("Settings").performClick()
+        onNodeWithTag(navItemTestTag(BottomNavItem.SETTINGS)).performClick()
         waitForIdle()
 
-        // Verify callback updated
         assertEquals(BottomNavItem.SETTINGS, currentItem)
     }
 
     @Test
     fun bottomNavigationBar_rendersCorrectly() = runComposeUiTest {
         setContent {
-            BottomNavigationBar(
-                currentItem = BottomNavItem.GRADES,
-                onItemSelected = {}
-            )
+            BottomNavigationBar(currentItem = BottomNavItem.GRADES, onItemSelected = {})
         }
 
         waitForIdle()
 
-        // Verify that the navigation bar renders with all three items
-        val timetableNodes = onAllNodesWithText("Timetable").fetchSemanticsNodes()
-        val gradesNodes = onAllNodesWithText("Grades").fetchSemanticsNodes()
-        val settingsNodes = onAllNodesWithText("Settings").fetchSemanticsNodes()
-
-        assertTrue(timetableNodes.isNotEmpty(), "Timetable item should be present")
-        assertTrue(gradesNodes.isNotEmpty(), "Grades item should be present")
-        assertTrue(settingsNodes.isNotEmpty(), "Settings item should be present")
+        BottomNavItem.entries.forEach { item ->
+            onNodeWithTag(navItemTestTag(item)).assertIsDisplayed()
+        }
     }
 }
-

@@ -22,7 +22,7 @@ RepoType: git
 Repo: https://github.com/joinsider/dhbw
 
 Builds:
-  - versionName: v2.0.0
+  - versionName: v2.0.1
     versionCode: 18
     commit: v2.0.0
     subdir: composeApp
@@ -34,6 +34,5 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: v2.0.0
-CurrentVersionCode: 18
-
+CurrentVersion: v2.0.1
+CurrentVersionCode: 20
