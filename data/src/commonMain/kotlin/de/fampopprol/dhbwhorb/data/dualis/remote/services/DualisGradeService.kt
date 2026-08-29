@@ -42,6 +42,7 @@ class DualisGradeService(
     companion object {
         private const val TAG = "DualisGradeService"
         private const val BASE_URL = "https://dualis.dhbw.de/scripts/mgrqispi.dll"
+        private const val MODULE_DETAILS_SOURCE = "module details"
 
         /** Grades change rarely; an hour old is fresh enough to skip the network. */
         private const val CACHE_VALIDITY_DURATION_MS = 60 * 60 * 1000L
@@ -116,11 +117,11 @@ class DualisGradeService(
         if (sessionManager.isDemoMode()) {
             return DemoDataProvider.demoModuleDetails(resultId)
                 ?.let { Outcome.Ok(it) }
-                ?: Outcome.Err(AppError.Parse("module details", "no result recorded for $resultId"))
+                ?: Outcome.Err(AppError.Parse(MODULE_DETAILS_SOURCE, "no result recorded for $resultId"))
         }
 
         val html = gateway.fetchPage(
-            source = "module details",
+            source = MODULE_DETAILS_SOURCE,
             isValid = { htmlParser.isValidModuleDetailsPage(it) },
             buildUrl = { auth -> "$BASE_URL?APPNAME=CampusNet&PRGNAME=RESULTDETAILS&ARGUMENTS=-N${auth.sessionId},-N000307,-N$resultId" }
         )
@@ -128,7 +129,7 @@ class DualisGradeService(
         return when (html) {
             is Outcome.Ok -> moduleDetailsParser.parse(html.value)
                 ?.let { Outcome.Ok(it) }
-                ?: Outcome.Err(AppError.Parse("module details", "the page carried no attempt table"))
+                ?: Outcome.Err(AppError.Parse(MODULE_DETAILS_SOURCE, "the page carried no attempt table"))
             is Outcome.Err -> html
         }
     }

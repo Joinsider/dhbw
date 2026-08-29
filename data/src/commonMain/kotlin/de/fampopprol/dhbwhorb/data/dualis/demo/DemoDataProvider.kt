@@ -43,26 +43,20 @@ object DemoDataProvider {
             createLecture(
                 id = 1L,
                 shortName = "PROG1",
-                fullName = "Programmierung 1",
+                fullName = SUBJECT_PROGRAMMIERUNG_1,
                 date = monday,
-                startHour = 8,
-                startMinute = 0,
-                endHour = 9,
-                endMinute = 30,
-                location = "Raum A1.01",
+                slot = LectureSlot(startHour = 8, startMinute = 0, endHour = 9, endMinute = 30),
+                location = ROOM_A101,
             )
         )
         lectures.add(
             createLecture(
                 id = 2L,
                 shortName = "PROG1",
-                fullName = "Programmierung 1",
+                fullName = SUBJECT_PROGRAMMIERUNG_1,
                 date = monday,
-                startHour = 9,
-                startMinute = 45,
-                endHour = 11,
-                endMinute = 15,
-                location = "Raum A1.01",
+                slot = LectureSlot(startHour = 9, startMinute = 45, endHour = 11, endMinute = 15),
+                location = ROOM_A101,
             )
         )
         lectures.add(
@@ -71,10 +65,7 @@ object DemoDataProvider {
                 shortName = "MATH1",
                 fullName = "Mathematik 1",
                 date = monday,
-                startHour = 11,
-                startMinute = 30,
-                endHour = 13,
-                endMinute = 0,
+                slot = LectureSlot(startHour = 11, startMinute = 30, endHour = 13, endMinute = 0),
                 location = "Raum B2.05",
             )
         )
@@ -82,12 +73,9 @@ object DemoDataProvider {
             createLecture(
                 id = 4L,
                 shortName = "DBIS",
-                fullName = "Datenbanken und Informationssysteme",
+                fullName = SUBJECT_DATENBANKEN,
                 date = monday,
-                startHour = 14,
-                startMinute = 0,
-                endHour = 15,
-                endMinute = 30,
+                slot = LectureSlot(startHour = 14, startMinute = 0, endHour = 15, endMinute = 30),
                 location = "Raum C3.12",
             )
         )
@@ -98,12 +86,9 @@ object DemoDataProvider {
             createLecture(
                 id = 5L,
                 shortName = "SWENG",
-                fullName = "Software Engineering",
+                fullName = SUBJECT_SOFTWARE_ENGINEERING,
                 date = tuesday,
-                startHour = 8,
-                startMinute = 0,
-                endHour = 9,
-                endMinute = 30,
+                slot = LectureSlot(startHour = 8, startMinute = 0, endHour = 9, endMinute = 30),
                 location = "Raum A2.15",
             )
         )
@@ -111,12 +96,9 @@ object DemoDataProvider {
             createLecture(
                 id = 6L,
                 shortName = "WEB",
-                fullName = "Web Engineering",
+                fullName = SUBJECT_WEB_ENGINEERING,
                 date = tuesday,
-                startHour = 9,
-                startMinute = 45,
-                endHour = 11,
-                endMinute = 15,
+                slot = LectureSlot(startHour = 9, startMinute = 45, endHour = 11, endMinute = 15),
                 location = "Raum D1.08",
             )
         )
@@ -126,10 +108,7 @@ object DemoDataProvider {
                 shortName = "THEO",
                 fullName = "Theoretische Informatik",
                 date = tuesday,
-                startHour = 13,
-                startMinute = 30,
-                endHour = 15,
-                endMinute = 0,
+                slot = LectureSlot(startHour = 13, startMinute = 30, endHour = 15, endMinute = 0),
                 location = "Raum B1.03",
             )
         )
@@ -140,13 +119,10 @@ object DemoDataProvider {
             createLecture(
                 id = 8L,
                 shortName = "PROG1",
-                fullName = "Programmierung 1",
+                fullName = SUBJECT_PROGRAMMIERUNG_1,
                 date = wednesday,
-                startHour = 8,
-                startMinute = 0,
-                endHour = 9,
-                endMinute = 30,
-                location = "Raum A1.01",
+                slot = LectureSlot(startHour = 8, startMinute = 0, endHour = 9, endMinute = 30),
+                location = ROOM_A101,
             )
         )
         lectures.add(
@@ -155,10 +131,7 @@ object DemoDataProvider {
                 shortName = "ALGO",
                 fullName = "Algorithmen und Datenstrukturen",
                 date = wednesday,
-                startHour = 10,
-                startMinute = 0,
-                endHour = 11,
-                endMinute = 30,
+                slot = LectureSlot(startHour = 10, startMinute = 0, endHour = 11, endMinute = 30),
                 location = "Raum C2.20",
             )
         )
@@ -168,10 +141,7 @@ object DemoDataProvider {
                 shortName = "BWL",
                 fullName = "Betriebswirtschaftslehre",
                 date = wednesday,
-                startHour = 11,
-                startMinute = 45,
-                endHour = 13,
-                endMinute = 15,
+                slot = LectureSlot(startHour = 11, startMinute = 45, endHour = 13, endMinute = 15),
                 location = "Raum A3.05",
             )
         )
@@ -184,10 +154,7 @@ object DemoDataProvider {
                 shortName = "NETZ",
                 fullName = "Netzwerktechnik",
                 date = thursday,
-                startHour = 8,
-                startMinute = 0,
-                endHour = 9,
-                endMinute = 30,
+                slot = LectureSlot(startHour = 8, startMinute = 0, endHour = 9, endMinute = 30),
                 location = "Raum D2.11",
             )
         )
@@ -197,10 +164,7 @@ object DemoDataProvider {
                 shortName = "MATH1",
                 fullName = "Mathematik 1",
                 date = thursday,
-                startHour = 9,
-                startMinute = 45,
-                endHour = 11,
-                endMinute = 15,
+                slot = LectureSlot(startHour = 9, startMinute = 45, endHour = 11, endMinute = 15),
                 location = "Raum B2.05",
             )
         )
@@ -210,10 +174,7 @@ object DemoDataProvider {
                 shortName = "PROJ",
                 fullName = "Projektmanagement",
                 date = thursday,
-                startHour = 13,
-                startMinute = 0,
-                endHour = 14,
-                endMinute = 30,
+                slot = LectureSlot(startHour = 13, startMinute = 0, endHour = 14, endMinute = 30),
                 location = "Raum A1.15",
             )
         )
@@ -224,12 +185,9 @@ object DemoDataProvider {
             createLecture(
                 id = 14L,
                 shortName = "WEB",
-                fullName = "Web Engineering",
+                fullName = SUBJECT_WEB_ENGINEERING,
                 date = friday,
-                startHour = 8,
-                startMinute = 0,
-                endHour = 9,
-                endMinute = 30,
+                slot = LectureSlot(startHour = 8, startMinute = 0, endHour = 9, endMinute = 30),
                 location = "Raum D1.08",
             )
         )
@@ -237,12 +195,9 @@ object DemoDataProvider {
             createLecture(
                 id = 15L,
                 shortName = "DBIS",
-                fullName = "Datenbanken und Informationssysteme",
+                fullName = SUBJECT_DATENBANKEN,
                 date = friday,
-                startHour = 10,
-                startMinute = 0,
-                endHour = 11,
-                endMinute = 30,
+                slot = LectureSlot(startHour = 10, startMinute = 0, endHour = 11, endMinute = 30),
                 location = "Raum C3.12",
             )
         )
@@ -250,12 +205,9 @@ object DemoDataProvider {
             createLecture(
                 id = 16L,
                 shortName = "SWENG",
-                fullName = "Software Engineering",
+                fullName = SUBJECT_SOFTWARE_ENGINEERING,
                 date = friday,
-                startHour = 11,
-                startMinute = 45,
-                endHour = 13,
-                endMinute = 15,
+                slot = LectureSlot(startHour = 11, startMinute = 45, endHour = 13, endMinute = 15),
                 location = "Raum A2.15",
                 isTest = false
             )
@@ -375,6 +327,13 @@ object DemoDataProvider {
     /** Marks a demo id as one, so a real Dualis id can never be confused with it. */
     private const val DEMO_RESULT_ID_PREFIX = "demo-result-"
 
+    // Subject/room names that appear both in the generated timetable and the grade fixtures below.
+    private const val SUBJECT_PROGRAMMIERUNG_1 = "Programmierung 1"
+    private const val SUBJECT_DATENBANKEN = "Datenbanken und Informationssysteme"
+    private const val SUBJECT_SOFTWARE_ENGINEERING = "Software Engineering"
+    private const val SUBJECT_WEB_ENGINEERING = "Web Engineering"
+    private const val ROOM_A101 = "Raum A1.01"
+
     /** One row of the grade table, before it knows which semester or student it belongs to. */
     private data class DemoModule(
         val number: String,
@@ -385,7 +344,7 @@ object DemoDataProvider {
 
     private val firstSemesterModules = listOf(
         DemoModule("T3INF1001", "Mathematik I", "1,7", 6.0),
-        DemoModule("T3INF1002", "Programmierung 1", "1,3", 8.0),
+        DemoModule("T3INF1002", SUBJECT_PROGRAMMIERUNG_1, "1,3", 8.0),
         DemoModule("T3INF1003", "Theoretische Informatik I", "2,3", 5.0),
         DemoModule("T3INF1004", "Grundlagen der Informatik", "2,0", 5.0),
         // Passed or not passed, never a number — the case that makes numericGrade null on a
@@ -403,10 +362,10 @@ object DemoDataProvider {
     )
 
     private val currentSemesterModules = listOf(
-        DemoModule("T3INF3001", "Software Engineering", "1,7", 5.0),
+        DemoModule("T3INF3001", SUBJECT_SOFTWARE_ENGINEERING, "1,7", 5.0),
         DemoModule("T3INF3002", "Projektmanagement", "2,0", 4.0),
-        DemoModule("T3INF3003", "Web Engineering", null, 5.0),
-        DemoModule("T3INF3004", "Datenbanken und Informationssysteme", null, 6.0),
+        DemoModule("T3INF3003", SUBJECT_WEB_ENGINEERING, null, 5.0),
+        DemoModule("T3INF3004", SUBJECT_DATENBANKEN, null, 6.0),
         DemoModule("T3INF3005", "Theoretische Informatik II", null, 5.0),
         DemoModule("T3INF3006", "Netzwerktechnik", null, 5.0)
     )
@@ -650,6 +609,10 @@ object DemoDataProvider {
         }
     }
 
+    /** The start and end clock time of a lecture slot, bundled so createLecture stays under the
+     * parameter-count limit. */
+    private data class LectureSlot(val startHour: Int, val startMinute: Int, val endHour: Int, val endMinute: Int)
+
     /**
      * Helper function to create a lecture event.
      */
@@ -659,10 +622,7 @@ object DemoDataProvider {
         shortName: String,
         fullName: String,
         date: kotlinx.datetime.LocalDate,
-        startHour: Int,
-        startMinute: Int,
-        endHour: Int,
-        endMinute: Int,
+        slot: LectureSlot,
         location: String,
         isTest: Boolean = false
     ): LectureEventEntity {
@@ -672,8 +632,8 @@ object DemoDataProvider {
             lectureId = id,
             shortSubjectName = shortName,
             fullSubjectName = fullName,
-            startTime = LocalDateTime(date.year, date.month, date.day, startHour, startMinute, 0),
-            endTime = LocalDateTime(date.year, date.month, date.day, endHour, endMinute, 0),
+            startTime = LocalDateTime(date.year, date.month, date.day, slot.startHour, slot.startMinute, 0),
+            endTime = LocalDateTime(date.year, date.month, date.day, slot.endHour, slot.endMinute, 0),
             location = location,
             isTest = isTest,
             fetchedAt = now

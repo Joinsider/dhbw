@@ -74,12 +74,7 @@ class DualisDocumentService(
     }
 
     private suspend fun downloadWithRetry(url: String, retried: Boolean): Outcome<ByteArray> {
-        if (!sessionManager.isAuthenticated()) {
-            when (val reAuth = reAuthenticator.reAuthenticate()) {
-                is Outcome.Ok -> Unit
-                is Outcome.Err -> return reAuth
-            }
-        }
+        ensureAuthenticated()?.let { return it }
 
         val authData = sessionManager.getAuthData()
         if (authData == null || authData.sessionId.isEmpty()) {
@@ -88,38 +83,53 @@ class DualisDocumentService(
 
         val cookie = authData.cookie?.substringBefore(";")
         return when (val result = apiClient.getRawBytes(url, cookie)) {
-            is Outcome.Ok -> {
-                // A 200 that is a page rather than a file means the session timed out: Dualis
-                // says so in HTML and in the status code says nothing at all. Handing those bytes
-                // on would save its timeout notice as the student's certificate.
-                if (DownloadedBytes.looksLikeHtmlPage(result.value)) {
-                    if (retried) {
-                        Napier.w("Download still answered with a page after re-authenticating", tag = TAG)
-                        Outcome.Err(AppError.SessionExpired)
-                    } else {
-                        Napier.w("Download answered with a page, re-authenticating once", tag = TAG)
-                        when (val reAuth = reAuthenticator.reAuthenticate()) {
-                            is Outcome.Ok -> downloadWithRetry(url, retried = true)
-                            is Outcome.Err -> reAuth
-                        }
-                    }
-                } else {
-                    result
-                }
-            }
-            is Outcome.Err -> {
-                if (result.error is AppError.SessionExpired && !retried) {
-                    Napier.w("Download rejected, re-authenticating once", tag = TAG)
-                    when (val reAuth = reAuthenticator.reAuthenticate()) {
-                        is Outcome.Ok -> downloadWithRetry(url, retried = true)
-                        is Outcome.Err -> reAuth
-                    }
-                } else {
-                    result
-                }
-            }
+            is Outcome.Ok -> handleDownloadedBytes(result, url, retried)
+            is Outcome.Err -> handleDownloadError(result, url, retried)
         }
     }
+
+    /** Re-authenticates first if the session is already known to be gone. Null means proceed. */
+    private suspend fun ensureAuthenticated(): Outcome<ByteArray>? {
+        if (sessionManager.isAuthenticated()) return null
+        return when (val reAuth = reAuthenticator.reAuthenticate()) {
+            is Outcome.Ok -> null
+            is Outcome.Err -> reAuth
+        }
+    }
+
+    /**
+     * A 200 that is a page rather than a file means the session timed out: Dualis says so in HTML
+     * and in the status code says nothing at all. Handing those bytes on would save its timeout
+     * notice as the student's certificate.
+     */
+    private suspend fun handleDownloadedBytes(
+        result: Outcome.Ok<ByteArray>,
+        url: String,
+        retried: Boolean
+    ): Outcome<ByteArray> {
+        if (!DownloadedBytes.looksLikeHtmlPage(result.value)) return result
+
+        if (retried) {
+            Napier.w("Download still answered with a page after re-authenticating", tag = TAG)
+            return Outcome.Err(AppError.SessionExpired)
+        }
+
+        Napier.w("Download answered with a page, re-authenticating once", tag = TAG)
+        return reAuthenticateAndRetry(url)
+    }
+
+    private suspend fun handleDownloadError(result: Outcome.Err, url: String, retried: Boolean): Outcome<ByteArray> {
+        if (result.error !is AppError.SessionExpired || retried) return result
+
+        Napier.w("Download rejected, re-authenticating once", tag = TAG)
+        return reAuthenticateAndRetry(url)
+    }
+
+    private suspend fun reAuthenticateAndRetry(url: String): Outcome<ByteArray> =
+        when (val reAuth = reAuthenticator.reAuthenticate()) {
+            is Outcome.Ok -> downloadWithRetry(url, retried = true)
+            is Outcome.Err -> reAuth
+        }
 
     /** The document list is a `class="tb"` table; a redirect page is not one. */
     private fun isValidDocumentPage(htmlContent: String): Boolean =

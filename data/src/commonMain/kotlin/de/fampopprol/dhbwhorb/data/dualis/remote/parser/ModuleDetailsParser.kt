@@ -94,11 +94,12 @@ class ModuleDetailsParser {
         return Triple(number, rest, semester)
     }
 
-    private fun parseAttempts(html: String): List<ModuleAttempt> {
+    /** Accumulates the attempt currently being read while [parseAttempts] walks the rows. */
+    private class AttemptAccumulator {
         val attempts = mutableListOf<ModuleAttempt>()
-        var current: MutableList<ExamResult>? = null
-        var currentNumber: Int? = null
-        var currentUnit: String? = null
+        private var current: MutableList<ExamResult>? = null
+        private var currentNumber: Int? = null
+        private var currentUnit: String? = null
 
         fun close(result: String?) {
             val exams = current ?: return
@@ -108,51 +109,68 @@ class ModuleDetailsParser {
             currentUnit = null
         }
 
-        for (rowMatch in rowPattern.findAll(html)) {
-            val cells = cellsOf(rowMatch.groupValues[1])
-            if (cells.isEmpty()) continue
-            if (cells.any { it.hasClass("tbsubhead") || it.hasClass("tbhead") }) continue
-
-            val level02 = cells.filter { it.hasClass("level02") }
-            val text = cells.joinToString(" ") { it.text }.trim()
-
-            when {
-                // "Versuch 2" opens the next block, so whatever was open ends here — Dualis
-                // writes a Gesamt row for every finished attempt, but an attempt still being
-                // marked has none, and its exams must not spill into the next attempt.
-                cells.any { it.hasClass("level01") } && attemptPattern.containsMatchIn(text) -> {
-                    close(result = null)
-                    currentNumber = attemptPattern.find(text)?.groupValues?.get(1)?.toIntOrNull()
-                    current = mutableListOf()
-                }
-
-                // A lone level02 cell heads the Baustein the following exams belong to
-                // ("T4INF2001.1 Angewandte Mathematik"), or names the block generically
-                // ("Modulabschlussleistungen") when the module has no separate Bausteine.
-                level02.size == 1 -> currentUnit = level02.single().text.ifBlank { null }
-
-                // The Gesamt row closes the attempt with Dualis' own verdict for it.
-                level02.size > 1 && text.contains(GESAMT, ignoreCase = true) -> {
-                    val verdict = level02
-                        .map { it.text }
-                        .firstOrNull { it.isNotBlank() && !it.contains(GESAMT, ignoreCase = true) }
-                    close(result = verdict)
-                }
-
-                cells.any { it.hasClass("tbdata") } -> {
-                    val data = cells.filter { it.hasClass("tbdata") }
-                    if (data.size < 2) continue
-                    if (current == null) {
-                        // An exam before any "Versuch" heading: keep it rather than drop it.
-                        current = mutableListOf()
-                    }
-                    current?.add(examOf(data, currentUnit))
-                }
-            }
+        /** "Versuch 2" opens the next block, so whatever was open ends here — Dualis writes a
+         * Gesamt row for every finished attempt, but an attempt still being marked has none, and
+         * its exams must not spill into the next attempt. */
+        fun openAttempt(number: Int?) {
+            close(result = null)
+            currentNumber = number
+            current = mutableListOf()
         }
 
-        close(result = null)
-        return attempts
+        /** A lone level02 cell heads the Baustein the following exams belong to
+         * ("T4INF2001.1 Angewandte Mathematik"), or names the block generically
+         * ("Modulabschlussleistungen") when the module has no separate Bausteine. */
+        fun setUnit(name: String?) {
+            currentUnit = name
+        }
+
+        fun addExam(data: List<Cell>, examOf: (List<Cell>, String?) -> ExamResult) {
+            if (data.size < 2) return
+            if (current == null) {
+                // An exam before any "Versuch" heading: keep it rather than drop it.
+                current = mutableListOf()
+            }
+            current?.add(examOf(data, currentUnit))
+        }
+    }
+
+    private fun parseAttempts(html: String): List<ModuleAttempt> {
+        val acc = AttemptAccumulator()
+
+        for (rowMatch in rowPattern.findAll(html)) {
+            val cells = cellsOf(rowMatch.groupValues[1])
+            val isHeaderRow = cells.isEmpty() || cells.any { it.hasClass("tbsubhead") || it.hasClass("tbhead") }
+            if (isHeaderRow) continue
+
+            classifyAttemptRow(cells, acc)
+        }
+
+        acc.close(result = null)
+        return acc.attempts
+    }
+
+    private fun classifyAttemptRow(cells: List<Cell>, acc: AttemptAccumulator) {
+        val level02 = cells.filter { it.hasClass("level02") }
+        val text = cells.joinToString(" ") { it.text }.trim()
+
+        when {
+            cells.any { it.hasClass("level01") } && attemptPattern.containsMatchIn(text) ->
+                acc.openAttempt(attemptPattern.find(text)?.groupValues?.get(1)?.toIntOrNull())
+
+            level02.size == 1 -> acc.setUnit(level02.single().text.ifBlank { null })
+
+            // The Gesamt row closes the attempt with Dualis' own verdict for it.
+            level02.size > 1 && text.contains(GESAMT, ignoreCase = true) -> {
+                val verdict = level02
+                    .map { it.text }
+                    .firstOrNull { it.isNotBlank() && !it.contains(GESAMT, ignoreCase = true) }
+                acc.close(result = verdict)
+            }
+
+            cells.any { it.hasClass("tbdata") } ->
+                acc.addExam(cells.filter { it.hasClass("tbdata") }, ::examOf)
+        }
     }
 
     private fun examOf(cells: List<Cell>, unitName: String?): ExamResult {

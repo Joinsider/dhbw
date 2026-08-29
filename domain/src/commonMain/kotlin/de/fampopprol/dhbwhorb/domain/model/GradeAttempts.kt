@@ -30,7 +30,8 @@ object GradeAttempts {
             .filter { it.value.countsTowardDegree }
             .groupBy { it.value.moduleNumber }
             .values
-            .mapTo(mutableSetOf()) { attempts -> attempts.maxWith(weakestFirst).index }
+            .map { attempts -> attempts.maxWith(weakestFirst).index }
+            .toSet()
 
         return grades.filterIndexed { index, _ -> index in counted }
     }
