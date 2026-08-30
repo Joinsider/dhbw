@@ -15,7 +15,10 @@ import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import de.fampopprol.dhbwhorb.testutil.WithTestKoin
+import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
+import de.fampopprol.dhbwhorb.ui.navigation.navItemTestTag
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 
 @OptIn(ExperimentalTestApi::class)
 class AppTest {
@@ -114,5 +117,34 @@ class AppTest {
         onNodeWithTag("appContainer").assertIsDisplayed()
         onNodeWithTag("appTitle").assertIsDisplayed()
         onNodeWithTag("loginForm").assertIsDisplayed()
+    }
+
+    // The test Koin graph wires AppStore to a real (Dispatchers.Default) CoroutineScope rather
+    // than an immediate/unconfined test one, so session restoration is genuinely asynchronous:
+    // right after the first frame, before waitForIdle() lets that coroutine run, the store is
+    // still in its initial isRestoring = true state.
+    @Test
+    fun app_showsRestoringIndicator_beforeSessionCheckCompletes() = runComposeUiTest {
+        setContent {
+            CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
+                WithTestKoin { App() }
+            }
+        }
+
+        onNodeWithTag("appRestoring").assertIsDisplayed()
+    }
+
+    @Test
+    fun app_showsNavHost_whenAlreadyLoggedIn() = runComposeUiTest {
+        setContent {
+            CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
+                WithTestKoin(authenticated = true) { App() }
+            }
+        }
+        waitForIdle()
+
+        onNodeWithTag(navItemTestTag(BottomNavItem.TIMETABLE)).assertIsDisplayed()
+        assertFailsWith<AssertionError> { onNodeWithTag("loginForm").assertIsDisplayed() }
+        assertFailsWith<AssertionError> { onNodeWithTag("appRestoring").assertIsDisplayed() }
     }
 }
