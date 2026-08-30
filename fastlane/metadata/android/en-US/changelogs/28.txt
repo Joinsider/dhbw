@@ -1,0 +1,1 @@
+Multiple bug fixes and improvements to overall stability of the app
