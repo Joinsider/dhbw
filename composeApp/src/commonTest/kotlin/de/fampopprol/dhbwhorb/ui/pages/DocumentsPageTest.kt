@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.runComposeUiTest
+import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.data.dualis.models.DualisDocument
 import de.fampopprol.dhbwhorb.domain.usecase.DownloadDocument
@@ -131,6 +132,52 @@ class DocumentsPageTest {
 
         onNodeWithText("Search Documents").assertIsDisplayed()
         assertFailsWith<AssertionError> { onNodeWithText("No documents available.").assertIsDisplayed() }
+    }
+
+    @Test
+    fun loadingWithDocumentsAlready_showsResultsInsteadOfSkeleton() = runComposeUiTest {
+        // isLoading with a non-empty list (e.g. a refresh in progress) must keep showing the
+        // existing results rather than replacing them with the skeleton.
+        val doc = document("Studienbescheinigung")
+        setContent {
+            DocumentsContent(
+                uiState = de.fampopprol.dhbwhorb.presentation.documents.DocumentsState(
+                    isLoading = true,
+                    allDocuments = listOf(doc),
+                ),
+                store = store(),
+            )
+        }
+        waitForIdle()
+
+        onNodeWithText("Studienbescheinigung").assertIsDisplayed()
+    }
+
+    @Test
+    fun downloadFailure_isHandledSafelyThroughTheRealEffectHandler() = runComposeUiTest {
+        // Through the real DocumentsPage (rather than DocumentsList directly, as the menu tests
+        // below do) so store.HandleEffects actually runs its `when (effect)`. A DownloadFailed
+        // effect is a safe way to exercise that dispatch without touching the real, blocking
+        // openFile/saveFileWithDialog platform calls that OpenFile/SaveFile would trigger.
+        val doc = document("Studienbescheinigung")
+        val repository = FakeDocumentRepository(
+            documents = Outcome.Ok(listOf(doc)),
+            download = Outcome.Err(AppError.Offline),
+        )
+        val documentsStore = DocumentsStore(
+            listDocuments = ListDocuments(repository),
+            downloadDocument = DownloadDocument(repository),
+            sessionRepository = FakeSessionRepository(canAuthenticate = true),
+            scope = TestScopes.immediate(),
+        )
+        setContent { DocumentsPage(store = documentsStore) }
+        waitForIdle()
+
+        onNodeWithContentDescription("Download options").performClick()
+        onNodeWithText("Open").performClick()
+        waitForIdle()
+
+        assertEquals(AppError.Offline, documentsStore.state.value.error)
     }
 
     // DocumentsList is exercised directly (rather than through the full DocumentsPage) so that

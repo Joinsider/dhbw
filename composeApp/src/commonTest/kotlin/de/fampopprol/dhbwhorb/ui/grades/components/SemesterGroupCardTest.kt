@@ -114,6 +114,22 @@ class SemesterGroupCardTest {
     }
 
     @Test
+    fun card_failedModule_showsGradeInErrorColor() = runComposeUiTest {
+        setContent {
+            SemesterGroupCard(
+                semesterName = "WiSe 2025/26",
+                grades = listOf(grade(grade = "5,0", moduleName = "Durchgefallen")),
+                semesterGpa = null,
+            )
+        }
+
+        onNodeWithTag("semesterCardHeader").performClick()
+        waitForIdle()
+
+        onNodeWithText("5,0").assertIsDisplayed()
+    }
+
+    @Test
     fun card_ungradedModule_showsDash() = runComposeUiTest {
         setContent {
             SemesterGroupCard(
