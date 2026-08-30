@@ -345,6 +345,46 @@ class DualisLectureServiceTest {
     }
 
     @Test
+    fun getWeeklyLecturesForDate_whenNotAuthenticated_propagatesTheError() = runTest {
+        // No auth data and no stored credentials: the gateway cannot re-authenticate and gives up.
+        val (service, client) = serviceWithMockEngine(
+            MockEngine { respond(ByteReadChannel("<html></html>"), HttpStatusCode.OK) }
+        )
+
+        val result = service.getWeeklyLecturesForDate(LocalDate(2026, 5, 4))
+
+        assertIs<Outcome.Err>(result)
+        client.close()
+    }
+
+    @Test
+    fun getWeeklySkeletonForDate_whenNotAuthenticated_propagatesTheError() = runTest {
+        val (service, client) = serviceWithMockEngine(
+            MockEngine { respond(ByteReadChannel("<html></html>"), HttpStatusCode.OK) }
+        )
+        val monday = LocalDateTime(2026, 5, 4, 0, 0)
+
+        val result = service.getWeeklySkeletonForWeek(monday, monday)
+
+        assertIs<Outcome.Err>(result)
+        client.close()
+    }
+
+    @Test
+    fun getWeeklyLecturesForWeek_delegatesToTheStartDate() = runTest {
+        sessionManager.setDemoMode(true)
+        val (service, client) = serviceWithMockEngine(MockEngine { respond(ByteReadChannel(""), HttpStatusCode.OK) })
+        val weekStart = LocalDateTime(2026, 5, 4, 0, 0)
+        val weekEnd = LocalDateTime(2026, 5, 8, 23, 59)
+
+        val result = service.getWeeklyLecturesForWeek(weekStart, weekEnd)
+
+        val lectures = assertIs<Outcome.Ok<List<LectureEventEntity>>>(result).value
+        assertEquals(16, lectures.size)
+        client.close()
+    }
+
+    @Test
     fun getWeeklySkeletonForDate_doesNotFetchDetailPages() = runTest {
         sessionManager.storeAuthData(AuthData(sessionId = "session-1", authToken = "token-1"))
         sessionManager.storeCredentials("user@dhbw.de", "password")

@@ -66,6 +66,22 @@ class NotificationSettingsCardTest {
     }
 
     @Test
+    fun togglingMasterSwitch_fromOn_reportsFalse() = runComposeUiTest {
+        var enabled: Boolean? = null
+        setContent {
+            NotificationSettingsCard(
+                state = NotificationSettingsState(notificationsEnabled = true),
+                callbacks = NotificationSettingsCallbacks(onNotificationsEnabledChange = { enabled = it }),
+            )
+        }
+        waitForIdle()
+
+        onNodeWithTag("notificationsEnabledSwitch").performClick()
+
+        assertEquals(false, enabled)
+    }
+
+    @Test
     fun togglingLectureAlertsSwitch_reportsTheNewValue() = runComposeUiTest {
         var enabled: Boolean? = null
         setContent {
@@ -138,6 +154,22 @@ class NotificationSettingsCardTest {
         waitForIdle()
 
         assertTrue(invoked)
+    }
+
+    @Test
+    fun manualCheckButton_click_whenCallbackSucceeds_showsSuccessMessage() = runComposeUiTest {
+        setContent {
+            NotificationSettingsCard(
+                state = NotificationSettingsState(notificationsEnabled = true),
+                onManualCheckRequested = { },
+            )
+        }
+        waitForIdle()
+
+        onNodeWithTag("checkNowButton").performClick()
+        waitForIdle()
+
+        onNodeWithText("✅ Check completed").assertIsDisplayed()
     }
 
     @Test

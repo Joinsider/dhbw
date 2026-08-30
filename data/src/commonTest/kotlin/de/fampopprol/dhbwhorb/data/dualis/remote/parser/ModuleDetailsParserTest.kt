@@ -246,6 +246,75 @@ class ModuleDetailsParserTest {
     }
 
     @Test
+    fun anExamRowWithOnlyOneCellIsIgnored() {
+        // addExam requires at least a semester cell and a name cell; a row with just one tbdata
+        // cell must be dropped rather than crash or produce a half-built ExamResult.
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="tbdata">OnlyOneCell</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(1, details.attempts.single().exams.size, "the single-cell row contributes nothing")
+    }
+
+    @Test
+    fun aUnitRowWithFewerThanThreeCellsIsSkipped() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <h2>Zugeh&ouml;rige Bausteine</h2>
+            <table>
+              <tr><td class="tbdata">T1INF1000.1</td><td class="tbdata">Incomplete row</td></tr>
+              <tr><td class="tbdata">T1INF1000.2</td><td class="tbdata">Baustein B</td><td class="tbdata">Event B</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(1, details.units.size, "the two-cell row must not become a unit")
+        assertEquals("T1INF1000.2", details.units.single().number)
+    }
+
+    @Test
+    fun aUnitWithoutThePassIconIsNotAttended() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <h2>Zugeh&ouml;rige Bausteine</h2>
+            <table>
+              <tr><td class="tbdata">T1INF1000.1</td><td class="tbdata">Baustein A</td><td class="tbdata">Vorlesung</td><td class="tbdata"></td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(false, details.units.single().attended)
+    }
+
+    @Test
+    fun aGesamtRowWithASingleLevel02CellDoesNotCloseTheAttempt() {
+        // level02.size == 1 is read as a unit heading, not a Gesamt row - even when its own text
+        // happens to say "Gesamt".
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="level02">Gesamt</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(1, details.attempts.single().exams.size)
+        assertNull(details.attempts.single().result, "a single-cell 'Gesamt' row is a unit heading, not a verdict")
+    }
+
+    @Test
     fun anExamWithoutAWeightPercentageHasANullWeight() {
         val html = """
             <h1>T1INF1000 Grundlagenmodul</h1>

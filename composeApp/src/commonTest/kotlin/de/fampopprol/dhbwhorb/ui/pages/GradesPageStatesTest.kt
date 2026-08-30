@@ -25,7 +25,10 @@ import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
 import de.fampopprol.dhbwhorb.testutil.WithTestKoin
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeGradeRepository
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeSessionRepository
+import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
+import de.fampopprol.dhbwhorb.ui.navigation.navItemTestTag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 @OptIn(ExperimentalTestApi::class)
@@ -110,6 +113,17 @@ class GradesPageStatesTest {
         waitForIdle()
 
         assertFailsWith<AssertionError> { onNodeWithTag("overallStatsCard").assertIsDisplayed() }
+    }
+
+    @Test
+    fun tappingABottomNavItem_invokesOnNavigate() = runComposeUiTest {
+        var navigated: BottomNavItem? = null
+        setContent { WithTestKoin { GradesPage(onNavigate = { navigated = it }, store = store()) } }
+        waitForIdle()
+
+        onNodeWithTag(navItemTestTag(BottomNavItem.TIMETABLE)).performClick()
+
+        assertEquals(BottomNavItem.TIMETABLE, navigated)
     }
 
     // GradesSkeletonList is exercised directly rather than through GradesPage's loading state:

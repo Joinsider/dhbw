@@ -10,7 +10,9 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
+import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.domain.model.Lecture
 import de.fampopprol.dhbwhorb.domain.model.TimetableWeek
@@ -124,6 +126,37 @@ class TimetablePageTest {
         onNodeWithTag(navItemTestTag(BottomNavItem.TIMETABLE)).assertIsDisplayed()
         onNodeWithTag(navItemTestTag(BottomNavItem.GRADES)).assertIsDisplayed()
         onNodeWithTag(navItemTestTag(BottomNavItem.SETTINGS)).assertIsDisplayed()
+        store.close()
+    }
+
+    @Test
+    fun timetablePage_clickingALecture_opensItsDetailsDialog() = runComposeUiTest {
+        val store = storeShowing(listOf(lecture("Sample Lecture", 8)))
+
+        setContent { WithTestKoin { TimetablePage(store = store) } }
+        waitForIdle()
+
+        onNodeWithTag("dayColumnLecture_8").performClick()
+        waitForIdle()
+
+        onNodeWithTag("lectureDetailsDialog").assertIsDisplayed()
+        store.close()
+    }
+
+    @Test
+    fun timetablePage_loadFailure_showsErrorBanner() = runComposeUiTest {
+        val repository = FakeTimetableRepository(week = Outcome.Err(AppError.Offline))
+        val store = TimetableStore(
+            getWeekTimetable = GetWeekTimetable(repository),
+            awaitFullWeekTimetable = AwaitFullWeekTimetable(repository),
+            refreshTimetable = RefreshTimetable(repository),
+            scope = TestScopes.immediate()
+        )
+
+        setContent { WithTestKoin { TimetablePage(store = store) } }
+        waitForIdle()
+
+        onNodeWithTag("timetableErrorBanner").assertIsDisplayed()
         store.close()
     }
 }

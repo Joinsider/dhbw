@@ -13,10 +13,31 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runComposeUiTest
 import kotlinx.datetime.DayOfWeek
+import java.util.Locale
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 
+/**
+ * Runs on desktopTest (not commonTest) because it pins [Locale] to make the `stringResource(...)`
+ * day names deterministic regardless of the machine/CI's default locale — `java.util.Locale` is not
+ * available on the Kotlin/Native macOS targets that also compile commonTest.
+ */
 @OptIn(ExperimentalTestApi::class)
 class GetDayNameTest {
+
+    private lateinit var originalLocale: Locale
+
+    @BeforeTest
+    fun pinLocale() {
+        originalLocale = Locale.getDefault()
+        Locale.setDefault(Locale.ENGLISH)
+    }
+
+    @AfterTest
+    fun restoreLocale() {
+        Locale.setDefault(originalLocale)
+    }
 
     private val longNames = mapOf(
         DayOfWeek.MONDAY to "Monday",

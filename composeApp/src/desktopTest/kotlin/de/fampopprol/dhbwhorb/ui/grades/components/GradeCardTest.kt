@@ -11,10 +11,31 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runComposeUiTest
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
+import java.util.Locale
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 
+/**
+ * Runs on desktopTest (not commonTest) because the null-status case renders a localised
+ * `stringResource(...)` fallback, and pinning [Locale] needs `java.util.Locale`, which is not
+ * available on the Kotlin/Native macOS targets that also compile commonTest.
+ */
 @OptIn(ExperimentalTestApi::class)
 class GradeCardTest {
+
+    private lateinit var originalLocale: Locale
+
+    @BeforeTest
+    fun pinLocale() {
+        originalLocale = Locale.getDefault()
+        Locale.setDefault(Locale.ENGLISH)
+    }
+
+    @AfterTest
+    fun restoreLocale() {
+        Locale.setDefault(originalLocale)
+    }
 
     private fun grade(
         moduleNumber: String = "T3INF1001",
