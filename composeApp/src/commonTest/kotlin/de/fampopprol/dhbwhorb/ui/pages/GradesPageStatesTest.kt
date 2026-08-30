@@ -21,6 +21,7 @@ import de.fampopprol.dhbwhorb.domain.usecase.GetGradesForSemester
 import de.fampopprol.dhbwhorb.domain.usecase.GetModuleDetails
 import de.fampopprol.dhbwhorb.domain.usecase.GetSemesters
 import de.fampopprol.dhbwhorb.presentation.TestScopes
+import de.fampopprol.dhbwhorb.presentation.grades.GradesIntent
 import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
 import de.fampopprol.dhbwhorb.testutil.WithTestKoin
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeGradeRepository
@@ -113,6 +114,46 @@ class GradesPageStatesTest {
         waitForIdle()
 
         assertFailsWith<AssertionError> { onNodeWithTag("overallStatsCard").assertIsDisplayed() }
+    }
+
+    @Test
+    fun withUngradedButPassedModule_showsOverallStatsCardWithoutAnAverage() = runComposeUiTest {
+        // "bestanden" without a numeric grade still counts credits towards totalCreditsEarned,
+        // even though it contributes nothing to overallGpa (which stays null) — the OverallStatsCard
+        // gate is an OR of the two, and this exercises the credits-only side of it.
+        val ungraded = grade(grade = "b").copy(status = "bestanden")
+        setContent { WithTestKoin { GradesPage(store = store(grades = Outcome.Ok(listOf(ungraded)))) } }
+        waitForIdle()
+
+        onNodeWithTag("overallStatsCard").assertIsDisplayed()
+    }
+
+    @Test
+    fun errorDuringRefresh_keepsShowingStaleContentInsteadOfTheErrorState() = runComposeUiTest {
+        // A refresh failure sets `error` but leaves the previously loaded `grades` untouched, so
+        // the page must keep showing the stale content rather than falling back to the error view
+        // (that view is only for when there is nothing else to show).
+        val repository = FakeGradeRepository(
+            semesters = Outcome.Ok(listOf(wise2526)),
+            grades = Outcome.Ok(listOf(grade())),
+        )
+        val gradesStore = GradesStore(
+            getAllGrades = GetAllGrades(GetSemesters(repository), GetGradesForSemester(repository)),
+            getModuleDetails = GetModuleDetails(repository),
+            computeGpa = ComputeGpa(),
+            sessionRepository = FakeSessionRepository(canAuthenticate = true),
+            scope = TestScopes.immediate(),
+        )
+        setContent { WithTestKoin { GradesPage(store = gradesStore) } }
+        waitForIdle()
+        onNodeWithTag("semesterGroupCard_WiSe 2025/26").assertIsDisplayed()
+
+        repository.semesters = Outcome.Err(AppError.Offline)
+        gradesStore.dispatch(GradesIntent.Refresh)
+        waitForIdle()
+
+        onNodeWithTag("semesterGroupCard_WiSe 2025/26").assertIsDisplayed()
+        assertFailsWith<AssertionError> { onNodeWithTag("gradesRetryButton").assertIsDisplayed() }
     }
 
     @Test

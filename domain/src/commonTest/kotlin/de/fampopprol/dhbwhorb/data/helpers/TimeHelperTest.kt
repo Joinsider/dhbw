@@ -238,4 +238,74 @@ class TimeHelperTest {
         // Jan(31) + Feb(29, leap year) + Mar(31) + Apr(30) + May(31) + Jun(30) + 1 = 183
         assertEquals(183, result)
     }
+
+    @Test
+    fun testDayOfYear_NonLeapYear() {
+        val date = LocalDateTime(2023, Month.MARCH, 1, 0, 0, 0)
+        val result = TimeHelper.dayOfYear(date)
+        // Jan(31) + Feb(28, non-leap year) + 1 = 60
+        assertEquals(60, result)
+    }
+
+    @Test
+    fun testDayOfYear_CenturyNonLeapYear() {
+        // 1900 is divisible by 4 and 100 but not 400 -> not a leap year
+        val date = LocalDateTime(1900, Month.MARCH, 1, 0, 0, 0)
+        val result = TimeHelper.dayOfYear(date)
+        assertEquals(60, result)
+    }
+
+    @Test
+    fun testDayOfYear_QuadricentennialLeapYear() {
+        // 2000 is divisible by 400 -> leap year
+        val date = LocalDateTime(2000, Month.MARCH, 1, 0, 0, 0)
+        val result = TimeHelper.dayOfYear(date)
+        assertEquals(61, result)
+    }
+
+    @Test
+    fun testCalculateDaysDifference_EndYearBeforeStartYear_ReturnsZero() {
+        // yearDiff is negative here, exercising the "else" branch of the when
+        val start = LocalDateTime(2024, 1, 10, 0, 0, 0)
+        val end = LocalDateTime(2023, 1, 5, 0, 0, 0)
+        val result = TimeHelper.calculateDaysDifference(start, end)
+        assertEquals(0, result)
+    }
+
+    @Test
+    fun testCalculateDaysDifference_AcrossYears_NonLeapStartYear() {
+        // 2021 is not a leap year, exercises isLeapYearStart == false
+        val start = LocalDateTime(2021, 12, 25, 0, 0, 0)
+        val end = LocalDateTime(2022, 1, 5, 0, 0, 0)
+        val result = TimeHelper.calculateDaysDifference(start, end)
+        // Dec 25 is day 359 in a non-leap year, Jan 5 is day 5
+        // 365 - 359 + 5 = 11 days
+        assertEquals(11, result)
+    }
+
+    @Test
+    fun testCalculateDaysDifference_AcrossYears_CenturyNonLeapStartYear() {
+        // 1900 is divisible by 4 and 100 but not 400 -> not a leap year
+        val start = LocalDateTime(1900, 12, 25, 0, 0, 0)
+        val end = LocalDateTime(1901, 1, 5, 0, 0, 0)
+        val result = TimeHelper.calculateDaysDifference(start, end)
+        assertEquals(11, result)
+    }
+
+    @Test
+    fun testCalculateDaysDifference_MultipleYears_WithLeapYearInBetween() {
+        // The loop over years-in-between passes through 2020, a leap year
+        val start = LocalDateTime(2019, 1, 1, 0, 0, 0)
+        val end = LocalDateTime(2021, 1, 1, 0, 0, 0)
+        val result = TimeHelper.calculateDaysDifference(start, end)
+        // 2019 (365) + 2020 (366) = 731 days
+        assertEquals(731, result)
+    }
+
+    @Test
+    fun testIsDataStale_ExactlyAtThreshold_ReturnsTrue() {
+        val lastUpdate = LocalDateTime(2024, 1, 1, 0, 0, 0)
+        val thresholdDays = -999999 // guarantees now() - lastUpdate >= thresholdDays
+        assertTrue(TimeHelper.isDataStale(lastUpdate, thresholdDays))
+    }
 }

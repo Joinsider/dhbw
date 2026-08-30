@@ -395,4 +395,117 @@ class ModuleDetailsParserTest {
 
         assertEquals(false, details.units.single().attended)
     }
+
+    // ── Additional edge cases ────────────────────────────────────────────────
+
+    @Test
+    fun aBlankHeadingIsNotDetails() {
+        // Present but empty h1 content: heading is non-null but blank, a different code path
+        // than the h1 tag missing entirely.
+        assertNull(parser.parse("<h1>   </h1>"))
+    }
+
+    @Test
+    fun aHeadingThatIsEntirelyParentheticalKeepsTheParenthesesInTheNameAndHasNoSemester() {
+        // The open paren sits at index 0 of "rest", so `open > 0` is false and no split happens.
+        val html = """<h1>T1INF1000 (OnlyParen)</h1>"""
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals("(OnlyParen)", details.moduleName)
+        assertNull(details.semesterName)
+    }
+
+    @Test
+    fun anEmptyAttemptsTableProducesNoAttempts() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table></table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertTrue(details.attempts.isEmpty())
+    }
+
+    @Test
+    fun aVersuchNumberThatOverflowsIntIsKeptAsNull() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  99999999999999999999</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertNull(
+            details.attempts.single().number,
+            "an out-of-range attempt number degrades to null rather than crashing"
+        )
+    }
+
+    @Test
+    fun multipleLevel02CellsWithoutGesamtTextDoNotCloseTheAttempt() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="level02">Foo</td><td class="level02">Bar</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(1, details.attempts.single().exams.size)
+        assertNull(details.attempts.single().result, "level02.size > 1 without 'Gesamt' text is not a verdict row")
+    }
+
+    @Test
+    fun aGesamtRowWhereEveryLevel02CellIsBlankOrGesamtYieldsANullVerdict() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td></tr>
+              <tr><td class="level02">Gesamt</td><td class="level02">&nbsp;</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertNull(details.attempts.single().result, "no non-blank, non-Gesamt cell means no readable verdict")
+    }
+
+    @Test
+    fun anExamRowWithExactlyThreeCellsHasNoGradeCellAtAll() {
+        // As opposed to a present-but-blank grade cell: here there is no fourth cell at all.
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td><td class="tbdata">01.03.2026</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+        val exam = details.attempts.single().exams.single()
+
+        assertEquals("01.03.2026", exam.date)
+        assertNull(exam.grade)
+    }
+
+    @Test
+    fun aUnitsTableWithNoRowsProducesNoUnits() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <h2>Zugeh&ouml;rige Bausteine</h2>
+            <table></table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertTrue(details.units.isEmpty())
+    }
 }
