@@ -49,7 +49,32 @@ sonar {
                 "**/*Test*.kt",
                 "**/*Test*.java",
                 "**/build/**",
-                "**/generated/**"
+                "**/generated/**",
+                // composeApp's own testOptions.unitTests.all{} excludes "**/ui/**/*Test.class" from
+                // the Android unit test run ("these tests work on iOS and JVM but require
+                // instrumented tests on Android") — so a Compose composable whose only platform
+                // branch is Android-specific, like the Activity Result / permission flow here, has
+                // no test task that can ever reach it: not desktopTest (wrong target), not
+                // testDebugUnitTest (Compose UI tests excluded there by policy), and instrumented
+                // tests aren't part of the CI gate. Not a gap to close with more tests — it would
+                // mean reversing that policy.
+                "composeApp/src/androidMain/kotlin/de/fampopprol/dhbwhorb/ui/settings/NotificationPermission.android.kt",
+                // macOS (Kotlin/Native) isn't one of the targets addWithDependencies() adds to the
+                // kmpCoverage Kover variant in any module's build.gradle.kts (only "debug" and
+                // "desktop" are) — no coverage run ever instruments macosMain, regardless of tests.
+                "composeApp/src/macosMain/kotlin/de/fampopprol/dhbwhorb/ui/theme/Theme.macos.kt"
+            ).joinToString(",")
+        )
+
+        // LectureNotificationTexts.kt is a parallel DE/EN translation table: the two objects mirror
+        // each other's shape by necessity (one entry per LectureChange case), but the strings
+        // themselves differ — including grammatical case in German that English has no equivalent
+        // for — so templating them into one shared implementation would make the translations more
+        // fragile, not less duplicated in any way that matters. This is content, not copy-pasted
+        // logic, so it's excluded from duplication detection rather than "fixed".
+        property(
+            "sonar.cpd.exclusions", listOf(
+                "**/services/src/commonMain/kotlin/de/fampopprol/dhbwhorb/services/notifications/LectureNotificationTexts.kt"
             ).joinToString(",")
         )
     }

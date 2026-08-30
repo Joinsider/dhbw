@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -18,18 +19,24 @@ import de.fampopprol.dhbwhorb.domain.model.Lecture
 import kotlinx.datetime.DayOfWeek
 
 
+/** The visible hour range and row scale shared by every [DayColumn] in a week. */
+data class DayColumnTimeline(
+    val startHour: Int = 8,
+    val endHour: Int = 18,
+    val hourHeight: Float = 80f,
+)
+
 @Composable
 fun DayColumn(
     dayOfWeek: DayOfWeek,
     lectures: List<Lecture>,
-    startHour: Int = 8,
-    endHour: Int = 18,
-    hourHeight: Float = 80f,
+    timeline: DayColumnTimeline = DayColumnTimeline(),
     modifier: Modifier = Modifier,
     width: Dp,
     onLectureClick: (Lecture) -> Unit = {},
     isSkeleton: Boolean = false
 ) {
+    val (startHour, endHour, hourHeight) = timeline
     Column(
         modifier = modifier
     ) {
@@ -44,7 +51,8 @@ fun DayColumn(
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(vertical = 8.dp)
+                .testTag("dayColumnHeader_$dayOfWeek"),
             textAlign = TextAlign.Center
         )
 
@@ -89,6 +97,7 @@ fun DayColumn(
                                 .padding(top = offsetDp.dp)
                                 .height(heightDp.dp)
                                 .fillMaxWidth()
+                                .testTag("dayColumnSkeletonEvent")
                         ) {
                             EventSkeleton(
                                 modifier = Modifier
@@ -115,6 +124,7 @@ fun DayColumn(
                                 .padding(top = offsetDp)
                                 .height(heightDp)
                                 .fillMaxWidth()
+                                .testTag("dayColumnLecture_${lecture.id}")
                         ) {
                             EventModule(
                                 lecture = lecture,

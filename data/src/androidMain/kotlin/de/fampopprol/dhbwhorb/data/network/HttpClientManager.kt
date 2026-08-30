@@ -14,7 +14,7 @@ import kotlinx.coroutines.sync.withLock
  * for automatic lifecycle-based cleanup.
  */
 class HttpClientManager : DefaultLifecycleObserver, AutoCloseable {
-    private var client: HttpClient? = null
+    private var activeClient: HttpClient? = null
     private val mutex = Mutex()
     private var isClosed = false
 
@@ -30,27 +30,28 @@ class HttpClientManager : DefaultLifecycleObserver, AutoCloseable {
                 return@withLock
             }
             // Close old client if we're replacing it
-            if (client != null && client !== newClient) {
+            if (activeClient != null && activeClient !== newClient) {
                 Napier.d("Closing existing HttpClient to replace with new instance", tag = TAG)
-                client?.close()
+                activeClient?.close()
             }
-            client = newClient
+            activeClient = newClient
             Napier.d("HttpClient registered with HttpClientManager", tag = TAG)
         }
     }
 
     /**
-     * Get the current HttpClient instance.
+     * The current HttpClient instance.
      */
-    fun getClient(): HttpClient? = client
+    val client: HttpClient?
+        get() = activeClient
 
     /**
      * Definitively close the connection pool and the client.
      */
     override fun close() {
-        client?.let {
+        activeClient?.let {
             it.close()
-            client = null
+            activeClient = null
             isClosed = true
             Napier.d("HttpClient definitively closed via HttpClientManager", tag = TAG)
         }

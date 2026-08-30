@@ -219,4 +219,93 @@ class TimetableParserTest {
     fun parseIndividualPage_onNonHtmlInput_returnsNull() {
         assertNull(parser.parseIndividualPage(DualisFixtures.NOT_HTML))
     }
+
+    // ── extractWeekDates edge cases ────────────────────────────────────────────
+
+    @Test
+    fun parseWeeklyView_headerWithInvalidMonth_isCaughtAndReturnsEmptyList() {
+        // "13" is not a valid month; Month(13) throws, which must be caught rather than crash
+        // the whole parse.
+        val invalidMonthWeek = DualisFixtures.Timetable.WEEK_FULL.replace("Mo 03.11.", "Mo 03.13.")
+
+        assertEquals(emptyList(), parser.parseWeeklyView(invalidMonthWeek))
+    }
+
+    @Test
+    fun parseWeeklyView_resolvesSaturdayAndSundayHeaders() {
+        val weekendWeek = """
+            <html><body>
+            <table class="nb rw-table rw-all">
+              <thead>
+                <tr>
+                  <th class="fixedTimeColumn">Zeit</th>
+                  <th class="weekday" abbr="Samstag"><a href="#">Sa 08.11.</a></th>
+                  <th class="weekday" abbr="Sonntag"><a href="#">So 09.11.</a></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="appointment" style="background-color:#FFFFFF;" abbr="Samstag Spalte 1">
+                    <span class="timePeriod">08:15 - 12:00 HOR-120</span>
+                    <br />
+                    <a href="/scripts/mgrqispi.dll?ARGUMENTS=-N1" class="link" title="Samstagskurs">T1</a>
+                  </td>
+                  <td class="appointment" style="background-color:#FFFFFF;" abbr="Sonntag Spalte 1">
+                    <span class="timePeriod">08:15 - 12:00 HOR-120</span>
+                    <br />
+                    <a href="/scripts/mgrqispi.dll?ARGUMENTS=-N2" class="link" title="Sonntagskurs">T2</a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            </body></html>
+        """.trimIndent()
+
+        val lectures = parser.parseWeeklyView(weekendWeek)
+
+        assertEquals(2, lectures.size)
+        assertEquals(8, lectures.single { it.shortSubjectName == "T1" }.startTime.day)
+        assertEquals(9, lectures.single { it.shortSubjectName == "T2" }.startTime.day)
+    }
+
+    @Test
+    fun parseWeeklyView_headerNotMatchingStrictPattern_fallsBackToLenientPattern() {
+        // Any extra markup between the <th> and <a> (e.g. a screen-reader label) breaks the
+        // strict header pattern; the lenient fallback must still resolve the date.
+        val looseHeaderWeek = DualisFixtures.Timetable.WEEK_FULL.replace(
+            Regex("""(<th class="weekday" abbr="\w+">)(<a)"""),
+            "$1<span class=\"sr-only\">Woche</span>$2"
+        )
+
+        val lectures = parser.parseWeeklyView(looseHeaderWeek)
+
+        assertEquals(3, lectures.size, "The lenient fallback pattern must still resolve every appointment's date")
+        assertEquals(3, lectures[0].startTime.day)
+    }
+
+    // ── parseLectureCell link building ─────────────────────────────────────────
+
+    @Test
+    fun parseWeeklyView_keepsAbsoluteHttpLinkUnchanged() {
+        val week = DualisFixtures.Timetable.WEEK_FULL.replace(
+            """href="/scripts/mgrqispi.dll?APPNAME=CampusNet&amp;PRGNAME=COURSEPREP&amp;ARGUMENTS=-N1,-N2,-N3"""",
+            """href="https://dualis.dhbw.de/scripts/mgrqispi.dll?ARGUMENTS=-N1""""
+        )
+
+        val monday = parser.parseWeeklyView(week).first()
+
+        assertEquals("https://dualis.dhbw.de/scripts/mgrqispi.dll?ARGUMENTS=-N1", monday.linkToIndividualPage)
+    }
+
+    @Test
+    fun parseWeeklyView_prefixesRelativeLinkWithoutLeadingSlash() {
+        val week = DualisFixtures.Timetable.WEEK_FULL.replace(
+            """href="/scripts/mgrqispi.dll?APPNAME=CampusNet&amp;PRGNAME=COURSEPREP&amp;ARGUMENTS=-N1,-N2,-N3"""",
+            """href="scripts/mgrqispi.dll?ARGUMENTS=-N1""""
+        )
+
+        val monday = parser.parseWeeklyView(week).first()
+
+        assertEquals("https://dualis.dhbw.de/scripts/mgrqispi.dll?ARGUMENTS=-N1", monday.linkToIndividualPage)
+    }
 }
