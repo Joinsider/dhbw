@@ -6,6 +6,7 @@
 
 package de.fampopprol.dhbwhorb.services.notifications
 
+import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.data.dualis.remote.DualisApiClient
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.AuthenticationService
@@ -95,6 +96,42 @@ class LectureChangeMonitorTest {
         assertTrue(change is LectureChange.LocationChange, "$change")
         assertEquals("HOR-231", change.oldLocation)
         assertEquals("HOR-120", change.newLocation)
+    }
+
+    @Test
+    fun `an exam flag change is reported on its own`() = runTest {
+        val changes = changesFrom(
+            cached = listOf(lecture("PROG", day = 5, from = 10, to = 12, isTest = false)),
+            fetched = listOf(lecture("PROG", day = 5, from = 10, to = 12, isTest = true)),
+        )
+
+        val change = changes.single()
+        assertTrue(change is LectureChange.TypeChange, "$change")
+        assertTrue(!change.oldIsTest)
+        assertTrue(change.newIsTest)
+    }
+
+    @Test
+    fun `a lecturer change is reported on its own`() = runTest {
+        val changes = changesFrom(
+            cached = listOf(lecture("PROG", day = 5, from = 10, to = 12, lecturers = listOf("Prof. A"))),
+            fetched = listOf(lecture("PROG", day = 5, from = 10, to = 12, lecturers = listOf("Prof. B"))),
+        )
+
+        val change = changes.single()
+        assertTrue(change is LectureChange.LecturerChange, "$change")
+        assertEquals(listOf("Prof. A"), change.oldLecturers)
+        assertEquals(listOf("Prof. B"), change.newLecturers)
+    }
+
+    @Test
+    fun `the same lecturers in a different order is not a change`() = runTest {
+        val changes = changesFrom(
+            cached = listOf(lecture("PROG", day = 5, from = 10, to = 12, lecturers = listOf("Prof. A", "Prof. B"))),
+            fetched = listOf(lecture("PROG", day = 5, from = 10, to = 12, lecturers = listOf("Prof. B", "Prof. A"))),
+        )
+
+        assertTrue(changes.isEmpty(), "sorted comparison must ignore ordering: $changes")
     }
 
     @Test
@@ -230,6 +267,80 @@ class LectureChangeMonitorTest {
         assertEquals(1, service.fullFetches, "nor seed anything outside a sweep")
     }
 
+    // ── Failure handling ────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a failure fetching the current week in full is reported as an error`() = runTest {
+        val service = FakeLectureService(
+            fullByWeek = emptyMap(),
+            gridByWeek = emptyMap(),
+            failFullFetchForWeeks = setOf(0),
+        )
+
+        val result = monitor(service = service, cached = emptyList()).checkForChanges()
+
+        assertTrue(result is MonitorResult.Error, "$result")
+        assertEquals(AppError.Offline, result.error)
+    }
+
+    @Test
+    fun `a failure saving the current week after a change is reported as an error`() = runTest {
+        val cached = listOf(lecture("PROG", day = 5, from = 10, to = 12))
+        val fetched = listOf(lecture("PROG", day = 5, from = 14, to = 16)) // a move, so a save is attempted
+        val service = FakeLectureService(
+            fullByWeek = mapOf(0 to fetched),
+            gridByWeek = emptyMap(),
+            failSaveForWeeks = setOf(0),
+        )
+
+        val result = monitor(service = service, cached = cached).checkForChanges()
+
+        assertTrue(result is MonitorResult.Error, "$result")
+        assertTrue(result.error is AppError.Storage)
+    }
+
+    @Test
+    fun `a future week whose grid cannot be fetched is skipped without discarding current-week changes`() = runTest {
+        val cached = futureWeeks()
+        // Week +1's grid fails; the current week has an independent change to report.
+        val service = FakeLectureService(
+            fullByWeek = mapOf(0 to listOf(lecture("PROG", day = 5, from = 14, to = 16))),
+            gridByWeek = cached,
+            failGridFetchForWeeks = setOf(1),
+        )
+        val currentWeekCached = listOf(lecture("PROG", day = 5, from = 10, to = 12))
+
+        val result = monitor(service = service, cached = currentWeekCached + cached.values.flatten()).checkForChanges()
+
+        assertTrue(result is MonitorResult.Changes, "one broken future week must not swallow real changes: $result")
+    }
+
+    @Test
+    fun `a failure fetching a never-seen future week in full is not fatal to the run`() = runTest {
+        val weeks = futureWeeks()
+        // Week +1 has never been cached, and its seeding fetch fails.
+        val service = FakeLectureService(
+            fullByWeek = weeks + (0 to emptyList()),
+            gridByWeek = weeks,
+            failFullFetchForWeeks = setOf(1),
+        )
+
+        val result = monitor(service = service, cached = emptyList()).checkForChanges()
+
+        // The failure is logged and skipped (handleUnexpectedPage-style tolerance), current week is fine.
+        assertTrue(result is MonitorResult.NoChanges, "$result")
+    }
+
+    @Test
+    fun `an unexpected exception is reported as an Unexpected error rather than propagating`() = runTest {
+        val service = FakeLectureService(fullByWeek = emptyMap(), gridByWeek = emptyMap(), throwOnFullFetch = true)
+
+        val result = monitor(service = service, cached = emptyList()).checkForChanges()
+
+        assertTrue(result is MonitorResult.Error, "$result")
+        assertTrue(result.error is AppError.Unexpected, "expected Unexpected but got ${result.error}")
+    }
+
     // ── Scaffolding ─────────────────────────────────────────────────────────────────────────
 
     private suspend fun changesFrom(
@@ -266,6 +377,7 @@ class LectureChangeMonitorTest {
         to: Int,
         location: String = "HOR-100",
         lecturers: List<String> = emptyList(),
+        isTest: Boolean = false,
     ) = LectureEventEntity(
         lectureId = 0,
         shortSubjectName = subject,
@@ -273,6 +385,7 @@ class LectureChangeMonitorTest {
         startTime = LocalDateTime(2026, 3, day, from, 0),
         endTime = LocalDateTime(2026, 3, day, to, 0),
         location = location,
+        isTest = isTest,
     ).apply { this.lecturers = lecturers }
 
     private fun LocalDateTime.minusHours(hours: Int) =
@@ -311,6 +424,14 @@ class LectureChangeMonitorTest {
     private class FakeLectureService(
         private val fullByWeek: Map<Int, List<LectureEventEntity>>,
         private val gridByWeek: Map<Int, List<LectureEventEntity>>,
+        /** Week offsets whose full fetch must fail instead of returning [fullByWeek]. */
+        private val failFullFetchForWeeks: Set<Int> = emptySet(),
+        /** Week offsets whose grid fetch must fail instead of returning [gridByWeek]. */
+        private val failGridFetchForWeeks: Set<Int> = emptySet(),
+        /** Week offsets whose save must fail instead of succeeding. */
+        private val failSaveForWeeks: Set<Int> = emptySet(),
+        /** When set, the full fetch throws instead of returning an [Outcome] at all. */
+        private val throwOnFullFetch: Boolean = false,
     ) : DualisLectureService(
         apiClient = apiClient,
         sessionManager = sessionManager,
@@ -327,6 +448,10 @@ class LectureChangeMonitorTest {
             end: LocalDateTime
         ): Outcome<List<LectureEventEntity>> {
             fullFetches++
+            if (throwOnFullFetch) throw IllegalStateException("boom")
+            if (start.weekOffset() in failFullFetchForWeeks) {
+                return Outcome.Err(AppError.Offline)
+            }
             return Outcome.Ok(fullByWeek[start.weekOffset()].orEmpty())
         }
 
@@ -335,6 +460,9 @@ class LectureChangeMonitorTest {
             end: LocalDateTime
         ): Outcome<List<LectureEventEntity>> {
             gridFetches++
+            if (start.weekOffset() in failGridFetchForWeeks) {
+                return Outcome.Err(AppError.Offline)
+            }
             return Outcome.Ok(gridByWeek[start.weekOffset()].orEmpty())
         }
 
@@ -345,6 +473,9 @@ class LectureChangeMonitorTest {
             weekStart: LocalDateTime,
             weekEnd: LocalDateTime
         ): Outcome<List<LectureEventEntity>> {
+            if (weekStart.weekOffset() in failSaveForWeeks) {
+                return Outcome.Err(AppError.Storage("could not save"))
+            }
             savedWeeks[weekStart.weekOffset()] = lectures
             return Outcome.Ok(lectures)
         }

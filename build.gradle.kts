@@ -59,10 +59,16 @@ sonar {
                 // tests aren't part of the CI gate. Not a gap to close with more tests — it would
                 // mean reversing that policy.
                 "composeApp/src/androidMain/kotlin/de/fampopprol/dhbwhorb/ui/settings/NotificationPermission.android.kt",
-                // macOS (Kotlin/Native) isn't one of the targets addWithDependencies() adds to the
-                // kmpCoverage Kover variant in any module's build.gradle.kts (only "debug" and
-                // "desktop" are) — no coverage run ever instruments macosMain, regardless of tests.
-                "composeApp/src/macosMain/kotlin/de/fampopprol/dhbwhorb/ui/theme/Theme.macos.kt"
+                // iOS/macOS (Kotlin/Native) aren't among the targets addWithDependencies() adds to
+                // the kmpCoverage Kover variant in any module's build.gradle.kts (only "debug" and
+                // "desktop" are) — no coverage run ever instruments iosMain/macosMain, regardless of
+                // tests, so every line in those source sets is permanently 0% by construction, not
+                // by neglect. Excluding the two source sets outright (rather than the one file this
+                // used to list by hand) keeps the metric meaningful as more iOS/macOS-only files are
+                // added, and matches how NotificationPermission.android.kt above is excluded for the
+                // same "no reachable coverage variant" reason.
+                "**/src/iosMain/**",
+                "**/src/macosMain/**"
             ).joinToString(",")
         )
 
