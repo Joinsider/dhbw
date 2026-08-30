@@ -6,15 +6,21 @@
 
 package de.fampopprol.dhbwhorb.ui.auth
 
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.test.withKeyDown
 import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.domain.model.Session
@@ -165,5 +171,60 @@ class LoginFormValidationTest {
         }
 
         onNodeWithTag("loginButton").assertIsEnabled()
+    }
+
+    // These drive real keyboard input through the Compose UI test harness (rather than calling
+    // handleUsernameFieldKeyEvent/handlePasswordFieldKeyEvent directly, as LoginFormKeyEventTest
+    // does) so the actual onKeyEvent { ... } call sites wired up inside the composables are
+    // exercised too.
+
+    @Test
+    fun usernameField_tabKey_movesFocusToPasswordField() = runComposeUiTest {
+        setContent { LoginForm(store = store()) }
+
+        onNodeWithTag("usernameField").performClick()
+        onNodeWithTag("usernameField").performKeyInput { pressKey(Key.Tab) }
+        waitForIdle()
+
+        onNodeWithTag("passwordField").assertIsFocused()
+    }
+
+    @Test
+    fun passwordField_shiftTabKey_movesFocusBackToUsernameField() = runComposeUiTest {
+        setContent { LoginForm(store = store()) }
+
+        onNodeWithTag("passwordField").performClick()
+        onNodeWithTag("passwordField").performKeyInput {
+            withKeyDown(Key.ShiftLeft) { pressKey(Key.Tab) }
+        }
+        waitForIdle()
+
+        onNodeWithTag("usernameField").assertIsFocused()
+    }
+
+    @Test
+    fun usernameField_imeNextAction_movesFocusToPasswordField() = runComposeUiTest {
+        setContent { LoginForm(store = store()) }
+
+        onNodeWithTag("usernameField").performClick()
+        onNodeWithTag("usernameField").performImeAction()
+        waitForIdle()
+
+        onNodeWithTag("passwordField").assertIsFocused()
+    }
+
+    @Test
+    fun passwordField_enterKey_triggersLogin() = runComposeUiTest {
+        val repository = FakeAuthRepository(loginResult = Outcome.Ok(Session(userFullName = "Max")))
+        setContent { LoginForm(store = store(repository)) }
+
+        onNodeWithTag("usernameField").performClick()
+        onNodeWithTag("usernameField").performTextInput("max@hb.dhbw-stuttgart.de")
+        onNodeWithTag("passwordField").performClick()
+        onNodeWithTag("passwordField").performTextInput("hunter2")
+        onNodeWithTag("passwordField").performKeyInput { pressKey(Key.Enter) }
+        waitForIdle()
+
+        assertEquals(1, repository.loginCount)
     }
 }
