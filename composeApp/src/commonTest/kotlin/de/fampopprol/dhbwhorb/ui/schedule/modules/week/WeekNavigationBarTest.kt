@@ -110,4 +110,33 @@ class WeekNavigationBarTest {
 
         assertFailsWith<AssertionError> { onNodeWithTag("refreshButton").assertIsDisplayed() }
     }
+
+    @Test
+    fun refreshButton_disabledWhileRefreshing() = runComposeUiTest {
+        setContent { WeekNavigationBar(isRefreshing = true, onRefresh = {}) }
+
+        onNodeWithTag("refreshButton").assertIsNotEnabled()
+    }
+
+    @Test
+    fun whileRefreshing_longPressingWeekLabel_doesNothing() = runComposeUiTest {
+        var refreshed = false
+        setContent { WeekNavigationBar(isRefreshing = true, onRefresh = { refreshed = true }) }
+
+        onNodeWithTag("weekLabelButton").performTouchInput { longClick() }
+        waitForIdle()
+
+        assertEquals(false, refreshed)
+    }
+
+    @Test
+    fun longPressingWeekLabel_withNoRefreshCallback_doesNothing() = runComposeUiTest {
+        setContent { WeekNavigationBar(onRefresh = null, onWeekLabelClick = {}) }
+
+        // Should not throw even though there is nothing to invoke.
+        onNodeWithTag("weekLabelButton").performTouchInput { longClick() }
+        waitForIdle()
+
+        onNodeWithTag("weekLabelButton").assertIsDisplayed()
+    }
 }

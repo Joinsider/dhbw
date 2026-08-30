@@ -165,6 +165,131 @@ class LectureNotificationTextsTest {
     }
 
     @Test
+    fun single_typeChange_fromExam_german() {
+        Locale.setDefault(Locale.GERMAN)
+        val change = LectureChange.TypeChange(
+            lectureId = 1,
+            courseName = "Mathematik 1",
+            occursAt = LocalDateTime(2026, 3, 2, 8, 0),
+            oldIsTest = true,
+            newIsTest = false,
+        )
+
+        val (title, body) = LectureNotificationTexts.single(change)
+
+        assertEquals("Doch keine Prüfung: Mathematik 1", title)
+        assertEquals("Am 02.03., 08:00 Uhr wieder eine normale Vorlesung", body)
+    }
+
+    @Test
+    fun single_typeChange_toExam_english() {
+        Locale.setDefault(Locale.ENGLISH)
+        val change = LectureChange.TypeChange(
+            lectureId = 1,
+            courseName = "Mathematik 1",
+            occursAt = LocalDateTime(2026, 3, 2, 8, 0),
+            oldIsTest = false,
+            newIsTest = true,
+        )
+
+        val (title, body) = LectureNotificationTexts.single(change)
+
+        assertEquals("Now an exam: Mathematik 1", title)
+        assertEquals("On 02/03, 08:00, instead of the lecture", body)
+    }
+
+    @Test
+    fun single_newLecture_german() {
+        Locale.setDefault(Locale.GERMAN)
+        val change = LectureChange.NewLecture(
+            lectureId = 1,
+            courseName = "Mathematik 1",
+            lecture = lecture("Mathematik 1"),
+        )
+
+        val (title, body) = LectureNotificationTexts.single(change)
+
+        assertEquals("Neu im Plan: Mathematik 1", title)
+        assertEquals("Am 02.03., 08:00 Uhr", body)
+    }
+
+    @Test
+    fun single_cancellation_english() {
+        Locale.setDefault(Locale.ENGLISH)
+        val change = LectureChange.Cancellation(
+            lectureId = 1,
+            courseName = "Mathematik 1",
+            cancelledLecture = lecture("Mathematik 1"),
+        )
+
+        val (title, body) = LectureNotificationTexts.single(change)
+
+        assertEquals("Cancelled: Mathematik 1", title)
+        assertEquals("On 02/03, 08:00", body)
+    }
+
+    @Test
+    fun single_locationChange_english() {
+        Locale.setDefault(Locale.ENGLISH)
+        val change = LectureChange.LocationChange(
+            lectureId = 1,
+            courseName = "Mathematik 1",
+            occursAt = LocalDateTime(2026, 3, 2, 8, 0),
+            oldLocation = "HOR-100",
+            newLocation = "HOR-200",
+        )
+
+        val (title, body) = LectureNotificationTexts.single(change)
+
+        assertEquals("Room change: Mathematik 1", title)
+        assertEquals("02/03, 08:00: HOR-100 → HOR-200", body)
+    }
+
+    @Test
+    fun single_timeChange_withoutOldStart_english() {
+        Locale.setDefault(Locale.ENGLISH)
+        val change = LectureChange.TimeChange(
+            lectureId = 1,
+            courseName = "Mathematik 1",
+            oldStartTime = null,
+            newStartTime = LocalDateTime(2026, 3, 2, 10, 0),
+            oldEndTime = null,
+            newEndTime = LocalDateTime(2026, 3, 2, 11, 30),
+        )
+
+        val (_, body) = LectureNotificationTexts.single(change)
+
+        assertEquals("From unknown to 02/03, 10:00", body)
+    }
+
+    @Test
+    fun reminder_wholeHour_english() {
+        Locale.setDefault(Locale.ENGLISH)
+        val (title, body) = LectureNotificationTexts.reminder(
+            courseName = "Mathematik 1",
+            location = "HOR-100",
+            startsAt = LocalDateTime(2026, 3, 2, 8, 0),
+            leadMinutes = 60,
+        )
+
+        assertEquals("In an hour: Mathematik 1", title)
+        assertEquals("08:00, HOR-100", body)
+    }
+
+    @Test
+    fun reminder_multipleWholeHours_english() {
+        Locale.setDefault(Locale.ENGLISH)
+        val (title, _) = LectureNotificationTexts.reminder(
+            courseName = "Mathematik 1",
+            location = "",
+            startsAt = LocalDateTime(2026, 3, 2, 8, 0),
+            leadMinutes = 120,
+        )
+
+        assertEquals("In 2 hours: Mathematik 1", title)
+    }
+
+    @Test
     fun single_typeChange_toExam_german() {
         Locale.setDefault(Locale.GERMAN)
         val change = LectureChange.TypeChange(

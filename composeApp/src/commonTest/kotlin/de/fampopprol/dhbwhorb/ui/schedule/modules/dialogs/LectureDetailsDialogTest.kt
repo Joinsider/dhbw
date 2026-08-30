@@ -105,4 +105,23 @@ class LectureDetailsDialogTest {
 
         assertFailsWith<AssertionError> { onNodeWithTag("lectureTestExamBanner").assertIsDisplayed() }
     }
+
+    @Test
+    fun dialog_multipleRooms_showsCombinedLocation() = runComposeUiTest {
+        setContent { LectureDetailsDialog(lecture = lecture(location = "HOR-100, HOR-101"), onDismiss = {}) }
+
+        onNodeWithTag("lectureLocationRow").assertIsDisplayed()
+    }
+
+    @Test
+    fun dialog_multipleLecturers_showsThemJoinedByNewline() = runComposeUiTest {
+        setContent {
+            LectureDetailsDialog(
+                lecture = lecture(lecturers = listOf("Schmidt", "Müller")),
+                onDismiss = {},
+            )
+        }
+
+        onNodeWithTag("lectureLecturersRow").assertIsDisplayed()
+    }
 }

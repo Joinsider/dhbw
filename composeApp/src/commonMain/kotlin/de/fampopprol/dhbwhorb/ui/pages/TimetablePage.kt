@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.april_short
@@ -149,7 +150,7 @@ fun TimetablePage(
                             text = error.toUserMessage(),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier.padding(16.dp).testTag("timetableErrorBanner")
                         )
                     }
                 }

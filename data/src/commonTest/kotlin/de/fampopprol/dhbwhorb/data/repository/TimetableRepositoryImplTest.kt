@@ -112,6 +112,25 @@ class TimetableRepositoryImplTest {
             throw IllegalStateException("database is closed")
     }
 
+    private class ThrowingSyncMetadataDao(
+        private val throwOnRead: Boolean = false,
+        private val throwOnInsert: Boolean = false,
+    ) : SyncMetadataDao {
+        override suspend fun insert(syncMetadataEntity: SyncMetadataEntity) {
+            if (throwOnInsert) throw IllegalStateException("database is closed")
+        }
+        override suspend fun insertAll(syncMetadataEntities: List<SyncMetadataEntity>) = Unit
+        override suspend fun update(syncMetadataEntity: SyncMetadataEntity) = Unit
+        override suspend fun delete(syncMetadataEntity: SyncMetadataEntity) = Unit
+        override suspend fun getSyncMetadata(key: String): SyncMetadataEntity? {
+            if (throwOnRead) throw IllegalStateException("database is closed")
+            return null
+        }
+        override suspend fun clearAllSyncMetadata() = Unit
+        override suspend fun getAllSyncMetadata(): List<SyncMetadataEntity> = emptyList()
+        override suspend fun deleteByKey(key: String) = Unit
+    }
+
     private class FakeSyncMetadataDao(private var metadata: SyncMetadataEntity? = null) : SyncMetadataDao {
         var inserted: SyncMetadataEntity? = null
         override suspend fun insert(syncMetadataEntity: SyncMetadataEntity) {
@@ -253,6 +272,29 @@ class TimetableRepositoryImplTest {
         assertIs<AppError.Storage>(error)
     }
 
+    @Test
+    fun getWeek_whenTheCacheReadThrows_propagatesTheStorageError() = runTest {
+        val result = repository(lectureEventDao = ThrowingCacheDao()).getWeek(weekOffset = 0)
+
+        val error = assertIs<Outcome.Err>(result).error
+        assertIs<AppError.Storage>(error)
+    }
+
+    @Test
+    fun getWeek_whenReadingTheSyncTimestampThrows_stillReturnsTheCachedWeek() = runTest {
+        // Not knowing when the cache last synced is not a reason to refuse serving it.
+        val cachedDao = FixedCacheDao(listOf(cachedLecture(currentWeekLecture(9))))
+
+        val result = repository(
+            lectureEventDao = cachedDao,
+            syncMetadataDao = ThrowingSyncMetadataDao(throwOnRead = true),
+        ).getWeek(weekOffset = 0)
+
+        val week = assertIs<Outcome.Ok<TimetableWeek>>(result).value
+        assertTrue(week.fromCache)
+        assertEquals(1, week.lectures.size)
+    }
+
     // ── refreshWeek: dedup ──────────────────────────────────────────────────────────────────
 
     @Test
@@ -289,6 +331,35 @@ class TimetableRepositoryImplTest {
         val result = repository(service = service).refreshWeek(weekOffset = 0)
 
         assertEquals(Outcome.Err(error), result)
+    }
+
+    @Test
+    fun refreshWeek_whenTheFullFetchFails_propagatesTheError() = runTest {
+        val error = AppError.Offline
+        val service = FakeLectureService(
+            full = Outcome.Err(error),
+            apiClient = apiClient, sessionManager = sessionManager, authService = authService, database = database,
+        )
+
+        val result = repository(service = service).refreshWeek(weekOffset = 0)
+
+        assertEquals(Outcome.Err(error), result)
+    }
+
+    @Test
+    fun refreshWeek_whenRecordingTheSyncTimestampThrows_stillSucceeds() = runTest {
+        // Losing the timestamp only costs an extra refresh next time, not this one's result.
+        val service = FakeLectureService(
+            full = Outcome.Ok(listOf(lecture(7))),
+            apiClient = apiClient, sessionManager = sessionManager, authService = authService, database = database,
+        )
+
+        val result = repository(
+            service = service,
+            syncMetadataDao = ThrowingSyncMetadataDao(throwOnInsert = true),
+        ).refreshWeek(weekOffset = 0)
+
+        assertEquals(1, assertIs<Outcome.Ok<TimetableWeek>>(result).value.lectures.size)
     }
 
     private fun cachedLecture(entity: LectureEventEntity) = LectureWithLecturers(

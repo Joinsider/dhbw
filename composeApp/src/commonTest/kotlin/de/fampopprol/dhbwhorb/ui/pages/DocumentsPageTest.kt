@@ -25,6 +25,7 @@ import de.fampopprol.dhbwhorb.testutil.fakes.FakeSessionRepository
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.navItemTestTag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 @OptIn(ExperimentalTestApi::class)
@@ -148,6 +149,17 @@ class DocumentsPageTest {
         waitForIdle()
 
         assertFailsWith<AssertionError> { onNodeWithText("Open").assertIsDisplayed() }
+    }
+
+    @Test
+    fun tappingABottomNavItem_invokesOnNavigate() = runComposeUiTest {
+        var navigated: BottomNavItem? = null
+        setContent { DocumentsPage(onNavigate = { navigated = it }, store = store()) }
+        waitForIdle()
+
+        onNodeWithTag(navItemTestTag(BottomNavItem.SETTINGS)).performClick()
+
+        assertEquals(BottomNavItem.SETTINGS, navigated)
     }
 
     @Test

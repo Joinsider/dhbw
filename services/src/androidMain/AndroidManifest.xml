@@ -21,13 +21,20 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <application
-        android:allowBackup="true"
-        android:usesCleartextTraffic="false">
+    <application android:usesCleartextTraffic="false">
         <receiver
             android:name=".reminders.LectureReminderReceiver"
             android:exported="false" />
 
+        <!--
+          exported="true" is required here even though nothing else in this app should be able to
+          trigger the receiver: BOOT_COMPLETED and MY_PACKAGE_REPLACED are both OS-protected
+          broadcasts (see Android's own protected-broadcast list) that only system_server may send.
+          Any third-party app that tries is rejected by the platform with a SecurityException
+          before this receiver ever runs, so there is no unauthenticated entry point to guard with
+          android:permission — that would only add a requirement the system sender doesn't (and
+          can't) hold, breaking boot delivery entirely without closing any real gap.
+        -->
         <receiver
             android:name=".reminders.LectureReminderBootReceiver"
             android:exported="true">

@@ -302,6 +302,40 @@ class DaySummaryStateTest {
     }
 
     @Test
+    fun `today has only finished classes, skips to tomorrow`() = runTest {
+        val repo = FakeWidgetLectureRepository(
+            listOf(
+                lecture(1, TODAY, startHour = 8, endHour = 10),
+                lecture(2, TOMORROW, startHour = 9, endHour = 11),
+            )
+        )
+        // Now = 12:00 – today's only class ended two hours ago.
+        val useCase = WidgetTimetableUseCase(
+            repository = repo,
+            clock = fixedClock(LocalDateTime(TODAY.year, TODAY.month, TODAY.day, 12, 0)),
+        )
+        val state = assertNotNull(useCase.getDaySummaryState())
+        assertEquals(TOMORROW, state.date)
+    }
+
+    @Test
+    fun `a cache read failure is treated as an empty day rather than crashing`() = runTest {
+        val repo = object : TimetableRepository {
+            override suspend fun getCachedLectures(start: LocalDateTime, end: LocalDateTime) =
+                Outcome.Err(de.fampopprol.dhbwhorb.core.error.AppError.Storage("cache unavailable"))
+            override suspend fun getWeek(weekOffset: Int) = error("must not be called")
+            override suspend fun awaitFullWeek(weekOffset: Int) = error("must not be called")
+            override suspend fun refreshWeek(weekOffset: Int) = error("must not be called")
+        }
+        val useCase = WidgetTimetableUseCase(
+            repository = repo,
+            clock = fixedClock(LocalDateTime(TODAY.year, TODAY.month, TODAY.day, 7, 0)),
+        )
+
+        assertNull(useCase.getDaySummaryState())
+    }
+
+    @Test
     fun `isOngoing flag set correctly for running class in day summary`() = runTest {
         val repo = FakeWidgetLectureRepository(
             listOf(

@@ -9,6 +9,7 @@ package de.fampopprol.dhbwhorb.ui.settings
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.onNodeWithTag
@@ -63,6 +64,22 @@ class NotificationSettingsCardTest {
         onNodeWithTag("notificationsEnabledSwitch").performClick()
 
         assertEquals(true, enabled)
+    }
+
+    @Test
+    fun togglingMasterSwitch_fromOn_reportsFalse() = runComposeUiTest {
+        var enabled: Boolean? = null
+        setContent {
+            NotificationSettingsCard(
+                state = NotificationSettingsState(notificationsEnabled = true),
+                callbacks = NotificationSettingsCallbacks(onNotificationsEnabledChange = { enabled = it }),
+            )
+        }
+        waitForIdle()
+
+        onNodeWithTag("notificationsEnabledSwitch").performClick()
+
+        assertEquals(false, enabled)
     }
 
     @Test
@@ -124,6 +141,24 @@ class NotificationSettingsCardTest {
     }
 
     @Test
+    fun manualCheckButton_click_whileStillRunning_showsTheCheckingState() = runComposeUiTest {
+        val neverCompletes = kotlinx.coroutines.CompletableDeferred<Unit>()
+        setContent {
+            NotificationSettingsCard(
+                state = NotificationSettingsState(notificationsEnabled = true),
+                onManualCheckRequested = { neverCompletes.await() },
+            )
+        }
+        waitForIdle()
+
+        onNodeWithTag("checkNowButton").performClick()
+        waitForIdle()
+
+        onNodeWithText("Checking...").assertIsDisplayed()
+        onNodeWithTag("checkNowButton").assertIsNotEnabled()
+    }
+
+    @Test
     fun manualCheckButton_click_runsTheCallback() = runComposeUiTest {
         var invoked = false
         setContent {
@@ -138,6 +173,22 @@ class NotificationSettingsCardTest {
         waitForIdle()
 
         assertTrue(invoked)
+    }
+
+    @Test
+    fun manualCheckButton_click_whenCallbackSucceeds_showsSuccessMessage() = runComposeUiTest {
+        setContent {
+            NotificationSettingsCard(
+                state = NotificationSettingsState(notificationsEnabled = true),
+                onManualCheckRequested = { },
+            )
+        }
+        waitForIdle()
+
+        onNodeWithTag("checkNowButton").performClick()
+        waitForIdle()
+
+        onNodeWithText("✅ Check completed").assertIsDisplayed()
     }
 
     @Test

@@ -38,6 +38,20 @@ class SemesterOrderTest {
     }
 
     @Test
+    fun aNameWithAYearButNoRecognizableTermLetterSortsLast() {
+        // Has a year, so the regex matches, but the leading letter is neither W nor S.
+        assertNull(SemesterOrder.sortKey("Herbst 2025"))
+
+        val sorted = listOf("Herbst 2025", "SoSe 2025").sortedWith(SemesterOrder.oldestFirst)
+        assertEquals(listOf("SoSe 2025", "Herbst 2025"), sorted)
+    }
+
+    @Test
+    fun leadingWhitespaceBeforeTheTermLetterIsIgnored() {
+        assertEquals(SemesterOrder.sortKey("WiSe 2025/26"), SemesterOrder.sortKey("  WiSe 2025/26"))
+    }
+
+    @Test
     fun theKeyGrowsWithTime() {
         val wise2425 = SemesterOrder.sortKey("WiSe 2024/25")!!
         val sose2025 = SemesterOrder.sortKey("SoSe 2025")!!

@@ -97,6 +97,23 @@ class SemesterGroupCardTest {
     }
 
     @Test
+    fun card_expandedWithMultipleGrades_showsADividerBetweenAllButTheLast() = runComposeUiTest {
+        setContent {
+            SemesterGroupCard(
+                semesterName = "WiSe 2025/26",
+                grades = listOf(grade(), grade(moduleNumber = "T3INF1002", moduleName = "Programmierung 1")),
+                semesterGpa = 1.7,
+            )
+        }
+
+        onNodeWithTag("semesterCardHeader").performClick()
+        waitForIdle()
+
+        onNodeWithTag("gradeRow_T3INF1001").assertIsDisplayed()
+        onNodeWithTag("gradeRow_T3INF1002").assertIsDisplayed()
+    }
+
+    @Test
     fun card_ungradedModule_showsDash() = runComposeUiTest {
         setContent {
             SemesterGroupCard(
