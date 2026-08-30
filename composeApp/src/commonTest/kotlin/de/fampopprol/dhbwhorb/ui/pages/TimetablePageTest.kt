@@ -265,4 +265,55 @@ class TimetablePageTest {
         onNodeWithTag("weekLabelButton").assertIsDisplayed()
         store.close()
     }
+
+    // The remaining nine months' short-name resources are otherwise never resolved: the fixtures
+    // above only ever fall in March, April or May. Five month-crossing weeks are enough to reach
+    // all twelve without a dozen separate near-identical tests.
+    private fun rendersWithoutCrashing(start: LocalDateTime, end: LocalDateTime) = runComposeUiTest {
+        val repository = FakeTimetableRepository(
+            week = Outcome.Ok(TimetableWeek(weekOffset = 0, start = start, end = end, lectures = emptyList()))
+        )
+        val store = TimetableStore(
+            getWeekTimetable = GetWeekTimetable(repository),
+            awaitFullWeekTimetable = AwaitFullWeekTimetable(repository),
+            refreshTimetable = RefreshTimetable(repository),
+            scope = TestScopes.immediate()
+        )
+
+        setContent { WithTestKoin { TimetablePage(store = store) } }
+        waitForIdle()
+
+        onNodeWithTag("weekLabelButton").assertIsDisplayed()
+        store.close()
+    }
+
+    @Test
+    fun timetablePage_januaryToFebruary_rendersTheLabel() = rendersWithoutCrashing(
+        start = LocalDateTime(2026, 1, 29, 0, 0),
+        end = LocalDateTime(2026, 2, 4, 23, 59),
+    )
+
+    @Test
+    fun timetablePage_juneToJuly_rendersTheLabel() = rendersWithoutCrashing(
+        start = LocalDateTime(2026, 6, 29, 0, 0),
+        end = LocalDateTime(2026, 7, 5, 23, 59),
+    )
+
+    @Test
+    fun timetablePage_augustToSeptember_rendersTheLabel() = rendersWithoutCrashing(
+        start = LocalDateTime(2026, 8, 31, 0, 0),
+        end = LocalDateTime(2026, 9, 6, 23, 59),
+    )
+
+    @Test
+    fun timetablePage_octoberToNovember_rendersTheLabel() = rendersWithoutCrashing(
+        start = LocalDateTime(2026, 10, 29, 0, 0),
+        end = LocalDateTime(2026, 11, 4, 23, 59),
+    )
+
+    @Test
+    fun timetablePage_decemberToJanuary_rendersTheLabel() = rendersWithoutCrashing(
+        start = LocalDateTime(2026, 12, 29, 0, 0),
+        end = LocalDateTime(2027, 1, 4, 23, 59),
+    )
 }

@@ -227,7 +227,7 @@ class DualisGradeServiceTest {
         )
         val mockEngine = MockEngine {
             respond(
-                content = ByteReadChannel(DualisFixtures.Grades.SEMESTER_TABLE),
+                content = ByteReadChannel(validGradesPage),
                 status = HttpStatusCode.OK,
                 headers = headers { append(HttpHeaders.ContentType, "text/html") }
             )
@@ -413,7 +413,7 @@ class DualisGradeServiceTest {
         freshSessionManager.storeAuthData(AuthData(sessionId = "session-1", authToken = "token-1"))
         val mockEngine = MockEngine {
             respond(
-                content = ByteReadChannel(DualisFixtures.Grades.SEMESTER_TABLE),
+                content = ByteReadChannel(validGradesPage),
                 status = HttpStatusCode.OK,
                 headers = headers { append(HttpHeaders.ContentType, "text/html") }
             )

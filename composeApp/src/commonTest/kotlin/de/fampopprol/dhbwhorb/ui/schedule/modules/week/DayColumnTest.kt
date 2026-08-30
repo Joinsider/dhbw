@@ -66,6 +66,24 @@ class DayColumnTest {
     }
 
     @Test
+    fun aNarrowColumn_stillRendersTheLecture_withTheSmallerFont() = runComposeUiTest {
+        setContent {
+            DayColumn(dayOfWeek = DayOfWeek.MONDAY, lectures = listOf(lecture(1)), width = 80.dp)
+        }
+
+        onNodeWithTag("dayColumnLecture_1").assertIsDisplayed()
+    }
+
+    @Test
+    fun aNarrowColumn_stillRendersTheSkeleton_withTheSmallerFont() = runComposeUiTest {
+        setContent {
+            DayColumn(dayOfWeek = DayOfWeek.MONDAY, lectures = emptyList(), width = 80.dp, isSkeleton = true)
+        }
+
+        assertEquals(3, onAllNodesWithTag("dayColumnSkeletonEvent").fetchSemanticsNodes().size)
+    }
+
+    @Test
     fun clickingALecture_invokesOnLectureClickWithIt() = runComposeUiTest {
         var clicked: Lecture? = null
         setContent {
