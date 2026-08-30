@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.april_short
@@ -149,7 +150,7 @@ fun TimetablePage(
                             text = error.toUserMessage(),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier.padding(16.dp).testTag("timetableErrorBanner")
                         )
                     }
                 }
@@ -179,7 +180,7 @@ private fun WeekLabelDisplay(
     // The dates come from the store, which got them from the same calendar arithmetic the
     // repository uses. The label is a pure function of them.
     val weekLabel = if (start != null && end != null) {
-        formatWeekLabel(start, end)
+        formatWeekLabel(start)
     } else {
         stringResource(Res.string.this_week)
     }
@@ -210,7 +211,7 @@ private fun WeekLabelDisplay(
 
 /** "17 - 21 Aug", or "29 Dec - 02 Jan" when the week straddles a month. */
 @Composable
-private fun formatWeekLabel(start: LocalDateTime, end: LocalDateTime): String {
+private fun formatWeekLabel(start: LocalDateTime): String {
     // The bar shows the working week, so it ends on Friday rather than on the range's Sunday.
     val friday = start.date.plus(4, DateTimeUnit.DAY)
     val startMonth = stringResource(getMonthResource(start.month))

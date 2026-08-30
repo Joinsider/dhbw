@@ -10,6 +10,7 @@ import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.core.error.map
 import de.fampopprol.dhbwhorb.data.dualis.remote.services.DualisGradeService
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
+import de.fampopprol.dhbwhorb.domain.model.ModuleResultDetails
 import de.fampopprol.dhbwhorb.domain.model.Semester
 import de.fampopprol.dhbwhorb.domain.repository.GradeRepository
 
@@ -24,4 +25,7 @@ class GradeRepositoryImpl(
         gradeService.getGradesForSemester(semester, forceRefresh).map { entities ->
             entities.map { it.toDomain() }
         }
+
+    override suspend fun getModuleDetails(resultId: String): Outcome<ModuleResultDetails> =
+        gradeService.getModuleDetails(resultId)
 }

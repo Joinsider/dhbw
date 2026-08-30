@@ -12,7 +12,7 @@ import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.app_name
 import de.fampopprol.dhbwhorb.resources.login_with_dualis_account
 import org.jetbrains.compose.resources.stringResource
-import org.jetbrains.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.Preview
 
 @Composable
 @Preview

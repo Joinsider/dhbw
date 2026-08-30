@@ -130,4 +130,87 @@ class GradeParserTest {
     fun parseGrades_onNonHtmlInput_returnsEmptyList() {
         assertEquals(emptyList(), parseSemester(DualisFixtures.NOT_HTML))
     }
+
+    // ── the details link ─────────────────────────────────────────────────────
+
+    /** A row as Dualis writes it, with the details pop-up on the module name. */
+    private fun rowWithDetailsLink(resultId: String) = """
+        <table><tr>
+        <td class="tbdata">T4INF4211</td>
+        <td class="tbdata">
+            <a name="_$resultId" id="result_id_$resultId" href="#$resultId"
+               onclick="javascript: dl_popUp('/scripts/mgrqispi.dll?APPNAME=CampusNet&amp;PRGNAME=RESULTDETAILS&amp;ARGUMENTS=-N507718714459690,-N000307,-N$resultId','Ergebnisdetails',800,600);">Compilerbau</a>
+        </td>
+        <td class="tbdata">1,0</td>
+        <td class="tbdata">5,0</td>
+        <td class="tbdata">bestanden</td>
+        </tr></table>
+    """.trimIndent()
+
+    @Test
+    fun parseGrades_readsTheResultIdNotTheSessionId() {
+        // Both stand in the same URL as "-N…": ARGUMENTS is session, menu entry, result. Reading
+        // the first one gave every module the same id, which pointed at no module at all.
+        val grades = parseSemester(rowWithDetailsLink("396314694963893"))
+
+        assertEquals("396314694963893", grades.single().resultId)
+    }
+
+    @Test
+    fun parseGrades_aRowWithFewerThanFiveCells_isSkipped() {
+        val html = """
+            <table><tr>
+            <td class="tbdata">T4INF2006</td>
+            <td class="tbdata">Only two cells</td>
+            </tr></table>
+        """.trimIndent()
+
+        assertEquals(emptyList(), parseSemester(html))
+    }
+
+    @Test
+    fun parseGrades_aRowWithABlankModuleNumber_isSkipped() {
+        val html = """
+            <table><tr>
+            <td class="tbdata"></td>
+            <td class="tbdata">Some summary text</td>
+            <td class="tbdata">1,0</td>
+            <td class="tbdata">5,0</td>
+            <td class="tbdata">bestanden</td>
+            </tr></table>
+        """.trimIndent()
+
+        assertEquals(emptyList(), parseSemester(html))
+    }
+
+    @Test
+    fun parseGrades_aRowWithNoStatusColumn_hasANullStatus() {
+        val html = """
+            <table><tr>
+            <td class="tbdata">T4INF2006</td>
+            <td class="tbdata">IT-Sicherheit</td>
+            <td class="tbdata">1,0</td>
+            <td class="tbdata">5,0</td>
+            <td class="tbdata"></td>
+            </tr></table>
+        """.trimIndent()
+
+        assertNull(parseSemester(html).single().status)
+    }
+
+    @Test
+    fun parseGrades_hasNoResultIdWhenTheRowDoesNotLinkOne() {
+        // A module with no result yet is plain text in Dualis, with nothing to open.
+        val html = """
+            <table><tr>
+            <td class="tbdata">T4INF2006</td>
+            <td class="tbdata">IT-Sicherheit</td>
+            <td class="tbdata"></td>
+            <td class="tbdata">5,0</td>
+            <td class="tbdata">offen</td>
+            </tr></table>
+        """.trimIndent()
+
+        assertNull(parseSemester(html).single().resultId)
+    }
 }

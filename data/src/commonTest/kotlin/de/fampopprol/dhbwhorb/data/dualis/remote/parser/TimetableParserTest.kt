@@ -219,4 +219,237 @@ class TimetableParserTest {
     fun parseIndividualPage_onNonHtmlInput_returnsNull() {
         assertNull(parser.parseIndividualPage(DualisFixtures.NOT_HTML))
     }
+
+    // ── extractWeekDates edge cases ────────────────────────────────────────────
+
+    @Test
+    fun parseWeeklyView_headerWithInvalidMonth_isCaughtAndReturnsEmptyList() {
+        // "13" is not a valid month; Month(13) throws, which must be caught rather than crash
+        // the whole parse.
+        val invalidMonthWeek = DualisFixtures.Timetable.WEEK_FULL.replace("Mo 03.11.", "Mo 03.13.")
+
+        assertEquals(emptyList(), parser.parseWeeklyView(invalidMonthWeek))
+    }
+
+    @Test
+    fun parseWeeklyView_resolvesSaturdayAndSundayHeaders() {
+        val weekendWeek = """
+            <html><body>
+            <table class="nb rw-table rw-all">
+              <thead>
+                <tr>
+                  <th class="fixedTimeColumn">Zeit</th>
+                  <th class="weekday" abbr="Samstag"><a href="#">Sa 08.11.</a></th>
+                  <th class="weekday" abbr="Sonntag"><a href="#">So 09.11.</a></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="appointment" style="background-color:#FFFFFF;" abbr="Samstag Spalte 1">
+                    <span class="timePeriod">08:15 - 12:00 HOR-120</span>
+                    <br />
+                    <a href="/scripts/mgrqispi.dll?ARGUMENTS=-N1" class="link" title="Samstagskurs">T1</a>
+                  </td>
+                  <td class="appointment" style="background-color:#FFFFFF;" abbr="Sonntag Spalte 1">
+                    <span class="timePeriod">08:15 - 12:00 HOR-120</span>
+                    <br />
+                    <a href="/scripts/mgrqispi.dll?ARGUMENTS=-N2" class="link" title="Sonntagskurs">T2</a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            </body></html>
+        """.trimIndent()
+
+        val lectures = parser.parseWeeklyView(weekendWeek)
+
+        assertEquals(2, lectures.size)
+        assertEquals(8, lectures.single { it.shortSubjectName == "T1" }.startTime.day)
+        assertEquals(9, lectures.single { it.shortSubjectName == "T2" }.startTime.day)
+    }
+
+    @Test
+    fun parseWeeklyView_headerNotMatchingStrictPattern_fallsBackToLenientPattern() {
+        // Any extra markup between the <th> and <a> (e.g. a screen-reader label) breaks the
+        // strict header pattern; the lenient fallback must still resolve the date.
+        val looseHeaderWeek = DualisFixtures.Timetable.WEEK_FULL.replace(
+            Regex("""(<th class="weekday" abbr="\w+">)(<a)"""),
+            "$1<span class=\"sr-only\">Woche</span>$2"
+        )
+
+        val lectures = parser.parseWeeklyView(looseHeaderWeek)
+
+        assertEquals(3, lectures.size, "The lenient fallback pattern must still resolve every appointment's date")
+        assertEquals(3, lectures[0].startTime.day)
+    }
+
+    // ── parseLectureCell link building ─────────────────────────────────────────
+
+    @Test
+    fun parseWeeklyView_keepsAbsoluteHttpLinkUnchanged() {
+        val week = DualisFixtures.Timetable.WEEK_FULL.replace(
+            """href="/scripts/mgrqispi.dll?APPNAME=CampusNet&amp;PRGNAME=COURSEPREP&amp;ARGUMENTS=-N1,-N2,-N3"""",
+            """href="https://dualis.dhbw.de/scripts/mgrqispi.dll?ARGUMENTS=-N1""""
+        )
+
+        val monday = parser.parseWeeklyView(week).first()
+
+        assertEquals("https://dualis.dhbw.de/scripts/mgrqispi.dll?ARGUMENTS=-N1", monday.linkToIndividualPage)
+    }
+
+    @Test
+    fun parseWeeklyView_prefixesRelativeLinkWithoutLeadingSlash() {
+        val week = DualisFixtures.Timetable.WEEK_FULL.replace(
+            """href="/scripts/mgrqispi.dll?APPNAME=CampusNet&amp;PRGNAME=COURSEPREP&amp;ARGUMENTS=-N1,-N2,-N3"""",
+            """href="scripts/mgrqispi.dll?ARGUMENTS=-N1""""
+        )
+
+        val monday = parser.parseWeeklyView(week).first()
+
+        assertEquals("https://dualis.dhbw.de/scripts/mgrqispi.dll?ARGUMENTS=-N1", monday.linkToIndividualPage)
+    }
+
+    @Test
+    fun parseWeeklyView_lenientFallback_alsoResolvesWeekendHeaders() {
+        // The lenient fallback pattern re-implements the Mo..So mapping independently of the
+        // strict one; a weekend day forces this test through its own Sa/So branches rather than
+        // the strict pattern's.
+        val looseWeekendHeaders = """
+            <html><body>
+            <table class="nb rw-table rw-all">
+              <thead>
+                <tr>
+                  <th class="fixedTimeColumn">Zeit</th>
+                  <th class="weekday" abbr="Samstag"><span class="sr-only">Woche</span><a href="#">Sa 08.11.</a></th>
+                  <th class="weekday" abbr="Sonntag"><span class="sr-only">Woche</span><a href="#">So 09.11.</a></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="appointment" style="background-color:#FFFFFF;" abbr="Samstag Spalte 1">
+                    <span class="timePeriod">08:15 - 12:00 HOR-120</span>
+                    <br />
+                    <a href="/scripts/mgrqispi.dll?ARGUMENTS=-N1" class="link" title="Samstagskurs">T1</a>
+                  </td>
+                  <td class="appointment" style="background-color:#FFFFFF;" abbr="Sonntag Spalte 1">
+                    <span class="timePeriod">08:15 - 12:00 HOR-120</span>
+                    <br />
+                    <a href="/scripts/mgrqispi.dll?ARGUMENTS=-N2" class="link" title="Sonntagskurs">T2</a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            </body></html>
+        """.trimIndent()
+
+        val lectures = parser.parseWeeklyView(looseWeekendHeaders)
+
+        assertEquals(2, lectures.size)
+        assertEquals(8, lectures.single { it.shortSubjectName == "T1" }.startTime.day)
+        assertEquals(9, lectures.single { it.shortSubjectName == "T2" }.startTime.day)
+    }
+
+    @Test
+    fun yearNearest_leapDayHeader_skipsNonLeapCandidateYears() {
+        // "Mo 29.02." only exists in a leap year. With an anchor of 1 Mar 2027 (not itself a leap
+        // year), the +/-1 neighbours 2026 and 2027 are not leap either - only 2028 is, so the
+        // parser must skip the two invalid candidates via yearNearest's `continue` before finding it.
+        val leapDayWeek = """
+            <html><body>
+            <table class="nb rw-table rw-all">
+              <thead>
+                <tr>
+                  <th class="fixedTimeColumn">Zeit</th>
+                  <th class="weekday" abbr="Montag"><a href="#">Mo 29.02.</a></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="appointment" style="background-color:#FFFFFF;" abbr="Montag Spalte 1">
+                    <span class="timePeriod">08:15 - 12:00 HOR-120</span>
+                    <br />
+                    <a href="/scripts/mgrqispi.dll?ARGUMENTS=-N1" class="link" title="Kurs">T1</a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            </body></html>
+        """.trimIndent()
+
+        val lectures = parser.parseWeeklyView(leapDayWeek, weekStart = LocalDate(2027, 3, 1))
+
+        assertEquals(1, lectures.size)
+        assertEquals(2028, lectures.single().startTime.year, "2028 is the nearest year where 29 Feb exists")
+    }
+
+    @Test
+    fun parseWeeklyView_cellWithoutATimePeriod_isDropped() {
+        val week = DualisFixtures.Timetable.WEEK_FULL.replace(
+            "08:15 - 12:00",
+            "no time here",
+        )
+
+        val lectures = parser.parseWeeklyView(week)
+
+        assertEquals(2, lectures.size, "the appointment with no parseable time must be skipped, not crash the parse")
+    }
+
+    @Test
+    fun parseWeeklyView_cellWithoutALink_isDropped() {
+        val week = DualisFixtures.Timetable.WEEK_FULL.replaceFirst(
+            Regex("""<a\s+href="[^"]*"[^>]*title="[^"]*"[^>]*>\s*[^<]+\s*</a>"""),
+            "",
+        )
+
+        val lectures = parser.parseWeeklyView(week)
+
+        assertEquals(2, lectures.size, "the appointment with no <a> tag must be skipped, not crash the parse")
+    }
+
+    @Test
+    fun parseWeeklyView_titleEqualToShortName_leavesFullSubjectNameNull() {
+        val week = DualisFixtures.Timetable.WEEK_FULL.replace(
+            """title="Paralleles Programmieren  HOR-TINF2024">""",
+            """title="T4INF2904.1">""",
+        )
+
+        val monday = parser.parseWeeklyView(week).first()
+
+        assertNull(monday.fullSubjectName, "when the title equals the short name there is nothing extra to keep")
+    }
+
+    @Test
+    fun parseWeeklyView_appointmentWithAnOutOfRangeHour_isDroppedRatherThanCrashing() {
+        // The time regex accepts two digits for the hour, but LocalDateTime rejects hour=99 -
+        // this must be caught per-appointment rather than aborting the whole week.
+        val week = DualisFixtures.Timetable.WEEK_FULL.replace("08:15 - 12:00", "99:15 - 12:00")
+
+        val lectures = parser.parseWeeklyView(week)
+
+        assertEquals(2, lectures.size, "only the malformed appointment is dropped")
+    }
+
+    // ── parseIndividualPage edge cases ─────────────────────────────────────────
+
+    @Test
+    fun parseIndividualPage_headingWithoutTheExpectedNbspFormat_returnsNull() {
+        val html = "<html><body><h1>No nbsp here HOR-TINF2024</h1></body></html>"
+
+        assertNull(parser.parseIndividualPage(html))
+    }
+
+    @Test
+    fun parseIndividualPage_filtersOutStandardLinkUndefLecturers() {
+        val html = DualisFixtures.Timetable.INDIVIDUAL_PAGE.replace(
+            """<td class="tbdata" style="text-align:center;" name="instructorName">B.Sc. Julian Schmidt</td>""",
+            """<td class="tbdata" style="text-align:center;" name="instructorName">standardLink undef</td>""",
+        )
+
+        val result = assertNotNull(parser.parseIndividualPage(html))
+
+        assertTrue(
+            result.second.none { it.contains("standardLink undef") },
+            "a placeholder 'standardLink undef' cell must not be reported as a lecturer",
+        )
+    }
 }

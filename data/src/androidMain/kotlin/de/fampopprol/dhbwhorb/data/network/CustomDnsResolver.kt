@@ -21,49 +21,74 @@ import java.net.UnknownHostException
  * This avoids the dnsjava/JNA/JNDI classes that R8 cannot keep on Android
  * and provides a reliable cross-network fallback.
  */
-class CustomDnsResolver : Dns {
+class CustomDnsResolver(
+    // Swappable so a test can exercise the fallback chain without needing real DNS/network — the
+    // defaults below (system resolver, then Cloudflare, then Google DoH) are what production uses.
+    private val systemLookup: (String) -> List<InetAddress> = { InetAddress.getAllByName(it).toList() },
+    cloudflareLookup: ((String) -> List<InetAddress>)? = null,
+    googleLookup: ((String) -> List<InetAddress>)? = null,
+) : Dns {
     companion object {
         private const val TAG = "CustomDnsResolver"
 
         // DoH endpoints
         private const val CLOUDFLARE_DOH = "https://cloudflare-dns.com/dns-query"
         private const val GOOGLE_DOH = "https://dns.google/dns-query"
+
+        // Bootstrap IPs for the DoH endpoints above: resolving cloudflare-dns.com/dns.google
+        // itself needs a DNS lookup, so DNS-over-HTTPS bootstraps from Cloudflare's and Google's
+        // own well-known public resolver addresses rather than depending on system DNS for that
+        // first hop. These are not configurable infrastructure — they're the two largest public
+        // DNS operators' fixed anycast addresses, the same ones OkHttp's own DoH docs bootstrap from.
+        private const val CLOUDFLARE_DNS_IPV4_PRIMARY = "1.1.1.1"
+        private const val CLOUDFLARE_DNS_IPV4_SECONDARY = "1.0.0.1"
+        private const val GOOGLE_DNS_IPV4_PRIMARY = "8.8.8.8"
+        private const val GOOGLE_DNS_IPV4_SECONDARY = "8.8.4.4"
     }
 
-    private val baseClient: OkHttpClient = OkHttpClient.Builder()
-        // You can customize timeouts if needed
-        //.callTimeout(5, TimeUnit.SECONDS)
-        //.connectTimeout(5, TimeUnit.SECONDS)
-        .build()
+    private val baseClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            // You can customize timeouts if needed
+            //.callTimeout(5, TimeUnit.SECONDS)
+            //.connectTimeout(5, TimeUnit.SECONDS)
+            .build()
+    }
 
-    // Primary DoH (Cloudflare)
-    private val cloudflareDns: DnsOverHttps = DnsOverHttps.Builder()
-        .client(baseClient)
-        .url(CLOUDFLARE_DOH.toHttpUrl())
-        .bootstrapDnsHosts(listOf(
-            // Cloudflare IPv4 addresses to avoid dependency on system DNS for initial resolve
-            InetAddress.getByName("1.1.1.1"),
-            InetAddress.getByName("1.0.0.1")
-        ))
-        .build()
+    // Primary DoH (Cloudflare) — lazy so a test supplying its own cloudflareLookup never builds it.
+    private val cloudflareDns: DnsOverHttps by lazy {
+        DnsOverHttps.Builder()
+            .client(baseClient)
+            .url(CLOUDFLARE_DOH.toHttpUrl())
+            .bootstrapDnsHosts(listOf(
+                // Cloudflare IPv4 addresses to avoid dependency on system DNS for initial resolve
+                InetAddress.getByName(CLOUDFLARE_DNS_IPV4_PRIMARY),
+                InetAddress.getByName(CLOUDFLARE_DNS_IPV4_SECONDARY)
+            ))
+            .build()
+    }
 
     // Secondary DoH (Google)
-    private val googleDns: DnsOverHttps = DnsOverHttps.Builder()
-        .client(baseClient)
-        .url(GOOGLE_DOH.toHttpUrl())
-        .bootstrapDnsHosts(listOf(
-            // Google Public DNS IPv4 addresses
-            InetAddress.getByName("8.8.8.8"),
-            InetAddress.getByName("8.8.4.4")
-        ))
-        .build()
+    private val googleDns: DnsOverHttps by lazy {
+        DnsOverHttps.Builder()
+            .client(baseClient)
+            .url(GOOGLE_DOH.toHttpUrl())
+            .bootstrapDnsHosts(listOf(
+                // Google Public DNS IPv4 addresses
+                InetAddress.getByName(GOOGLE_DNS_IPV4_PRIMARY),
+                InetAddress.getByName(GOOGLE_DNS_IPV4_SECONDARY)
+            ))
+            .build()
+    }
+
+    private val cloudflareLookup: (String) -> List<InetAddress> = cloudflareLookup ?: { cloudflareDns.lookup(it) }
+    private val googleLookup: (String) -> List<InetAddress> = googleLookup ?: { googleDns.lookup(it) }
 
     override fun lookup(hostname: String): List<InetAddress> {
         Napier.d("Looking up hostname: $hostname", tag = TAG)
 
         // First, try the system DNS
         try {
-            val addresses = InetAddress.getAllByName(hostname).toList()
+            val addresses = systemLookup(hostname)
             if (addresses.isNotEmpty()) {
                 Napier.d("System DNS resolved $hostname to ${addresses.size} addresses", tag = TAG)
                 return addresses
@@ -74,7 +99,7 @@ class CustomDnsResolver : Dns {
 
         // Fall back to Cloudflare DoH
         try {
-            val cf = cloudflareDns.lookup(hostname)
+            val cf = cloudflareLookup(hostname)
             if (cf.isNotEmpty()) {
                 Napier.d("Cloudflare DoH resolved $hostname to ${cf.size} addresses", tag = TAG)
                 return cf
@@ -85,7 +110,7 @@ class CustomDnsResolver : Dns {
 
         // Fall back to Google DoH
         try {
-            val gg = googleDns.lookup(hostname)
+            val gg = googleLookup(hostname)
             if (gg.isNotEmpty()) {
                 Napier.d("Google DoH resolved $hostname to ${gg.size} addresses", tag = TAG)
                 return gg

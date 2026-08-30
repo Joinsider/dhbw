@@ -17,6 +17,7 @@ import de.fampopprol.dhbwhorb.data.dualis.remote.session.ReAuthenticator
 import de.fampopprol.dhbwhorb.data.dualis.remote.session.SessionManager
 import de.fampopprol.dhbwhorb.data.repository.AuthRepositoryImpl
 import de.fampopprol.dhbwhorb.data.repository.DocumentRepositoryImpl
+import de.fampopprol.dhbwhorb.data.storage.documents.DocumentCache
 import de.fampopprol.dhbwhorb.data.repository.GradeRepositoryImpl
 import de.fampopprol.dhbwhorb.data.repository.PreferencesRepositoryImpl
 import de.fampopprol.dhbwhorb.data.repository.SessionRepositoryImpl
@@ -40,6 +41,7 @@ import de.fampopprol.dhbwhorb.domain.usecase.AwaitFullWeekTimetable
 import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
 import de.fampopprol.dhbwhorb.domain.usecase.DownloadDocument
 import de.fampopprol.dhbwhorb.domain.usecase.GetAllGrades
+import de.fampopprol.dhbwhorb.domain.usecase.GetModuleDetails
 import de.fampopprol.dhbwhorb.domain.usecase.GetCachedLectures
 import de.fampopprol.dhbwhorb.domain.usecase.GetGradesForSemester
 import de.fampopprol.dhbwhorb.domain.usecase.GetSemesters
@@ -47,8 +49,10 @@ import de.fampopprol.dhbwhorb.domain.usecase.GetWeekTimetable
 import de.fampopprol.dhbwhorb.domain.usecase.ListDocuments
 import de.fampopprol.dhbwhorb.domain.usecase.LoginWithCredentials
 import de.fampopprol.dhbwhorb.domain.usecase.Logout
+import de.fampopprol.dhbwhorb.domain.usecase.PurgeExpiredDocuments
 import de.fampopprol.dhbwhorb.domain.usecase.RefreshTimetable
 import de.fampopprol.dhbwhorb.domain.usecase.RestoreSession
+import de.fampopprol.dhbwhorb.presentation.TestScopes
 import de.fampopprol.dhbwhorb.presentation.app.AppStore
 import de.fampopprol.dhbwhorb.presentation.auth.AuthStore
 import de.fampopprol.dhbwhorb.presentation.documents.DocumentsStore
@@ -61,8 +65,6 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import org.koin.core.Koin
 import org.koin.dsl.koinApplication
 import org.koin.core.module.Module
@@ -106,9 +108,14 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
     single { get<AppDatabase>().lectureLecturerCrossRefDao() }
     single { get<AppDatabase>().gradeDao() }
     single { get<AppDatabase>().gradeCacheMetadataDao() }
+    single { get<AppDatabase>().cachedDocumentDao() }
     single { get<AppDatabase>().syncMetadataDao() }
 
-    single<CoroutineScope> { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
+    // Unconfined, not a real background dispatcher: a store's `dispatch` then runs its effect
+    // handler to completion inline, on whichever thread triggers it (a `LaunchedEffect`'s body).
+    // A real dispatcher instead raced that background thread against the test's own assertions,
+    // which was flaky in CI — sometimes the effect won the race, sometimes it didn't.
+    single<CoroutineScope> { TestScopes.immediate() }
 
     single { ReAuthenticator(sessionManager = get(), authenticationService = get()) }
     single { DualisPageGateway(apiClient = get(), sessionManager = get(), reAuthenticator = get()) }
@@ -152,7 +159,8 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
         )
     }
     single<GradeRepository> { GradeRepositoryImpl(gradeService = get()) }
-    single<DocumentRepository> { DocumentRepositoryImpl(documentService = get()) }
+    single { DocumentCache(dao = get()) }
+    single<DocumentRepository> { DocumentRepositoryImpl(documentService = get(), cache = get()) }
     single<PreferencesRepository> {
         PreferencesRepositoryImpl(themePreferences = get(), notificationPreferences = get())
     }
@@ -167,11 +175,13 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
     factory { GetSemesters(repository = get()) }
     factory { GetGradesForSemester(repository = get()) }
     factory { GetAllGrades(getSemesters = get(), getGradesForSemester = get()) }
+    factory { GetModuleDetails(repository = get()) }
     factory { ComputeGpa() }
     factory { ListDocuments(repository = get()) }
     factory { DownloadDocument(repository = get()) }
+    factory { PurgeExpiredDocuments(repository = get()) }
 
-    single { AppStore(sessionRepository = get(), logout = get(), scope = get()) }
+    single { AppStore(sessionRepository = get(), logout = get(), purgeExpiredDocuments = get(), scope = get()) }
     single { AuthStore(loginWithCredentials = get(), scope = get()) }
     single {
         TimetableStore(
@@ -181,7 +191,7 @@ fun testAppModule(authenticated: Boolean = false): Module = module {
     }
     single {
         GradesStore(
-            getAllGrades = get(), computeGpa = get(), sessionRepository = get(), scope = get()
+            getAllGrades = get(), getModuleDetails = get(), computeGpa = get(), sessionRepository = get(), scope = get()
         )
     }
     single {

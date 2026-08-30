@@ -25,8 +25,8 @@ javaKeyring = "1.0.4"
 junit = "4.13.2"
 kotlin = "2.3.20"
 kotlinx-coroutines = "1.10.2"
-kotlinxDatetime = "0.7.1"
-kotlinxDatetimeVersion = "0.7.1"
+kotlinxDatetime = "0.7.1-0.6.x-compat"
+kotlinxDatetimeVersion = "0.7.1-0.6.x-compat"
 materialIconsExtended = "1.7.3"
 napier = "2.7.1"
 okhttpDnsoverhttps = "5.3.2"
@@ -34,7 +34,7 @@ robolectric = "4.16.1"
 room = "2.8.4"
 securityCrypto = "1.1.0"
 sqlite = "2.6.2"
-ksp = "2.3.2"
+ksp = "2.3.6"
 coreKtx = "1.7.0"
 ktor = "3.4.2"
 workRuntimeKtx = "2.11.2"
@@ -45,6 +45,7 @@ dnsjava = "3.6.4"
 kover = "0.9.8"
 kotlinxSerialization = "1.11.0"
 koin = "4.2.2"
+sonarqube = "7.4.0.8496"
 
 [libraries]
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
@@ -110,3 +111,4 @@ ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 androidx-room = { id = "androidx.room", version.ref = "room" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+sonarqube = { id = "org.sonarqube", version.ref = "sonarqube" }

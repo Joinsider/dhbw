@@ -297,5 +297,37 @@ class AuthParserTest {
         assertNotNull(url)
         assertTrue(url.startsWith("https://dualis.dhbw.de/"))
     }
+
+    @Test
+    fun `makeAbsoluteUrl handles plain http URLs unchanged`() {
+        val plainHttpUrl = "http://example.com/path"
+
+        val url = authParser.extractRedirectUrlFromHeader(plainHttpUrl)
+
+        assertEquals(plainHttpUrl, url)
+    }
+
+    @Test
+    fun `makeAbsoluteUrl joins a relative URL with no leading slash`() {
+        val header = "scripts/test.dll"
+
+        val url = authParser.extractRedirectUrlFromHeader(header)
+
+        assertEquals("https://dualis.dhbw.de/scripts/test.dll", url)
+    }
+
+    @Test
+    fun `isRedirectPage returns false when http-equiv is missing`() {
+        val html = """<meta name="refresh" content="0; URL=/next.dll">"""
+
+        assertFalse(authParser.isRedirectPage(html))
+    }
+
+    @Test
+    fun `isRedirectPage returns false when the word refresh is missing`() {
+        val html = """<meta http-equiv="something" content="0; URL=/next.dll">"""
+
+        assertFalse(authParser.isRedirectPage(html))
+    }
 }
 
