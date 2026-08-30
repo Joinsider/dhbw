@@ -45,13 +45,29 @@ kotlin {
             implementation(libs.androidx.core.ktx)
         }
 
+        androidUnitTest.dependencies {
+            // BroadcastReceiver.goAsync()'s PendingResult only behaves like the real thing under
+            // Robolectric's shadow — a plain JVM test sees the unimplemented android.jar stub.
+            implementation(libs.robolectric)
+            implementation(libs.androidx.test.core)
+        }
+
         iosMain.dependencies {
         }
 
-        macosMain.dependencies {
+        // Desktop (JVM) and macOS (Native) share the exact same coroutine-based scheduler — no
+        // platform API on either side — so it lives once here instead of twice, byte-for-byte,
+        // per target (see the S1192 duplication SonarCloud flagged on the old copies).
+        val desktopAndMacosMain by creating {
+            dependsOn(commonMain.get())
+        }
+
+        macosMain {
+            dependsOn(desktopAndMacosMain)
         }
 
         val desktopMain by getting {
+            dependsOn(desktopAndMacosMain)
             dependencies {
             }
         }

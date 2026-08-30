@@ -20,11 +20,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.presentation.grades.GradesIntent
+import de.fampopprol.dhbwhorb.presentation.grades.GradesState
 import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
 import de.fampopprol.dhbwhorb.ui.store.collectState
 import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
@@ -82,115 +85,146 @@ fun GradesPage(
                 .padding(paddingValues)
                 .padding(top = 20.dp)
         ) {
-            if (uiState.requiresLogin) {
-                // Friendly message instead of an error when not logged in
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(Res.string.login_required_for_grades),
-                        style = MaterialTheme.typography.bodyLarge
+            when {
+                uiState.requiresLogin -> GradesLoginRequiredMessage()
+                uiState.isLoading && uiState.grades.isEmpty() -> GradesSkeletonList()
+                error != null && uiState.grades.isEmpty() -> GradesErrorState(
+                    error = error,
+                    onRetry = { store.dispatch(GradesIntent.Load) }
+                )
+
+                else -> GradesContent(
+                    uiState = uiState,
+                    computeGpa = computeGpa,
+                    hapticFeedback = hapticFeedback,
+                    store = store
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GradesLoginRequiredMessage() {
+    // Friendly message instead of an error when not logged in
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = stringResource(Res.string.login_required_for_grades),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.testTag("gradesLoginRequiredMessage")
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+internal fun GradesSkeletonList() {
+    // Skeleton UI for Grades
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentPadding = PaddingValues(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        item {
+            Text(
+                text = stringResource(Res.string.grades),
+                style = MaterialTheme.typography.headlineLargeEmphasized,
+                modifier = Modifier.testTag("gradesPageTitle").padding(bottom = 24.dp)
+            )
+        }
+        items(6) {
+            GradeCardSkeleton()
+        }
+    }
+}
+
+@Composable
+private fun GradesErrorState(error: AppError, onRetry: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = error.toUserMessage(),
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodyLarge
+            )
+
+            Button(onClick = onRetry, modifier = Modifier.testTag("gradesRetryButton")) {
+                Text(text = stringResource(Res.string.retry))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun GradesContent(
+    uiState: GradesState,
+    computeGpa: ComputeGpa,
+    hapticFeedback: HapticFeedback,
+    store: GradesStore
+) {
+    PullToRefreshBox(
+        isRefreshing = uiState.isRefreshing,
+        onRefresh = {
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+            store.dispatch(GradesIntent.Refresh)
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            contentPadding = PaddingValues(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                Text(
+                    text = stringResource(Res.string.grades),
+                    style = MaterialTheme.typography.headlineLargeEmphasized,
+                    modifier = Modifier.testTag("gradesPageTitle").padding(bottom = 24.dp)
+                )
+            }
+
+            if (uiState.overallGpa != null || uiState.totalCreditsEarned > 0) {
+                item {
+                    OverallStatsCard(
+                        overallGpa = uiState.overallGpa,
+                        totalCredits = uiState.totalCreditsEarned,
+                        modulesCompleted = uiState.modulesCompleted
                     )
                 }
-            } else if (uiState.isLoading && uiState.grades.isEmpty()) {
-                // Skeleton UI for Grades
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    contentPadding = PaddingValues(bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    item {
-                        Text(
-                            text = stringResource(Res.string.grades),
-                            style = MaterialTheme.typography.headlineLargeEmphasized,
-                            modifier = Modifier.testTag("gradesPageTitle").padding(bottom = 24.dp)
-                        )
-                    }
-                    items(6) {
-                        GradeCardSkeleton()
-                    }
-                }
-            } else if (error != null && uiState.grades.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Text(
-                            // Local val: smart casts do not cross module boundaries.
-                            text = error.toUserMessage(),
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        
-                        Button(
-                            onClick = { store.dispatch(GradesIntent.Load) }
-                        ) {
-                            Text(text = stringResource(Res.string.retry))
-                        }
-                    }
-                }
-            } else {
-                PullToRefreshBox(
-                    isRefreshing = uiState.isRefreshing,
-                    onRefresh = {
-                        hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-                        store.dispatch(GradesIntent.Refresh)
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        contentPadding = PaddingValues(bottom = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        item {
-                            Text(
-                                text = stringResource(Res.string.grades),
-                                style = MaterialTheme.typography.headlineLargeEmphasized,
-                                modifier = Modifier.testTag("gradesPageTitle").padding(bottom = 24.dp)
-                            )
-                        }
+            }
 
-                        if (uiState.overallGpa != null || uiState.totalCreditsEarned > 0) {
-                            item {
-                                OverallStatsCard(
-                                    overallGpa = uiState.overallGpa,
-                                    totalCredits = uiState.totalCreditsEarned,
-                                    modulesCompleted = uiState.modulesCompleted
-                                )
-                            }
-                        }
-
-                        // One card per semester, oldest first — the order the store sorted them
-                        // into, which is why this must not group or sort again.
-                        uiState.sections.forEach { section ->
-                            item {
-                                SemesterGroupCard(
-                                    semesterName = section.semesterName,
-                                    grades = section.grades,
-                                    semesterGpa = computeGpa(section.grades).average
-                                )
-                            }
-                        }
-
-                        // Spacer for bottom padding to avoid overlapping with FAB or similar if added
-                        item {
-                            Box(modifier = Modifier.padding(bottom = 16.dp))
-                        }
-                    }
+            // One card per semester, oldest first — the order the store sorted them
+            // into, which is why this must not group or sort again.
+            uiState.sections.forEach { section ->
+                item {
+                    SemesterGroupCard(
+                        semesterName = section.semesterName,
+                        grades = section.grades,
+                        semesterGpa = computeGpa(section.grades).average
+                    )
                 }
+            }
+
+            // Spacer for bottom padding to avoid overlapping with FAB or similar if added
+            item {
+                Box(modifier = Modifier.padding(bottom = 16.dp))
             }
         }
     }

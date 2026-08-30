@@ -95,4 +95,38 @@ class GradeAttemptsTest {
 
         assertEquals(listOf(newer, older), GradeAttempts.countable(listOf(newer, older)))
     }
+
+    @Test
+    fun aTieInsideOneSemesterGoesToTheBetterGrade() {
+        val worse = entry("A", "2,7", semester = "SoSe 2025")
+        val better = entry("A", "1,7", semester = "SoSe 2025")
+
+        assertEquals(listOf(better), GradeAttempts.countable(listOf(worse, better)))
+        // Order in the input must not matter.
+        assertEquals(listOf(better), GradeAttempts.countable(listOf(better, worse)))
+    }
+
+    @Test
+    fun anUngradedPassLosesToAGradedAttemptInTheSameSemester() {
+        val ungraded = entry("A", "b", semester = "SoSe 2025")
+        val graded = entry("A", "2,0", semester = "SoSe 2025")
+
+        assertEquals(listOf(graded), GradeAttempts.countable(listOf(ungraded, graded)))
+    }
+
+    @Test
+    fun whenEverythingTiesTheLaterRowWins() {
+        val first = entry("A", "2,0", credits = 5.0)
+        val duplicate = entry("A", "2,0", credits = 5.0)
+
+        assertEquals(listOf(duplicate), GradeAttempts.countable(listOf(first, duplicate)))
+    }
+
+    @Test
+    fun anAttemptWithAnUnreadableSemesterLosesToAReadableOne() {
+        val unreadable = entry("A", "1,0", semester = "Unbekannt")
+        val readable = entry("A", "3,0", semester = "SoSe 2025")
+
+        assertEquals(listOf(readable), GradeAttempts.countable(listOf(unreadable, readable)))
+    }
 }

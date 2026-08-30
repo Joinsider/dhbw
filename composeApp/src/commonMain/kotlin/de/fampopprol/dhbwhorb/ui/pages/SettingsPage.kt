@@ -17,10 +17,12 @@ import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
 import de.fampopprol.dhbwhorb.ui.settings.DesignSelectionCard
 import de.fampopprol.dhbwhorb.ui.settings.HelpSelectionCard
+import de.fampopprol.dhbwhorb.ui.settings.NotificationSettingsCallbacks
 import de.fampopprol.dhbwhorb.ui.settings.NotificationSettingsCard
+import de.fampopprol.dhbwhorb.ui.settings.NotificationSettingsState
 import de.fampopprol.dhbwhorb.util.isMobilePlatform
 import org.jetbrains.compose.resources.stringResource
-import org.jetbrains.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.Preview
 
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
@@ -93,18 +95,22 @@ fun SettingsPage(
 
                 // Notification Settings Card
                 NotificationSettingsCard(
-                    notificationsEnabled = settings.notificationsEnabled,
-                    onNotificationsEnabledChange = {
-                        store.dispatch(SettingsIntent.NotificationsChanged(it))
-                    },
-                    lectureAlertsEnabled = settings.lectureAlertsEnabled,
-                    onLectureAlertsEnabledChange = {
-                        store.dispatch(SettingsIntent.LectureAlertsChanged(it))
-                    },
-                    reminderLeadMinutes = settings.reminderLeadMinutes,
-                    onReminderLeadChange = {
-                        store.dispatch(SettingsIntent.ReminderLeadChanged(it))
-                    }
+                    state = NotificationSettingsState(
+                        notificationsEnabled = settings.notificationsEnabled,
+                        lectureAlertsEnabled = settings.lectureAlertsEnabled,
+                        reminderLeadMinutes = settings.reminderLeadMinutes,
+                    ),
+                    callbacks = NotificationSettingsCallbacks(
+                        onNotificationsEnabledChange = {
+                            store.dispatch(SettingsIntent.NotificationsChanged(it))
+                        },
+                        onLectureAlertsEnabledChange = {
+                            store.dispatch(SettingsIntent.LectureAlertsChanged(it))
+                        },
+                        onReminderLeadChange = {
+                            store.dispatch(SettingsIntent.ReminderLeadChanged(it))
+                        },
+                    )
                 )
 
                 HelpSelectionCard(onLogout = onLogout, showLogout = true)

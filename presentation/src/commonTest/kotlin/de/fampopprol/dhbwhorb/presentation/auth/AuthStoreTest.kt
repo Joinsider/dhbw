@@ -193,4 +193,26 @@ class AuthStoreTest {
         collector.cancel()
         store.close()
     }
+
+    @Test
+    fun togglingVisibility_throughTheStore_flipsIt() = runTest {
+        val store = store()
+
+        store.dispatch(AuthIntent.PasswordVisibilityToggled)
+
+        assertTrue(store.state.value.isPasswordVisible)
+        store.close()
+    }
+
+    @Test
+    fun clearing_throughTheStore_resetsEverything() = runTest {
+        val store = store()
+        store.dispatch(AuthIntent.UsernameChanged("max@hb.dhbw-stuttgart.de"))
+        store.dispatch(AuthIntent.PasswordChanged("secret"))
+
+        store.dispatch(AuthIntent.Cleared)
+
+        assertEquals(AuthState(), store.state.value)
+        store.close()
+    }
 }

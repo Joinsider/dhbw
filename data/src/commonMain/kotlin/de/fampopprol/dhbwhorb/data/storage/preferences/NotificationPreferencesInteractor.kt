@@ -15,6 +15,9 @@ import kotlinx.coroutines.flow.asStateFlow
  * Interactor for notification preferences providing Flow-based observation
  * and suspend functions for UI and background schedulers.
  */
+private const val LOG_SEPARATOR =
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
 class NotificationPreferencesInteractor(
     private val preferences: NotificationPreferences
 ) {
@@ -45,14 +48,14 @@ class NotificationPreferencesInteractor(
      */
     fun setNotificationsEnabled(enabled: Boolean) {
         val oldValue = _notificationsEnabled.value
-        Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", tag = "NotificationPreferencesInteractor")
+        Napier.d(LOG_SEPARATOR, tag = "NotificationPreferencesInteractor")
         Napier.d("🔔 SETTING MASTER NOTIFICATIONS TOGGLE", tag = "NotificationPreferencesInteractor")
         Napier.d("   Old value: $oldValue", tag = "NotificationPreferencesInteractor")
         Napier.d("   New value: $enabled", tag = "NotificationPreferencesInteractor")
         preferences.setNotificationsEnabled(enabled)
         _notificationsEnabled.value = enabled
         Napier.d("   ✅ StateFlow updated → will trigger collectors in MainActivity/main.kt", tag = "NotificationPreferencesInteractor")
-        Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", tag = "NotificationPreferencesInteractor")
+        Napier.d(LOG_SEPARATOR, tag = "NotificationPreferencesInteractor")
     }
 
     /**
@@ -67,14 +70,14 @@ class NotificationPreferencesInteractor(
      */
     fun setLectureAlertsEnabled(enabled: Boolean) {
         val oldValue = _lectureAlertsEnabled.value
-        Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", tag = "NotificationPreferencesInteractor")
+        Napier.d(LOG_SEPARATOR, tag = "NotificationPreferencesInteractor")
         Napier.d("📚 SETTING LECTURE ALERTS TOGGLE", tag = "NotificationPreferencesInteractor")
         Napier.d("   Old value: $oldValue", tag = "NotificationPreferencesInteractor")
         Napier.d("   New value: $enabled", tag = "NotificationPreferencesInteractor")
         preferences.setLectureAlertsEnabled(enabled)
         _lectureAlertsEnabled.value = enabled
         Napier.d("   ✅ StateFlow updated → will trigger collectors in MainActivity/main.kt", tag = "NotificationPreferencesInteractor")
-        Napier.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", tag = "NotificationPreferencesInteractor")
+        Napier.d(LOG_SEPARATOR, tag = "NotificationPreferencesInteractor")
     }
 
     /**

@@ -167,6 +167,37 @@ class TimetableStoreTest {
     }
 
     @Test
+    fun refreshing_succeeds_andReplacesTheWeekWithTheFreshOne() = runTest {
+        val repository = FakeTimetableRepository(
+            week = Outcome.Ok(week(0, listOf(lecture("T4INF")))),
+            refreshed = Outcome.Ok(week(0, listOf(lecture("T4INF"), lecture("PROG"))))
+        )
+        val store = store(repository)
+
+        store.dispatch(TimetableIntent.WeekFocused(0))
+        store.dispatch(TimetableIntent.Refresh(0))
+
+        assertEquals(2, store.state.value.week(0).lectures.size)
+        store.close()
+    }
+
+    @Test
+    fun aSkeletonWeek_whoseFullFetchFails_stillLeavesTheSkeletonVisible() = runTest {
+        val repository = FakeTimetableRepository(
+            week = Outcome.Ok(week(0, listOf(lecture("T4INF")), partial = true)),
+            fullWeek = Outcome.Err(AppError.Offline)
+        )
+        val store = store(repository)
+
+        store.dispatch(TimetableIntent.WeekFocused(0))
+
+        val loaded = store.state.value.week(0)
+        assertEquals(AppError.Offline, loaded.error)
+        assertEquals(1, loaded.lectures.size, "the skeleton stays visible even though completing it failed")
+        store.close()
+    }
+
+    @Test
     fun openingAndDismissingTheLectureDialog() = runTest {
         val repository = FakeTimetableRepository()
         val store = store(repository)

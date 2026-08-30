@@ -49,7 +49,10 @@ interface NotificationDispatcher {
      * Default-empty rather than abstract, because on the desktop a notification is handed to the
      * system and forgotten — there is nothing left to take back.
      */
-    suspend fun cancelAllDelivered() {}
+    suspend fun cancelAllDelivered() {
+        // No-op by default — see the class doc above: desktop hands notifications to the system
+        // and forgets them, so there is nothing here to take back.
+    }
 
     /**
      * Show a notification for multiple lecture changes (summary).

@@ -88,12 +88,14 @@ object LectureNotificationTexts {
 
         override fun summary(changes: List<LectureChange>) =
             "Stundenplan geändert" to changes.count(
-                move = "Verschiebung" to "Verschiebungen",
-                room = "Raumwechsel" to "Raumwechsel",
-                lecturer = "Dozentenwechsel" to "Dozentenwechsel",
-                type = "Prüfungsänderung" to "Prüfungsänderungen",
-                cancelled = "Absage" to "Absagen",
-                added = "neue Vorlesung" to "neue Vorlesungen",
+                CategoryWords(
+                    move = "Verschiebung" to "Verschiebungen",
+                    room = "Raumwechsel" to "Raumwechsel",
+                    lecturer = "Dozentenwechsel" to "Dozentenwechsel",
+                    type = "Prüfungsänderung" to "Prüfungsänderungen",
+                    cancelled = "Absage" to "Absagen",
+                    added = "neue Vorlesung" to "neue Vorlesungen",
+                ),
                 separator = ", ",
                 lastSeparator = " und ",
             )
@@ -151,12 +153,14 @@ object LectureNotificationTexts {
 
         override fun summary(changes: List<LectureChange>) =
             "Timetable changed" to changes.count(
-                move = "move" to "moves",
-                room = "room change" to "room changes",
-                lecturer = "lecturer change" to "lecturer changes",
-                type = "exam change" to "exam changes",
-                cancelled = "cancellation" to "cancellations",
-                added = "new lecture" to "new lectures",
+                CategoryWords(
+                    move = "move" to "moves",
+                    room = "room change" to "room changes",
+                    lecturer = "lecturer change" to "lecturer changes",
+                    type = "exam change" to "exam changes",
+                    cancelled = "cancellation" to "cancellations",
+                    added = "new lecture" to "new lectures",
+                ),
                 separator = ", ",
                 lastSeparator = " and ",
             )
@@ -183,29 +187,34 @@ object LectureNotificationTexts {
 
     // ── Shared shaping ──────────────────────────────────────────────────────────────────────
 
+    /** The singular/plural word pair for each [LectureChange] category, e.g. "move" to "moves". */
+    private data class CategoryWords(
+        val move: Pair<String, String>,
+        val room: Pair<String, String>,
+        val lecturer: Pair<String, String>,
+        val type: Pair<String, String>,
+        val cancelled: Pair<String, String>,
+        val added: Pair<String, String>,
+    )
+
     /**
      * "2 Verschiebungen, 1 Raumwechsel und 1 Absage" — in the order the cases are declared, which
      * is roughly the order of how much they disrupt a day.
      */
     private fun List<LectureChange>.count(
-        move: Pair<String, String>,
-        room: Pair<String, String>,
-        lecturer: Pair<String, String>,
-        type: Pair<String, String>,
-        cancelled: Pair<String, String>,
-        added: Pair<String, String>,
+        words: CategoryWords,
         separator: String,
         lastSeparator: String,
     ): String {
         val parts = listOf(
-            count { it is LectureChange.Cancellation } to cancelled,
-            count { it is LectureChange.TimeChange } to move,
-            count { it is LectureChange.NewLecture } to added,
-            count { it is LectureChange.LocationChange } to room,
-            count { it is LectureChange.TypeChange } to type,
-            count { it is LectureChange.LecturerChange } to lecturer,
+            count { it is LectureChange.Cancellation } to words.cancelled,
+            count { it is LectureChange.TimeChange } to words.move,
+            count { it is LectureChange.NewLecture } to words.added,
+            count { it is LectureChange.LocationChange } to words.room,
+            count { it is LectureChange.TypeChange } to words.type,
+            count { it is LectureChange.LecturerChange } to words.lecturer,
         ).filter { (n, _) -> n > 0 }
-            .map { (n, words) -> "$n ${if (n == 1) words.first else words.second}" }
+            .map { (n, w) -> "$n ${if (n == 1) w.first else w.second}" }
 
         return when (parts.size) {
             0 -> ""

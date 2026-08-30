@@ -54,6 +54,7 @@ class DualisDocumentServiceTest {
 
     private fun createService(mockEngine: MockEngine, authService: AuthenticationService): DualisDocumentService {
         val client = HttpClient(mockEngine) {
+            expectSuccess = false
             install(HttpCookies)
         }
         val apiClient = DualisApiClient(client)
@@ -334,4 +335,102 @@ class DualisDocumentServiceTest {
     }
 
     private val pdfBytes = DownloadFixtures.PDF_HEADER
+
+    // ── downloadDocument: demo mode ─────────────────────────────────────────
+
+    @Test
+    fun downloadDocument_demoMode_forAKnownDocument_returnsItsBytes() = runTest {
+        sessionManager.setDemoMode(true)
+        val mockEngine = MockEngine { respond(ByteReadChannel(""), HttpStatusCode.OK) }
+        val authClient = HttpClient(MockEngine { respond(ByteReadChannel(""), HttpStatusCode.OK) })
+        val service = createService(mockEngine, AuthenticationService(sessionManager, authClient))
+
+        val documents = assertIs<Outcome.Ok<List<de.fampopprol.dhbwhorb.data.dualis.models.DualisDocument>>>(
+            service.fetchDocuments()
+        ).value
+        val result = service.downloadDocument(documents.first().downloadUrl)
+
+        val bytes = assertIs<Outcome.Ok<ByteArray>>(result).value
+        assertTrue(bytes.isNotEmpty())
+    }
+
+    @Test
+    fun downloadDocument_demoMode_forAnUnknownUrl_reportsUnsupported() = runTest {
+        sessionManager.setDemoMode(true)
+        val mockEngine = MockEngine { respond(ByteReadChannel(""), HttpStatusCode.OK) }
+        val authClient = HttpClient(MockEngine { respond(ByteReadChannel(""), HttpStatusCode.OK) })
+        val service = createService(mockEngine, AuthenticationService(sessionManager, authClient))
+
+        val result = service.downloadDocument("/scripts/filetransfer.exe?not-a-demo-document")
+
+        assertIs<AppError.Unsupported>(assertIs<Outcome.Err>(result).error)
+    }
+
+    // ── downloadDocument: authentication edge cases ─────────────────────────
+
+    @Test
+    fun downloadDocument_withNoSessionAndNoStoredCredentials_reportsNoCredentials() = runTest {
+        // Neither demo mode, nor an existing session, nor anything to log in with.
+        val mockEngine = MockEngine { respond(ByteReadChannel(""), HttpStatusCode.OK) }
+        val authClient = HttpClient(MockEngine { respond(ByteReadChannel(""), HttpStatusCode.OK) })
+        val service = createService(mockEngine, AuthenticationService(sessionManager, authClient))
+
+        val result = service.downloadDocument("/scripts/filetransfer.exe?token123")
+
+        assertEquals(Outcome.Err(AppError.NoCredentials), result)
+    }
+
+    @Test
+    fun downloadDocument_whenReauthenticationItselfFails_propagatesThatFailure() = runTest {
+        sessionManager.storeCredentials("user", "wrong-password")
+        // Not authenticated (no auth data stored), so downloadWithRetry must re-authenticate first.
+        val mockEngine = MockEngine { respond(ByteReadChannel(""), HttpStatusCode.OK) }
+        val rejectingAuthClient = HttpClient(MockEngine {
+            respond(
+                content = ByteReadChannel("<html><body><h1>LOGINCHECK failed</h1></body></html>"),
+                status = HttpStatusCode.OK,
+                headers = headers { append(HttpHeaders.ContentType, "text/html") }
+            )
+        }) { expectSuccess = false }
+        val authService = AuthenticationService(sessionManager, rejectingAuthClient)
+        val service = createService(mockEngine, authService)
+
+        val result = service.downloadDocument("/scripts/filetransfer.exe?token123")
+
+        assertEquals(Outcome.Err(AppError.InvalidCredentials), result)
+    }
+
+    @Test
+    fun downloadDocument_withAnEmptySessionId_reportsSessionExpiredWithoutARequest() = runTest {
+        sessionManager.storeAuthData(AuthData(sessionId = "", cookie = null))
+        var downloadAttempts = 0
+        val mockEngine = MockEngine {
+            downloadAttempts++
+            respond(ByteReadChannel(pdfBytes), HttpStatusCode.OK)
+        }
+        val authClient = HttpClient(MockEngine { respond(ByteReadChannel(""), HttpStatusCode.OK) })
+        val service = createService(mockEngine, AuthenticationService(sessionManager, authClient))
+
+        val result = service.downloadDocument("/scripts/filetransfer.exe?token123")
+
+        assertEquals(Outcome.Err(AppError.SessionExpired), result)
+        assertEquals(0, downloadAttempts, "an empty session id must not even try the request")
+    }
+
+    @Test
+    fun downloadDocument_onANonSessionError_doesNotRetry() = runTest {
+        sessionManager.storeAuthData(AuthData(sessionId = "session123", cookie = "cookie123"))
+        var downloadAttempts = 0
+        val mockEngine = MockEngine {
+            downloadAttempts++
+            respond(ByteReadChannel("server error"), HttpStatusCode.InternalServerError)
+        }
+        val authClient = HttpClient(MockEngine { respond(ByteReadChannel(""), HttpStatusCode.OK) })
+        val service = createService(mockEngine, AuthenticationService(sessionManager, authClient))
+
+        val result = service.downloadDocument("/scripts/filetransfer.exe?token123")
+
+        assertEquals(Outcome.Err(AppError.Http(500)), result)
+        assertEquals(1, downloadAttempts, "a plain server error is not a session problem, so no retry")
+    }
 }

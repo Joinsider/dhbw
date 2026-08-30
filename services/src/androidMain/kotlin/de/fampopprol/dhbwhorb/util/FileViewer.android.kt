@@ -73,7 +73,10 @@ actual fun saveFileWithDialog(byteArray: ByteArray, fileName: String) {
                 throw Exception("Failed to create MediaStore entry")
             }
         } else {
-            // Fallback for older Android versions
+            // Fallback for pre-Android-10 (API < 29), where MediaStore.Downloads doesn't exist
+            // yet: this is the only API available to place the file in the public Downloads
+            // folder the user expects, mirroring the MediaStore branch above rather than storing
+            // anything sensitive — it's a PDF the user explicitly chose to export.
             val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             val file = File(downloadsDir, fileName)
             file.writeBytes(byteArray)

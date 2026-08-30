@@ -157,6 +157,48 @@ class GradeParserTest {
     }
 
     @Test
+    fun parseGrades_aRowWithFewerThanFiveCells_isSkipped() {
+        val html = """
+            <table><tr>
+            <td class="tbdata">T4INF2006</td>
+            <td class="tbdata">Only two cells</td>
+            </tr></table>
+        """.trimIndent()
+
+        assertEquals(emptyList(), parseSemester(html))
+    }
+
+    @Test
+    fun parseGrades_aRowWithABlankModuleNumber_isSkipped() {
+        val html = """
+            <table><tr>
+            <td class="tbdata"></td>
+            <td class="tbdata">Some summary text</td>
+            <td class="tbdata">1,0</td>
+            <td class="tbdata">5,0</td>
+            <td class="tbdata">bestanden</td>
+            </tr></table>
+        """.trimIndent()
+
+        assertEquals(emptyList(), parseSemester(html))
+    }
+
+    @Test
+    fun parseGrades_aRowWithNoStatusColumn_hasANullStatus() {
+        val html = """
+            <table><tr>
+            <td class="tbdata">T4INF2006</td>
+            <td class="tbdata">IT-Sicherheit</td>
+            <td class="tbdata">1,0</td>
+            <td class="tbdata">5,0</td>
+            <td class="tbdata"></td>
+            </tr></table>
+        """.trimIndent()
+
+        assertNull(parseSemester(html).single().status)
+    }
+
+    @Test
     fun parseGrades_hasNoResultIdWhenTheRowDoesNotLinkOne() {
         // A module with no result yet is plain text in Dualis, with nothing to open.
         val html = """

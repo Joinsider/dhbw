@@ -219,6 +219,47 @@ class SessionManagerTest {
     }
 
     @Test
+    fun `getStoredCredentials returns null when only username is set`() {
+        // Given: the underlying storage holds a username but no password (e.g. a partial write).
+        val fakeStorage = FakeSecureStorage()
+        fakeStorage.setString("dualis_username", "test@dhbw.de")
+        val sessionManager = SessionManager(fakeStorage)
+
+        // When
+        val credentials = sessionManager.getStoredCredentials()
+
+        // Then
+        assertNull(credentials)
+    }
+
+    @Test
+    fun `getAuthData reads from storage when nothing is cached in memory`() {
+        // Given: one SessionManager persists auth data to the shared storage...
+        val fakeStorage = FakeSecureStorage()
+        val writer = SessionManager(fakeStorage)
+        writer.storeAuthData(
+            AuthData(
+                sessionId = "session123",
+                authToken = "token456",
+                userFullName = "Max Mustermann",
+                cookie = "cookie-value",
+            )
+        )
+
+        // ...and a second, freshly constructed SessionManager reads the same storage with no
+        // in-memory cache of its own, exercising the fall-through-to-storage branch of getAuthData.
+        val reader = SessionManager(fakeStorage)
+        val authData = reader.getAuthData()
+
+        // Then
+        assertNotNull(authData)
+        assertEquals("session123", authData.sessionId)
+        assertEquals("token456", authData.authToken)
+        assertEquals("Max Mustermann", authData.userFullName)
+        assertEquals("cookie-value", authData.cookie)
+    }
+
+    @Test
     fun `getAuthData returns cached data if available`() {
         // Given
         val (sessionManager, _) = createSessionManager()

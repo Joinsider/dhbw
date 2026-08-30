@@ -32,6 +32,9 @@ class ClearableCookiesStorage : CookiesStorage {
 
     override suspend fun get(requestUrl: Url): List<Cookie> = current().get(requestUrl)
 
+    // Not `by delegate` in the class header: `by` binds to the delegate instance present at
+    // construction, but `delegate` is reassigned on every clear() — interface delegation would
+    // silently keep forwarding to the storage clear() just replaced.
     override fun close() {
         delegate.close()
     }
