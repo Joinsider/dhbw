@@ -29,7 +29,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +37,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
@@ -51,6 +51,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.presentation.auth.AuthIntent
 import de.fampopprol.dhbwhorb.presentation.auth.AuthStore
 import de.fampopprol.dhbwhorb.presentation.auth.PasswordError
@@ -69,9 +70,8 @@ import de.fampopprol.dhbwhorb.resources.password_cannot_be_empty
 import de.fampopprol.dhbwhorb.resources.username
 import de.fampopprol.dhbwhorb.resources.username_cannot_be_empty
 import de.fampopprol.dhbwhorb.resources.username_must_be_valid_email
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
-import org.jetbrains.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.Preview
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Preview
@@ -83,9 +83,6 @@ fun LoginForm(
     val focusManager = LocalFocusManager.current
     val usernameFocusRequester = remember { FocusRequester() }
     val passwordFocusRequester = remember { FocusRequester() }
-
-    var isUsernameFocused by remember { mutableStateOf(false) }
-    var isPasswordFocused by remember { mutableStateOf(false) }
 
     val hapticFeedback = LocalHapticFeedback.current
 
@@ -101,159 +98,255 @@ fun LoginForm(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceEvenly
     ) {
-        TextField(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("usernameField")
-                .focusRequester(usernameFocusRequester)
-                .onKeyEvent { keyEvent ->
-                    if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Tab) {
-                        passwordFocusRequester.requestFocus()
-                        true
-                    } else {
-                        false
-                    }
-                }
-                .onFocusChanged { focusState ->
-                    isUsernameFocused = focusState.isFocused
-                },
-            value = state.username,
-            onValueChange = { store.dispatch(AuthIntent.UsernameChanged(it)) },
-            label = { Text(stringResource(Res.string.username)) },
-            singleLine = true,
-            placeholder = { Text(stringResource(Res.string.enter_username)) },
-            isError = state.usernameError != null,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Email,
-                imeAction = ImeAction.Next
-            ),
-            keyboardActions = KeyboardActions(
-                onNext = { passwordFocusRequester.requestFocus() }
-            ),
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Email,
-                    contentDescription = stringResource(Res.string.username)
-                )
-            },
-            trailingIcon = {
-                if (isUsernameFocused && state.username.isNotEmpty()) {
-                    IconButton(
-                        onClick = { store.dispatch(AuthIntent.UsernameChanged("")) }) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(Res.string.cancel)
-                        )
-                    }
-                }
-            },
-            supportingText = {
-                state.usernameError?.let {
-                    Text(
-                        text = it.toMessage(), color = MaterialTheme.colorScheme.error
-                    )
-                }
-            })
+        UsernameField(
+            store = store,
+            username = state.username,
+            usernameError = state.usernameError,
+            usernameFocusRequester = usernameFocusRequester,
+            passwordFocusRequester = passwordFocusRequester
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        TextField(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("passwordField")
-                .focusRequester(passwordFocusRequester)
-                .onKeyEvent { keyEvent ->
-                    when (keyEvent.type) {
-                        KeyEventType.KeyDown if keyEvent.key == Key.Tab -> {
-                            // Shift+Tab to go back to username field
-                            if (keyEvent.isShiftPressed) {
-                                usernameFocusRequester.requestFocus()
-                            }
-                            true
-                        }
-                        KeyEventType.KeyDown if keyEvent.key == Key.Enter -> {
-                            // Enter to trigger login
-                            performLogin()
-                            true
-                        }
-                        else -> false
-                    }
-                }
-                .onFocusChanged { focusState ->
-                    isPasswordFocused = focusState.isFocused
-                },
-            value = state.password,
-            onValueChange = { store.dispatch(AuthIntent.PasswordChanged(it)) },
-            label = { Text(stringResource(Res.string.password)) },
-            placeholder = { Text(stringResource(Res.string.enter_password)) },
-            isError = state.passwordError != null,
-            singleLine = true,
-            visualTransformation = if (state.isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = { performLogin() }
-            ),
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Password,
-                    contentDescription = stringResource(Res.string.password)
-                )
-            },
-            trailingIcon = {
-                if (isPasswordFocused && state.password.isNotEmpty()) {
-                    IconButton(
-                        onClick = { store.dispatch(AuthIntent.PasswordVisibilityToggled) }) {
-                        Icon(
-                            imageVector = if (state.isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (state.isPasswordVisible) "Hide password" else "Show password"
-                        )
-                    }
-                }
-            },
-            supportingText = {
-                state.passwordError?.let { error ->
-                    Text(
-                        text = error.toMessage(), color = MaterialTheme.colorScheme.error
-                    )
-                }
-            })
+        PasswordField(
+            store = store,
+            password = state.password,
+            passwordError = state.passwordError,
+            isPasswordVisible = state.isPasswordVisible,
+            usernameFocusRequester = usernameFocusRequester,
+            passwordFocusRequester = passwordFocusRequester,
+            performLogin = performLogin
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Show login error if any
-        state.loginError?.let { error ->
-            Text(
-                text = error.toUserMessage(),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.testTag("loginErrorText")
+        LoginErrorText(state.loginError)
+
+        LoginButton(isSubmitting = state.isSubmitting, onClick = performLogin)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun UsernameField(
+    store: AuthStore,
+    username: String,
+    usernameError: UsernameError?,
+    usernameFocusRequester: FocusRequester,
+    passwordFocusRequester: FocusRequester
+) {
+    var isUsernameFocused by remember { mutableStateOf(false) }
+
+    TextField(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("usernameField")
+            .focusRequester(usernameFocusRequester)
+            .onKeyEvent { keyEvent -> handleUsernameFieldKeyEvent(keyEvent, passwordFocusRequester) }
+            .onFocusChanged { focusState ->
+                isUsernameFocused = focusState.isFocused
+            },
+        value = username,
+        onValueChange = { store.dispatch(AuthIntent.UsernameChanged(it)) },
+        label = { Text(stringResource(Res.string.username)) },
+        singleLine = true,
+        placeholder = { Text(stringResource(Res.string.enter_username)) },
+        isError = usernameError != null,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Email,
+            imeAction = ImeAction.Next
+        ),
+        keyboardActions = KeyboardActions(
+            onNext = { passwordFocusRequester.requestFocus() }
+        ),
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Email,
+                contentDescription = stringResource(Res.string.username)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+        },
+        trailingIcon = {
+            UsernameClearButton(
+                isVisible = isUsernameFocused && username.isNotEmpty(),
+                onClear = { store.dispatch(AuthIntent.UsernameChanged("")) }
+            )
+        },
+        supportingText = {
+            usernameError?.let {
+                Text(
+                    modifier = Modifier.testTag("usernameErrorText"),
+                    text = it.toMessage(), color = MaterialTheme.colorScheme.error
+                )
+            }
+        })
+}
+
+/** Tab moves focus to the password field; every other key is left alone. */
+internal fun handleUsernameFieldKeyEvent(
+    keyEvent: KeyEvent,
+    passwordFocusRequester: FocusRequester
+): Boolean {
+    return if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Tab) {
+        passwordFocusRequester.requestFocus()
+        true
+    } else {
+        false
+    }
+}
+
+@Composable
+private fun UsernameClearButton(isVisible: Boolean, onClear: () -> Unit) {
+    if (isVisible) {
+        IconButton(onClick = onClear, modifier = Modifier.testTag("usernameClearButton")) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = stringResource(Res.string.cancel)
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PasswordField(
+    store: AuthStore,
+    password: String,
+    passwordError: PasswordError?,
+    isPasswordVisible: Boolean,
+    usernameFocusRequester: FocusRequester,
+    passwordFocusRequester: FocusRequester,
+    performLogin: () -> Unit
+) {
+    var isPasswordFocused by remember { mutableStateOf(false) }
+
+    TextField(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("passwordField")
+            .focusRequester(passwordFocusRequester)
+            .onKeyEvent { keyEvent ->
+                handlePasswordFieldKeyEvent(keyEvent, usernameFocusRequester, performLogin)
+            }
+            .onFocusChanged { focusState ->
+                isPasswordFocused = focusState.isFocused
+            },
+        value = password,
+        onValueChange = { store.dispatch(AuthIntent.PasswordChanged(it)) },
+        label = { Text(stringResource(Res.string.password)) },
+        placeholder = { Text(stringResource(Res.string.enter_password)) },
+        isError = passwordError != null,
+        singleLine = true,
+        visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Password,
+            imeAction = ImeAction.Done
+        ),
+        keyboardActions = KeyboardActions(
+            onDone = { performLogin() }
+        ),
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Password,
+                contentDescription = stringResource(Res.string.password)
+            )
+        },
+        trailingIcon = {
+            PasswordVisibilityToggle(
+                isVisible = isPasswordFocused && password.isNotEmpty(),
+                isPasswordVisible = isPasswordVisible,
+                onToggle = { store.dispatch(AuthIntent.PasswordVisibilityToggled) }
+            )
+        },
+        supportingText = {
+            passwordError?.let { error ->
+                Text(
+                    modifier = Modifier.testTag("passwordErrorText"),
+                    text = error.toMessage(), color = MaterialTheme.colorScheme.error
+                )
+            }
+        })
+}
+
+/**
+ * Shift+Tab moves focus back to the username field, Enter triggers login; every other key is
+ * left alone.
+ */
+internal fun handlePasswordFieldKeyEvent(
+    keyEvent: KeyEvent,
+    usernameFocusRequester: FocusRequester,
+    performLogin: () -> Unit
+): Boolean {
+    return when (keyEvent.type) {
+        KeyEventType.KeyDown if keyEvent.key == Key.Tab -> {
+            // Shift+Tab to go back to username field
+            if (keyEvent.isShiftPressed) {
+                usernameFocusRequester.requestFocus()
+            }
+            true
         }
 
-        Button(
-            onClick = performLogin,
-            modifier = Modifier.testTag("loginButton")
-                .padding(8.dp)
-                .height(48.dp)
-                .width(150.dp),
-            enabled = !state.isSubmitting,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+        KeyEventType.KeyDown if keyEvent.key == Key.Enter -> {
+            // Enter to trigger login
+            performLogin()
+            true
+        }
+
+        else -> false
+    }
+}
+
+@Composable
+private fun PasswordVisibilityToggle(
+    isVisible: Boolean,
+    isPasswordVisible: Boolean,
+    onToggle: () -> Unit
+) {
+    if (isVisible) {
+        IconButton(onClick = onToggle, modifier = Modifier.testTag("passwordVisibilityToggle")) {
+            Icon(
+                imageVector = if (isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                contentDescription = if (isPasswordVisible) "Hide password" else "Show password"
             )
-        ) {
-            if (state.isSubmitting) {
-                LoadingIndicator(
-                    modifier = Modifier.width(24.dp).height(24.dp),
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            } else {
-                Text(stringResource(Res.string.login))
-            }
+        }
+    }
+}
+
+@Composable
+private fun LoginErrorText(loginError: AppError?) {
+    // Show login error if any
+    loginError?.let { error ->
+        Text(
+            text = error.toUserMessage(),
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.testTag("loginErrorText")
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+internal fun LoginButton(isSubmitting: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.testTag("loginButton")
+            .padding(8.dp)
+            .height(48.dp)
+            .width(150.dp),
+        enabled = !isSubmitting,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        )
+    ) {
+        if (isSubmitting) {
+            LoadingIndicator(
+                modifier = Modifier.width(24.dp).height(24.dp),
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+        } else {
+            Text(stringResource(Res.string.login))
         }
     }
 }

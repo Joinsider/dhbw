@@ -415,5 +415,134 @@ class HtmlParserTest {
         // Then
         assertTrue(isMain)
     }
+
+    @Test
+    fun `extractUserFullName falls back to alternative h1 pattern when h1 is unclosed`() {
+        // Given - no closing </h1>, so the primary regex (which requires </h1>) can't match
+        val html = """
+            <html>
+            <body>
+                <h1>Herzlich willkommen, Johannes Popp!
+                <div>Main page content</div>
+            </body>
+            </html>
+        """.trimIndent()
+
+        // When
+        val fullName = htmlParser.extractUserFullName(html)
+
+        // Then
+        assertNotNull(fullName)
+        assertEquals("Johannes Popp", fullName)
+    }
+
+    @Test
+    fun `extractUserFullName falls back to simple pattern outside any h1`() {
+        // Given - no h1 tag at all
+        val html = "<html><body><span>Herzlich willkommen, Anna Schmidt!</span></body></html>"
+
+        // When
+        val fullName = htmlParser.extractUserFullName(html)
+
+        // Then
+        assertNotNull(fullName)
+        assertEquals("Anna Schmidt", fullName)
+    }
+
+    @Test
+    fun `isErrorPage detects access denied with single-quoted class attribute`() {
+        // Given
+        val html = "<html><body class='access_denied'>Access denied</body></html>"
+
+        // When & Then
+        assertTrue(htmlParser.isErrorPage(html))
+    }
+
+    @Test
+    fun `isErrorPage detects session expired via error pattern list`() {
+        // Given - matches the "abgelaufen" pattern, not the earlier explicit checks
+        val html = "<html><body>Ihre Sitzung ist abgelaufen</body></html>"
+
+        // When & Then
+        assertTrue(htmlParser.isErrorPage(html))
+    }
+
+    @Test
+    fun `isErrorPage returns false for a normal page`() {
+        // Given
+        val html = "<html><body><h1>Welcome</h1></body></html>"
+
+        // When & Then
+        assertFalse(htmlParser.isErrorPage(html))
+    }
+
+    @Test
+    fun `isValidModuleDetailsPage returns true for a valid pop-up with results table`() {
+        // Given
+        val html = """
+            <div class="popUpBody">
+                <table class="tb">
+                    <tr><td>Module Result</td></tr>
+                </table>
+            </div>
+        """.trimIndent()
+
+        // When & Then
+        assertTrue(htmlParser.isValidModuleDetailsPage(html))
+    }
+
+    @Test
+    fun `isValidModuleDetailsPage accepts pageContentPopUp marker as well`() {
+        // Given
+        val html = """
+            <div class="pageContentPopUp">
+                <table class="tb"></table>
+            </div>
+        """.trimIndent()
+
+        // When & Then
+        assertTrue(htmlParser.isValidModuleDetailsPage(html))
+    }
+
+    @Test
+    fun `isValidModuleDetailsPage returns false when results table is missing`() {
+        // Given
+        val html = """<div class="popUpBody">No table here</div>"""
+
+        // When & Then
+        assertFalse(htmlParser.isValidModuleDetailsPage(html))
+    }
+
+    @Test
+    fun `isValidModuleDetailsPage returns false when not a pop-up at all`() {
+        // Given
+        val html = """<html><body><table class="tb"></table></body></html>"""
+
+        // When & Then
+        assertFalse(htmlParser.isValidModuleDetailsPage(html))
+    }
+
+    @Test
+    fun `isValidModuleDetailsPage returns false for a redirect page`() {
+        // Given
+        val html = """
+            <html>
+            <head><meta http-equiv="refresh" content="0; URL=/next.html"></head>
+            <body class="popUpBody"><table class="tb"></table></body>
+            </html>
+        """.trimIndent()
+
+        // When & Then
+        assertFalse(htmlParser.isValidModuleDetailsPage(html))
+    }
+
+    @Test
+    fun `isValidGradePage returns true when semester dropdown present and not a redirect`() {
+        // Given
+        val html = """<html><body><select id="semester"></select></body></html>"""
+
+        // When & Then
+        assertTrue(htmlParser.isValidGradePage(html))
+    }
 }
 

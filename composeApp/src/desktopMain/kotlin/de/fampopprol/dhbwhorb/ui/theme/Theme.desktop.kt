@@ -27,7 +27,11 @@ actual fun getColorScheme(darkTheme: Boolean, useMaterialYou: Boolean, seedColor
 
 /**
  * JVM/Desktop implementation: No system UI configuration needed.
+ *
+ * Parameters are unused here but required to satisfy the `expect fun` signature shared with the
+ * Android actual, which does use all three.
  */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 actual fun SystemAppearance(darkTheme: Boolean, useMaterialYou: Boolean, seedColor: Color) {
     // No-op on desktop platforms

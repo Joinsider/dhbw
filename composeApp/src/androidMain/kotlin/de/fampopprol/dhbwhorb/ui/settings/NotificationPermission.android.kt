@@ -30,22 +30,21 @@ actual fun rememberNotificationPermissionRequest(
     onPermissionResult: (Boolean) -> Unit
 ): () -> Unit {
     // For Android 13+ (API 33+), we need to request POST_NOTIFICATIONS permission
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         val launcher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestPermission(),
             onResult = { granted ->
                 onPermissionResult(granted)
             }
         )
-
-        return {
-            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
+        // A `val` assigned here so the lambda below can't be parsed as a trailing-lambda
+        // argument to the rememberLauncherForActivityResult call above it.
+        val requestPermission: () -> Unit = { launcher.launch(Manifest.permission.POST_NOTIFICATIONS) }
+        requestPermission
     } else {
         // Before Android 13, notifications don't require runtime permission
-        return {
-            onPermissionResult(true)
-        }
+        val requestPermission: () -> Unit = { onPermissionResult(true) }
+        requestPermission
     }
 }
 

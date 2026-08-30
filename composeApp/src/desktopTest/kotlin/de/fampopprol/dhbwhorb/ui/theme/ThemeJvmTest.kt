@@ -157,6 +157,29 @@ class ThemeJvmTest {
     }
 
     @Test
+    fun getColorScheme_materialYouDisabled_usesTheStaticPalette() = runComposeUiTest {
+        var lightPrimary: androidx.compose.ui.graphics.Color? = null
+        var darkPrimary: androidx.compose.ui.graphics.Color? = null
+
+        setContent {
+            DHBWHorbTheme(darkTheme = false, useMaterialYou = false) {
+                lightPrimary = MaterialTheme.colorScheme.primary
+            }
+        }
+        waitForIdle()
+
+        setContent {
+            DHBWHorbTheme(darkTheme = true, useMaterialYou = false) {
+                darkPrimary = MaterialTheme.colorScheme.primary
+            }
+        }
+        waitForIdle()
+
+        assertEquals(LightColorScheme.primary, lightPrimary)
+        assertEquals(DarkColorScheme.primary, darkPrimary)
+    }
+
+    @Test
     fun dhbwHorbTheme_providesAllRequiredColors() = runComposeUiTest {
         setContent {
             DHBWHorbTheme {

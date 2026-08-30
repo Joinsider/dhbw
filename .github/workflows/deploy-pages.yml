@@ -53,7 +53,7 @@ jobs:
           echo "Downloading asset from: $ASSET_URL (saving as $ASSET_NAME)"
           
           # Download the asset
-          curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          curl -L -H "Authorization: token $GH_TOKEN" \
                -H "Accept: application/octet-stream" \
                "$ASSET_URL" -o "downloads/$ASSET_NAME"
 
@@ -188,7 +188,7 @@ jobs:
           EOF
 
       - name: Generate directory listings
-        uses: gacts/directory-listing@v1
+        uses: gacts/directory-listing@382b3439bf3a5787b20350780a0cc18553a47acd # v1
         with:
           target: public
           ignore: |
