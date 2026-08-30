@@ -16,6 +16,7 @@ import androidx.compose.ui.test.runComposeUiTest
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
+import de.fampopprol.dhbwhorb.testutil.WithTestKoin
 import kotlin.test.Test
 
 @OptIn(ExperimentalTestApi::class)
@@ -29,7 +30,7 @@ class LoginFormTest {
     fun loginForm_isDisplayed() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                LoginForm()
+                WithTestKoin { LoginForm() }
             }
         }
 
@@ -40,7 +41,7 @@ class LoginFormTest {
     fun loginForm_hasUsernameField() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                LoginForm()
+                WithTestKoin { LoginForm() }
             }
         }
 
@@ -51,7 +52,7 @@ class LoginFormTest {
     fun loginForm_hasPasswordField() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                LoginForm()
+                WithTestKoin { LoginForm() }
             }
         }
 
@@ -62,7 +63,7 @@ class LoginFormTest {
     fun loginForm_hasLoginButton() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                LoginForm()
+                WithTestKoin { LoginForm() }
             }
         }
 
@@ -74,7 +75,7 @@ class LoginFormTest {
     fun loginForm_buttonIsAlwaysEnabled() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                LoginForm()
+                WithTestKoin { LoginForm() }
             }
         }
 
@@ -85,7 +86,7 @@ class LoginFormTest {
     fun loginForm_usernameFieldHasCorrectLabel() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                LoginForm()
+                WithTestKoin { LoginForm() }
             }
         }
 
@@ -96,7 +97,7 @@ class LoginFormTest {
     fun loginForm_passwordFieldHasCorrectLabel() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                LoginForm()
+                WithTestKoin { LoginForm() }
             }
         }
 
@@ -108,7 +109,7 @@ class LoginFormTest {
     fun loginForm_loginButtonHasCorrectText() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalViewModelStoreOwner provides testViewModelStoreOwner) {
-                LoginForm()
+                WithTestKoin { LoginForm() }
             }
         }
 
