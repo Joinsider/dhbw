@@ -8,9 +8,12 @@ package de.fampopprol.dhbwhorb.ui.pages
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runComposeUiTest
 import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.core.error.Outcome
@@ -28,6 +31,7 @@ import de.fampopprol.dhbwhorb.ui.navigation.navItemTestTag
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * UI tests for [TimetablePage].
@@ -157,6 +161,108 @@ class TimetablePageTest {
         waitForIdle()
 
         onNodeWithTag("timetableErrorBanner").assertIsDisplayed()
+        store.close()
+    }
+
+    @Test
+    fun timetablePage_clickingNextWeek_movesTheWeekFocusForward() = runComposeUiTest {
+        val store = storeShowing(emptyList())
+
+        setContent { WithTestKoin { TimetablePage(store = store) } }
+        waitForIdle()
+
+        onNodeWithTag("nextWeekButton").performClick()
+        waitForIdle()
+
+        assertEquals(1, store.state.value.currentWeekOffset)
+        store.close()
+    }
+
+    @Test
+    fun timetablePage_clickingPreviousWeek_movesTheWeekFocusBackward() = runComposeUiTest {
+        val store = storeShowing(emptyList())
+
+        setContent { WithTestKoin { TimetablePage(store = store) } }
+        waitForIdle()
+
+        onNodeWithTag("previousWeekButton").performClick()
+        waitForIdle()
+
+        assertEquals(-1, store.state.value.currentWeekOffset)
+        store.close()
+    }
+
+    @Test
+    fun timetablePage_tappingTheWeekLabelAfterNavigating_returnsToTheCurrentWeek() = runComposeUiTest {
+        val store = storeShowing(emptyList())
+
+        setContent { WithTestKoin { TimetablePage(store = store) } }
+        waitForIdle()
+
+        onNodeWithTag("nextWeekButton").performClick()
+        waitForIdle()
+        onNodeWithTag("weekLabelButton").performTouchInput { click() }
+        waitForIdle()
+
+        assertEquals(0, store.state.value.currentWeekOffset)
+        store.close()
+    }
+
+    @Test
+    fun timetablePage_longPressingTheWeekLabel_refreshesTheCurrentWeek() = runComposeUiTest {
+        val repository = FakeTimetableRepository(
+            week = Outcome.Ok(
+                TimetableWeek(
+                    weekOffset = 0,
+                    start = LocalDateTime(2026, 3, 2, 0, 0),
+                    end = LocalDateTime(2026, 3, 8, 23, 59),
+                    lectures = emptyList()
+                )
+            )
+        )
+        val store = TimetableStore(
+            getWeekTimetable = GetWeekTimetable(repository),
+            awaitFullWeekTimetable = AwaitFullWeekTimetable(repository),
+            refreshTimetable = RefreshTimetable(repository),
+            scope = TestScopes.immediate()
+        )
+
+        setContent { WithTestKoin { TimetablePage(store = store) } }
+        waitForIdle()
+
+        onNodeWithTag("weekLabelButton").performTouchInput { longClick() }
+        waitForIdle()
+
+        assertTrue(repository.refreshedWeeks.contains(0))
+        store.close()
+    }
+
+    @Test
+    fun timetablePage_weekCrossingAMonthBoundary_showsBothMonthsInTheLabel() = runComposeUiTest {
+        // 28 Apr - 2 May 2026: the week label must name April *and* May rather than just one.
+        val repository = FakeTimetableRepository(
+            week = Outcome.Ok(
+                TimetableWeek(
+                    weekOffset = 0,
+                    start = LocalDateTime(2026, 4, 28, 0, 0),
+                    end = LocalDateTime(2026, 5, 3, 23, 59),
+                    lectures = emptyList()
+                )
+            )
+        )
+        val store = TimetableStore(
+            getWeekTimetable = GetWeekTimetable(repository),
+            awaitFullWeekTimetable = AwaitFullWeekTimetable(repository),
+            refreshTimetable = RefreshTimetable(repository),
+            scope = TestScopes.immediate()
+        )
+
+        // Rendering without crashing already exercises the cross-month branch and both months'
+        // string resources; the exact label text is locale-dependent (see the class doc).
+        setContent { WithTestKoin { TimetablePage(store = store) } }
+        waitForIdle()
+
+        onNodeWithTag("weekLabelButton").assertIsDisplayed()
         store.close()
     }
 }

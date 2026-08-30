@@ -9,6 +9,7 @@ package de.fampopprol.dhbwhorb.ui.settings
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.onNodeWithTag
@@ -137,6 +138,24 @@ class NotificationSettingsCardTest {
         waitForIdle()
 
         assertFailsWith<AssertionError> { onNodeWithTag("checkNowButton").assertIsDisplayed() }
+    }
+
+    @Test
+    fun manualCheckButton_click_whileStillRunning_showsTheCheckingState() = runComposeUiTest {
+        val neverCompletes = kotlinx.coroutines.CompletableDeferred<Unit>()
+        setContent {
+            NotificationSettingsCard(
+                state = NotificationSettingsState(notificationsEnabled = true),
+                onManualCheckRequested = { neverCompletes.await() },
+            )
+        }
+        waitForIdle()
+
+        onNodeWithTag("checkNowButton").performClick()
+        waitForIdle()
+
+        onNodeWithText("Checking...").assertIsDisplayed()
+        onNodeWithTag("checkNowButton").assertIsNotEnabled()
     }
 
     @Test

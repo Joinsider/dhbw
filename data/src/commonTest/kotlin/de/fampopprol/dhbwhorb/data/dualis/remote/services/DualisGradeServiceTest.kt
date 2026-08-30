@@ -216,6 +216,31 @@ class DualisGradeServiceTest {
     }
 
     @Test
+    fun getGradesForSemester_withFreshMetadataButNoStoredRows_fetchesFromNetwork() = runTest {
+        // The metadata says a sync happened, but the grades table for it is empty — an
+        // inconsistency the cache read must treat as "nothing usable", not crash on.
+        metadataDao.stored["k"] = GradeCacheMetadata(
+            key = "k",
+            lastUpdatedTimestamp = nowMillis(),
+            studentId = "student@dhbw.de",
+            semesterId = semester.id
+        )
+        val mockEngine = MockEngine {
+            respond(
+                content = ByteReadChannel(DualisFixtures.Grades.SEMESTER_TABLE),
+                status = HttpStatusCode.OK,
+                headers = headers { append(HttpHeaders.ContentType, "text/html") }
+            )
+        }
+        val (service, client) = serviceWithMockEngine(mockEngine)
+
+        val result = service.getGradesForSemester(semester)
+
+        assertTrue(assertIs<Outcome.Ok<List<GradeEntity>>>(result).value.isNotEmpty())
+        client.close()
+    }
+
+    @Test
     fun getGradesForSemester_withAStaleCache_fetchesFromNetwork() = runTest {
         gradeDao.stored.add(
             GradeEntity(
@@ -379,6 +404,41 @@ class DualisGradeServiceTest {
         client.close()
     }
 
+    @Test
+    fun getGradesForSemester_withNoStoredCredentials_usesUnknownAsTheStudentId() = runTest {
+        // currentStudentId() falls back to "unknown" rather than crashing when nothing was ever
+        // stored for this session — a re-authentication edge case, not a network-facing one.
+        val freshStorage = FakeSecureStorage()
+        val freshSessionManager = SessionManager(freshStorage)
+        freshSessionManager.storeAuthData(AuthData(sessionId = "session-1", authToken = "token-1"))
+        val mockEngine = MockEngine {
+            respond(
+                content = ByteReadChannel(DualisFixtures.Grades.SEMESTER_TABLE),
+                status = HttpStatusCode.OK,
+                headers = headers { append(HttpHeaders.ContentType, "text/html") }
+            )
+        }
+        val client = HttpClient(mockEngine) {
+            expectSuccess = false
+            install(HttpCookies)
+        }
+        val apiClient = DualisApiClient(client)
+        val authService = AuthenticationService(freshSessionManager, client)
+        val service = DualisGradeService(
+            gateway = DualisPageGateway(apiClient, freshSessionManager, ReAuthenticator(freshSessionManager, authService)),
+            sessionManager = freshSessionManager,
+            gradeDao = gradeDao,
+            gradeCacheMetadataDao = metadataDao
+        )
+
+        val result = service.getGradesForSemester(semester)
+
+        val grades = assertIs<Outcome.Ok<List<GradeEntity>>>(result).value
+        assertTrue(grades.isNotEmpty())
+        assertTrue(grades.all { it.studentId == "unknown" })
+        client.close()
+    }
+
     // ── getModuleDetails ─────────────────────────────────────────────────────
 
     @Test
@@ -408,6 +468,27 @@ class DualisGradeServiceTest {
         val result = service.getModuleDetails("demo-result-T4INF4211")
 
         assertEquals(Outcome.Err(AppError.Offline), result)
+        client.close()
+    }
+
+    @Test
+    fun getModuleDetails_aPageThatPassesTheGatewayButHasNoHeading_reportsAParseFailure() = runTest {
+        // Valid enough for HtmlParser.isValidModuleDetailsPage (a popup with a results table), but
+        // ModuleDetailsParser needs an <h1> to read the module number and name from, and this has
+        // none.
+        val mockEngine = MockEngine {
+            respond(
+                content = ByteReadChannel("""<div class="popUpBody"><table class="tb"></table></div>"""),
+                status = HttpStatusCode.OK,
+                headers = headers { append(HttpHeaders.ContentType, "text/html") }
+            )
+        }
+        val (service, client) = serviceWithMockEngine(mockEngine)
+
+        val result = service.getModuleDetails("demo-result-T4INF4211")
+
+        val error = assertIs<AppError.Parse>(assertIs<Outcome.Err>(result).error)
+        assertTrue(error.hint.contains("no attempt table"))
         client.close()
     }
 

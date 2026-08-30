@@ -27,6 +27,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
@@ -341,6 +342,21 @@ class LectureChangeMonitorTest {
         assertTrue(result.error is AppError.Unexpected, "expected Unexpected but got ${result.error}")
     }
 
+    @Test
+    fun `an exception with no message falls back to a generic one`() = runTest {
+        val service = FakeLectureService(
+            fullByWeek = emptyMap(),
+            gridByWeek = emptyMap(),
+            throwOnFullFetch = true,
+            throwWithNullMessage = true,
+        )
+
+        val result = monitor(service = service, cached = emptyList()).checkForChanges()
+
+        val error = assertIs<MonitorResult.Error>(result).error
+        assertEquals(AppError.Unexpected("lecture monitoring"), error)
+    }
+
     // ── Scaffolding ─────────────────────────────────────────────────────────────────────────
 
     private suspend fun changesFrom(
@@ -432,6 +448,8 @@ class LectureChangeMonitorTest {
         private val failSaveForWeeks: Set<Int> = emptySet(),
         /** When set, the full fetch throws instead of returning an [Outcome] at all. */
         private val throwOnFullFetch: Boolean = false,
+        /** When set together with [throwOnFullFetch], the thrown exception carries no message. */
+        private val throwWithNullMessage: Boolean = false,
     ) : DualisLectureService(
         apiClient = apiClient,
         sessionManager = sessionManager,
@@ -448,7 +466,7 @@ class LectureChangeMonitorTest {
             end: LocalDateTime
         ): Outcome<List<LectureEventEntity>> {
             fullFetches++
-            if (throwOnFullFetch) throw IllegalStateException("boom")
+            if (throwOnFullFetch) throw IllegalStateException(if (throwWithNullMessage) null else "boom")
             if (start.weekOffset() in failFullFetchForWeeks) {
                 return Outcome.Err(AppError.Offline)
             }

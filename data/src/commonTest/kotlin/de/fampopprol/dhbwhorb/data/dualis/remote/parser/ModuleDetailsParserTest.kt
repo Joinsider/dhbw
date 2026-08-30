@@ -330,4 +330,69 @@ class ModuleDetailsParserTest {
         assertNull(exam.weightPercent)
         assertEquals("Klausur ohne Gewichtung", exam.name)
     }
+
+    @Test
+    fun aWeightPercentageWrittenWithAGermanCommaIsParsed() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur (33,5%)</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+        val exam = details.attempts.single().exams.single()
+
+        assertEquals(33.5, exam.weightPercent)
+        assertEquals("Klausur", exam.name)
+    }
+
+    @Test
+    fun anExamRowWithABlankSemesterCellHasANullSemesterName() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="tbdata"></td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertNull(details.attempts.single().exams.single().semesterName)
+    }
+
+    @Test
+    fun anExamRowWithABlankGradeCellHasANullGrade() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td><td class="tbdata">01.03.2026</td><td class="tbdata"></td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+        val exam = details.attempts.single().exams.single()
+
+        assertEquals("01.03.2026", exam.date)
+        assertNull(exam.grade)
+    }
+
+    @Test
+    fun aUnitRowWithExactlyThreeCells_isNotAttended() {
+        // No fourth (tick) cell at all, as opposed to an empty one.
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <h2>Zugeh&ouml;rige Bausteine</h2>
+            <table>
+              <tr><td class="tbdata">T1INF1000.1</td><td class="tbdata">Baustein A</td><td class="tbdata">Vorlesung</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(false, details.units.single().attended)
+    }
 }

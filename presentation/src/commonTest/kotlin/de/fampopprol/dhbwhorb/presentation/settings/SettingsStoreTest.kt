@@ -84,4 +84,36 @@ class SettingsStoreTest {
         assertTrue(store.state.value.lectureAlertsEnabled)
         store.close()
     }
+
+    @Test
+    fun materialYou_isPersistedAndSurvivesAReload() = runTest {
+        val preferences = FakePreferencesRepository()
+        val store = store(preferences)
+
+        store.dispatch(SettingsIntent.MaterialYouChanged(false))
+        assertFalse(store.state.value.materialYouEnabled)
+
+        val reloaded = store(preferences)
+        reloaded.dispatch(SettingsIntent.Load)
+        assertFalse(reloaded.state.value.materialYouEnabled)
+
+        store.close()
+        reloaded.close()
+    }
+
+    @Test
+    fun theReminderLead_isPersistedAndSurvivesAReload() = runTest {
+        val preferences = FakePreferencesRepository()
+        val store = store(preferences)
+
+        store.dispatch(SettingsIntent.ReminderLeadChanged(30))
+        assertEquals(30, store.state.value.reminderLeadMinutes)
+
+        val reloaded = store(preferences)
+        reloaded.dispatch(SettingsIntent.Load)
+        assertEquals(30, reloaded.state.value.reminderLeadMinutes)
+
+        store.close()
+        reloaded.close()
+    }
 }
