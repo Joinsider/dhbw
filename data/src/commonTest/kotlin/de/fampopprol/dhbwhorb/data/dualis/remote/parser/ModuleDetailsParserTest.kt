@@ -98,4 +98,301 @@ class ModuleDetailsParserTest {
     fun aPageWithoutAHeadingIsNotDetails() {
         assertNull(parser.parse("<html><body>Bitte melden Sie sich an</body></html>"))
     }
+
+    // ── splitHeading edge cases ─────────────────────────────────────────────
+
+    @Test
+    fun aHeadingWithoutParenthesesHasNoSemester() {
+        val html = """<h1>T1INF1000 Grundlagenmodul</h1>"""
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals("T1INF1000", details.moduleNumber)
+        assertEquals("Grundlagenmodul", details.moduleName)
+        assertNull(details.semesterName)
+    }
+
+    @Test
+    fun aTrailingCloseParenWithoutAnOpenOneIsKeptAsPartOfTheName() {
+        // A stray ")" with no matching "(" must not be misread as a semester marker.
+        val html = """<h1>T1INF1000 Sonderfall)</h1>"""
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals("Sonderfall)", details.moduleName)
+        assertNull(details.semesterName)
+    }
+
+    @Test
+    fun aBlankParentheticalYieldsNoSemester() {
+        val html = """<h1>T1INF1000 Modulname ( )</h1>"""
+        val details = assertNotNull(parser.parse(html))
+
+        assertNull(details.semesterName)
+    }
+
+    // ── Zugehörige Bausteine heading variants ───────────────────────────────
+
+    @Test
+    fun theHtmlEntitySpellingOfTheUnitsHeadingIsAlsoRecognised() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table><tr><td class="tbdata">a</td><td class="tbdata">Klausur</td></tr></table>
+            <h2>Zugeh&ouml;rige Bausteine</h2>
+            <table>
+              <tr><td class="tbdata">T1INF1000.1</td><td class="tbdata">Baustein A</td><td class="tbdata">Event A</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(1, details.units.size)
+        assertEquals("T1INF1000.1", details.units.single().number)
+    }
+
+    @Test
+    fun withoutAUnitsHeading_everythingIsTreatedAsTheAttemptsTable() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertTrue(details.units.isEmpty())
+        assertEquals(1, details.attempts.size)
+    }
+
+    // ── Row classification edge cases ───────────────────────────────────────
+
+    @Test
+    fun anExamRowBeforeAnyVersuchHeadingIsKeptRatherThanDropped() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(1, details.attempts.size)
+        assertEquals(1, details.attempts.single().exams.size)
+        assertNull(details.attempts.single().number, "no Versuch row was ever seen")
+    }
+
+    @Test
+    fun anEmptyRowIsSkippedAsAHeaderRow() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(1, details.attempts.single().exams.size, "the empty row must not become a phantom attempt")
+    }
+
+    @Test
+    fun aLevel01RowThatDoesNotMatchVersuchIsIgnored() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Sonstiges</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        // Falls through to the "kept before any Versuch" case, same as if the row weren't there.
+        assertEquals(1, details.attempts.size)
+        assertNull(details.attempts.single().number)
+    }
+
+    @Test
+    fun aRowMatchingNoKnownShapeContributesNothing() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td>plain, unclassed cell</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(1, details.attempts.single().exams.size)
+    }
+
+    @Test
+    fun aBlankUnitHeadingCellIsTreatedAsNoUnit() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="level02">&nbsp;</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertNull(details.attempts.single().exams.single().unitName)
+    }
+
+    @Test
+    fun anExamRowWithOnlyOneCellIsIgnored() {
+        // addExam requires at least a semester cell and a name cell; a row with just one tbdata
+        // cell must be dropped rather than crash or produce a half-built ExamResult.
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="tbdata">OnlyOneCell</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(1, details.attempts.single().exams.size, "the single-cell row contributes nothing")
+    }
+
+    @Test
+    fun aUnitRowWithFewerThanThreeCellsIsSkipped() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <h2>Zugeh&ouml;rige Bausteine</h2>
+            <table>
+              <tr><td class="tbdata">T1INF1000.1</td><td class="tbdata">Incomplete row</td></tr>
+              <tr><td class="tbdata">T1INF1000.2</td><td class="tbdata">Baustein B</td><td class="tbdata">Event B</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(1, details.units.size, "the two-cell row must not become a unit")
+        assertEquals("T1INF1000.2", details.units.single().number)
+    }
+
+    @Test
+    fun aUnitWithoutThePassIconIsNotAttended() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <h2>Zugeh&ouml;rige Bausteine</h2>
+            <table>
+              <tr><td class="tbdata">T1INF1000.1</td><td class="tbdata">Baustein A</td><td class="tbdata">Vorlesung</td><td class="tbdata"></td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(false, details.units.single().attended)
+    }
+
+    @Test
+    fun aGesamtRowWithASingleLevel02CellDoesNotCloseTheAttempt() {
+        // level02.size == 1 is read as a unit heading, not a Gesamt row - even when its own text
+        // happens to say "Gesamt".
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="level02">Gesamt</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(1, details.attempts.single().exams.size)
+        assertNull(details.attempts.single().result, "a single-cell 'Gesamt' row is a unit heading, not a verdict")
+    }
+
+    @Test
+    fun anExamWithoutAWeightPercentageHasANullWeight() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur ohne Gewichtung</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+        val exam = details.attempts.single().exams.single()
+
+        assertNull(exam.weightPercent)
+        assertEquals("Klausur ohne Gewichtung", exam.name)
+    }
+
+    @Test
+    fun aWeightPercentageWrittenWithAGermanCommaIsParsed() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur (33,5%)</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+        val exam = details.attempts.single().exams.single()
+
+        assertEquals(33.5, exam.weightPercent)
+        assertEquals("Klausur", exam.name)
+    }
+
+    @Test
+    fun anExamRowWithABlankSemesterCellHasANullSemesterName() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="tbdata"></td><td class="tbdata">Klausur</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertNull(details.attempts.single().exams.single().semesterName)
+    }
+
+    @Test
+    fun anExamRowWithABlankGradeCellHasANullGrade() {
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <table>
+              <tr><td class="level01">Versuch  1</td></tr>
+              <tr><td class="tbdata">WiSe 2025/26</td><td class="tbdata">Klausur</td><td class="tbdata">01.03.2026</td><td class="tbdata"></td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+        val exam = details.attempts.single().exams.single()
+
+        assertEquals("01.03.2026", exam.date)
+        assertNull(exam.grade)
+    }
+
+    @Test
+    fun aUnitRowWithExactlyThreeCells_isNotAttended() {
+        // No fourth (tick) cell at all, as opposed to an empty one.
+        val html = """
+            <h1>T1INF1000 Grundlagenmodul</h1>
+            <h2>Zugeh&ouml;rige Bausteine</h2>
+            <table>
+              <tr><td class="tbdata">T1INF1000.1</td><td class="tbdata">Baustein A</td><td class="tbdata">Vorlesung</td></tr>
+            </table>
+        """.trimIndent()
+
+        val details = assertNotNull(parser.parse(html))
+
+        assertEquals(false, details.units.single().attended)
+    }
 }

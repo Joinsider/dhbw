@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.resources.Res
@@ -64,6 +65,7 @@ fun LectureDetailsDialog(
     val hapticFeedback = LocalHapticFeedback.current
 
     AlertDialog(
+        modifier = Modifier.testTag("lectureDetailsDialog"),
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -72,93 +74,10 @@ fun LectureDetailsDialog(
                 fontWeight = FontWeight.Bold
             )
         },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                // Subject name (use full name, fallback to short name)
-                DetailRow(
-                    label = stringResource(Res.string.subject),
-                    value = lecture.displayName
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Date
-                DetailRow(
-                    label = stringResource(Res.string.date),
-                    value = lecture.start.date.format(DateFormatter)
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Time range
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        DetailRow(
-                            label = stringResource(Res.string.start_time),
-                            value = lecture.start.time.format(TimeFormatter)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        DetailRow(
-                            label = stringResource(Res.string.end_time),
-                            value = lecture.end.time.format(TimeFormatter)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Location
-                if (lecture.location.isNotEmpty()) {
-                    val roomCount = lecture.location.count { it == ',' } + 1
-                    DetailRow(
-                        label = if(roomCount > 1) stringResource(Res.string.rooms) else stringResource(Res.string.room),
-                        value = lecture.location
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                // Lecturer
-                if (lecture.lecturers.isNotEmpty() && !lecture.lecturers.all { it == "Unknown" }) {
-                    DetailRow(
-                        label = if (lecture.lecturers.size > 1) stringResource(Res.string.lecturers) else stringResource(Res.string.lecturer),
-                        // value should be one lecturer per line for better readability
-                        value = lecture.lecturers.joinToString("\n")
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                // Test/Exam indicator
-                if (lecture.isTest) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                MaterialTheme.colorScheme.errorContainer,
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .padding(12.dp)
-                    ) {
-                        Text(
-                            text = "⚠️ " + stringResource(Res.string.test_exam),
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        },
+        text = { LectureDetailsContent(lecture) },
         confirmButton = {
             TextButton(
+                modifier = Modifier.testTag("lectureDetailsCloseButton"),
                 onClick = {
                     onDismiss()
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -170,13 +89,125 @@ fun LectureDetailsDialog(
     )
 }
 
+@Composable
+private fun LectureDetailsContent(lecture: Lecture) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+    ) {
+        // Subject name (use full name, fallback to short name)
+        DetailRow(
+            label = stringResource(Res.string.subject),
+            value = lecture.displayName,
+            valueTestTag = "lectureDetailsSubjectValue"
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Date
+        DetailRow(
+            label = stringResource(Res.string.date),
+            value = lecture.start.date.format(DateFormatter)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LectureTimeRange(lecture)
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LectureLocationRow(lecture)
+        LectureLecturersRow(lecture)
+        LectureTestExamBanner(lecture)
+    }
+}
+
+@Composable
+private fun LectureTimeRange(lecture: Lecture) {
+    // Time range
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.weight(1f)) {
+            DetailRow(
+                label = stringResource(Res.string.start_time),
+                value = lecture.start.time.format(TimeFormatter)
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            DetailRow(
+                label = stringResource(Res.string.end_time),
+                value = lecture.end.time.format(TimeFormatter)
+            )
+        }
+    }
+}
+
+@Composable
+private fun LectureLocationRow(lecture: Lecture) {
+    // Location
+    if (lecture.location.isEmpty()) return
+
+    val roomCount = lecture.location.count { it == ',' } + 1
+    Column(modifier = Modifier.testTag("lectureLocationRow")) {
+        DetailRow(
+            label = if (roomCount > 1) stringResource(Res.string.rooms) else stringResource(Res.string.room),
+            value = lecture.location
+        )
+    }
+    Spacer(modifier = Modifier.height(8.dp))
+}
+
+@Composable
+private fun LectureLecturersRow(lecture: Lecture) {
+    // Lecturer
+    if (lecture.lecturers.isEmpty() || lecture.lecturers.all { it == "Unknown" }) return
+
+    Column(modifier = Modifier.testTag("lectureLecturersRow")) {
+        DetailRow(
+            label = if (lecture.lecturers.size > 1) stringResource(Res.string.lecturers) else stringResource(Res.string.lecturer),
+            // value should be one lecturer per line for better readability
+            value = lecture.lecturers.joinToString("\n")
+        )
+    }
+    Spacer(modifier = Modifier.height(8.dp))
+}
+
+@Composable
+private fun LectureTestExamBanner(lecture: Lecture) {
+    // Test/Exam indicator
+    if (!lecture.isTest) return
+
+    Spacer(modifier = Modifier.height(12.dp))
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("lectureTestExamBanner")
+            .background(
+                MaterialTheme.colorScheme.errorContainer,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(12.dp)
+    ) {
+        Text(
+            text = "⚠️ " + stringResource(Res.string.test_exam),
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
 /**
  * Helper composable to display a label-value pair.
  */
 @Composable
 private fun DetailRow(
     label: String,
-    value: String
+    value: String,
+    valueTestTag: String? = null
 ) {
     Column {
         Text(
@@ -187,6 +218,7 @@ private fun DetailRow(
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
+            modifier = valueTestTag?.let { Modifier.testTag(it) } ?: Modifier,
             text = value,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface

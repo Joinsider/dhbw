@@ -19,6 +19,7 @@ import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headers
+import io.ktor.utils.io.ByteChannel
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.io.IOException
 import kotlinx.coroutines.test.runTest
@@ -27,6 +28,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -226,6 +228,389 @@ class AuthenticationServiceTest {
 
         // Then
         assertTrue(!service.isAuthenticated(), "Should not be authenticated after logout")
+        service.close()
+    }
+
+    @Test
+    fun login_fullSuccessfulFlow_withNameFound_storesSessionAndFullName() = runTest {
+        // Given: the login POST is accepted and redirects (with an ARGUMENTS auth token) straight
+        // to a main page that carries the welcome banner.
+        val mockEngine = MockEngine { request ->
+            if (request.method == io.ktor.http.HttpMethod.Post) {
+                respond(
+                    content = ByteReadChannel("<html><body>redirecting...</body></html>"),
+                    status = HttpStatusCode.OK,
+                    headers = headers {
+                        append(HttpHeaders.ContentType, "text/html")
+                        append(
+                            "refresh",
+                            "0; URL=https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=STARTPAGE_DISPATCH&ARGUMENTS=-N123456789012345,-N000000000000000,-N000000000000000"
+                        )
+                    }
+                )
+            } else {
+                respond(
+                    content = ByteReadChannel(
+                        "<html><body><h1>Herzlich willkommen, Max Mustermann!</h1></body></html>"
+                    ),
+                    status = HttpStatusCode.OK,
+                    headers = headers { append(HttpHeaders.ContentType, "text/html") }
+                )
+            }
+        }
+
+        val service = createAuthenticationServiceWithMockEngine(mockEngine)
+
+        // When
+        val result = service.login("user@dhbw.de", "password")
+
+        // Then
+        val session = assertIs<Outcome.Ok<de.fampopprol.dhbwhorb.domain.model.Session>>(result).value
+        assertEquals("Max Mustermann", session.userFullName)
+        assertTrue(!session.isDemo)
+        assertEquals("123456789012345", sessionManager.getAuthData()?.sessionId)
+        service.close()
+    }
+
+    @Test
+    fun login_fullSuccessfulFlow_withoutNameInPage_stillSucceedsWithNullName() = runTest {
+        // Given: the main page is reachable (STARTPAGE indicator) but never carries the welcome
+        // banner used to extract the user's name.
+        val mockEngine = MockEngine { request ->
+            if (request.method == io.ktor.http.HttpMethod.Post) {
+                respond(
+                    content = ByteReadChannel("<html><body>redirecting...</body></html>"),
+                    status = HttpStatusCode.OK,
+                    headers = headers {
+                        append(HttpHeaders.ContentType, "text/html")
+                        append(
+                            "refresh",
+                            "0; URL=https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=STARTPAGE_DISPATCH&ARGUMENTS=-N999888777666555,-N000000000000000"
+                        )
+                    }
+                )
+            } else {
+                respond(
+                    content = ByteReadChannel("<html><body>STARTPAGE reached, no welcome banner here</body></html>"),
+                    status = HttpStatusCode.OK,
+                    headers = headers { append(HttpHeaders.ContentType, "text/html") }
+                )
+            }
+        }
+
+        val service = createAuthenticationServiceWithMockEngine(mockEngine)
+
+        // When
+        val result = service.login("user@dhbw.de", "password")
+
+        // Then
+        val session = assertIs<Outcome.Ok<de.fampopprol.dhbwhorb.domain.model.Session>>(result).value
+        assertNull(session.userFullName)
+        assertTrue(!session.isDemo)
+        service.close()
+    }
+
+    @Test
+    fun login_bodyReadThrows_reportsError() = runTest {
+        // Given: the login response's body stream fails while being read.
+        val mockEngine = MockEngine {
+            val brokenChannel = ByteChannel()
+            brokenChannel.cancel(IOException("body read failed"))
+            respond(
+                content = brokenChannel,
+                status = HttpStatusCode.OK,
+                headers = headers { append(HttpHeaders.ContentType, "text/html") }
+            )
+        }
+
+        val service = createAuthenticationServiceWithMockEngine(mockEngine)
+
+        // When
+        val result = service.login("user@dhbw.de", "password")
+
+        // Then
+        assertIs<Outcome.Err>(result)
+        service.close()
+    }
+
+    @Test
+    fun login_exceedingMaxRedirectDepth_reportsAParseFailure() = runTest {
+        // Given: the login POST succeeds, then every follow-up GET keeps handing back another
+        // interstitial redirect page, forcing the recursion past MAX_REDIRECT_DEPTH (10).
+        var requestCount = 0
+        val mockEngine = MockEngine { request ->
+            requestCount++
+            if (request.method == io.ktor.http.HttpMethod.Post) {
+                respond(
+                    content = ByteReadChannel("<html><body>redirecting...</body></html>"),
+                    status = HttpStatusCode.OK,
+                    headers = headers {
+                        append(HttpHeaders.ContentType, "text/html")
+                        append("refresh", "0; URL=/scripts/mgrqispi.dll?step=0")
+                    }
+                )
+            } else {
+                respond(
+                    content = ByteReadChannel(
+                        """<html><head><meta http-equiv="refresh" content="0; URL=/scripts/mgrqispi.dll?step=$requestCount"></head><body>please wait</body></html>"""
+                    ),
+                    status = HttpStatusCode.OK,
+                    headers = headers { append(HttpHeaders.ContentType, "text/html") }
+                )
+            }
+        }
+
+        val service = createAuthenticationServiceWithMockEngine(mockEngine)
+
+        // When
+        val result = service.login("user@dhbw.de", "password")
+
+        // Then
+        val error = assertIs<AppError.Parse>(assertIs<Outcome.Err>(result).error)
+        assertTrue(
+            error.hint.contains("redirects"),
+            "Expected the redirect-depth-limit hint, got: ${error.hint}"
+        )
+        // One login POST plus MAX_REDIRECT_DEPTH (10) follow-up GETs.
+        assertEquals(11, requestCount)
+        service.close()
+    }
+
+    @Test
+    fun login_redirectGetThrows_reportsError() = runTest {
+        // Given: the login POST succeeds, but the very first follow-up GET fails at the
+        // transport level (not just the body read).
+        var requestCount = 0
+        val mockEngine = MockEngine { request ->
+            requestCount++
+            if (request.method == io.ktor.http.HttpMethod.Post) {
+                respond(
+                    content = ByteReadChannel("<html><body>redirecting...</body></html>"),
+                    status = HttpStatusCode.OK,
+                    headers = headers {
+                        append(HttpHeaders.ContentType, "text/html")
+                        append(
+                            "refresh",
+                            "0; URL=https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=STARTPAGE_DISPATCH&ARGUMENTS=-N123456789012345,-N000000000000000"
+                        )
+                    }
+                )
+            } else {
+                throw IOException("connection reset while following redirect")
+            }
+        }
+
+        val service = createAuthenticationServiceWithMockEngine(mockEngine)
+
+        // When
+        val result = service.login("user@dhbw.de", "password")
+
+        // Then
+        assertEquals(Outcome.Err(AppError.Offline), result)
+        service.close()
+    }
+
+    @Test
+    fun login_followsOneInterstitialRedirectPage_thenReachesMainPage() = runTest {
+        // Given: login POST -> one interstitial redirect page -> the real main page.
+        var requestCount = 0
+        val mockEngine = MockEngine { request ->
+            requestCount++
+            when {
+                request.method == io.ktor.http.HttpMethod.Post -> respond(
+                    content = ByteReadChannel("<html><body>redirecting...</body></html>"),
+                    status = HttpStatusCode.OK,
+                    headers = headers {
+                        append(HttpHeaders.ContentType, "text/html")
+                        append(
+                            "refresh",
+                            "0; URL=https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=STARTPAGE_DISPATCH&ARGUMENTS=-N123456789012345,-N000000000000000"
+                        )
+                    }
+                )
+
+                requestCount == 2 -> respond(
+                    content = ByteReadChannel(
+                        """<html><head><meta http-equiv="refresh" content="0; URL=/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=STARTPAGE"></head><body>please wait</body></html>"""
+                    ),
+                    status = HttpStatusCode.OK,
+                    headers = headers { append(HttpHeaders.ContentType, "text/html") }
+                )
+
+                else -> respond(
+                    content = ByteReadChannel(
+                        "<html><body><h1>Herzlich willkommen, Erika Musterfrau!</h1></body></html>"
+                    ),
+                    status = HttpStatusCode.OK,
+                    headers = headers { append(HttpHeaders.ContentType, "text/html") }
+                )
+            }
+        }
+
+        val service = createAuthenticationServiceWithMockEngine(mockEngine)
+
+        // When
+        val result = service.login("user@dhbw.de", "password")
+
+        // Then
+        val session = assertIs<Outcome.Ok<de.fampopprol.dhbwhorb.domain.model.Session>>(result).value
+        assertEquals("Erika Musterfrau", session.userFullName)
+        assertEquals(3, requestCount, "login POST + interstitial GET + main-page GET")
+        service.close()
+    }
+
+    @Test
+    fun login_redirectPageWithNoFollowUpUrl_reportsAParseFailure() = runTest {
+        // Given: the interstitial page is recognized as a redirect page, but its meta refresh
+        // tag has no "URL=" segment for extractRedirectUrlFromHtml to find.
+        val mockEngine = MockEngine { request ->
+            if (request.method == io.ktor.http.HttpMethod.Post) {
+                respond(
+                    content = ByteReadChannel("<html><body>redirecting...</body></html>"),
+                    status = HttpStatusCode.OK,
+                    headers = headers {
+                        append(HttpHeaders.ContentType, "text/html")
+                        append(
+                            "refresh",
+                            "0; URL=https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=STARTPAGE_DISPATCH&ARGUMENTS=-N123456789012345,-N000000000000000"
+                        )
+                    }
+                )
+            } else {
+                respond(
+                    content = ByteReadChannel(
+                        """<html><head><meta http-equiv="refresh" content="5"></head><body>please wait</body></html>"""
+                    ),
+                    status = HttpStatusCode.OK,
+                    headers = headers { append(HttpHeaders.ContentType, "text/html") }
+                )
+            }
+        }
+
+        val service = createAuthenticationServiceWithMockEngine(mockEngine)
+
+        // When
+        val result = service.login("user@dhbw.de", "password")
+
+        // Then
+        val error = assertIs<AppError.Parse>(assertIs<Outcome.Err>(result).error)
+        assertTrue(error.hint.contains("no follow-up URL"))
+        service.close()
+    }
+
+    @Test
+    fun login_pageAfterRedirectIsNeitherMainNorRedirect_reportsSessionExpired() = runTest {
+        // Given: the page reached after the redirect chain is a 200 that is neither the main
+        // page nor another redirect page - Dualis' way of saying the session was rejected.
+        val mockEngine = MockEngine { request ->
+            if (request.method == io.ktor.http.HttpMethod.Post) {
+                respond(
+                    content = ByteReadChannel("<html><body>redirecting...</body></html>"),
+                    status = HttpStatusCode.OK,
+                    headers = headers {
+                        append(HttpHeaders.ContentType, "text/html")
+                        append(
+                            "refresh",
+                            "0; URL=https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=STARTPAGE_DISPATCH&ARGUMENTS=-N123456789012345,-N000000000000000"
+                        )
+                    }
+                )
+            } else {
+                respond(
+                    content = ByteReadChannel("<html><head><title>Session rejected</title></head><body>unexpected</body></html>"),
+                    status = HttpStatusCode.OK,
+                    headers = headers { append(HttpHeaders.ContentType, "text/html") }
+                )
+            }
+        }
+
+        val service = createAuthenticationServiceWithMockEngine(mockEngine)
+
+        // When
+        val result = service.login("user@dhbw.de", "password")
+
+        // Then
+        assertEquals(Outcome.Err(AppError.SessionExpired), result)
+        service.close()
+    }
+
+    @Test
+    fun login_withoutAuthToken_fallsBackToSessionCookie() = runTest {
+        // Given: the redirect URL has no ARGUMENTS (so extractAuthToken returns null), but the
+        // main page response sets a JSESSIONID cookie for dualis.dhbw.de.
+        val mockEngine = MockEngine { request ->
+            if (request.method == io.ktor.http.HttpMethod.Post) {
+                respond(
+                    content = ByteReadChannel("<html><body>redirecting...</body></html>"),
+                    status = HttpStatusCode.OK,
+                    headers = headers {
+                        append(HttpHeaders.ContentType, "text/html")
+                        append(
+                            "refresh",
+                            "0; URL=https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=STARTPAGE_DISPATCH"
+                        )
+                    }
+                )
+            } else {
+                respond(
+                    content = ByteReadChannel(
+                        "<html><body><h1>Herzlich willkommen, Cookie Fallback!</h1></body></html>"
+                    ),
+                    status = HttpStatusCode.OK,
+                    headers = headers {
+                        append(HttpHeaders.ContentType, "text/html")
+                        append(HttpHeaders.SetCookie, "JSESSIONID=cookie-session-id; Path=/; Domain=dualis.dhbw.de")
+                    }
+                )
+            }
+        }
+
+        val service = createAuthenticationServiceWithMockEngine(mockEngine)
+
+        // When
+        val result = service.login("user@dhbw.de", "password")
+
+        // Then
+        val session = assertIs<Outcome.Ok<de.fampopprol.dhbwhorb.domain.model.Session>>(result).value
+        assertEquals("Cookie Fallback", session.userFullName)
+        assertEquals("cookie-session-id", sessionManager.getAuthData()?.sessionId)
+        service.close()
+    }
+
+    @Test
+    fun login_withoutAuthTokenOrCookie_reportsAParseFailure() = runTest {
+        // Given: no ARGUMENTS in the redirect URL and no session cookie is ever set, so neither
+        // sessionId source produces a usable value.
+        val mockEngine = MockEngine { request ->
+            if (request.method == io.ktor.http.HttpMethod.Post) {
+                respond(
+                    content = ByteReadChannel("<html><body>redirecting...</body></html>"),
+                    status = HttpStatusCode.OK,
+                    headers = headers {
+                        append(HttpHeaders.ContentType, "text/html")
+                        append(
+                            "refresh",
+                            "0; URL=https://dualis.dhbw.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=STARTPAGE_DISPATCH"
+                        )
+                    }
+                )
+            } else {
+                respond(
+                    content = ByteReadChannel("<html><body>STARTPAGE, no cookie, no name</body></html>"),
+                    status = HttpStatusCode.OK,
+                    headers = headers { append(HttpHeaders.ContentType, "text/html") }
+                )
+            }
+        }
+
+        val service = createAuthenticationServiceWithMockEngine(mockEngine)
+
+        // When
+        val result = service.login("user@dhbw.de", "password")
+
+        // Then
+        val error = assertIs<AppError.Parse>(assertIs<Outcome.Err>(result).error)
+        assertTrue(error.hint.contains("neither an auth token nor a session cookie"))
         service.close()
     }
 

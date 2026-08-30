@@ -20,6 +20,9 @@ class SessionManager(private val secureStorage: SecureStorageInterface) {
         private const val KEY_COOKIE = "dualis_cookie"
         private const val KEY_IS_DEMO_MODE = "dualis_is_demo_mode"
 
+        // Intentionally public: this unlocks the built-in offline demo account (fake sample
+        // data, no real Dualis backend involved), not a real credential — anyone is meant to be
+        // able to type it in to try the app.
         const val DEMO_EMAIL = "demo@hb.dhbw-stuttgart.de"
         const val DEMO_PASSWORD = "demo123"
     }

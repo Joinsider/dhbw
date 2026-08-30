@@ -110,4 +110,70 @@ class DocumentParserTest {
         assertEquals("02.09.24", lastDoc.date)
         assertEquals("11:18", lastDoc.time)
     }
+
+    @Test
+    fun aRowUsingRealThTagsIsAlsoSkippedAsAHeader() {
+        val html = """
+            <table>
+                <tr><th>Name</th><th>Datum</th><th>Zeit</th><th>Status</th><th></th></tr>
+                <tr>
+                    <td>Studienbescheinigung</td>
+                    <td>25.03.26</td>
+                    <td>09:40</td>
+                    <td></td>
+                    <td><a href="/download/1">Download</a></td>
+                </tr>
+            </table>
+        """.trimIndent()
+
+        val documents = DocumentParser().parseDocuments(html)
+
+        assertEquals(1, documents.size, "The <th> header row must not be read as a document")
+    }
+
+    @Test
+    fun aRowWithFewerThanFiveCellsIsSkipped() {
+        val html = """
+            <table>
+                <tr><td>Only</td><td>Two cells</td></tr>
+            </table>
+        """.trimIndent()
+
+        assertTrue(DocumentParser().parseDocuments(html).isEmpty())
+    }
+
+    @Test
+    fun aRowWithNoDownloadLinkIsSkipped() {
+        val html = """
+            <table>
+                <tr>
+                    <td>Studienbescheinigung</td>
+                    <td>25.03.26</td>
+                    <td>09:40</td>
+                    <td></td>
+                    <td>no link here</td>
+                </tr>
+            </table>
+        """.trimIndent()
+
+        assertTrue(DocumentParser().parseDocuments(html).isEmpty(), "A row without a download href is not a document")
+    }
+
+    @Test
+    fun duplicateRowsAreCollapsedToOne() {
+        val row = """
+            <tr>
+                <td>Studienbescheinigung</td>
+                <td>25.03.26</td>
+                <td>09:40</td>
+                <td></td>
+                <td><a href="/download/1">Download</a></td>
+            </tr>
+        """.trimIndent()
+        val html = "<table>$row$row</table>"
+
+        val documents = DocumentParser().parseDocuments(html)
+
+        assertEquals(1, documents.size, "The same row twice must not become two documents")
+    }
 }

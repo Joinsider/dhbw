@@ -208,6 +208,44 @@ class DocumentsStoreTest {
     }
 
     @Test
+    fun refreshing_alsoFillsTheListAndClearsRefreshing() = runTest {
+        val store = store(FakeDocumentRepository(documents = Outcome.Ok(listOf(certificate))))
+
+        store.dispatch(DocumentsIntent.Refresh)
+
+        assertEquals(listOf(certificate), store.state.value.documents)
+        assertFalse(store.state.value.isRefreshing)
+        store.close()
+    }
+
+    @Test
+    fun aFailedList_isReportedAsAnError() = runTest {
+        val store = store(FakeDocumentRepository(documents = Outcome.Err(AppError.Offline)))
+
+        store.dispatch(DocumentsIntent.Load)
+
+        assertEquals(AppError.Offline, store.state.value.error)
+        assertFalse(store.state.value.isLoading)
+        store.close()
+    }
+
+    @Test
+    fun reduceDocuments_aFailureWithNoCredentials_alsoAsksForLogin() {
+        val failed = reduceDocuments(DocumentsState(), DocumentsMsg.Failed(AppError.NoCredentials))
+
+        assertEquals(AppError.NoCredentials, failed.error)
+        assertTrue(failed.requiresLogin)
+    }
+
+    @Test
+    fun reduceDocuments_anyOtherFailure_doesNotAskForLogin() {
+        val failed = reduceDocuments(DocumentsState(), DocumentsMsg.Failed(AppError.Offline))
+
+        assertEquals(AppError.Offline, failed.error)
+        assertFalse(failed.requiresLogin)
+    }
+
+    @Test
     fun twoDocumentsSharingATitle_areTrackedSeparately() = runTest {
         val second = certificate.copy(date = "07.11.25", time = "13:26")
         val repository = FakeDocumentRepository(download = Outcome.Ok(byteArrayOf(1)))

@@ -135,4 +135,40 @@ class NavigationTest {
             "Back from a tab returns to the timetable"
         )
     }
+
+    /**
+     * [currentNavItem] is not wired into the app yet (the bottom bar gets its highlighted item
+     * from each page's own `BottomNavItem` constant instead), so it needs a dedicated harness that
+     * reads it directly rather than relying on it being exercised as a side effect of navigating.
+     */
+    @Test
+    fun currentNavItem_reflectsEachTabAfterSwitching() = runComposeUiTest {
+        lateinit var navController: NavHostController
+        var current: BottomNavItem? = null
+
+        setContent {
+            val lifecycleOwner = remember { ResumedLifecycleOwner() }
+            CompositionLocalProvider(LocalLifecycleOwner provides lifecycleOwner) {
+                WithTestKoin {
+                    navController = rememberNavController()
+                    current = navController.currentNavItem()
+                    DhbwNavHost(navController = navController, onLogout = {})
+                }
+            }
+        }
+        waitForIdle()
+
+        assertTrue(current == BottomNavItem.TIMETABLE, "Expected TIMETABLE at start, got $current")
+
+        for (item in listOf(
+            BottomNavItem.GRADES,
+            BottomNavItem.DOCUMENTS,
+            BottomNavItem.SETTINGS,
+            BottomNavItem.TIMETABLE,
+        )) {
+            runOnUiThread { navController.switchTab(item) }
+            waitForIdle()
+            assertTrue(current == item, "Expected $item, got $current")
+        }
+    }
 }

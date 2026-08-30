@@ -117,7 +117,7 @@ class TimetableRepositoryImpl(
             refreshes[weekOffset] = job
             scope.launch {
                 job.join()
-                refreshMutex.withLock { if (refreshes[weekOffset] === job) refreshes.remove(weekOffset) }
+                refreshMutex.withLock { if (refreshes[weekOffset] === job) refreshes -= weekOffset }
             }
             job
         }
