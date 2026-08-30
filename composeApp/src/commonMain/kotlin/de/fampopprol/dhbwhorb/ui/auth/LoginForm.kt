@@ -182,7 +182,7 @@ private fun UsernameField(
 }
 
 /** Tab moves focus to the password field; every other key is left alone. */
-private fun handleUsernameFieldKeyEvent(
+internal fun handleUsernameFieldKeyEvent(
     keyEvent: KeyEvent,
     passwordFocusRequester: FocusRequester
 ): Boolean {
@@ -271,7 +271,7 @@ private fun PasswordField(
  * Shift+Tab moves focus back to the username field, Enter triggers login; every other key is
  * left alone.
  */
-private fun handlePasswordFieldKeyEvent(
+internal fun handlePasswordFieldKeyEvent(
     keyEvent: KeyEvent,
     usernameFocusRequester: FocusRequester,
     performLogin: () -> Unit
@@ -327,7 +327,7 @@ private fun LoginErrorText(loginError: AppError?) {
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun LoginButton(isSubmitting: Boolean, onClick: () -> Unit) {
+internal fun LoginButton(isSubmitting: Boolean, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         modifier = Modifier.testTag("loginButton")

@@ -8,6 +8,8 @@ package de.fampopprol.dhbwhorb.ui.auth
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -142,5 +144,26 @@ class LoginFormValidationTest {
         assertFailsWith<AssertionError> {
             onNodeWithContentDescription("Show password", useUnmergedTree = true).assertIsDisplayed()
         }
+    }
+
+    // LoginButton is exercised directly (rather than through a real, awaited submission) because
+    // AuthStore in these tests runs on TestScopes.immediate() — login completes synchronously, so
+    // isSubmitting is never observably true through the public form.
+    @Test
+    fun loginButton_whenSubmitting_isDisabled() = runComposeUiTest {
+        setContent {
+            LoginButton(isSubmitting = true, onClick = {})
+        }
+
+        onNodeWithTag("loginButton").assertIsNotEnabled()
+    }
+
+    @Test
+    fun loginButton_whenNotSubmitting_isEnabled() = runComposeUiTest {
+        setContent {
+            LoginButton(isSubmitting = false, onClick = {})
+        }
+
+        onNodeWithTag("loginButton").assertIsEnabled()
     }
 }

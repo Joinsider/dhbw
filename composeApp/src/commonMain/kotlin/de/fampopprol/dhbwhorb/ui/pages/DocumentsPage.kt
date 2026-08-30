@@ -110,7 +110,7 @@ private fun LoginRequiredMessage() {
 }
 
 @Composable
-private fun DocumentsContent(uiState: DocumentsState, store: DocumentsStore) {
+internal fun DocumentsContent(uiState: DocumentsState, store: DocumentsStore) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -198,7 +198,7 @@ private fun EmptyDocumentsMessage(text: String) {
 }
 
 @Composable
-private fun DocumentsList(uiState: DocumentsState, store: DocumentsStore) {
+internal fun DocumentsList(uiState: DocumentsState, store: DocumentsStore) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 16.dp),

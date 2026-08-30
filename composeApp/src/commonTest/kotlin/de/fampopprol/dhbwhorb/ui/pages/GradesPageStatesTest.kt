@@ -111,4 +111,15 @@ class GradesPageStatesTest {
 
         assertFailsWith<AssertionError> { onNodeWithTag("overallStatsCard").assertIsDisplayed() }
     }
+
+    // GradesSkeletonList is exercised directly rather than through GradesPage's loading state:
+    // GradesStore runs on TestScopes.immediate() in these tests, so EnsureLoaded resolves within
+    // the same dispatch and isLoading is never observably true through the public page.
+    @Test
+    fun gradesSkeletonList_rendersTitleAndSkeletonCards() = runComposeUiTest {
+        setContent { GradesSkeletonList() }
+        waitForIdle()
+
+        onNodeWithTag("gradesPageTitle").assertIsDisplayed()
+    }
 }

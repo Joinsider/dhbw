@@ -121,7 +121,7 @@ private fun GradesLoginRequiredMessage() {
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun GradesSkeletonList() {
+internal fun GradesSkeletonList() {
     // Skeleton UI for Grades
     LazyColumn(
         modifier = Modifier

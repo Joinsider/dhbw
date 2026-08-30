@@ -114,4 +114,54 @@ class DocumentsPageTest {
 
         onNodeWithText("Studienbescheinigung").assertIsDisplayed()
     }
+
+    // DocumentsContent is exercised directly with a hand-built isLoading state rather than through
+    // DocumentsPage: DocumentsStore runs on TestScopes.immediate() in these tests, so EnsureLoaded
+    // resolves within the same dispatch and isLoading is never observably true through the page.
+    @Test
+    fun loadingWithNoDocumentsYet_showsSkeletonInsteadOfEmptyMessage() = runComposeUiTest {
+        setContent {
+            DocumentsContent(
+                uiState = de.fampopprol.dhbwhorb.presentation.documents.DocumentsState(isLoading = true),
+                store = store(),
+            )
+        }
+        waitForIdle()
+
+        onNodeWithText("Search Documents").assertIsDisplayed()
+        assertFailsWith<AssertionError> { onNodeWithText("No documents available.").assertIsDisplayed() }
+    }
+
+    // DocumentsList is exercised directly (rather than through the full DocumentsPage) so that
+    // clicking "Open"/"Save to Files" only dispatches the store intent and never reaches
+    // DocumentsPage's HandleEffects — which would call the real, blocking platform file APIs.
+    @Test
+    fun documentActionsMenu_open_dispatchesAndClosesMenu() = runComposeUiTest {
+        val doc = document("Studienbescheinigung")
+        val documentsStore = store(documents = listOf(doc))
+        setContent { DocumentsList(uiState = documentsStore.state.value.copy(allDocuments = listOf(doc)), store = documentsStore) }
+        waitForIdle()
+
+        onNodeWithContentDescription("Download options").performClick()
+        onNodeWithText("Open").assertIsDisplayed()
+        onNodeWithText("Open").performClick()
+        waitForIdle()
+
+        assertFailsWith<AssertionError> { onNodeWithText("Open").assertIsDisplayed() }
+    }
+
+    @Test
+    fun documentActionsMenu_saveToFiles_dispatchesAndClosesMenu() = runComposeUiTest {
+        val doc = document("Studienbescheinigung")
+        val documentsStore = store(documents = listOf(doc))
+        setContent { DocumentsList(uiState = documentsStore.state.value.copy(allDocuments = listOf(doc)), store = documentsStore) }
+        waitForIdle()
+
+        onNodeWithContentDescription("Download options").performClick()
+        onNodeWithText("Save to Files").assertIsDisplayed()
+        onNodeWithText("Save to Files").performClick()
+        waitForIdle()
+
+        assertFailsWith<AssertionError> { onNodeWithText("Save to Files").assertIsDisplayed() }
+    }
 }

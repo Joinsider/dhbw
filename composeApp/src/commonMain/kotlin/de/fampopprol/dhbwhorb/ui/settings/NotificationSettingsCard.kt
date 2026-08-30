@@ -147,7 +147,7 @@ private fun rememberNotificationPermissionController(
 }
 
 @Composable
-private fun NotificationMasterToggle(
+internal fun NotificationMasterToggle(
     notificationsEnabled: Boolean,
     hasPermission: Boolean,
     hapticFeedback: HapticFeedback,
@@ -203,7 +203,7 @@ private fun NotificationMasterToggle(
 }
 
 @Composable
-private fun PermissionDeniedWarning(visible: Boolean) {
+internal fun PermissionDeniedWarning(visible: Boolean) {
     if (!visible) return
 
     Surface(

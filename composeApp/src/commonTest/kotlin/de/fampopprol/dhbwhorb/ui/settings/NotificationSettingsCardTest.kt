@@ -6,11 +6,13 @@
 
 package de.fampopprol.dhbwhorb.ui.settings
 
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferences
@@ -136,5 +138,66 @@ class NotificationSettingsCardTest {
         waitForIdle()
 
         assertTrue(invoked)
+    }
+
+    @Test
+    fun manualCheckButton_click_whenCallbackThrows_showsErrorMessage() = runComposeUiTest {
+        setContent {
+            NotificationSettingsCard(
+                state = NotificationSettingsState(notificationsEnabled = true),
+                onManualCheckRequested = { throw IllegalStateException("boom") },
+            )
+        }
+        waitForIdle()
+
+        onNodeWithTag("checkNowButton").performClick()
+        waitForIdle()
+
+        onNodeWithText("❌ Error: boom").assertIsDisplayed()
+    }
+
+    // NotificationMasterToggle is exercised directly (rather than through the full card) because
+    // `checkNotificationPermission()` is hardwired to true on the desktop actual, so `hasPermission
+    // = false` is otherwise unreachable from this suite.
+    @Test
+    fun masterToggle_whenPermissionMissing_requestsPermissionInsteadOfTogglingDirectly() = runComposeUiTest {
+        var permissionRequested = false
+        var directlyToggled: Boolean? = null
+        setContent {
+            NotificationMasterToggle(
+                notificationsEnabled = false,
+                hasPermission = false,
+                hapticFeedback = LocalHapticFeedback.current,
+                onRequestPermission = { permissionRequested = true },
+                onNotificationsEnabledChange = { directlyToggled = it },
+            )
+        }
+
+        onNodeWithTag("notificationsEnabledSwitch").performClick()
+
+        assertTrue(permissionRequested)
+        assertEquals(null, directlyToggled)
+    }
+
+    @Test
+    fun permissionDeniedWarning_whenVisible_showsMessage() = runComposeUiTest {
+        setContent {
+            PermissionDeniedWarning(visible = true)
+        }
+
+        onNodeWithText("⚠️ Notification permission denied. Please enable it in system settings.")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun permissionDeniedWarning_whenNotVisible_showsNothing() = runComposeUiTest {
+        setContent {
+            PermissionDeniedWarning(visible = false)
+        }
+
+        assertFailsWith<AssertionError> {
+            onNodeWithText("⚠️ Notification permission denied. Please enable it in system settings.")
+                .assertIsDisplayed()
+        }
     }
 }
