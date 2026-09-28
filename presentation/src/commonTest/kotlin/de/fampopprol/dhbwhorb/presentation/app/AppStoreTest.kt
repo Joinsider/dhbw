@@ -159,7 +159,7 @@ class AppStoreTest {
 
     @Test
     fun aBlockedAutoLogin_opensTheLoginAndSaysWhy() = runTest {
-        val sessions = FakeSessionRepository(session = null).apply { autoLoginBlocked.value = true }
+        val sessions = FakeSessionRepository(session = null).apply { isAutoLoginBlocked = true }
         val store = store(sessions)
 
         store.dispatch(AppIntent.Started)
@@ -182,7 +182,7 @@ class AppStoreTest {
         assertTrue(store.state.value.isLoggedIn)
 
         sessions.session = null
-        sessions.autoLoginBlocked.value = true
+        sessions.isAutoLoginBlocked = true
 
         val state = store.state.value
         assertFalse(state.isLoggedIn)
