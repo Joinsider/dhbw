@@ -1,3 +1,13 @@
+// Bouncy Castle 1.81 (pulled in by Robolectric's test classpath) and 1.79 (AGP) carry known
+// vulnerabilities. Nothing here declares Bouncy Castle itself, so pin every module that resolves it.
+buildscript {
+    configurations.classpath {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "org.bouncycastle") useVersion("1.86")
+        }
+    }
+}
+
 plugins {
     // this is necessary to avoid the plugins to be loaded multiple times
     // in each subproject's classloader
@@ -109,6 +119,14 @@ project(":composeApp") {
     sonar {
         properties {
             property("sonar.coverage.jacoco.xmlReportPaths", "build/reports/kover/report.xml")
+        }
+    }
+}
+
+allprojects {
+    configurations.configureEach {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "org.bouncycastle") useVersion("1.86")
         }
     }
 }
