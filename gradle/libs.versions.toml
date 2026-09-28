@@ -19,8 +19,6 @@ composeMultiplatform = "1.10.3"
 # Material 3 Expressive is alpha-only; see the note in composeApp/build.gradle.kts before bumping.
 #noinspection NewerVersionAvailable
 composeMaterial3 = "1.11.0-alpha06"
-credentialsManager = "1.0.0"
-credentialsStorage = "1.0.1"
 javaKeyring = "1.0.4"
 junit = "4.13.2"
 kotlin = "2.4.20"
@@ -54,8 +52,6 @@ koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
 koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel", version.ref = "koin" }
 koin-test = { module = "io.insert-koin:koin-test", version.ref = "koin" }
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "securityCrypto" }
-credentials-manager = { module = "org.timemates.credentials:credentials-manager", version.ref = "credentialsManager" }
-credentials-storage = { module = "org.timemates:credentials-storage", version.ref = "credentialsStorage" }
 java-keyring = { module = "com.github.javakeyring:java-keyring", version.ref = "javaKeyring" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMaterial3" }
