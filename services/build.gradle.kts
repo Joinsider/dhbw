@@ -106,3 +106,9 @@ kover {
         }
     }
 }
+
+dependencies {
+    constraints {
+        add("androidUnitTestImplementation", "org.bouncycastle:bcprov-jdk18on:1.85")
+    }
+}
