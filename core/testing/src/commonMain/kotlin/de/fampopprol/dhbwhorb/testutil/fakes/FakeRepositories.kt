@@ -23,6 +23,9 @@ import de.fampopprol.dhbwhorb.domain.repository.PreferencesRepository
 import de.fampopprol.dhbwhorb.domain.repository.SessionRepository
 import de.fampopprol.dhbwhorb.domain.repository.TimetableRepository
 import de.fampopprol.dhbwhorb.presentation.settings.SettingsState
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.datetime.LocalDateTime
 
 /**
@@ -143,6 +146,16 @@ class FakeSessionRepository(
     override fun isLoggedIn(): Boolean = session != null
     override fun canAuthenticate(): Boolean = canAuthenticate
     override fun isDemoMode(): Boolean = session?.isDemo == true
+
+    private val blocked = MutableStateFlow(false)
+    override val autoLoginBlocked: StateFlow<Boolean> = blocked.asStateFlow()
+
+    /** Closes or opens the automatic-login guard, as a background check or a manual login would. */
+    var isAutoLoginBlocked: Boolean
+        get() = blocked.value
+        set(value) {
+            blocked.value = value
+        }
 }
 
 class FakeAuthRepository(

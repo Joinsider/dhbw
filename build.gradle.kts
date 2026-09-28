@@ -68,7 +68,11 @@ sonar {
                 // added, and matches how NotificationPermission.android.kt above is excluded for the
                 // same "no reachable coverage variant" reason.
                 "**/src/iosMain/**",
-                "**/src/macosMain/**"
+                "**/src/macosMain/**",
+                // The fakes every module's tests build on. Deliberately without a Kover variant
+                // (see core/testing/build.gradle.kts), so the same reasoning applies: every line in
+                // it is 0% by construction, and a new line in a fake counted against the change.
+                "core/testing/**"
             ).joinToString(",")
         )
 
