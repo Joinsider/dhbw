@@ -29,6 +29,9 @@ class SessionManager(private val secureStorage: SecureStorageInterface) {
 
     private var currentAuthData: AuthData? = null
 
+    /** Whether automatic logins with the stored credentials are still allowed. */
+    val autoLoginGuard = AutoLoginGuard(secureStorage)
+
     /**
      * Store login credentials securely.
      */
@@ -162,6 +165,7 @@ class SessionManager(private val secureStorage: SecureStorageInterface) {
         secureStorage.remove(KEY_USER_FULL_NAME)
         secureStorage.remove(KEY_IS_DEMO_MODE)
         secureStorage.remove(KEY_COOKIE)
+        autoLoginGuard.reset()
     }
 
     /**

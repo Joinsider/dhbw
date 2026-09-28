@@ -156,4 +156,47 @@ class AppStoreTest {
         assertEquals(1, documents.purges)
         store.close()
     }
+
+    @Test
+    fun aBlockedAutoLogin_opensTheLoginAndSaysWhy() = runTest {
+        val sessions = FakeSessionRepository(session = null).apply { isAutoLoginBlocked = true }
+        val store = store(sessions)
+
+        store.dispatch(AppIntent.Started)
+
+        val state = store.state.value
+        assertFalse(state.isLoggedIn)
+        assertFalse(state.isRestoring)
+        assertTrue(state.reLoginRequired)
+        store.close()
+    }
+
+    @Test
+    fun aBackgroundCheckClosingTheGuard_leavesTheRunningAppForTheLogin() = runTest {
+        // Only a cold start used to look at the session; a guard closed by the hourly check while
+        // the app stays in memory would leave the user in tabs that can only show errors.
+        var resets = 0
+        val sessions = FakeSessionRepository(session = Session("Max Mustermann"))
+        val store = store(sessions, sessionScopedStores = { listOf(SessionScopedStore { resets++ }) })
+        store.dispatch(AppIntent.Started)
+        assertTrue(store.state.value.isLoggedIn)
+
+        sessions.session = null
+        sessions.isAutoLoginBlocked = true
+
+        val state = store.state.value
+        assertFalse(state.isLoggedIn)
+        assertTrue(state.reLoginRequired)
+        assertEquals(1, resets, "the screens drop what they hold while the login is up")
+        store.close()
+    }
+
+    @Test
+    fun loggingInAgain_clearsTheNotice() {
+        val blocked = reduceApp(AppState(), AppMsg.AutoLoginBlocked)
+        val restored = reduceApp(blocked, AppMsg.SessionRestored("Max", isDemo = false))
+
+        assertTrue(blocked.reLoginRequired)
+        assertFalse(restored.reLoginRequired)
+    }
 }
