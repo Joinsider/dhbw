@@ -1,6 +1,7 @@
 name: Dependabot Auto-Merge
 
-# Aktiviert Auto-Merge (squash) fuer Dependabot-PRs ohne Major-Update.
+# Approved Dependabot-PRs ohne Major-Update (das Ruleset verlangt ein Review)
+# und aktiviert Auto-Merge (squash).
 # Gemergt wird erst, wenn alle required checks des Rulesets gruen sind.
 # Major-Updates bleiben als normaler PR offen und werden manuell gemergt.
 
@@ -22,6 +23,13 @@ jobs:
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Approve non-major updates
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge for non-major updates
         if: steps.metadata.outputs.update-type != 'version-update:semver-major'
