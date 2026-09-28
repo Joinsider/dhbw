@@ -71,11 +71,13 @@ class AutoLoginGuardTest {
         }
     }
 
-    /** Counts how often the cache was wiped. */
+    /** Counts how often the cache was wiped, or refuses to wipe it. */
     private class ClearCountingDatabase : AppDatabase() {
         var clears = 0
+        var failing = false
         private val documents = object : InMemoryCachedDocumentDao() {
             override suspend fun deleteAll() {
+                if (failing) throw IllegalStateException("disk full")
                 clears++
             }
         }
@@ -224,5 +226,73 @@ class AutoLoginGuardTest {
 
         assertFalse(sessionManager.autoLoginGuard.isBlocked)
         assertFalse(sessionManager.autoLoginGuard.blocked.value)
+    }
+
+    @Test
+    fun aFirstManualLogin_hasNoPreviousAccountToClearAfter() = runTest {
+        sessionManager.logout()
+        authService.result = Outcome.Ok(Session(userFullName = null))
+
+        assertIs<Outcome.Ok<Session>>(authRepository.login(USER, "pw"))
+
+        assertEquals(0, database.clears)
+    }
+
+    @Test
+    fun theSameAccountInAnotherCase_isNotAnAccountSwitch() = runTest {
+        rejectTwice()
+        authService.result = Outcome.Ok(Session(userFullName = null))
+
+        authRepository.login(USER.uppercase(), "new-password")
+
+        assertEquals(0, database.clears)
+        assertFalse(sessionManager.autoLoginGuard.isBlocked)
+    }
+
+    @Test
+    fun anAccountSwitchWhoseCacheCannotBeCleared_doesNotLogIn() = runTest {
+        // Logging the new account in on top of the old one's grades is exactly what the clearing
+        // is there to prevent, so a failure to clear stops the login before it is sent.
+        rejectTwice()
+        authService.result = Outcome.Ok(Session(userFullName = null))
+        database.failing = true
+
+        val result = authRepository.login("erika.musterfrau@hb.dhbw-stuttgart.de", "pw")
+
+        assertIs<AppError.Storage>((result as Outcome.Err).error)
+        assertEquals(2, authService.loginCount, "no request for the new account")
+        assertTrue(sessionManager.autoLoginGuard.isBlocked)
+    }
+
+    @Test
+    fun aLogoutWhoseCacheCannotBeCleared_stillLogsOutButSaysSo() = runTest {
+        rejectTwice()
+        database.failing = true
+
+        val result = authRepository.logout()
+
+        assertIs<AppError.Storage>((result as Outcome.Err).error)
+        assertFalse(sessionManager.hasStoredCredentials())
+        assertFalse(sessionManager.autoLoginGuard.isBlocked)
+    }
+
+    @Test
+    fun anUnreadableCount_isTreatedAsNoRejections() {
+        // Nothing but this class writes the key, but a store that hands back garbage must not
+        // lock the user out — or crash the background check.
+        storage.setString("dualis_auto_login_failures", "not a number")
+
+        assertEquals(0, sessionManager.autoLoginGuard.failures)
+        assertFalse(sessionManager.autoLoginGuard.isBlocked)
+    }
+
+    @Test
+    fun aSuccessReportedWhileBlocked_doesNotOpenTheGuard() = runTest {
+        // Only a manual login opens it: nothing that merely claims success may do so in passing.
+        rejectTwice()
+
+        sessionManager.autoLoginGuard.recordSuccess()
+
+        assertTrue(sessionManager.autoLoginGuard.isBlocked)
     }
 }
