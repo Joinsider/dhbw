@@ -26,6 +26,16 @@ struct LoginScreen: View {
         ScrollView {
             VStack(spacing: 28) {
                 header
+                if model.app.state.reLoginRequired {
+                    // The one time this screen appears unasked: the stored password was rejected
+                    // and the app stopped logging in by itself.
+                    Label("login.reLoginRequired", systemImage: "lock.trianglebadge.exclamationmark")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("reLoginRequired")
+                }
                 card
                 submitButton
                 if let error = state.loginError {

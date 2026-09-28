@@ -7,6 +7,7 @@
 package de.fampopprol.dhbwhorb.domain.repository
 
 import de.fampopprol.dhbwhorb.domain.model.Session
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Read-only view of the stored session.
@@ -16,7 +17,10 @@ import de.fampopprol.dhbwhorb.domain.model.Session
  */
 interface SessionRepository {
 
-    /** The active session, or null when nobody is logged in. */
+    /**
+     * The active session, or null when nobody is logged in — which includes the stored credentials
+     * having been rejected too often, see [autoLoginBlocked].
+     */
     fun currentSession(): Session?
 
     /** True when a session exists — including a demo session. */
@@ -30,4 +34,13 @@ interface SessionRepository {
 
     /** True while the demo account is in use. */
     fun isDemoMode(): Boolean
+
+    /**
+     * True once Dualis rejected the stored credentials often enough that no automatic login is
+     * attempted any more. Survives restarts; only a successful manual login or a logout clears it.
+     *
+     * While it is true, [currentSession] is null and [canAuthenticate] false: the user has to go
+     * through the login screen.
+     */
+    val autoLoginBlocked: StateFlow<Boolean>
 }

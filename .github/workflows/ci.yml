@@ -147,8 +147,34 @@ jobs:
 
       # Every Gradle invocation configures :composeApp, which carries the Android plugin — so even
       # a pure iOS build needs an SDK location.
+      #
+      # Not android-actions/setup-android: v3.2.2 always installs the obsolete `tools` package,
+      # which current macOS runners no longer offer, so sdkmanager exits 1 before anything is built.
+      # The runner ships an SDK with cmdline-tools; this points Gradle at it and installs only what
+      # the build asks for, with the versions read from the build rather than repeated here.
       - name: Set up Android SDK
-        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+        run: |
+          sdk="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+          sdkmanager="$sdk/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$sdkmanager" ]; then
+            echo "::error::No Android cmdline-tools found at $sdk"
+            exit 1
+          fi
+
+          compile_sdk=$(sed -n 's/^android-compileSdk = "\(.*\)"/\1/p' gradle/libs.versions.toml)
+          build_tools=$(sed -n 's/.*buildToolsVersion = "\(.*\)"/\1/p' composeApp/build.gradle.kts)
+          echo "compileSdk: $compile_sdk, build tools: $build_tools"
+          test -n "$compile_sdk" && test -n "$build_tools"
+
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
+
+          # `yes` dies of SIGPIPE once sdkmanager stops reading, which pipefail would report.
+          (yes || true) | "$sdkmanager" --licenses > /dev/null
+          "$sdkmanager" --install \
+            "platform-tools" \
+            "platforms;android-$compile_sdk" \
+            "build-tools;$build_tools"
 
       - name: Cache Gradle packages
         uses: actions/cache@v4
