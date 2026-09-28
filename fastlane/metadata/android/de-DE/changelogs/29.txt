@@ -1,0 +1,1 @@
+Neu: Schutz vor Konto-Sperre. Lehnt Dualis das gespeicherte Passwort zweimal ab, stoppt die App automatische Anmeldeversuche und bittet um eine manuelle Anmeldung. Außerdem Sicherheits- und Abhängigkeitsupdates.

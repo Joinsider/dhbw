@@ -1,0 +1,1 @@
+New: account lockout protection. If Dualis rejects the stored password twice, the app stops automatic login attempts and asks you to sign in manually. Also security and dependency updates.
