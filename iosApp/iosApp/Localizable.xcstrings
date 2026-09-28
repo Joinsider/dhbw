@@ -901,6 +901,23 @@
         }
       }
     },
+    "login.reLoginRequired" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dualis hat Ihr gespeichertes Passwort zweimal abgelehnt, deshalb meldet sich die App nicht mehr automatisch an. Bitte melden Sie sich erneut an."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dualis rejected your saved password twice, so the app has stopped signing in automatically. Please sign in again."
+          }
+        }
+      }
+    },
     "login.submit" : {
       "extractionState" : "manual",
       "localizations" : {

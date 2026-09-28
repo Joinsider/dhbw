@@ -30,8 +30,27 @@ class AuthRepositoryImpl(
         const val TAG = "AuthRepositoryImpl"
     }
 
-    override suspend fun login(username: String, password: String): Outcome<Session> =
-        authenticationService.login(username, password)
+    /**
+     * The manual login — the one the user typed — and therefore the only thing that re-opens
+     * [de.fampopprol.dhbwhorb.data.dualis.remote.session.AutoLoginGuard] after the stored
+     * credentials were rejected. The automatic path is [reAuthenticate].
+     *
+     * A closed guard shows the login screen without a logout, so the previous account's cache is
+     * still on disk. When a different account logs in there, that cache goes first, as it would
+     * have on logout — before the request, so that a failure to clear it cannot leave the new
+     * account logged in on top of the old one's grades.
+     */
+    override suspend fun login(username: String, password: String): Outcome<Session> {
+        val sessionManager = authenticationService.sessionManager
+        val previousUser = sessionManager.getStoredCredentials()?.first
+        if (previousUser != null && !previousUser.equals(username, ignoreCase = true)) {
+            clearCachedData()?.let { return it }
+        }
+
+        return authenticationService.login(username, password).also { outcome ->
+            if (outcome is Outcome.Ok) sessionManager.autoLoginGuard.reset()
+        }
+    }
 
     override suspend fun reAuthenticate(): Outcome<Session> = reAuthenticator.reAuthenticate()
 
@@ -45,14 +64,16 @@ class AuthRepositoryImpl(
         authenticationService.logout()
         credentialsProvider.clearCredentials()
 
-        return try {
-            database.clearAllData()
-            Outcome.Ok(Unit)
-        } catch (e: Exception) {
-            // The session is already gone, so the user is logged out either way — but the caller
-            // is told, because stale cached data on disk is worth surfacing.
-            Napier.e("Could not clear cached data on logout: ${e.message}", e, tag = TAG)
-            Outcome.Err(AppError.Storage("clearing cached data on logout: ${e.message}"))
-        }
+        // The session is already gone, so the user is logged out either way — but the caller is
+        // told, because stale cached data on disk is worth surfacing.
+        return clearCachedData() ?: Outcome.Ok(Unit)
+    }
+
+    private suspend fun clearCachedData(): Outcome.Err? = try {
+        database.clearAllData()
+        null
+    } catch (e: Exception) {
+        Napier.e("Could not clear cached data: ${e.message}", e, tag = TAG)
+        Outcome.Err(AppError.Storage("clearing cached data: ${e.message}"))
     }
 }

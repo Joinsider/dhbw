@@ -39,9 +39,14 @@ class AppStore(
     scope = scope
 ) {
 
+    init {
+        dispatch(AppIntent.WatchAutoLogin)
+    }
+
     override fun dedupeKey(intent: AppIntent): Any = when (intent) {
         AppIntent.LogoutRequested -> "logout"
         AppIntent.Started, AppIntent.LoggedIn -> "session"
+        AppIntent.WatchAutoLogin -> "watch-auto-login"
     }
 
     override fun reduce(state: AppState, msg: AppMsg): AppState = reduceApp(state, msg)
@@ -54,11 +59,20 @@ class AppStore(
                 purgeExpiredDocuments()
 
                 val session = sessionRepository.currentSession()
-                if (session == null) {
-                    emit(AppMsg.NoSession)
-                } else {
-                    emit(AppMsg.SessionRestored(session.userFullName, session.isDemo))
+                when {
+                    session != null ->
+                        emit(AppMsg.SessionRestored(session.userFullName, session.isDemo))
+                    sessionRepository.autoLoginBlocked.value -> emit(AppMsg.AutoLoginBlocked)
+                    else -> emit(AppMsg.NoSession)
                 }
+            }
+
+            AppIntent.WatchAutoLogin -> sessionRepository.autoLoginBlocked.collect { blocked ->
+                if (!blocked) return@collect
+                // The screens would otherwise keep showing what they loaded while the login
+                // screen is up — and whoever logs in next need not be the same person.
+                sessionScopedStores().forEach { it.reset() }
+                emit(AppMsg.AutoLoginBlocked)
             }
 
             AppIntent.LogoutRequested -> {
@@ -89,7 +103,8 @@ fun reduceApp(state: AppState, msg: AppMsg): AppState = when (msg) {
         isLoggedIn = true,
         isRestoring = false,
         userFullName = msg.userFullName,
-        isDemo = msg.isDemo
+        isDemo = msg.isDemo,
+        reLoginRequired = false
     )
 
     AppMsg.NoSession -> state.copy(
@@ -100,4 +115,6 @@ fun reduceApp(state: AppState, msg: AppMsg): AppState = when (msg) {
     )
 
     AppMsg.LoggedOut -> AppState(isRestoring = false)
+
+    AppMsg.AutoLoginBlocked -> AppState(isRestoring = false, reLoginRequired = true)
 }
