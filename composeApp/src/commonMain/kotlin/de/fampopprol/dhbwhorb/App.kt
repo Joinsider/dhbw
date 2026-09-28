@@ -114,7 +114,7 @@ fun App(navController: NavHostController = rememberNavController()) {
                     ) {
                         // No success callback: the auth store emits AuthEffect.LoggedIn and the
                         // app store decides what that means.
-                        LoginPage()
+                        LoginPage(reLoginRequired = appState.reLoginRequired)
                     }
 
                     else -> DhbwNavHost(

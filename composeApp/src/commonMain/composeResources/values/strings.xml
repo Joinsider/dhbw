@@ -66,6 +66,7 @@
     <string name="error_loading_lectures">Error loading lectures.</string>
     <string name="error_session_expired">Your session has expired. Please log in again.</string>
     <string name="error_login_required">Please log in to continue.</string>
+    <string name="relogin_required">Dualis rejected your saved password twice, so the app has stopped signing in automatically. Please sign in again.</string>
     <string name="error_server">Dualis answered with an error (%1$d).</string>
     <string name="error_unreadable_response">Dualis answered with something the app could not read. It may have changed.</string>
     <string name="error_storage">Local data could not be read or written.</string>

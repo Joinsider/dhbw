@@ -180,6 +180,16 @@ Re-authentication goes through `ReAuthenticator`, which is single-flight: a `Mut
 second login path — `SessionManager` no longer has an `isReAuthenticating` flag, and the reason is
 that it let one caller through and rejected the rest.
 
+`ReAuthenticator` is also the *only automatic* login, so `AutoLoginGuard` sits there: after two
+`InvalidCredentials` in a row it answers `InvalidCredentials` without a request, so a changed
+password is not tried against Dualis every hour until the account locks. Offline and 5xx do not
+count. The count lives in secure storage next to the credentials — it survives restarts, is seen
+by the iOS widget process, and goes on logout or reinstall. **Only a manual login
+(`AuthRepositoryImpl.login`) opens it again**; while it is closed `SessionRepository` reports no
+session, and `AppStore` watches `autoLoginBlocked` so a running app switches to the login screen
+(`AppState.reLoginRequired` says why). If a *different* account logs in there, the cache is wiped
+first, as on logout.
+
 ### Expect/Actual
 Used for `getDatabaseBuilder()`, `getPlatform(): PlatformType`, and the two DI entry points
 `dataPlatformModule()` / `servicesPlatformModule()`. Not for anything that needs a constructor

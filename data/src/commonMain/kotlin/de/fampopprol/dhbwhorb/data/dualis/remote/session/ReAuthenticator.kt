@@ -26,6 +26,10 @@ import kotlinx.coroutines.sync.withLock
  *
  * Here the losers of the race await the winner's result instead of being turned away: one login
  * request reaches Dualis, and every caller gets its outcome.
+ *
+ * It is also the only automatic login, which makes it the place for [AutoLoginGuard]: after two
+ * rejections of the stored password it answers [AppError.InvalidCredentials] without asking Dualis,
+ * until the user logs in by hand.
  */
 class ReAuthenticator(
     private val sessionManager: SessionManager,
@@ -43,6 +47,7 @@ class ReAuthenticator(
      *
      * Returns [AppError.NoCredentials] when nothing is stored to log in with — the caller has to
      * send the user to the login screen, which is not the same as a failed attempt.
+     * Returns [AppError.InvalidCredentials] without a request once [AutoLoginGuard] is blocked.
      */
     suspend fun reAuthenticate(): Outcome<Session> {
         val (deferred, isLeader) = mutex.withLock {
@@ -80,6 +85,12 @@ class ReAuthenticator(
             return Outcome.Err(AppError.NoCredentials)
         }
 
+        val guard = sessionManager.autoLoginGuard
+        if (guard.isBlocked) {
+            Napier.w("Automatic login is blocked until the user logs in again", tag = TAG)
+            return Outcome.Err(AppError.InvalidCredentials)
+        }
+
         Napier.d("Re-authenticating", tag = TAG)
         // The stale token has to go first: a request racing this one would otherwise send it and
         // get another rejection back.
@@ -88,8 +99,14 @@ class ReAuthenticator(
         val (username, password) = credentials
         return authenticationService.login(username, password).also { outcome ->
             when (outcome) {
-                is Outcome.Ok -> Napier.d("Re-authentication successful", tag = TAG)
-                is Outcome.Err -> Napier.e("Re-authentication failed: ${outcome.error}", tag = TAG)
+                is Outcome.Ok -> {
+                    Napier.d("Re-authentication successful", tag = TAG)
+                    guard.recordSuccess()
+                }
+                is Outcome.Err -> {
+                    Napier.e("Re-authentication failed: ${outcome.error}", tag = TAG)
+                    if (outcome.error is AppError.InvalidCredentials) guard.recordRejection()
+                }
             }
         }
     }

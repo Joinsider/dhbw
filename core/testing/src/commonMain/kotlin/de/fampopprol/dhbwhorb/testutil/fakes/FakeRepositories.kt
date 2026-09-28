@@ -23,6 +23,7 @@ import de.fampopprol.dhbwhorb.domain.repository.PreferencesRepository
 import de.fampopprol.dhbwhorb.domain.repository.SessionRepository
 import de.fampopprol.dhbwhorb.domain.repository.TimetableRepository
 import de.fampopprol.dhbwhorb.presentation.settings.SettingsState
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.datetime.LocalDateTime
 
 /**
@@ -143,6 +144,7 @@ class FakeSessionRepository(
     override fun isLoggedIn(): Boolean = session != null
     override fun canAuthenticate(): Boolean = canAuthenticate
     override fun isDemoMode(): Boolean = session?.isDemo == true
+    override val autoLoginBlocked = MutableStateFlow(false)
 }
 
 class FakeAuthRepository(
