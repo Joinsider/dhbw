@@ -1,8 +1,5 @@
 This is a Kotlin Multiplatform project targeting Android, iOS, Desktop (JVM).
 
-At the moment only Android and Desktop application is provided as iOS will cost me 99€ per year to get a Apple Developer license. Maybe I will add this in the future.
-Also the mac version is currently not signed by me as this also requires an Apple Developer account.
-
 # Releases:
 You can find the current version under [Releases](https://github.com/Joinsider/dhbw-next/releases)
 
@@ -13,10 +10,10 @@ You can find the current version under [Releases](https://github.com/Joinsider/d
 - Google Play Store: [here](https://play.google.com/store/apps/details?id=de.fampopprol.dhbwhorb&pcampaignid=web_share)
 - F-Droid: Released in the IzzyOnDroid repository, you can find it [here](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
 
-[<img height="80px" alt="image" src="https://github.com/user-attachments/assets/0731327c-7867-4b7e-b981-e07f38071304" />](https://play.google.com/store/apps/details?id=de.fampopprol.dhbwhorb&pcampaignid=web_share)
-[<img src="./assets/izzyOnDroid.png" alt="IzzyOnDroid" height="80px">](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
-[<img height="80px" alt="image" src="https://github.com/user-attachments/assets/eb4410df-5e0a-4851-bf6b-6f951ffa2a9c" />](https://github.com/Joinsider/dhbw/releases)
-[<img width="239" height="80" alt="Download_on_the_App_Store_Badge_DE_RGB_blk_092917" src="https://github.com/user-attachments/assets/84694c28-2d4d-43c8-9dd7-caaf0e562a83" />](https://apps.apple.com/de/app/dhbw-horb-studenten-app/id6775451278?l=de-DE)
+[<img height="80px" alt="Downlaod from Google Play" src="https://github.com/user-attachments/assets/0731327c-7867-4b7e-b981-e07f38071304" />](https://play.google.com/store/apps/details?id=de.fampopprol.dhbwhorb&pcampaignid=web_share)
+[<img src="./assets/izzyOnDroid.png" alt="Download from izzyOnDroid" height="80px">](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
+[<img height="80px" alt="Download from Github Releases" src="https://github.com/user-attachments/assets/eb4410df-5e0a-4851-bf6b-6f951ffa2a9c" />](https://github.com/Joinsider/dhbw/releases)
+[<img alt="Download_on_the_App_Store" src="https://github.com/user-attachments/assets/84694c28-2d4d-43c8-9dd7-caaf0e562a83" />](https://apps.apple.com/de/app/dhbw-horb-studenten-app/id6775451278?l=de-DE)
 
 
 
@@ -50,7 +47,3 @@ The `--devel` option is required as the application gets compiled directly from 
 
 ### Debian
 Follow the guide on [this page](https://dhbw-next.joinside.de) to install the apt repository to your debian system. This way you will always get the current version. 
-
-## MacOS
-
-Follow the guide for macOS [here](documentation/macOS/README.md)
