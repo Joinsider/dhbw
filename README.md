@@ -16,6 +16,9 @@ You can find the current version under [Releases](https://github.com/Joinsider/d
 [<img height="80px" alt="image" src="https://github.com/user-attachments/assets/0731327c-7867-4b7e-b981-e07f38071304" />](https://play.google.com/store/apps/details?id=de.fampopprol.dhbwhorb&pcampaignid=web_share)
 [<img src="./assets/izzyOnDroid.png" alt="IzzyOnDroid" height="80px">](https://apt.izzysoft.de/packages/de.fampopprol.dhbwhorb)
 [<img height="80px" alt="image" src="https://github.com/user-attachments/assets/eb4410df-5e0a-4851-bf6b-6f951ffa2a9c" />](https://github.com/Joinsider/dhbw/releases)
+[<img width="239" height="80" alt="Download_on_the_App_Store_Badge_DE_RGB_blk_092917" src="https://github.com/user-attachments/assets/84694c28-2d4d-43c8-9dd7-caaf0e562a83" />](https://apps.apple.com/de/app/dhbw-horb-studenten-app/id6775451278?l=de-DE)
+
+
 
 
 
