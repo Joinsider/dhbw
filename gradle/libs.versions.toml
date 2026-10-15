@@ -7,7 +7,7 @@ androidx-activity = "1.13.0"
 androidx-appcompat = "1.7.1"
 androidx-core = "1.18.0"
 androidx-espresso = "3.7.0"
-androidx-lifecycle = "2.10.0"
+androidx-lifecycle = "2.11.0"
 # Compose Multiplatform navigation. Navigation 3 is still alpha and Android-only, so the plan's
 # rule (see .planning/v3-ARCHITECTURE-PLAN.md, P5) selects this one.
 androidx-navigation = "2.9.2"
