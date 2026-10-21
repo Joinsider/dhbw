@@ -19,8 +19,8 @@ private let notificationLog = Logger(subsystem: "de.fampopprol.dhbw", category: 
 /// colour. They pick a Material palette from the wallpaper, and iOS has neither — the app follows
 /// the system accent and `ThemeMode` instead. The store still holds them for Android and Desktop.
 ///
-/// One screen, two layouts: the iOS `Form` below, and `MacSettingsView` on macOS. Both read the
-/// same bindings and call the same actions, which live here, so the two cannot drift apart.
+/// The store's bindings and actions. The layout is `SettingsContentView`, shared by iOS and macOS;
+/// keeping the behaviour here means the two platforms cannot drift apart.
 struct SettingsScreen: View {
 
     @Environment(AppModel.self) private var model
@@ -41,10 +41,8 @@ struct SettingsScreen: View {
                 model.app.onEffect { effect in
                     if effect is AppEffectCacheNotCleared { cacheWarning = true }
                 }
-                #if os(macOS)
                 let status = await UNUserNotificationCenter.current().notificationSettings()
                 notificationsDenied = status.authorizationStatus == .denied
-                #endif
             }
             .confirmationDialog(
                 Text("settings.logoutConfirmTitle"),
@@ -70,10 +68,8 @@ struct SettingsScreen: View {
             .accessibilityIdentifier("settingsScreen")
     }
 
-    @ViewBuilder
     private var settingsContent: some View {
-        #if os(macOS)
-        MacSettingsView(
+        SettingsContentView(
             userName: model.app.state.userFullName,
             isDemo: model.app.state.isDemo,
             state: state,
@@ -86,66 +82,6 @@ struct SettingsScreen: View {
             onLogout: { showLogoutConfirmation = true },
             onOpenNotificationSettings: { openNotificationSettings() }
         )
-        #else
-        Form {
-            Section("settings.appearance") {
-                Picker("settings.theme", selection: themeBinding) {
-                    Text("settings.themeSystem").tag(ThemeMode.system)
-                    Text("settings.themeLight").tag(ThemeMode.light)
-                    Text("settings.themeDark").tag(ThemeMode.dark)
-                }
-                .pickerStyle(.segmented)
-                .accessibilityIdentifier("settingsThemePicker")
-            }
-
-            Section {
-                Toggle("settings.notifications", isOn: notificationsBinding)
-                    .accessibilityIdentifier("settingsNotificationsToggle")
-                Toggle("settings.lectureAlerts", isOn: lectureAlertsBinding)
-                    .disabled(!state.notificationsEnabled)
-                    .accessibilityIdentifier("settingsLectureAlertsToggle")
-                Picker("settings.reminder", selection: reminderBinding) {
-                    Text("settings.reminderOff").tag(Int32(0))
-                    Text("settings.reminder15").tag(Int32(15))
-                    Text("settings.reminder30").tag(Int32(30))
-                    Text("settings.reminder60").tag(Int32(60))
-                }
-                .disabled(!state.notificationsEnabled)
-                .accessibilityIdentifier("settingsReminderPicker")
-            } header: {
-                Text("settings.notificationsHeader")
-            } footer: {
-                Text("settings.lectureAlertsFooter.ios")
-            }
-
-            #if DEBUG
-            Section {
-                Button("settings.testNotificationNow") { sendTestNotification(delaySeconds: 0) }
-                    .accessibilityIdentifier("settingsTestNotificationNowButton")
-                Button("settings.testNotificationDelayed") { sendTestNotification(delaySeconds: 10) }
-                    .accessibilityIdentifier("settingsTestNotificationDelayedButton")
-                Button("settings.testReminder") { sendTestReminder() }
-                    .accessibilityIdentifier("settingsTestReminderButton")
-            } header: {
-                Text("settings.testNotificationsHeader")
-            } footer: {
-                Text("settings.testNotificationsFooter")
-            }
-            #endif
-
-            Section("settings.account") {
-                if let name = model.app.state.userFullName {
-                    LabeledContent("settings.signedInAs", value: name)
-                }
-                if model.app.state.isDemo {
-                    Label("settings.demoMode", systemImage: "theatermasks")
-                        .foregroundStyle(.secondary)
-                }
-                Button("settings.logout", role: .destructive) { showLogoutConfirmation = true }
-                    .accessibilityIdentifier("settingsLogoutButton")
-            }
-        }
-        #endif
     }
 
     private var themeBinding: Binding<ThemeMode> {
@@ -196,12 +132,11 @@ struct SettingsScreen: View {
         }
     }
 
-    #if os(macOS)
-    /// The debug-only test buttons, handed to the macOS layout. Nil in release builds, where the
+    /// The debug-only test buttons, handed to the shared layout. Nil in release builds, where the
     /// section is not compiled.
-    private var testActions: MacTestNotificationActions? {
+    private var testActions: SettingsTestActions? {
         #if DEBUG
-        return MacTestNotificationActions(
+        return SettingsTestActions(
             sendNow: { sendTestNotification(delaySeconds: 0) },
             sendDelayed: { sendTestNotification(delaySeconds: 10) },
             sendReminder: { sendTestReminder() }
@@ -210,7 +145,6 @@ struct SettingsScreen: View {
         return nil
         #endif
     }
-    #endif
 
     #if DEBUG
     /// Sends through the real Kotlin path: permission, the dispatcher, and the foreground presenter

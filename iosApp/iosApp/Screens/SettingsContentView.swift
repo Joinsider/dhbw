@@ -1,23 +1,22 @@
 // SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#if os(macOS)
 import Shared
 import SwiftUI
 
-/// The three debug-only test actions, implemented by `SettingsScreen`.
-struct MacTestNotificationActions {
+/// The debug-only test actions, implemented by `SettingsScreen`.
+struct SettingsTestActions {
     let sendNow: () -> Void
     let sendDelayed: () -> Void
     let sendReminder: () -> Void
 }
 
-/// The macOS layout of Settings, in the style of System Settings: a grouped form centred at a
-/// readable width, with a coloured icon at the start of each row.
+/// The Settings screen, in the style of System Settings: a grouped form with a coloured icon at
+/// the start of each row. iOS and macOS share it; the differences are marked where they occur.
 ///
 /// This view only lays out. The bindings and actions come from `SettingsScreen`, which is where
-/// the store is read and written, so the iOS and macOS screens share one set of behaviours.
-struct MacSettingsView: View {
+/// the store is read and written, so both platforms share one set of behaviours.
+struct SettingsContentView: View {
 
     let userName: String?
     let isDemo: Bool
@@ -29,38 +28,51 @@ struct MacSettingsView: View {
     /// Notifications were refused by the system. Shows the inline row with the way out.
     let notificationsDenied: Bool
     /// The debug-only test buttons; nil in release builds.
-    let testActions: MacTestNotificationActions?
+    let testActions: SettingsTestActions?
     let onLogout: () -> Void
     let onOpenNotificationSettings: () -> Void
 
     /// The repository the source link points at, as in the app's store metadata.
     private static let sourceURL = URL(string: "https://github.com/joinsider/dhbw")
 
+    #if os(macOS)
     /// The width of the settings column. The grouped Form itself fills the window, so the whole
     /// pane scrolls and the scroll indicator sits at the window edge; the column is kept at this
-    /// width by insetting the scroll content.
+    /// width by insetting the scroll content. iOS has no window to centre in and keeps its own
+    /// inset grouped margins.
     private static let columnWidth: CGFloat = 640
+    #endif
 
     var body: some View {
+        #if os(macOS)
         GeometryReader { proxy in
-            Form {
-                accountSection
-                appearanceSection
-                notificationsSection
-                backgroundSection
-                aboutSection
-                #if DEBUG
-                if let testActions {
-                    debugSection(testActions)
-                }
-                #endif
+            form
+                .formStyle(.grouped)
+                .contentMargins(
+                    .horizontal,
+                    max(20, (proxy.size.width - Self.columnWidth) / 2),
+                    for: .scrollContent
+                )
+        }
+        #else
+        form
+        #endif
+    }
+
+    private var form: some View {
+        Form {
+            accountSection
+            appearanceSection
+            notificationsSection
+            #if os(macOS)
+            backgroundSection
+            #endif
+            aboutSection
+            #if DEBUG
+            if let testActions {
+                debugSection(testActions)
             }
-            .formStyle(.grouped)
-            .contentMargins(
-                .horizontal,
-                max(20, (proxy.size.width - Self.columnWidth) / 2),
-                for: .scrollContent
-            )
+            #endif
         }
     }
 
@@ -109,13 +121,11 @@ struct MacSettingsView: View {
             Toggle(isOn: notifications) {
                 rowLabel("settings.notifications", systemName: "bell.badge.fill", color: .red)
             }
-            .toggleStyle(.switch)
             .accessibilityIdentifier("settingsNotificationsToggle")
 
             Toggle(isOn: lectureAlerts) {
                 rowLabel("settings.lectureAlerts", systemName: "calendar.badge.clock", color: .green)
             }
-            .toggleStyle(.switch)
             .disabled(!state.notificationsEnabled)
             .accessibilityIdentifier("settingsLectureAlertsToggle")
 
@@ -127,13 +137,16 @@ struct MacSettingsView: View {
             } label: {
                 rowLabel("settings.reminder", systemName: "clock.fill", color: .orange)
             }
-            .pickerStyle(.menu)
             .disabled(!state.notificationsEnabled)
             .accessibilityIdentifier("settingsReminderPicker")
         } header: {
             Text("settings.notificationsHeader")
         } footer: {
+            #if os(macOS)
             Text("settings.lectureAlertsFooter.macos")
+            #else
+            Text("settings.lectureAlertsFooter.ios")
+            #endif
         }
     }
 
@@ -156,6 +169,7 @@ struct MacSettingsView: View {
         }
     }
 
+    #if os(macOS)
     @ViewBuilder
     private var backgroundSection: some View {
         Section {
@@ -194,6 +208,7 @@ struct MacSettingsView: View {
                 .foregroundStyle(.secondary)
         }
     }
+    #endif
 
     @ViewBuilder
     private var aboutSection: some View {
@@ -214,7 +229,7 @@ struct MacSettingsView: View {
 
     #if DEBUG
     @ViewBuilder
-    private func debugSection(_ actions: MacTestNotificationActions) -> some View {
+    private func debugSection(_ actions: SettingsTestActions) -> some View {
         Section {
             Button("settings.testNotificationNow", action: actions.sendNow)
                 .accessibilityIdentifier("settingsTestNotificationNowButton")
@@ -250,4 +265,3 @@ struct MacSettingsView: View {
         return "\(version) (\(build))"
     }
 }
-#endif

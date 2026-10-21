@@ -67,15 +67,14 @@ struct TimetableScreen: View {
         }
         .sheet(isPresented: lectureSheetBinding) {
             if let lecture = state.selectedLecture {
-                #if os(macOS)
-                // The macOS sheet is as tall as its content; a medium detent would leave a gap.
-                MacLectureDetailsView(lecture: lecture)
+                LectureDetailsView(lecture: lecture)
+                    #if os(macOS)
+                    // The macOS sheet is as tall as its content; a medium detent would leave a gap.
                     .presentationSizing(.fitted)
-                #else
-                LectureDetailSheet(lecture: lecture)
-                    .presentationDetents([.medium])
+                    #else
+                    .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
-                #endif
+                    #endif
             }
         }
         .alert(
@@ -343,40 +342,5 @@ struct LectureRow: View {
         .contentShape(Rectangle())
         // One label per row, so VoiceOver reads a lecture as a sentence instead of six fragments.
         .accessibilityElement(children: .combine)
-    }
-}
-
-struct LectureDetailSheet: View {
-
-    @Environment(\.dismiss) private var dismiss
-    let lecture: Lecture
-
-    var body: some View {
-        NavigationStack {
-            List {
-                LabeledContent("timetable.subject", value: lecture.displayName)
-                LabeledContent("timetable.date", value: lecture.start.dateText)
-                LabeledContent("timetable.start", value: lecture.start.timeText)
-                LabeledContent("timetable.end", value: lecture.end.timeText)
-                if !lecture.location.isEmpty {
-                    LabeledContent("timetable.room", value: lecture.location)
-                }
-                if !lecture.lecturers.isEmpty {
-                    LabeledContent("timetable.lecturers", value: lecture.lecturers.joined(separator: ", "))
-                }
-                if lecture.isTest {
-                    Label("timetable.exam", systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                }
-            }
-            .navigationTitle("timetable.details")
-            .platformInlineTitle()
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("common.close") { dismiss() }
-                }
-            }
-            .platformSheetFrame()
-        }
     }
 }

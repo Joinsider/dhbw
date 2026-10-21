@@ -9,6 +9,10 @@ import Shared
 /// The grade list can only show the module's final grade. A module like Mathematik III carries a
 /// Klausur in Angewandte Mathematik and one in Statistik, and its 3,2 is what those two came to
 /// together — visible nowhere else in the app.
+///
+/// One view for both platforms, laid out like the lecture details: a header with the module's name
+/// and its grade, then grouped sections with an icon per row. The values are selectable, so a
+/// number can be copied on a Mac. On macOS the sheet is 480pt wide and as tall as its content.
 struct ModuleDetailsSheet: View {
 
     let module: GradeEntry
@@ -22,8 +26,12 @@ struct ModuleDetailsSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                header
+            Form {
+                Section {
+                    header
+                }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
 
                 if let details, !details.attempts.isEmpty {
                     ForEach(Array(details.attempts.enumerated()), id: \.offset) { _, attempt in
@@ -59,45 +67,60 @@ struct ModuleDetailsSheet: View {
                 if let units = details?.units, !units.isEmpty {
                     Section("grades.details.units") {
                         ForEach(Array(units.enumerated()), id: \.offset) { _, unit in
-                            HStack(alignment: .firstTextBaseline) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(unit.name)
-                                    Text(unit.number).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if unit.attended {
-                                    Image(systemName: "checkmark").foregroundStyle(Color.brand)
-                                }
-                            }
+                            unitRow(unit)
                         }
                     }
                 }
             }
+            .formStyle(.grouped)
             .navigationTitle("grades.details.title")
             .platformInlineTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("common.close") { dismiss() }
+                        .keyboardShortcut(.defaultAction)
+                        .accessibilityIdentifier("gradeDetailsCloseButton")
                 }
             }
-            .platformSheetFrame()
+            .sheetPlatformFit()
         }
+        // Escape closes the sheet on a Mac, as it does on any macOS sheet.
+        .sheetExitCommand { dismiss() }
         .accessibilityIdentifier("moduleDetailsSheet")
     }
 
+    /// The module's name, its grade, and the line that says where it belongs.
     private var header: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
                 Text(details?.moduleName ?? module.moduleName)
-                    .font(.headline)
-                Text(module.moduleNumber)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("\(module.credits.formatted(.number.precision(.fractionLength(1)))) CP")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.title2.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                Spacer(minLength: 8)
+                GradeBadge(grade: module.grade, countsTowardDegree: module.countsTowardDegree)
             }
+            Text(verbatim: headerDetail)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 4)
+        // One label for the header, so VoiceOver reads the module as a sentence.
+        .accessibilityElement(children: .combine)
+    }
+
+    /// `05-01-0101 · Wintersemester 2025/26 · 6,0 CP`.
+    private var headerDetail: String {
+        [
+            module.moduleNumber,
+            module.semesterName,
+            "\(module.credits.formatted(.number.precision(.fractionLength(1)))) CP",
+        ]
+        .filter { !$0.isEmpty }
+        .joined(separator: " · ")
     }
 
     private func attemptSection(_ attempt: ModuleAttempt) -> some View {
@@ -107,10 +130,15 @@ struct ModuleDetailsSheet: View {
             }
 
             if let result = attempt.result {
-                HStack {
-                    Text("grades.details.total").fontWeight(.semibold)
+                HStack(spacing: 12) {
+                    SettingsIcon(systemName: "sum", color: .brand)
+                    Text("grades.details.total")
+                        .fontWeight(.semibold)
                     Spacer()
-                    Text(result).fontWeight(.semibold).monospacedDigit()
+                    Text(result)
+                        .fontWeight(.semibold)
+                        .monospacedDigit()
+                        .textSelection(.enabled)
                 }
             }
         } header: {
@@ -123,19 +151,24 @@ struct ModuleDetailsSheet: View {
     }
 
     private func examRow(_ exam: ExamResult) -> some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack(alignment: .center, spacing: 12) {
+            SettingsIcon(systemName: "doc.text.fill", color: .blue)
             VStack(alignment: .leading, spacing: 2) {
                 if let unit = exam.unitName {
-                    Text(unit).font(.subheadline)
+                    Text(unit)
                 }
                 // The exam's own line: what kind of exam it was, what share of the Baustein it
                 // carries, and in which semester it was written.
                 Text(subtitle(for: exam))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
-            Text(exam.grade ?? "–").font(.headline).monospacedDigit()
+            Spacer(minLength: 8)
+            Text(exam.grade ?? "–")
+                .font(.headline)
+                .monospacedDigit()
+                .textSelection(.enabled)
         }
     }
 
@@ -150,16 +183,21 @@ struct ModuleDetailsSheet: View {
     }
 
     private func entryRow(_ entry: GradeEntry) -> some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack(alignment: .center, spacing: 12) {
+            SettingsIcon(systemName: "list.bullet.rectangle.fill", color: .gray)
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.semesterName)
                 if let status = entry.status, !status.isEmpty {
-                    Text(status).font(.caption).foregroundStyle(.secondary)
+                    Text(status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
-            Spacer()
+            Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
-                Text(entry.grade ?? "–").monospacedDigit()
+                Text(entry.grade ?? "–")
+                    .monospacedDigit()
+                    .textSelection(.enabled)
                 // Says out loud what the totals at the top of the screen did silently: a failed
                 // or superseded attempt is on the transcript but not in the average.
                 Text(entry.countsTowardDegree ? "grades.details.counted" : "grades.details.notCounted")
@@ -167,5 +205,51 @@ struct ModuleDetailsSheet: View {
                     .foregroundStyle(entry.countsTowardDegree ? Color.brand : .secondary)
             }
         }
+    }
+
+    private func unitRow(_ unit: ModuleUnit) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            SettingsIcon(systemName: "book.closed.fill", color: .teal)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(unit.name)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(unit.number)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            if unit.attended {
+                Image(systemName: "checkmark")
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.brand)
+            }
+        }
+    }
+}
+
+// MARK: - Platform sizing
+
+private extension View {
+
+    /// A macOS sheet is 480pt wide and takes the height of its content. Its own minimum size is
+    /// left off on purpose: a short module would otherwise stand in a box of empty space.
+    @ViewBuilder
+    func sheetPlatformFit() -> some View {
+        #if os(macOS)
+        frame(width: 480)
+            .fixedSize(horizontal: false, vertical: true)
+        #else
+        self
+        #endif
+    }
+
+    /// Escape closes the sheet. macOS only: iOS has no exit command, and its sheet is swiped away.
+    @ViewBuilder
+    func sheetExitCommand(_ action: @escaping () -> Void) -> some View {
+        #if os(macOS)
+        onExitCommand(perform: action)
+        #else
+        self
+        #endif
     }
 }
