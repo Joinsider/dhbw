@@ -13,10 +13,11 @@ import kotlinx.coroutines.*
 import kotlin.time.Duration.Companion.minutes
 
 /**
- * Coroutine-based periodic monitoring for lecture changes, shared by desktop and macOS.
+ * Coroutine-based periodic monitoring for lecture changes on the JVM desktop build.
  *
- * Runs hourly, in step with Android and iOS. Only while the app is open — neither build has a
- * background service, so closing the window ends the monitoring with it.
+ * Runs hourly, in step with Android and iOS. Only while the app is open — the desktop build has no
+ * background service, so quitting the app ends the monitoring with it. macOS uses
+ * `NSBackgroundActivityScheduler` instead (see `services/src/macosMain`).
  */
 class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent {
 
@@ -30,12 +31,12 @@ class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent
     /**
      * Registers the background launch handler. A no-op here.
      *
-     * Exists so Swift can call the same name on every Apple platform. iOS needs a `BGTaskScheduler`
-     * registration before launch finishes; macOS apps have no equivalent, so the loop started by
-     * [schedule] simply runs while the app is open.
+     * Exists so the platform entry points can call the same name everywhere. iOS needs a
+     * `BGTaskScheduler` registration before launch finishes; the desktop build has no equivalent,
+     * so the loop started by [schedule] simply runs while the app is open.
      */
     fun registerTaskHandler() {
-        Napier.d("No background task handler on desktop or macOS, the loop runs while the app is open", tag = TAG)
+        Napier.d("No background task handler on desktop, the loop runs while the app is open", tag = TAG)
     }
 
     /**

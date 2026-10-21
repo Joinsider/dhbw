@@ -39,6 +39,16 @@ struct SettingsScreen: View {
                 .accessibilityIdentifier("settingsThemePicker")
             }
 
+            #if os(macOS)
+            Section {
+                BackgroundModeSettings()
+            } header: {
+                Text("settings.backgroundHeader")
+            } footer: {
+                Text("settings.backgroundFooter")
+            }
+            #endif
+
             Section {
                 Toggle("settings.notifications", isOn: notificationsBinding)
                     .accessibilityIdentifier("settingsNotificationsToggle")

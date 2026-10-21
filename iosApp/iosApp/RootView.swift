@@ -41,6 +41,14 @@ final class AppModel {
         app.dispatch(AppIntentStarted())
         settings.dispatch(SettingsIntentLoad())
 
+#if os(macOS)
+        // A background launch has no timetable screen to ask for the current week, and the menu bar
+        // item shows the next lecture from exactly that store. Asked here, once, at launch.
+        if BackgroundMode.shared.isEnabled {
+            timetable.dispatch(TimetableIntentWeekFocused(offset: 0))
+        }
+#endif
+
         // The widget extension reads the same database out of the App Group container, but it is
         // a separate process: only the app can tell WidgetKit that a fetch has landed.
         handles.append(shared.observeTimetableChanges {

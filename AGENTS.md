@@ -161,9 +161,38 @@ What differs from iOS at runtime:
 - **No widget and no App Group.** The widget extension is iOS-only (`platformFilter = ios`), so the
   macOS database lives in the sandbox container, and `setWidgetReload` is a no-op there
   (`installWidgetReload` is the expect/actual).
-- **Background check only while the app is open.** There is no `BGTaskScheduler` on macOS:
-  `LectureMonitorScheduler` (in `desktopAndMacosMain`) runs the hourly loop in-process, and
-  `registerTaskHandler()` is a no-op. Closing the app stops the checks, unlike iOS.
+- **Hourly check on `NSBackgroundActivityScheduler`.** There is no `BGTaskScheduler` on macOS.
+  `LectureMonitorScheduler` in `services/src/macosMain` creates one `NSBackgroundActivityScheduler`
+  (identifier `de.fampopprol.dhbwhorb.lecture-monitor`, hourly, ten minutes' tolerance, utility QoS).
+  The system picks the moment, defers under load and does not fire during sleep. The JVM desktop keeps
+  its own coroutine loop in `desktopMain`. `registerTaskHandler()` is a no-op on both. Every run goes
+  through `NotificationManager.checkAndNotify()`, which replans the reminders first, as on iOS. The
+  check runs only while the process runs, so on its own it stops when the app quits.
+- **Background mode: a login item that starts hidden (`iosApp/iosApp/Mac/`).** The
+  Settings switch "Beim Anmelden im Hintergrund starten" registers `SMAppService.mainApp`. Its
+  status is the only state: nothing stores a second flag, and `BackgroundMode.shared` re-reads it on
+  every app activation, because the user can remove the item in System Settings. Turning it on
+  while the status is `.requiresApproval` shows a button to Login Items.
+  - *Login launch detection* (`LaunchContext` in `Mac/BackgroundMode.swift`): either the launching
+    Apple event carries `keyAELaunchedAsLogInItem`, or the system has been up for less than five
+    minutes. The second signal is what makes it work after a reboot; logout and login without a reboot
+    is only recognised by the first, which SwiftUI does not guarantee to be current.
+  - *Starting hidden* (only when the launch is a login launch and the item is enabled): the activation
+    policy is `.accessory` before the first window exists, the `Window` scene uses
+    `defaultLaunchBehavior(.suppressed)` with `restorationBehavior(.disabled)`, and
+    `applicationDidFinishLaunching` closes any window that appeared anyway.
+  - *Window and Dock:* a key window switches the app to `.regular`; the last user window closing
+    switches it back to `.accessory` (menu bar only, no Dock icon). `applicationShouldTerminateAfterLastWindowClosed`
+    returns `false` in both modes, which is AppKit's default and today's behaviour. The window is a
+    single `Window` scene so the menu's "Stundenplan öffnen" brings it forward rather than duplicating it.
+  - *Menu bar:* `MenuBarExtra` with `isInserted:` bound to the login-item status, so it exists only in
+    background mode. It shows the next lecture today or tomorrow from the timetable store, "Stundenplan
+    öffnen", "Jetzt aktualisieren" (timetable refresh for the current week) and "Beenden".
+  - *Stores start at launch:* `AppModel` is created by `@State` on the `App`, so the stores, the monitor
+    schedule and the reminder replan run on a hidden launch too.
+  - *What does not run:* nothing before the user logs in; nothing after ⌘Q or after the login item is
+    switched off. Launching
+    the app again from Finder while it is hidden does not open the window: use the menu bar item.
 - **Reminders use the iOS mechanism.** `AppleLectureReminderScheduler` (`services/src/appleMain`) is
   bound on both Apple platforms and plans `UNCalendarNotificationTrigger` requests, so the 64-pending
   limit and `MAX_REMINDERS` apply on macOS too.
@@ -488,6 +517,9 @@ cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration 
 | `iosApp/iosApp/RootView.swift` | `AppModel` (stores, widget reload, background schedule) plus login gate and tab bar |
 | `shared/src/iosMain/…/ios/WidgetSnapshot.kt` | The widget's data, defined once; the extension's only Kotlin entry point |
 | `services/…/notifications/LectureMonitorScheduler.ios.kt` | `BGTaskScheduler` registration, submission and the background check |
+| `services/src/macosMain/…/notifications/LectureMonitorScheduler.kt` | `NSBackgroundActivityScheduler` for macOS; the JVM desktop loop is in `desktopMain` |
+| `iosApp/iosApp/Mac/BackgroundMode.swift` | macOS background mode: login item, login-launch detection, `MacAppDelegate` (activation policy, last window) |
+| `iosApp/iosApp/Mac/MenuBarMenu.swift` | The menu bar item shown in background mode |
 | `iosApp/TimetableWidgetExtension.entitlements` | App Group + keychain group for the extension (the app's are in `iosApp/iosApp/iosApp.entitlements`) |
 | `iosApp/iosApp/Localizable.xcstrings` | iOS strings (en/de); the Compose UI has its own in `composeResources` |
 | `iosApp/TimetableWidget/Localizable.xcstrings` | The widget extension's strings (en/de) — a bundle of its own, not the app's |

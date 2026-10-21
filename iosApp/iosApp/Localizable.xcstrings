@@ -986,6 +986,108 @@
         }
       }
     },
+    "menu.noLectureSoon" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heute und morgen keine Vorlesung"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No lectures today or tomorrow"
+          }
+        }
+      }
+    },
+    "menu.openTimetable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stundenplan öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open timetable"
+          }
+        }
+      }
+    },
+    "menu.quit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beenden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit"
+          }
+        }
+      }
+    },
+    "menu.refresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jetzt aktualisieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh now"
+          }
+        }
+      }
+    },
+    "menu.today" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heute"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
+          }
+        }
+      }
+    },
+    "menu.tomorrow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Morgen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tomorrow"
+          }
+        }
+      }
+    },
     "nav.documents" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1088,6 +1190,91 @@
         }
       }
     },
+    "settings.backgroundApproval" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS wartet auf deine Zustimmung. Erlaube die App unter Anmeldeobjekte."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS is waiting for your approval. Allow the app under Login Items."
+          }
+        }
+      }
+    },
+    "settings.backgroundFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Einstellung konnte nicht gespeichert werden:"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The setting could not be saved:"
+          }
+        }
+      }
+    },
+    "settings.backgroundFooter" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nach der Anmeldung startet die App nur als Symbol in der Menüleiste, ohne Fenster und ohne Dock-Symbol. Abschalten geht hier oder unter Systemeinstellungen → Allgemein → Anmeldeobjekte."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After you log in, the app starts only as a menu bar item, without a window or a Dock icon. Turn this off here or in System Settings → General → Login Items."
+          }
+        }
+      }
+    },
+    "settings.backgroundHeader" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hintergrund"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Background"
+          }
+        }
+      }
+    },
+    "settings.backgroundMode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beim Anmelden im Hintergrund starten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run in background at login"
+          }
+        }
+      }
+    },
     "settings.cacheNotCleared" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1179,13 +1366,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Der Mac prüft stündlich auf Änderungen, solange die App geöffnet ist. Wenn du die App schließt, findet keine Prüfung statt."
+            "value" : "Der Mac prüft stündlich auf Änderungen, solange die App läuft. Mit „Beim Anmelden im Hintergrund starten“ laufen die Prüfungen auch nach der Anmeldung, ohne geöffnetes Fenster."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your Mac checks for changes every hour while the app is open. Closing the app stops the checks."
+            "value" : "Your Mac checks for changes every hour while the app runs. With “Run in background at login” the checks also run after you log in, without an open window."
           }
         }
       }
@@ -1288,6 +1475,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notifications"
+          }
+        }
+      }
+    },
+    "settings.openLoginItems" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anmeldeobjekte öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Login Items"
           }
         }
       }

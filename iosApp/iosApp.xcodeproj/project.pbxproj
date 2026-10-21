@@ -39,6 +39,7 @@
 /* Begin PBXFileReference section */
 		8F41FE2E3088A4F1009C77F1 /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		8F9F0CBC3088BCBD00DEDAAC /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
+		8F9F0D003088BD8B00DEDAAC /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		8FA245AF3041F67000BE69E1 /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		8FBC13C32F640F9800803DDB /* TimetableWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TimetableWidgetExtension.entitlements; sourceTree = "<group>"; };
 		8FC8A4852F629DED005E3108 /* TimetableWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TimetableWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -143,6 +144,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		8F9F0D053088BD8B00DEDAAC /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		8FA245B33041F67000BE69E1 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
@@ -170,6 +176,7 @@
 				8FF88F92303B8E6B0004600A /* iosApp.xcodeproj */,
 				8FEEBC89306A92D200436D4F /* iosApp.xcodeproj */,
 				8F41FE2E3088A4F1009C77F1 /* iosApp.xcodeproj */,
+				8F9F0CBC3088BCBD00DEDAAC /* iosApp.xcodeproj */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -287,6 +294,10 @@
 				{
 					ProductGroup = 8FA245B33041F67000BE69E1 /* Products */;
 					ProjectRef = 8FA245AF3041F67000BE69E1 /* iosApp.xcodeproj */;
+				},
+				{
+					ProductGroup = 8F9F0D053088BD8B00DEDAAC /* Products */;
+					ProjectRef = 8F9F0D003088BD8B00DEDAAC /* iosApp.xcodeproj */;
 				},
 				{
 					ProductGroup = 8FF88F96303B8E6B0004600A /* Products */;
