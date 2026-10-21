@@ -36,21 +36,32 @@ struct MacSettingsView: View {
     /// The repository the source link points at, as in the app's store metadata.
     private static let sourceURL = URL(string: "https://github.com/joinsider/dhbw")
 
+    /// The width of the settings column. The grouped Form itself fills the window, so the whole
+    /// pane scrolls and the scroll indicator sits at the window edge; the column is kept at this
+    /// width by insetting the scroll content.
+    private static let columnWidth: CGFloat = 640
+
     var body: some View {
-        Form {
-            accountSection
-            appearanceSection
-            notificationsSection
-            backgroundSection
-            aboutSection
-            #if DEBUG
-            if let testActions {
-                debugSection(testActions)
+        GeometryReader { proxy in
+            Form {
+                accountSection
+                appearanceSection
+                notificationsSection
+                backgroundSection
+                aboutSection
+                #if DEBUG
+                if let testActions {
+                    debugSection(testActions)
+                }
+                #endif
             }
-            #endif
+            .formStyle(.grouped)
+            .contentMargins(
+                .horizontal,
+                max(20, (proxy.size.width - Self.columnWidth) / 2),
+                for: .scrollContent
+            )
         }
-        .formStyle(.grouped)
-        .frame(maxWidth: 640)
     }
 
     // MARK: Sections
