@@ -1,8 +1,9 @@
 # AGENTS.md – DHBW Horb Student App
 
-Kotlin Multiplatform (KMP) app targeting **Android, Desktop (JVM), iOS, macOS**. Android, Desktop
-and macOS use Compose Multiplatform; **iOS is native SwiftUI since P7** and shares everything below
-the UI through `Shared.framework`. Scrapes the DHBW Dualis web portal for timetable and grades.
+Kotlin Multiplatform (KMP) app targeting **Android, Desktop (JVM: Linux and Windows), iOS and
+macOS**. Android and Desktop use Compose Multiplatform. **iOS and macOS are one native SwiftUI
+app** (iOS since P7, macOS since the SwiftUI target became multiplatform), and both share everything
+below the UI through `Shared.framework`. Scrapes the DHBW Dualis web portal for timetable and grades.
 
 ## Architecture Overview
 
@@ -23,13 +24,14 @@ boundaries do not change package names, so imports are identical across the spli
 :presentation    MVI stores: State / Intent / Msg / Effect,
                  reducers                                       -> :services
 :shared          Umbrella; exports the five production modules above as
-                 `Shared.framework` for Apple targets — no Compose,
-                 plus the Swift bridge in `shared/iosMain/…/ios/`
+                 `Shared.framework` for Apple targets (iOS and macOS) — no Compose,
+                 plus the Swift bridge in `shared/appleMain/…/ios/` (WidgetSnapshot
+                 stays in `shared/iosMain`)
 :composeApp      Compose UI, navigation, platform entry points,
                  Android Glance widget                           -> all of the above
-                 (Android, Desktop and macOS only — no iOS target)
-iosApp/          The SwiftUI app: `RootView` + five screens,
-                 links `Shared.framework`
+                 (Android and JVM desktop only — no Apple target)
+iosApp/          The SwiftUI app for iOS and macOS: `RootView` + five screens,
+                 links `Shared.framework` (see "macOS is the SwiftUI app")
 ```
 
 Everything above `:data` talks to the six repository interfaces in `:domain`
@@ -46,6 +48,9 @@ Verify the framework stays Compose-free after changes:
 ```bash
 ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
 nm -gU shared/build/bin/iosSimulatorArm64/debugFramework/Shared.framework/Shared | grep -c androidx.compose   # must be 0
+
+./gradlew :shared:linkDebugFrameworkMacosArm64
+nm -gU shared/build/bin/macosArm64/debugFramework/Shared.framework/Shared | grep -c androidx.compose   # must be 0
 ```
 
 There are no service locators left. Three used to exist as bridges, each initialised from
@@ -108,7 +113,7 @@ excluding `dualis_secure_prefs.xml` in `res/xml/backup_rules.xml` and
 `res/xml/data_extraction_rules.xml`.
 
 Platform entry points: `composeApp/androidMain/MainActivity.kt`, `composeApp/desktopMain/main.kt`,
-`composeApp/macosMain/main.kt`, and `iosApp/iosApp/iOSApp.swift` (which calls `SharedApp.start()`).
+and `iosApp/iosApp/iOSApp.swift` (which calls `SharedApp.start()`; the same file serves macOS).
 
 **On iOS there is a second process.** Since P8 the widget extension links `Shared.framework` too
 and starts its own Koin graph through `WidgetSnapshotProvider`; the two processes share the
@@ -130,6 +135,44 @@ database file in the App Group container, nothing else. That means:
 * App and extension see the same keychain items because both entitlement files list
   `$(AppIdentifierPrefix)de.fampopprol.dhbw` first. No access group is named in code — see
   `IosSecureStorage`.
+
+### macOS is the SwiftUI app, built from the same target
+
+The Mac app is not a second Compose app. It is the SwiftUI target in `iosApp/`, which is one
+multiplatform target built for iOS 26 and macOS 26 with the same bundle id (`de.fampopprol.dhbw`).
+On the Mac App Store that makes macOS a platform of the existing iOS app record, so Universal
+Purchase covers it and it replaces the "Designed for iPad" build. The reason for one target rather
+than a separate Mac project is that the Swift code, the bridges and the store plumbing are shared;
+the differences are `#if os(macOS)` branches inside the same files: the timetable uses a toolbar
+(previous / Today / next, ⌘← / ⌘→) instead of the page TabView, documents use Quick Look, NSSavePanel
+and NSSharingServicePicker, the root uses `.sidebarAdaptable`, and the default window is 1040×700.
+Apple Silicon only: the shared modules build `macosArm64`, and the `macosX64` target was removed
+everywhere.
+
+The framework is **dynamic on macOS** (`isStatic = appleTarget.name != "macosArm64"` in
+`shared/build.gradle.kts`). Linked statically, Xcode's linker pulled in androidx.sqlite's
+sqlite-framework cinterop member, which references six SQLite symbols that the macOS SDK's
+`libsqlite3` does not export, and the link failed. Kotlin's `embedAndSign` task skips dynamic
+frameworks, so the app target has its own run script phase, "Embed Shared.framework (macOS)", that
+copies and signs it into `Contents/Frameworks`. Do not switch the macOS framework back to static
+without linking the app again.
+
+What differs from iOS at runtime:
+- **No widget and no App Group.** The widget extension is iOS-only (`platformFilter = ios`), so the
+  macOS database lives in the sandbox container, and `setWidgetReload` is a no-op there
+  (`installWidgetReload` is the expect/actual).
+- **Background check only while the app is open.** There is no `BGTaskScheduler` on macOS:
+  `LectureMonitorScheduler` (in `desktopAndMacosMain`) runs the hourly loop in-process, and
+  `registerTaskHandler()` is a no-op. Closing the app stops the checks, unlike iOS.
+- **Reminders use the iOS mechanism.** `AppleLectureReminderScheduler` (`services/src/appleMain`) is
+  bound on both Apple platforms and plans `UNCalendarNotificationTrigger` requests, so the 64-pending
+  limit and `MAX_REMINDERS` apply on macOS too.
+- **Sandbox entitlements** live in `iosApp/iosApp/iosApp-macOS.entitlements`: app sandbox, outgoing
+  network, user-selected files read/write (for the save panel) and the keychain access group. The
+  app is built with the hardened runtime.
+
+Distribution is covered in `documentation/macOS/README.md`: the App Store upload, and the Developer
+ID DMG that the `build-dmg-macos` job in the release workflow archives, notarizes and packages.
 
 ## Critical Patterns
 
@@ -229,7 +272,8 @@ platform-specific constructor parameter, which is what Android needs for its Con
   `$XDG_DATA_HOME`); it used to be `java.io.tmpdir`, where the OS may delete it
 - iOS DB path → the app group container `group.de.fampopprol.dhbwhorb`, so the widget extension
   can read it; falls back to `NSDocumentDirectory` with a logged error if the entitlement is absent
-- macOS DB path → `NSApplicationSupportDirectory` (no widget extension, so no app group)
+- macOS DB path → `NSApplicationSupportDirectory`, inside the sandbox container (no widget
+  extension, so no app group)
 
 ### Dependency Injection (Koin)
 One composition root: `initKoin()` in `:shared`, called from `DualisApplication.onCreate()`,
@@ -391,7 +435,11 @@ cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration 
   -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath /tmp/dhbwderived build
 
-# Desktop native packages (Dmg/Msi/Deb)
+# macOS app (Debug, Apple Silicon). Built from the SwiftUI target; see "macOS is the SwiftUI app"
+cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Debug \
+  -destination 'platform=macOS,arch=arm64' -derivedDataPath /tmp/dhbwderived-mac build
+
+# Desktop native packages (Msi on Windows, Deb on Linux; run on that OS only)
 ./gradlew :composeApp:packageDistributionForCurrentOS
 
 # Fat JAR for Linux distribution
@@ -426,6 +474,9 @@ cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration 
 | `iosApp/TimetableWidgetExtension.entitlements` | App Group + keychain group for the extension (the app's are in `iosApp/iosApp/iosApp.entitlements`) |
 | `iosApp/iosApp/Localizable.xcstrings` | iOS strings (en/de); the Compose UI has its own in `composeResources` |
 | `iosApp/TimetableWidget/Localizable.xcstrings` | The widget extension's strings (en/de) — a bundle of its own, not the app's |
+| `iosApp/iosApp/iosApp-macOS.entitlements` | Sandbox, network, user-selected files and keychain group for the macOS app |
+| `shared/build.gradle.kts` | Framework linkage per Apple target — dynamic on macOS, see "macOS is the SwiftUI app" |
+| `packaging/macos/make-dmg.sh` | Builds the Developer ID DMG shipped by the release workflow |
 | `core/testing/src/commonMain/…/testutil/` | The fakes every module's tests build on |
 | `…/data/storage/database/AppDatabase.kt` | Room DB definition; `clearAllData()` for logout |
 | `…/data/storage/database/AppDatabaseMigrations.kt` | Schema version, migration list, destructive-fallback allowlist |

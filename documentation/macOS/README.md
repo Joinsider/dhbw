@@ -1,51 +1,37 @@
-# Temporary guide for homebrew installation
+# macOS
 
-At the moment I don't have a apple developer account, which would cost me about 99€ per Month. But you can still use my application on your Mac.
+The Mac app is the SwiftUI app in `iosApp/`, built for macOS from the same target as iOS (see
+AGENTS.md, "macOS is the SwiftUI app"). This page covers how it is distributed. Running it locally
+is in `RUNNING_MACOS_GUIDE.md`; the Mac App Store steps are in `MAC_APP_STORE_GUIDE.md`.
 
-## Download and Install:
-The best and easiest way to install my application is through the Homebrew Package Manager.
+## Channels
 
-```shell
-brew tap joinsider/apps
-brew install dhbw-next --cask
-```
-Afterwards you could just run the application however this results in multiple notifications by the macos keychain to enter your mac's password on each restart of the app. 
-To combat this run these commands in your terminal to generate a new self-signed certificate to sign the application locally. These two commands need to be run on every new install of my application until I get a apple developer account.
+- **Mac App Store**: the macOS platform of the existing iOS app record, so the same purchase covers
+  both. Steps: `MAC_APP_STORE_GUIDE.md`.
+- **GitHub release and Homebrew**: a Developer ID signed, notarized disk image built by the
+  `build-dmg-macos` job in `.github/workflows/build-release.yml`. The asset is
+  `dhbw-student-app-v<version>.dmg`; the app inside is `DHBW-Horb.app`. Because the image is
+  notarized, the self-signing workaround that earlier releases required is no longer needed.
+  The Homebrew cask lives outside this repository and is not verified here.
 
-### Sign application
-1. Download the script sign-dhbw-next.sh from the repo under documentation/macOS/sign-dhbw-next.sh [here](sign-dhbw-next.sh)
-2. Open the terminal on your mac
-3. Enter the following commands:
-```shell
-cd Downloads
-chmod +x sign-dhbw-next.sh
-./sign-dhbw-next.sh
-```
-4. Follow the instructions in the script to generate a new certificate or use an existing one.
-5. Open the app afterwards
+## Release job
 
-## Opening the application for the first time
-Since this app is not signed with an Apple Developer certificate, 
-you'll need to allow it to run:
+`build-dmg-macos` runs these steps, each with a script or plist in `packaging/macos/`:
 
-### macOS Sequoia (15.0+)
-1. Download and open the DMG file
-2. Drag the app to your Applications folder
-3. Try to open the app (it will be blocked)
-4. Open **System Settings → Privacy & Security**
-5. Scroll to the bottom of the Security section
-6. Click **Open Anyway** next to the blocked app message
-7. Confirm you want to open it
+1. Archive `iosApp/iosApp.xcodeproj` for macOS.
+2. Export the archive with Developer ID (`ExportOptions-DeveloperID.plist`).
+3. Notarize the `.app` with the App Store Connect API key (`notarize-submission.sh`).
+4. Package the stapled `.app` into the disk image (`make-dmg.sh`), sign it, and notarize it.
 
-### macOS Sonoma and earlier
-1. Download and open the DMG file
-2. Drag the app to your Applications folder
-3. **Right-click** (or Control-click) the app and select **Open**
-4. Click **Open** in the warning dialog
-5. The app will now open (you only need to do this once)
+Secrets the job reads (set in the repository settings):
 
-### Alternative: Remove Quarantine (Advanced Users)
-Open Terminal and run:
-```shell
-xattr -cr /Applications/dhbw-next.app
-```
+| Secret | Holds |
+|---|---|
+| `MACOS_DEVID_P12_BASE64` | Developer ID Application certificate, exported as `.p12`, base64 |
+| `MACOS_DEVID_P12_PASSWORD` | Password of that `.p12` |
+| `ASC_KEY_P8_BASE64` | App Store Connect API key (`AuthKey_<id>.p8`), base64 |
+| `ASC_KEY_ID` | Key id of that API key |
+| `ASC_ISSUER_ID` | Issuer id of the App Store Connect team |
+
+The same API key authenticates `xcodebuild -allowProvisioningUpdates`, so the job needs no other
+Apple credential.

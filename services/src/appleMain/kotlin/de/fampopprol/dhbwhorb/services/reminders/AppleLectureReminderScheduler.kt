@@ -22,7 +22,7 @@ private const val TAG = "LectureReminderScheduler"
 private const val ID_PREFIX = "reminder_"
 
 /**
- * iOS holds the reminders itself, as pending notification requests.
+ * Apple platforms (iOS and macOS) hold the reminders themselves, as pending notification requests.
  *
  * No alarm and no background task in between: a `UNCalendarNotificationTrigger` is a notification
  * the system will show at a wall-clock time whether or not the app ever runs again. It is also the
@@ -33,7 +33,7 @@ private const val ID_PREFIX = "reminder_"
  * change of time zone rather than drifting by the offset.
  */
 @OptIn(ExperimentalForeignApi::class)
-class IosLectureReminderScheduler : LectureReminderScheduler {
+class AppleLectureReminderScheduler : LectureReminderScheduler {
 
     private val center = UNUserNotificationCenter.currentNotificationCenter()
 
@@ -68,7 +68,7 @@ class IosLectureReminderScheduler : LectureReminderScheduler {
                 if (error != null) Napier.e("Could not schedule ${reminder.id}: $error", tag = TAG)
             }
         }
-        Napier.d("Handed ${reminders.size} reminder(s) to iOS", tag = TAG)
+        Napier.d("Handed ${reminders.size} reminder(s) to the system", tag = TAG)
     }
 
     /**
@@ -89,6 +89,6 @@ class IosLectureReminderScheduler : LectureReminderScheduler {
         }
     }
 
-    /** iOS delivers a calendar trigger at the minute it names. */
+    /** Apple platforms deliver a calendar trigger at the minute it names. */
     override fun firesExactly(): Boolean = true
 }

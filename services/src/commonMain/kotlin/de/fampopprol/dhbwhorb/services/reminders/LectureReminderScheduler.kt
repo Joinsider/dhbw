@@ -18,9 +18,9 @@ package de.fampopprol.dhbwhorb.services.reminders
  * `NotificationDispatcher`: the platform implementations need constructor parameters (Android wants
  * a `Context`), and a test wants to see what was handed over without a platform underneath.
  *
- * Implemented on the two platforms that can wake an app up: `UNUserNotificationCenter` on iOS and
- * `AlarmManager` on Android. Desktop and macOS bind [NoLectureReminderScheduler]; a scheduler that
- * only works while the app happens to be open is not a reminder.
+ * Implemented on the two platforms that can wake an app up: `UNUserNotificationCenter` on Apple
+ * platforms (iOS and macOS) and `AlarmManager` on Android. Desktop binds [NoLectureReminderScheduler];
+ * a scheduler that only works while the app happens to be open is not a reminder.
  */
 interface LectureReminderScheduler {
 

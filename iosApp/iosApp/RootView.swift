@@ -126,5 +126,10 @@ struct MainTabView: View {
                 NavigationStack { SettingsScreen() }
             }
         }
+        #if os(macOS)
+        // On a Mac the four tabs become a sidebar, which is where the platform keeps its sections.
+        // iPhone and iPad keep the tab bar.
+        .tabViewStyle(.sidebarAdaptable)
+        #endif
     }
 }

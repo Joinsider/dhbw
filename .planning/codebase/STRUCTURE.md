@@ -17,9 +17,7 @@
 │       ├── androidMain/        # Android-specific implementations
 │       ├── desktopMain/        # Desktop-specific implementations
 │       ├── iosMain/            # iOS-specific implementations
-│       └── macosMain/          # macOS-specific implementations
-├── iosApp/                     # iOS Native Project (Xcode)
-├── macosApp/                   # macOS Native Project (Xcode)
+├── iosApp/                     # SwiftUI app for iOS and macOS (Xcode, one multiplatform target)
 ├── documentation/              # Project documentation
 ├── fastlane/                   # CI/CD Automation scripts
 ├── gradle/                     # Gradle configuration and wrappers

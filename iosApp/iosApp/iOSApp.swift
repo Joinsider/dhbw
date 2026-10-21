@@ -4,6 +4,9 @@
 import SwiftUI
 import WidgetKit
 import Shared
+#if canImport(UIKit)
+import UIKit
+#endif
 
 @main
 struct iOSApp: App {
@@ -14,10 +17,14 @@ struct iOSApp: App {
     @State private var model = AppModel()
 
     init() {
+#if os(iOS)
+        // Kotlin presents UIKit controllers (the iOS-only file and share hand-offs) through the
+        // root view controller. macOS has no such controller, and nothing on that side asks.
         UIRootViewControllerHelper.shared.getViewController = {
             let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene
             return windowScene?.windows.first?.rootViewController
         }
+#endif
 
         // Has to happen here and nowhere later: iOS rejects a `BGTaskScheduler` registration that
         // arrives after the app has finished launching, and the failure is a crash on the next
@@ -38,6 +45,14 @@ struct iOSApp: App {
         WindowGroup {
             RootView()
                 .environment(model)
+                // A Mac window has no screen edge to fill, so it gets a default size and a floor
+                // below which the sidebar and the timetable grid stop fitting.
+                #if os(macOS)
+                .frame(minWidth: 760, minHeight: 540)
+                #endif
         }
+        #if os(macOS)
+        .defaultSize(width: 1040, height: 700)
+        #endif
     }
 }

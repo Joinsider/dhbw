@@ -3,8 +3,12 @@
 
 import QuickLook
 import SwiftUI
-import UIKit
 import Shared
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 
 /// The documents Dualis has for the student.
 ///
@@ -63,7 +67,7 @@ struct DocumentsScreen: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .platformGroupedList()
         .navigationTitle("documents.title")
         // The store owns the query — the filtered list is derived from it in `DocumentsState`, so
         // there is no second copy of "what is being searched for" here.
@@ -78,7 +82,12 @@ struct DocumentsScreen: View {
                 case let save as DocumentsEffectSaveFile:
                     let url = writeToTemporaryFile(name: save.fileName, bytes: save.bytes)
                     switch delivery {
-                    case .saveToFiles: exportURL = url
+                    case .saveToFiles:
+                        #if os(iOS)
+                        exportURL = url
+                        #else
+                        if let url { saveWithPanel(url) }
+                        #endif
                     case .share: shareURL = url
                     }
                 case let failed as DocumentsEffectDownloadFailed:
@@ -88,11 +97,10 @@ struct DocumentsScreen: View {
                 }
             }
         }
-        .sheet(isPresented: binding($previewURL)) {
-            if let previewURL {
-                QuickLookSheet(url: previewURL).ignoresSafeArea()
-            }
-        }
+        // QuickLook is the same SwiftUI modifier on both platforms: a panel on the Mac, the
+        // full-screen preview on iOS.
+        .quickLookPreview($previewURL)
+        #if os(iOS)
         .sheet(isPresented: binding($exportURL)) {
             if let exportURL {
                 DocumentExportSheet(url: exportURL)
@@ -103,6 +111,15 @@ struct DocumentsScreen: View {
                 ActivitySheet(url: shareURL)
             }
         }
+        #else
+        // The Mac share menu is an AppKit popover that anchors to a view, not a sheet. The anchor
+        // is created once per file, and only while there is a file to share.
+        .background {
+            if let shareURL {
+                SharingPicker(url: shareURL).id(shareURL)
+            }
+        }
+        #endif
         .alert(
             Text("common.error"),
             isPresented: Binding(get: { downloadError != nil }, set: { if !$0 { downloadError = nil } })
@@ -178,6 +195,26 @@ struct DocumentsScreen: View {
         )
     }
 
+    #if os(macOS)
+    /// "Save" on a Mac: the standard save panel, then a copy to wherever the user picks.
+    private func saveWithPanel(_ source: URL) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = source.lastPathComponent
+        panel.canCreateDirectories = true
+        panel.begin { response in
+            guard response == .OK, let destination = panel.url else { return }
+            do {
+                if FileManager.default.fileExists(atPath: destination.path) {
+                    try FileManager.default.removeItem(at: destination)
+                }
+                try FileManager.default.copyItem(at: source, to: destination)
+            } catch {
+                downloadError = String(localized: "error.storage")
+            }
+        }
+    }
+    #endif
+
     /// QuickLook, the share sheet and the Files picker all work on files, not on bytes.
     ///
     /// The temporary directory is cleaned by the system, and the name is kept so the preview and
@@ -225,34 +262,7 @@ private struct DocumentRow: View {
     }
 }
 
-/// `QLPreviewController`. SwiftUI's own `.quickLookPreview` modifier exists on macOS only.
-private struct QuickLookSheet: UIViewControllerRepresentable {
-
-    let url: URL
-
-    func makeCoordinator() -> Coordinator { Coordinator(url: url) }
-
-    func makeUIViewController(context: Context) -> QLPreviewController {
-        let controller = QLPreviewController()
-        controller.dataSource = context.coordinator
-        return controller
-    }
-
-    func updateUIViewController(_ controller: QLPreviewController, context: Context) {
-        context.coordinator.url = url
-        controller.reloadData()
-    }
-
-    final class Coordinator: NSObject, QLPreviewControllerDataSource {
-        var url: URL
-        init(url: URL) { self.url = url }
-        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
-        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
-            url as NSURL
-        }
-    }
-}
-
+#if os(iOS)
 /// "Save to Files": the system's own export picker, so the document lands wherever the user keeps
 /// their documents — iCloud Drive, On My iPhone, or any provider they have installed.
 private struct DocumentExportSheet: UIViewControllerRepresentable {
@@ -279,3 +289,25 @@ private struct ActivitySheet: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
+#else
+/// The Mac share menu for `url`, shown from this window.
+///
+/// `NSSharingServicePicker` is a popover that needs a view to hang from, not a sheet, so an
+/// invisible view carries it. It is created for one file at a time (`.id(url)` in the caller), and
+/// the picker is shown as the view appears, once the window has it.
+private struct SharingPicker: NSViewRepresentable {
+
+    let url: URL
+
+    func makeNSView(context: Context) -> NSView {
+        let anchor = NSView()
+        DispatchQueue.main.async {
+            NSSharingServicePicker(items: [url])
+                .show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
+        }
+        return anchor
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+#endif

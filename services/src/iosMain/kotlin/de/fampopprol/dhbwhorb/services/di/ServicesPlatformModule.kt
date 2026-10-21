@@ -9,7 +9,7 @@ package de.fampopprol.dhbwhorb.services.di
 import de.fampopprol.dhbwhorb.services.notifications.IosNotificationDispatcher
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
 import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
-import de.fampopprol.dhbwhorb.services.reminders.IosLectureReminderScheduler
+import de.fampopprol.dhbwhorb.services.reminders.AppleLectureReminderScheduler
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminderScheduler
 import de.fampopprol.dhbwhorb.services.widget.IosWidgetRefresher
 import de.fampopprol.dhbwhorb.services.widget.WidgetRefresher
@@ -24,5 +24,5 @@ actual fun servicesPlatformModule(): Module = module {
     // concrete one to hand Swift's WidgetCenter call down into it.
     single { IosWidgetRefresher() }
     single<WidgetRefresher> { get<IosWidgetRefresher>() }
-    single<LectureReminderScheduler> { IosLectureReminderScheduler() }
+    single<LectureReminderScheduler> { AppleLectureReminderScheduler() }
 }

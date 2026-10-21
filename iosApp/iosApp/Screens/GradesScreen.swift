@@ -86,7 +86,7 @@ struct GradesScreen: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .platformGroupedList()
         .navigationTitle("grades.title")
         .searchable(text: $searchText, prompt: Text("grades.searchPrompt"))
         .refreshable { model.grades.dispatch(GradesIntentRefresh()) }
@@ -160,7 +160,7 @@ struct GradesScreen: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(isBrand ? Color.brandSoft : Color(uiColor: .tertiarySystemFill), in: .rect(cornerRadius: 12))
+        .background(isBrand ? Color.brandSoft : Color.platformTertiaryFill, in: .rect(cornerRadius: 12))
         .accessibilityElement(children: .combine)
     }
 

@@ -69,16 +69,15 @@ sonar {
                 // tests aren't part of the CI gate. Not a gap to close with more tests — it would
                 // mean reversing that policy.
                 "composeApp/src/androidMain/kotlin/de/fampopprol/dhbwhorb/ui/settings/NotificationPermission.android.kt",
-                // iOS/macOS (Kotlin/Native) aren't among the targets addWithDependencies() adds to
-                // the kmpCoverage Kover variant in any module's build.gradle.kts (only "debug" and
-                // "desktop" are) — no coverage run ever instruments iosMain/macosMain, regardless of
-                // tests, so every line in those source sets is permanently 0% by construction, not
-                // by neglect. Excluding the two source sets outright (rather than the one file this
-                // used to list by hand) keeps the metric meaningful as more iOS/macOS-only files are
-                // added, and matches how NotificationPermission.android.kt above is excluded for the
-                // same "no reachable coverage variant" reason.
+                // Apple (Kotlin/Native) source sets. The kmpCoverage Kover variant only
+                // includes "debug" and "desktop" (see composeApp/build.gradle.kts), so no
+                // coverage run instruments iosMain, macosMain or appleMain, regardless of tests:
+                // every line there would be permanently 0% by construction, not by neglect.
+                // The Kotlin/Native code is exercised by the Xcode build (iosApp/, macOS), not
+                // by Kover. Excluding the source sets outright keeps the metric meaningful.
                 "**/src/iosMain/**",
                 "**/src/macosMain/**",
+                "**/src/appleMain/**",
                 // The fakes every module's tests build on. Deliberately without a Kover variant
                 // (see core/testing/build.gradle.kts), so the same reasoning applies: every line in
                 // it is 0% by construction, and a new line in a fake counted against the change.

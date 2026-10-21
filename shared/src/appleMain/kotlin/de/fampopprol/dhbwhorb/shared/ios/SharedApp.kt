@@ -15,7 +15,6 @@ import de.fampopprol.dhbwhorb.presentation.settings.SettingsStore
 import de.fampopprol.dhbwhorb.presentation.timetable.TimetableStore
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminderPlanner
-import de.fampopprol.dhbwhorb.services.widget.IosWidgetRefresher
 import de.fampopprol.dhbwhorb.shared.initKoin
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
@@ -104,14 +103,17 @@ object SharedApp {
     }
 
     /**
-     * Installs the one thing Kotlin cannot do for itself on iOS: reloading the widget.
+     * Installs the one thing Kotlin cannot do for itself on Apple platforms: reloading the widget.
      *
      * `WidgetCenter` is Swift-only, and the background check needs it — otherwise a lecture change
      * found while the app is closed updates the database and leaves the widget showing yesterday
      * until WidgetKit next feels like asking. Android has done this since before the rebuild.
+     *
+     * On macOS there is no widget extension, so the call is a no-op there (see
+     * [installWidgetReload]).
      */
     fun setWidgetReload(reload: () -> Unit) {
-        koin.get<IosWidgetRefresher>().reload = reload
+        installWidgetReload(koin, reload)
     }
 
     /**

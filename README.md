@@ -1,7 +1,7 @@
-This is a Kotlin Multiplatform project targeting Android, iOS, Desktop (JVM).
+This is a Kotlin Multiplatform project targeting Android, iOS, macOS and Desktop (JVM: Linux and Windows).
 
-At the moment only Android and Desktop application is provided as iOS will cost me 99€ per year to get a Apple Developer license. Maybe I will add this in the future.
-Also the mac version is currently not signed by me as this also requires an Apple Developer account.
+Android, Windows, Linux and macOS builds are provided. The iOS and macOS app is a native SwiftUI app
+(see `documentation/macOS/README.md` for the Mac distribution channels).
 
 # Releases:
 You can find the current version under [Releases](https://github.com/Joinsider/dhbw-next/releases)
@@ -48,6 +48,9 @@ The `--devel` option is required as the application gets compiled directly from 
 ### Debian
 Follow the guide on [this page](https://dhbw-next.joinside.de) to install the apt repository to your debian system. This way you will always get the current version. 
 
-## MacOS
+## macOS
 
-Follow the guide for macOS [here](documentation/macOS/README.md)
+The Mac app is a native SwiftUI app for Apple Silicon Macs (macOS 26 or later). It is distributed as the
+macOS platform of the iOS app on the Mac App Store, and as a notarized `.dmg` on the
+[Releases](https://github.com/Joinsider/dhbw-next/releases) page. Details are in
+[documentation/macOS/README.md](documentation/macOS/README.md).

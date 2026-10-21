@@ -74,12 +74,13 @@ struct ModuleDetailsSheet: View {
                 }
             }
             .navigationTitle("grades.details.title")
-            .navigationBarTitleDisplayMode(.inline)
+            .platformInlineTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("common.close") { dismiss() }
                 }
             }
+            .platformSheetFrame()
         }
         .accessibilityIdentifier("moduleDetailsSheet")
     }

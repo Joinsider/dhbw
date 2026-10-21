@@ -28,6 +28,17 @@ class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent
     private var monitorJob: Job? = null
 
     /**
+     * Registers the background launch handler. A no-op here.
+     *
+     * Exists so Swift can call the same name on every Apple platform. iOS needs a `BGTaskScheduler`
+     * registration before launch finishes; macOS apps have no equivalent, so the loop started by
+     * [schedule] simply runs while the app is open.
+     */
+    fun registerTaskHandler() {
+        Napier.d("No background task handler on desktop or macOS, the loop runs while the app is open", tag = TAG)
+    }
+
+    /**
      * Start periodic lecture monitoring.
      */
     fun schedule() {

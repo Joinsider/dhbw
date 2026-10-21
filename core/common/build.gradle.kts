@@ -17,7 +17,6 @@ kotlin {
     iosSimulatorArm64()
 
     macosArm64()
-    macosX64()
 
     jvm("desktop")
 

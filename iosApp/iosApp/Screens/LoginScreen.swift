@@ -53,7 +53,7 @@ struct LoginScreen: View {
             .frame(maxWidth: 480)
             .frame(maxWidth: .infinity)
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(Color.platformGroupedBackground)
         .scrollDismissesKeyboard(.interactively)
     }
 
@@ -90,8 +90,7 @@ struct LoginScreen: View {
             ) {
                 TextField("login.email", text: usernameBinding, prompt: Text("login.emailPrompt"))
                     .textContentType(.username)
-                    .keyboardType(.emailAddress)
-                    .textInputAutocapitalization(.never)
+                    .emailEntryTraits()
                     .autocorrectionDisabled()
                     .focused($focused, equals: .username)
                     .submitLabel(.next)
@@ -116,7 +115,7 @@ struct LoginScreen: View {
                     .accessibilityIdentifier("loginPasswordField")
             }
         }
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: .rect(cornerRadius: 18))
+        .background(Color.platformSecondaryGroupedBackground, in: .rect(cornerRadius: 18))
     }
 
     private func field<Content: View>(
