@@ -13,6 +13,8 @@ import de.fampopprol.dhbwhorb.domain.usecase.LoginWithCredentials
 import de.fampopprol.dhbwhorb.presentation.TestScopes
 import de.fampopprol.dhbwhorb.presentation.collectEffects
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeAuthRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -213,6 +215,53 @@ class AuthStoreTest {
         store.dispatch(AuthIntent.Cleared)
 
         assertEquals(AuthState(), store.state.value)
+        store.close()
+    }
+
+    // ── text edits are visible the moment dispatch returns ─────────────────
+
+    @Test
+    fun usernameEdit_isVisibleBeforeDispatchReturns() = runTest {
+        val store = store()
+
+        // No runCurrent(): the SwiftUI binding reads the state right after the dispatch.
+        store.dispatch(AuthIntent.UsernameChanged("max@hb.dhbw-stuttgart.de"))
+
+        assertEquals("max@hb.dhbw-stuttgart.de", store.state.value.username)
+        store.close()
+    }
+
+    @Test
+    fun passwordEdit_isVisibleBeforeDispatchReturns() = runTest {
+        val store = store()
+
+        store.dispatch(AuthIntent.PasswordChanged("secret"))
+
+        assertEquals("secret", store.state.value.password)
+        store.close()
+    }
+
+    @Test
+    fun manyRapidUsernameEdits_endWithTheLastValue() = runTest {
+        val store = store()
+
+        repeat(50) { i -> store.dispatch(AuthIntent.UsernameChanged("user$i@hb.dhbw-stuttgart.de")) }
+
+        assertEquals("user49@hb.dhbw-stuttgart.de", store.state.value.username)
+        store.close()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun aUsernameEdit_beforeSubmit_doesNotLoseTheValidationError() = runTest {
+        val store = store()
+
+        store.dispatch(AuthIntent.UsernameChanged("someone@gmail.com"))
+        store.dispatch(AuthIntent.PasswordChanged("secret"))
+        store.dispatch(AuthIntent.Submitted)
+        runCurrent()
+
+        assertEquals(UsernameError.NotADhbwAddress, store.state.value.usernameError)
         store.close()
     }
 }

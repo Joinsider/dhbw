@@ -105,6 +105,18 @@ abstract class BaseStore<S : Any, I : Any, M : Any, E : Any>(
     protected open fun dedupeKey(intent: I): Any? = null
 
     /**
+     * Intents that are applied synchronously, on the caller's thread, inside [dispatch].
+     *
+     * Returning a message here means the intent is reduced straight into the state with no
+     * coroutine launched and no [handle] call, so the state already reflects it when `dispatch`
+     * returns. That is for UI input such as text edits: a text field has to see its own value
+     * applied before the next redraw, not a dispatcher hop later.
+     *
+     * @return the message to reduce, or null to take the normal asynchronous path
+     */
+    protected open fun immediate(intent: I): M? = null
+
+    /**
      * The in-flight jobs by dedupe key.
      *
      * An immutable map behind [MutableStateFlow.update] rather than a `mutableMapOf`, because
@@ -114,6 +126,11 @@ abstract class BaseStore<S : Any, I : Any, M : Any, E : Any>(
     private val running = MutableStateFlow<Map<Any, Job>>(emptyMap())
 
     override fun dispatch(intent: I) {
+        immediate(intent)?.let { msg ->
+            effectScope.emit(msg)
+            return
+        }
+
         val key = dedupeKey(intent)
         if (key != null && running.value[key]?.isActive == true) {
             Napier.d("Dropping $intent: one is already in flight", tag = TAG)

@@ -49,6 +49,10 @@ final class StoreBox<Bridge: StoreBridge> {
 
     func dispatch(_ intent: Bridge.Intent) {
         bridge.dispatch(intent: intent)
+        // An intent the store applies synchronously (text edits) has to be visible to the binding
+        // in this same frame, not after the main-thread observation catches up. For async intents
+        // this just re-reads the current state.
+        state = bridge.state
     }
 
     /// Start listening for one-shot effects. Calling it again replaces the previous handler.

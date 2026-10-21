@@ -30,11 +30,22 @@ class AuthStore(
 
     override fun reduce(state: AuthState, msg: AuthMsg): AuthState = reduceAuth(state, msg)
 
+    // Text edits and the visibility toggle are applied on the spot: the SwiftUI bindings read the
+    // state right after they dispatch, and a dispatcher hop would let them read the old value.
+    override fun immediate(intent: AuthIntent): AuthMsg? = when (intent) {
+        is AuthIntent.UsernameChanged -> AuthMsg.UsernameChanged(intent.value)
+        is AuthIntent.PasswordChanged -> AuthMsg.PasswordChanged(intent.value)
+        AuthIntent.PasswordVisibilityToggled -> AuthMsg.PasswordVisibilityToggled
+        AuthIntent.Cleared -> AuthMsg.Cleared
+        AuthIntent.Submitted -> null
+    }
+
     override suspend fun EffectScope<AuthMsg, AuthEffect>.handle(
         intent: AuthIntent,
         state: AuthState
     ) {
         when (intent) {
+            // Applied in immediate(), before this is ever reached; kept so the when stays exhaustive.
             is AuthIntent.UsernameChanged -> emit(AuthMsg.UsernameChanged(intent.value))
             is AuthIntent.PasswordChanged -> emit(AuthMsg.PasswordChanged(intent.value))
             AuthIntent.PasswordVisibilityToggled -> emit(AuthMsg.PasswordVisibilityToggled)
