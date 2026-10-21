@@ -146,12 +146,15 @@ jobs:
       # Config.xcconfig is what the release workflow's version bump writes. A release build must
       # match its tag; a manual build takes the version from the file and marks the DMG with the
       # commit, so it cannot be mistaken for the released one.
+      # Inputs and the outputs derived from them reach shell code through env, never through ${{ }}
+      # inside a run block, where they would be pasted into the script unquoted.
       - name: Read version
         id: version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
         run: |
           XC_VERSION=$(sed -n 's/^MARKETING_VERSION *= *//p' iosApp/Configuration/Config.xcconfig | tr -d ' \r')
           XC_BUILD=$(sed -n 's/^CURRENT_PROJECT_VERSION *= *//p' iosApp/Configuration/Config.xcconfig | tr -d ' \r')
-          RELEASE_VERSION="${{ inputs.version }}"
 
           if [ -n "$RELEASE_VERSION" ]; then
             if [ "$XC_VERSION" != "$RELEASE_VERSION" ]; then
@@ -266,6 +269,9 @@ jobs:
       # apply to every target in the build, which on macOS is the app alone: the widget extension
       # is iOS-only, and the project has no Swift packages.
       - name: Archive macOS app
+        env:
+          APP_VERSION: ${{ steps.version.outputs.marketing_version }}
+          BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
         run: |
           xcodebuild archive \
             -project iosApp/iosApp.xcodeproj \
@@ -278,8 +284,8 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            MARKETING_VERSION="${{ steps.version.outputs.marketing_version }}" \
-            CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build_number }}" \
+            MARKETING_VERSION="$APP_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH"
 
       - name: Export Developer ID app
@@ -324,8 +330,10 @@ jobs:
           spctl --assess --type execute --verbose=2 "$APP_PATH"
 
       - name: Build DMG
+        env:
+          DMG_NAME: ${{ steps.version.outputs.dmg_name }}
         run: |
-          DMG_PATH="$RUNNER_TEMP/dist/${{ steps.version.outputs.dmg_name }}"
+          DMG_PATH="$RUNNER_TEMP/dist/$DMG_NAME"
           bash packaging/macos/make-dmg.sh "$APP_PATH" "$DMG_PATH" "$DMG_VOLUME" "$SIGN_IDENTITY"
           echo "DMG_PATH=$DMG_PATH" >> "$GITHUB_ENV"
 
