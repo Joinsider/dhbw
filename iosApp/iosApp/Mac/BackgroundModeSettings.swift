@@ -23,10 +23,17 @@ struct BackgroundModeSettings: View {
 
     @ViewBuilder
     private var rows: some View {
-        Toggle("settings.backgroundMode", isOn: Binding(
+        Toggle(isOn: Binding(
             get: { background.isEnabled },
             set: { wanted in Task { await background.setEnabled(wanted) } }
-        ))
+        )) {
+            Label {
+                Text("settings.backgroundMode")
+            } icon: {
+                SettingsIcon(systemName: "moon.fill", color: .indigo)
+            }
+        }
+        .toggleStyle(.switch)
         .accessibilityIdentifier("settingsBackgroundModeToggle")
 
         if background.status == .requiresApproval {
