@@ -28,6 +28,7 @@ class BaseStoreTest {
         data object Increment : CounterIntent
         data object SlowIncrement : CounterIntent
         data object Announce : CounterIntent
+        data object Bump : CounterIntent
     }
 
     private sealed interface CounterMsg {
@@ -48,6 +49,9 @@ class BaseStoreTest {
 
         override fun dedupeKey(intent: CounterIntent): Any? =
             if (intent is CounterIntent.SlowIncrement) "slow" else null
+
+        override fun immediate(intent: CounterIntent): CounterMsg? =
+            if (intent is CounterIntent.Bump) CounterMsg.Incremented else null
 
         override fun reduce(state: CounterState, msg: CounterMsg): CounterState = when (msg) {
             CounterMsg.Incremented -> state.copy(value = state.value + 1)
@@ -70,6 +74,9 @@ class BaseStoreTest {
                 }
 
                 CounterIntent.Announce -> send(Announcement(state.value))
+
+                // Never reached: immediate() answers this one.
+                CounterIntent.Bump -> emit(CounterMsg.Incremented)
             }
         }
     }
@@ -82,6 +89,17 @@ class BaseStoreTest {
         store.dispatch(CounterIntent.Increment)
 
         assertEquals(2, store.state.value.value)
+        store.close()
+    }
+
+    @Test
+    fun anImmediateIntent_isAppliedBeforeDispatchReturns_andSkipsHandle() = runTest {
+        val store = CounterStore()
+
+        store.dispatch(CounterIntent.Bump)
+
+        assertEquals(1, store.state.value.value)
+        assertEquals(0, store.handled, "handle() must not run for an immediate intent")
         store.close()
     }
 
