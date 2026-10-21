@@ -216,7 +216,9 @@ What differs from iOS at runtime:
   that needs a marker the installer writes, not a timestamp.
 
 Distribution is covered in `documentation/macOS/README.md`: the App Store upload, and the Developer
-ID DMG that the `build-dmg-macos` job in the release workflow archives, notarizes and packages.
+ID DMG that `.github/workflows/build-macos.yml` archives, notarizes and packages — called by the
+release workflow, and startable on its own. It signs manually with a Developer ID profile, because
+the keychain group entitlement is restricted on macOS and the app does not launch without one.
 
 ## Critical Patterns
 
