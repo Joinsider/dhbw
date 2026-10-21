@@ -7,9 +7,12 @@
     <string>developer-id</string>
     <key>teamID</key>
     <string>56T6W6Z755</string>
-    <!-- Lets xcodebuild create or fetch the Developer ID profile when -allowProvisioningUpdates is given. -->
+    <!-- Manual, like the archive: .github/workflows/build-macos.yml adds provisioningProfiles
+         with the UUID of the Developer ID profile it installed from MACOS_DEVID_PROFILE_BASE64. -->
     <key>signingStyle</key>
-    <string>automatic</string>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>Developer ID Application</string>
     <key>destination</key>
     <string>export</string>
 </dict>

@@ -1,0 +1,357 @@
+name: Build macOS App
+
+# Native macOS app (SwiftUI, iosApp/) as a Developer ID signed, notarized DMG — the asset for
+# GitHub Releases and Homebrew. The release workflow calls this with the release tag; started by
+# hand it builds the selected branch and keeps the DMG as a run artifact, without a release.
+#
+# Signing is manual on purpose. Automatic signing would need an Apple Development certificate on
+# the runner for the archive step, and with an API key Xcode creates a fresh one on every run,
+# which runs into the certificate limit. A Developer ID profile is required either way: the app's
+# keychain-access-groups entitlement is restricted on macOS, and without an embedded profile the
+# system refuses to launch the app.
+#
+# Secrets (repository secrets; the release workflow passes them with `secrets: inherit`):
+#   MACOS_DEVID_P12_BASE64        Developer ID Application certificate + private key, base64 .p12
+#   MACOS_DEVID_P12_PASSWORD      password of that .p12
+#   MACOS_DEVID_PROFILE_BASE64    Developer ID provisioning profile for de.fampopprol.dhbw, base64
+#   ASC_KEY_P8_BASE64             App Store Connect API key (AuthKey_*.p8), base64 — notarization
+#   ASC_KEY_ID                    key ID of that API key
+#   ASC_ISSUER_ID                 issuer ID of the App Store Connect team
+# The keychain password is generated per run and never stored.
+#
+# How to create each of them: documentation/macOS/README.md.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref to build (the release tag)'
+        required: true
+        type: string
+      version:
+        description: 'Release version without the leading v; must match Config.xcconfig'
+        required: true
+        type: string
+      retention-days:
+        description: 'How long the DMG artifact is kept'
+        required: false
+        default: 1
+        type: number
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-dmg:
+    name: Build macOS app (Developer ID DMG)
+    runs-on: macos-latest
+    env:
+      APPLE_TEAM_ID: 56T6W6Z755
+      BUNDLE_ID: de.fampopprol.dhbw
+      APP_NAME: DHBW-Horb
+      DMG_VOLUME: DHBW-Horb
+    steps:
+      # Fails first and names every missing secret, instead of failing later inside `security import`.
+      - name: Check signing secrets
+        env:
+          MACOS_DEVID_P12_BASE64: ${{ secrets.MACOS_DEVID_P12_BASE64 }}
+          MACOS_DEVID_P12_PASSWORD: ${{ secrets.MACOS_DEVID_P12_PASSWORD }}
+          MACOS_DEVID_PROFILE_BASE64: ${{ secrets.MACOS_DEVID_PROFILE_BASE64 }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          missing=0
+          for name in MACOS_DEVID_P12_BASE64 MACOS_DEVID_P12_PASSWORD MACOS_DEVID_PROFILE_BASE64 \
+                      ASC_KEY_P8_BASE64 ASC_KEY_ID ASC_ISSUER_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret $name is not set (see documentation/macOS/README.md)."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+        with:
+          cache-read-only: false
+
+      # Kotlin/Native's toolchain and dependencies, about 1 GB that would otherwise be downloaded
+      # by the Xcode build phase on every run.
+      - name: Cache Kotlin/Native
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            konan-${{ runner.os }}-
+
+      # The Xcode build phase runs Gradle, and every Gradle invocation configures :composeApp,
+      # which carries the Android plugin — so even this build needs an SDK. Same step as ci.yml.
+      - name: Set up Android SDK
+        run: |
+          sdk="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+          sdkmanager="$sdk/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$sdkmanager" ]; then
+            echo "::error::No Android cmdline-tools found at $sdk"
+            exit 1
+          fi
+
+          compile_sdk=$(sed -n 's/^android-compileSdk = "\(.*\)"/\1/p' gradle/libs.versions.toml)
+          build_tools=$(sed -n 's/.*buildToolsVersion = "\(.*\)"/\1/p' composeApp/build.gradle.kts)
+          echo "compileSdk: $compile_sdk, build tools: $build_tools"
+          test -n "$compile_sdk" && test -n "$build_tools"
+
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
+
+          # `yes` dies of SIGPIPE once sdkmanager stops reading, which pipefail would report.
+          (yes || true) | "$sdkmanager" --licenses > /dev/null
+          "$sdkmanager" --install \
+            "platform-tools" \
+            "platforms;android-$compile_sdk" \
+            "build-tools;$build_tools"
+
+      # Xcode 26 is needed for the macOS 26 SDK. The macos-latest image does not guarantee which
+      # Xcode is the default, so it is selected explicitly and the job fails if there is none.
+      - name: Select Xcode 26
+        run: |
+          xcode=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1 || true)
+          if [ -z "$xcode" ]; then
+            echo "::error::No Xcode 26 on this runner image; the macOS 26 SDK is required."
+            ls -d /Applications/Xcode*.app || true
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+          sdk_major=$(xcrun --sdk macosx --show-sdk-version | cut -d. -f1)
+          if [ "$sdk_major" -lt 26 ]; then
+            echo "::error::macOS SDK $sdk_major is older than 26."
+            exit 1
+          fi
+
+      # Config.xcconfig is what the release workflow's version bump writes. A release build must
+      # match its tag; a manual build takes the version from the file and marks the DMG with the
+      # commit, so it cannot be mistaken for the released one.
+      - name: Read version
+        id: version
+        run: |
+          XC_VERSION=$(sed -n 's/^MARKETING_VERSION *= *//p' iosApp/Configuration/Config.xcconfig | tr -d ' \r')
+          XC_BUILD=$(sed -n 's/^CURRENT_PROJECT_VERSION *= *//p' iosApp/Configuration/Config.xcconfig | tr -d ' \r')
+          RELEASE_VERSION="${{ inputs.version }}"
+
+          if [ -n "$RELEASE_VERSION" ]; then
+            if [ "$XC_VERSION" != "$RELEASE_VERSION" ]; then
+              echo "::error::Config.xcconfig MARKETING_VERSION ($XC_VERSION) does not match the release ($RELEASE_VERSION)."
+              exit 1
+            fi
+            DMG_NAME="dhbw-student-app-v$RELEASE_VERSION.dmg"
+          else
+            DMG_NAME="dhbw-student-app-v$XC_VERSION-$(git rev-parse --short HEAD).dmg"
+          fi
+
+          echo "Version $XC_VERSION ($XC_BUILD) -> $DMG_NAME"
+          echo "marketing_version=$XC_VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$XC_BUILD"        >> "$GITHUB_OUTPUT"
+          echo "dmg_name=$DMG_NAME"            >> "$GITHUB_OUTPUT"
+
+      - name: Create keychain and import Developer ID certificate
+        env:
+          P12_BASE64: ${{ secrets.MACOS_DEVID_P12_BASE64 }}
+          P12_PASSPHRASE: ${{ secrets.MACOS_DEVID_P12_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_SECRET="$(openssl rand -hex 24)"
+          echo "::add-mask::$KEYCHAIN_SECRET"
+
+          security create-keychain -p "$KEYCHAIN_SECRET" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_SECRET" "$KEYCHAIN"
+          # Keep the default keychains searchable alongside the temporary one.
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+
+          # Apple's Developer ID G2 intermediate, so codesign can build the chain on a fresh runner.
+          curl -fsSL --proto '=https' --tlsv1.2 -o "$RUNNER_TEMP/DeveloperIDG2CA.cer" \
+            https://www.apple.com/certificationauthority/DeveloperIDG2CA.cer
+          security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$KEYCHAIN" -T /usr/bin/codesign
+
+          printf '%s' "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/devid.p12"
+          security import "$RUNNER_TEMP/devid.p12" -k "$KEYCHAIN" -P "$P12_PASSPHRASE" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/devid.p12"
+          # Lets codesign use the key without a UI prompt on the headless runner.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_SECRET" "$KEYCHAIN" > /dev/null
+
+          identity=$(security find-identity -v -p codesigning "$KEYCHAIN" \
+            | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' | head -n 1)
+          if [ -z "$identity" ]; then
+            echo "::error::No Developer ID Application identity in the imported certificate."
+            exit 1
+          fi
+          if ! grep -q "($APPLE_TEAM_ID)" <<< "$identity"; then
+            echo "::error::Identity '$identity' does not belong to team $APPLE_TEAM_ID."
+            exit 1
+          fi
+          echo "Signing identity: $identity"
+
+          echo "KEYCHAIN_PATH=$KEYCHAIN" >> "$GITHUB_ENV"
+          echo "SIGN_IDENTITY=$identity" >> "$GITHUB_ENV"
+
+      # Checks that the profile is the one the archive needs before Xcode reports it as a less
+      # readable signing error: Developer ID (all devices), this app id, the keychain group.
+      - name: Install Developer ID provisioning profile
+        env:
+          PROFILE_BASE64: ${{ secrets.MACOS_DEVID_PROFILE_BASE64 }}
+        run: |
+          profile="$RUNNER_TEMP/devid.provisionprofile"
+          decoded="$RUNNER_TEMP/devid-profile.plist"
+          printf '%s' "$PROFILE_BASE64" | base64 --decode > "$profile"
+          security cms -D -i "$profile" > "$decoded"
+
+          pb() { /usr/libexec/PlistBuddy -c "Print :$1" "$decoded" 2>/dev/null || true; }
+          uuid=$(pb UUID)
+          name=$(pb Name)
+          app_id=$(pb Entitlements:com.apple.application-identifier)
+          all_devices=$(pb ProvisionsAllDevices)
+          echo "Profile: $name ($uuid), app id $app_id, expires $(pb ExpirationDate)"
+
+          if [ "$app_id" != "$APPLE_TEAM_ID.$BUNDLE_ID" ]; then
+            echo "::error::Profile is for '$app_id', expected '$APPLE_TEAM_ID.$BUNDLE_ID'."
+            exit 1
+          fi
+          if [ "$all_devices" != "true" ]; then
+            echo "::error::Profile '$name' is not a Developer ID profile."
+            exit 1
+          fi
+          if [ -z "$(pb Entitlements:keychain-access-groups)" ]; then
+            echo "::error::Profile '$name' does not grant keychain-access-groups."
+            exit 1
+          fi
+
+          # Xcode 16+ reads the first directory, older versions the second.
+          for dir in "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" \
+                     "$HOME/Library/MobileDevice/Provisioning Profiles"; do
+            mkdir -p "$dir"
+            cp "$profile" "$dir/$uuid.provisionprofile"
+          done
+          rm -f "$profile" "$decoded"
+
+          echo "PROFILE_NAME=$name" >> "$GITHUB_ENV"
+          echo "PROFILE_UUID=$uuid" >> "$GITHUB_ENV"
+
+      - name: Write App Store Connect API key
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          key="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s' "$ASC_KEY_P8_BASE64" | base64 --decode > "$key"
+          echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
+
+      # ARCHS=arm64 because the Kotlin framework is built for macosArm64 only; the Xcode build
+      # phase runs :shared:embedAndSignAppleFrameworkForXcode for that slice. The signing settings
+      # apply to every target in the build, which on macOS is the app alone: the widget extension
+      # is iOS-only, and the project has no Swift packages.
+      - name: Archive macOS app
+        run: |
+          xcodebuild archive \
+            -project iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            MARKETING_VERSION="${{ steps.version.outputs.marketing_version }}" \
+            CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build_number }}" \
+            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH"
+
+      - name: Export Developer ID app
+        run: |
+          options="$RUNNER_TEMP/ExportOptions.plist"
+          cp packaging/macos/ExportOptions-DeveloperID.plist "$options"
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles dict" "$options"
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:$BUNDLE_ID string $PROFILE_UUID" "$options"
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$options"
+
+          app=$(find "$RUNNER_TEMP/export" -maxdepth 1 -name '*.app' -type d | head -n 1)
+          if [ -z "$app" ]; then
+            echo "::error::Export produced no .app bundle."
+            exit 1
+          fi
+          echo "APP_PATH=$app" >> "$GITHUB_ENV"
+
+          codesign --verify --deep --strict --verbose=2 "$app"
+          # Hardened runtime (flags=0x10000) is required for notarization.
+          codesign -dvv "$app" 2>&1 | grep -q 'flags=0x10000(runtime)'
+          # Without the profile the restricted keychain entitlement keeps the app from launching.
+          test -f "$app/Contents/embedded.provisionprofile"
+          entitlements=$(codesign -d --entitlements - --xml "$app" 2>/dev/null)
+          for key in com.apple.security.app-sandbox keychain-access-groups; do
+            if ! grep -q "$key" <<< "$entitlements"; then
+              echo "::error::Signed app lacks the $key entitlement."
+              exit 1
+            fi
+          done
+          echo "Exported and verified: $(basename "$app")"
+
+      - name: Notarize and staple app
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          bash packaging/macos/notarize-submission.sh "$APP_PATH" "$ASC_KEY_PATH" "$ASC_KEY_ID" "$ASC_ISSUER_ID"
+          spctl --assess --type execute --verbose=2 "$APP_PATH"
+
+      - name: Build DMG
+        run: |
+          DMG_PATH="$RUNNER_TEMP/dist/${{ steps.version.outputs.dmg_name }}"
+          bash packaging/macos/make-dmg.sh "$APP_PATH" "$DMG_PATH" "$DMG_VOLUME" "$SIGN_IDENTITY"
+          echo "DMG_PATH=$DMG_PATH" >> "$GITHUB_ENV"
+
+      - name: Notarize and staple DMG
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          bash packaging/macos/notarize-submission.sh "$DMG_PATH" "$ASC_KEY_PATH" "$ASC_KEY_ID" "$ASC_ISSUER_ID"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG_PATH"
+
+      # The release workflow downloads every artifact of the run and attaches it to the release,
+      # so the name is what it was before this job moved here.
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-macos
+          path: ${{ env.DMG_PATH }}
+          retention-days: ${{ inputs.retention-days || 14 }}
+
+      - name: Remove signing material
+        if: always()
+        run: |
+          if [ -n "${KEYCHAIN_PATH:-}" ]; then security delete-keychain "$KEYCHAIN_PATH" || true; fi
+          if [ -n "${PROFILE_UUID:-}" ]; then
+            rm -f "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$PROFILE_UUID.provisionprofile" \
+                  "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.provisionprofile"
+          fi
+          rm -f "${ASC_KEY_PATH:-}" || true
