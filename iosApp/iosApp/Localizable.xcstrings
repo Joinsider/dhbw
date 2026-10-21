@@ -238,6 +238,23 @@
         }
       }
     },
+    "documents.save" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sichern"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        }
+      }
+    },
     "documents.saveToFiles" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1139,7 +1156,7 @@
         }
       }
     },
-    "settings.lectureAlertsFooter" : {
+    "settings.lectureAlertsFooter.ios" : {
       "extractionState" : "manual",
       "localizations" : {
         "de" : {
@@ -1152,6 +1169,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "iOS decides how often it checks in the background, so a change can take a while to arrive."
+          }
+        }
+      }
+    },
+    "settings.lectureAlertsFooter.macos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac prüft stündlich auf Änderungen, solange die App geöffnet ist. Wenn du die App schließt, findet keine Prüfung statt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Mac checks for changes every hour while the app is open. Closing the app stops the checks."
           }
         }
       }
@@ -1207,6 +1241,40 @@
         }
       }
     },
+    "settings.notificationsBlocked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Benachrichtigungen für DHBW Horb sind nicht erlaubt. Erlaube sie in den Systemeinstellungen und aktiviere die Option danach erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications for DHBW Horb are not allowed. Allow them in System Settings, then turn this on again."
+          }
+        }
+      }
+    },
+    "settings.notificationsBlockedTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Benachrichtigungen sind blockiert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications are blocked"
+          }
+        }
+      }
+    },
     "settings.notificationsHeader" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1220,6 +1288,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notifications"
+          }
+        }
+      }
+    },
+    "settings.openSystemSettings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einstellungen öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings"
           }
         }
       }
@@ -1322,6 +1407,91 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Signed in as"
+          }
+        }
+      }
+    },
+    "settings.testNotificationDelayed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In 10 Sekunden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In 10 Seconds"
+          }
+        }
+      }
+    },
+    "settings.testNotificationNow": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jetzt senden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send Now"
+          }
+        }
+      }
+    },
+    "settings.testNotificationsFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur in Debug-Builds sichtbar, landet nie in einer Release-Version. Die Mitteilung läuft denselben Weg wie eine echte; bei „In 10 Sekunden“ kannst du vorher in eine andere App wechseln."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only visible in debug builds, never shipped in a release. The notification takes the same path as a real one; with “In 10 Seconds” you can switch to another app first."
+          }
+        }
+      }
+    },
+    "settings.testNotificationsHeader": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mitteilungen testen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test Notifications"
+          }
+        }
+      }
+    },
+    "settings.testReminder": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erinnerung in 1 Minute"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminder in 1 Minute"
           }
         }
       }

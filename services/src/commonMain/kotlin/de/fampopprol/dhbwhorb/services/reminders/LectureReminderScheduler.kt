@@ -28,6 +28,15 @@ interface LectureReminderScheduler {
     suspend fun replaceAll(reminders: List<LectureReminder>)
 
     /**
+     * Schedules one more reminder and leaves everything already scheduled alone.
+     *
+     * Only the debug-only "test reminder" button uses this: a replan would wipe the timetable's
+     * reminders with [replaceAll], and a test must not do that. Planning never calls it, and the
+     * next replan removes the added reminder again, as it removes every other one.
+     */
+    suspend fun add(reminder: LectureReminder)
+
+    /**
      * Whether the system will run these at the minute they name.
      *
      * `false` on Android when the user has taken the exact-alarm permission away — the reminders

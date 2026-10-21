@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import SwiftUI
+import UserNotifications
 import WidgetKit
 import Shared
 #if canImport(UIKit)
@@ -16,7 +17,13 @@ struct iOSApp: App {
     /// after that first frame.
     @State private var model = AppModel()
 
+    /// Held here because the notification center keeps only a weak reference to its delegate.
+    private static let notificationPresenter = NotificationPresenter()
+
     init() {
+        // Before anything can post: a change found while the window is open must still show.
+        UNUserNotificationCenter.current().delegate = Self.notificationPresenter
+
 #if os(iOS)
         // Kotlin presents UIKit controllers (the iOS-only file and share hand-offs) through the
         // root view controller. macOS has no such controller, and nothing on that side asks.

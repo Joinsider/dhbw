@@ -134,7 +134,7 @@ database file in the App Group container, nothing else. That means:
   missing, registration fails and the first `submit` terminates the process.
 * App and extension see the same keychain items because both entitlement files list
   `$(AppIdentifierPrefix)de.fampopprol.dhbw` first. No access group is named in code — see
-  `IosSecureStorage`.
+  `AppleSecureStorage`.
 
 ### macOS is the SwiftUI app, built from the same target
 
@@ -170,6 +170,20 @@ What differs from iOS at runtime:
 - **Sandbox entitlements** live in `iosApp/iosApp/iosApp-macOS.entitlements`: app sandbox, outgoing
   network, user-selected files read/write (for the save panel) and the keychain access group. The
   app is built with the hardened runtime.
+- **Credentials use the data protection keychain, like iOS.** `AppleSecureStorage` (`data/src/appleMain`)
+  is bound on both Apple platforms and sets `kSecUseDataProtectionKeychain` on every query. The
+  older macOS implementation used the legacy file-based login keychain, where each item's access
+  list is bound to the code signature of the app that wrote it: every rebuild or re-signing
+  prompted for the Mac password once per item, about eight times at launch. The data protection
+  keychain authorises by the entitlement instead and does not prompt. Consequences: the legacy
+  items are neither read nor deleted (reading them is what prompts), so macOS users log in once
+  more after this change. An unsigned or ad-hoc build cannot write to the data protection keychain
+  (`errSecMissingEntitlement`, -34018) and cannot log in; that is expected.
+- **Uninstall does not clear credentials on macOS.** The install guard is disabled there
+  (`currentInstallStamp()` is `null`): the sandbox container survives deleting the app, so its
+  creation date cannot tell a reinstall from an update, and the bundle date changes on every
+  update. The keychain items therefore survive an uninstall on macOS, as they did before. Closing
+  that needs a marker the installer writes, not a timestamp.
 
 Distribution is covered in `documentation/macOS/README.md`: the App Store upload, and the Developer
 ID DMG that the `build-dmg-macos` job in the release workflow archives, notarizes and packages.
@@ -262,11 +276,14 @@ halfway would log the user out for good.
 suite touches — and migrates — the developer's own keyring.
 
 Secure storage is **not** expect/actual any more: `SecureStorageInterface` has one implementation
-per platform (`AndroidSecureStorage`, `DesktopSecureStorage`, `IosSecureStorage`,
-`MacosSecureStorage`), bound in `dataPlatformModule()`. An expect class cannot take a
-platform-specific constructor parameter, which is what Android needs for its Context.
+per platform (`AndroidSecureStorage`, `DesktopSecureStorage`, and `AppleSecureStorage` shared by
+iOS and macOS), bound in `dataPlatformModule()`. An expect class cannot take a platform-specific
+constructor parameter, which is what Android needs for its Context.
 - Android → `EncryptedSharedPreferences`, Context injected via `androidContext()`
 - Desktop → `java-keyring`, falling back to `Preferences.userNodeForPackage`
+- iOS and macOS → `AppleSecureStorage`, the Keychain on the data protection keychain (see
+  "macOS is the SwiftUI app"); the item layout (service `DualisApp`, one item per key, `_stored_keys`
+  index) is the same on both, and iOS items are unaffected by the flag
 - Android DB path → `Context.getDatabasePath("grades_database.db")`
 - Desktop DB path → per-user data directory (`~/Library/Application Support/…`, `%APPDATA%`,
   `$XDG_DATA_HOME`); it used to be `java.io.tmpdir`, where the OS may delete it

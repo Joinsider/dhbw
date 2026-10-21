@@ -4,6 +4,14 @@
 import SwiftUI
 import UserNotifications
 import Shared
+import os
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
+
+private let notificationLog = Logger(subsystem: "de.fampopprol.dhbw", category: "Notifications")
 
 /// Appearance, notifications, and signing out.
 ///
@@ -15,6 +23,7 @@ struct SettingsScreen: View {
     @Environment(AppModel.self) private var model
     @State private var showLogoutConfirmation = false
     @State private var cacheWarning = false
+    @State private var notificationsBlocked = false
 
     private var state: SettingsState { model.settings.state }
 
@@ -47,8 +56,27 @@ struct SettingsScreen: View {
             } header: {
                 Text("settings.notificationsHeader")
             } footer: {
-                Text("settings.lectureAlertsFooter")
+                #if os(macOS)
+                Text("settings.lectureAlertsFooter.macos")
+                #else
+                Text("settings.lectureAlertsFooter.ios")
+                #endif
             }
+
+            #if DEBUG
+            Section {
+                Button("settings.testNotificationNow") { sendTestNotification(delaySeconds: 0) }
+                    .accessibilityIdentifier("settingsTestNotificationNowButton")
+                Button("settings.testNotificationDelayed") { sendTestNotification(delaySeconds: 10) }
+                    .accessibilityIdentifier("settingsTestNotificationDelayedButton")
+                Button("settings.testReminder") { sendTestReminder() }
+                    .accessibilityIdentifier("settingsTestReminderButton")
+            } header: {
+                Text("settings.testNotificationsHeader")
+            } footer: {
+                Text("settings.testNotificationsFooter")
+            }
+            #endif
 
             Section("settings.account") {
                 if let name = model.app.state.userFullName {
@@ -84,6 +112,12 @@ struct SettingsScreen: View {
         } message: {
             Text("settings.cacheNotCleared")
         }
+        .alert(Text("settings.notificationsBlockedTitle"), isPresented: $notificationsBlocked) {
+            Button("settings.openSystemSettings") { openNotificationSettings() }
+            Button("common.cancel", role: .cancel) {}
+        } message: {
+            Text("settings.notificationsBlocked")
+        }
         .accessibilityIdentifier("settingsScreen")
     }
 
@@ -104,13 +138,60 @@ struct SettingsScreen: View {
                     model.settings.dispatch(SettingsIntentNotificationsChanged(enabled: false))
                     return
                 }
-                Task {
-                    let granted = (try? await UNUserNotificationCenter.current()
-                        .requestAuthorization(options: [.alert, .sound, .badge])) ?? false
-                    model.settings.dispatch(SettingsIntentNotificationsChanged(enabled: granted))
-                }
+                Task { await enableNotifications() }
             }
         )
+    }
+
+    /// Asks the system, and turns the switch on only if it grants permission.
+    ///
+    /// The error used to be dropped with `try?`, so a refused request looked like a plain "no":
+    /// the switch snapped back and nothing said why. On an unsigned Mac build the system refuses
+    /// outright (UNErrorDomain, "Notifications are not allowed for this application"), and that
+    /// is now in the log and in front of the user.
+    private func enableNotifications() async {
+        do {
+            let granted = try await UNUserNotificationCenter.current()
+                .requestAuthorization(options: [.alert, .sound, .badge])
+            notificationLog.notice("Notification permission \(granted ? "granted" : "denied", privacy: .public)")
+            if !granted { notificationsBlocked = true }
+            model.settings.dispatch(SettingsIntentNotificationsChanged(enabled: granted))
+        } catch {
+            notificationLog.error("Requesting notification permission failed: \(error.localizedDescription, privacy: .public)")
+            notificationsBlocked = true
+            model.settings.dispatch(SettingsIntentNotificationsChanged(enabled: false))
+        }
+    }
+
+    #if DEBUG
+    /// Sends through the real Kotlin path: permission, the dispatcher, and the foreground presenter
+    /// in `NotificationPresenter`. A `false` means iOS does not allow notifications, which is the
+    /// same answer the switch above gets, so it gets the same alert.
+    private func sendTestNotification(delaySeconds: Int32) {
+        SharedApp.shared.sendTestNotification(delaySeconds: delaySeconds) { delivered in
+            if !delivered.boolValue { Task { @MainActor in notificationsBlocked = true } }
+        }
+    }
+
+    /// Hands one reminder to the scheduler for the next whole minute. The timetable's own reminders
+    /// are left alone (`LectureReminderScheduler.add`, not a replan).
+    private func sendTestReminder() {
+        SharedApp.shared.sendTestReminder { scheduled in
+            if !scheduled.boolValue { Task { @MainActor in notificationsBlocked = true } }
+        }
+    }
+    #endif
+
+    private func openNotificationSettings() {
+        #if os(macOS)
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        }
+        #else
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+        #endif
     }
 
     /// The reminder is scheduled by iOS itself, so a new lead time has to be replanned now rather

@@ -30,6 +30,10 @@ struct DocumentsScreen: View {
     @State private var shareURL: URL?
     @State private var delivery: Delivery = .saveToFiles
     @State private var downloadError: String?
+    /// The row whose download is in flight, so a finished save knows which row to show the share
+    /// picker from. The Mac picker anchors to that row's Share button.
+    @State private var pendingDocument: DualisDocument?
+    @State private var sharingDocument: DualisDocument?
 
     private var state: DocumentsState { model.documents.state }
 
@@ -88,7 +92,9 @@ struct DocumentsScreen: View {
                         #else
                         if let url { saveWithPanel(url) }
                         #endif
-                    case .share: shareURL = url
+                    case .share:
+                        shareURL = url
+                        sharingDocument = pendingDocument
                     }
                 case let failed as DocumentsEffectDownloadFailed:
                     downloadError = failed.error.userMessage
@@ -109,14 +115,6 @@ struct DocumentsScreen: View {
         .sheet(isPresented: binding($shareURL)) {
             if let shareURL {
                 ActivitySheet(url: shareURL)
-            }
-        }
-        #else
-        // The Mac share menu is an AppKit popover that anchors to a view, not a sheet. The anchor
-        // is created once per file, and only while there is a file to share.
-        .background {
-            if let shareURL {
-                SharingPicker(url: shareURL).id(shareURL)
             }
         }
         #endif
@@ -140,6 +138,14 @@ struct DocumentsScreen: View {
             }
             .buttonStyle(.plain)
 
+            #if os(macOS)
+            if state.isDownloading(document: document) {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                macActions(for: document)
+            }
+            #else
             Menu {
                 Button {
                     model.documents.dispatch(DocumentsIntentOpen(document: document))
@@ -162,7 +168,31 @@ struct DocumentsScreen: View {
                     .padding(.leading, 8)
             }
             .accessibilityLabel(Text("documents.actions"))
+            #endif
         }
+        #if os(macOS)
+        // The separator follows these guides; without them it starts at the first Text it finds,
+        // which is inside the trailing buttons, and the line stops short of the row.
+        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+        .alignmentGuide(.listRowSeparatorTrailing) { dimensions in dimensions.width }
+        .contextMenu {
+            Button {
+                model.documents.dispatch(DocumentsIntentOpen(document: document))
+            } label: {
+                Label("documents.open", systemImage: "eye")
+            }
+            Button {
+                save(document, as: .saveToFiles)
+            } label: {
+                Label("documents.save", systemImage: "square.and.arrow.down")
+            }
+            Button {
+                save(document, as: .share)
+            } label: {
+                Label("documents.share", systemImage: "square.and.arrow.up")
+            }
+        }
+        #endif
         .swipeActions(edge: .trailing) {
             Button {
                 save(document, as: .saveToFiles)
@@ -179,8 +209,48 @@ struct DocumentsScreen: View {
         }
     }
 
+    #if os(macOS)
+    /// The three row actions as visible buttons at the trailing edge. The same actions are in the
+    /// row's context menu, so the buttons are the primary path and the menu the secondary one.
+    ///
+    /// The share picker hangs from the Share button itself: the background of that button is the
+    /// anchor view, and it exists only while this row is the one being shared.
+    private func macActions(for document: DualisDocument) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                model.documents.dispatch(DocumentsIntentOpen(document: document))
+            } label: {
+                Label("documents.open", systemImage: "eye")
+            }
+            .help(Text("documents.open"))
+
+            Button {
+                save(document, as: .saveToFiles)
+            } label: {
+                Label("documents.save", systemImage: "square.and.arrow.down")
+            }
+            .help(Text("documents.save"))
+
+            Button {
+                save(document, as: .share)
+            } label: {
+                Label("documents.share", systemImage: "square.and.arrow.up")
+            }
+            .help(Text("documents.share"))
+            .background {
+                if sharingDocument == document, let shareURL {
+                    SharingPicker(url: shareURL).id(shareURL)
+                }
+            }
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.regular)
+    }
+    #endif
+
     private func save(_ document: DualisDocument, as delivery: Delivery) {
         self.delivery = delivery
+        pendingDocument = document
         model.documents.dispatch(DocumentsIntentSave(document: document))
     }
 
@@ -239,23 +309,42 @@ private struct DocumentRow: View {
     let document: DualisDocument
     let isDownloading: Bool
 
+    #if os(macOS)
+    // A Mac list row is a pointer target and reads cramped at the iOS sizes.
+    private static let iconWidth: CGFloat = 30
+    private static let minRowHeight: CGFloat = 56
+    private static let verticalPadding: CGFloat = 6
+    private static let lineSpacing: CGFloat = 3
+    private static let subtitleFont: Font = .callout
+    #else
+    private static let iconWidth: CGFloat = 24
+    private static let minRowHeight: CGFloat = 0
+    private static let verticalPadding: CGFloat = 0
+    private static let lineSpacing: CGFloat = 2
+    private static let subtitleFont: Font = .caption
+    #endif
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "doc.text.fill")
                 .foregroundStyle(Color.brand)
-                .frame(width: 24)
+                .frame(width: Self.iconWidth)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Self.lineSpacing) {
                 Text(document.title)
                 Text("\(document.date) \(document.time)")
-                    .font(.caption)
+                    .font(Self.subtitleFont)
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            #if os(iOS)
             if isDownloading {
                 ProgressView()
             }
+            #endif
         }
+        .frame(minHeight: Self.minRowHeight)
+        .padding(.vertical, Self.verticalPadding)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)

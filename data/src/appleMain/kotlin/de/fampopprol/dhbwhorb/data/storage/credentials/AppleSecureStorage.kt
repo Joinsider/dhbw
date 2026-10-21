@@ -5,9 +5,39 @@ import platform.Foundation.*
 import platform.Security.*
 import platform.CoreFoundation.*
 
+/**
+ * Keychain-backed credential storage for every Apple platform (iOS, the iOS widget extension and
+ * the native macOS app).
+ *
+ * Every query sets `kSecUseDataProtectionKeychain`. On iOS that is the only keychain there is, so
+ * the flag changes nothing and the existing items are read exactly as before. On macOS it moves the
+ * items out of the legacy file-based login keychain. There, each item carries an access list bound
+ * to the code signature of the app that created it, so every rebuild or re-signing triggered a
+ * password prompt per item (the "eight prompts at launch" problem). The data protection keychain
+ * uses the app's keychain-access-groups entitlement instead and does not prompt.
+ *
+ * Consequence on macOS: items written by earlier builds in the legacy keychain are **not** read and
+ * **not** deleted. Reading them is what prompts, and deleting can too. Users log in once more.
+ *
+ * The data protection keychain needs the `keychain-access-groups` entitlement at runtime. Without it
+ * the calls fail with `errSecMissingEntitlement` (-34018), and this class then reports "no value",
+ * so an unsigned or ad-hoc build cannot log in. That is the expected behaviour, not a bug.
+ *
+ * No access group is named in any query on purpose. The keychain files an item into the first
+ * entry of the writing process's `keychain-access-groups` entitlement and searches the same list
+ * on the way back, so app and extension see the same items as long as both entitlement files
+ * start with the same group — which they do since P8. Naming the group in code would mean
+ * knowing the team prefix that completes it, and that only exists at signing time.
+ *
+ * Item layout (unchanged, iOS users stay logged in): generic password, service `DualisApp`,
+ * account = the key, plus an index item `_stored_keys` listing the tracked keys.
+ *
+ * Accessibility is left at the Security framework default (`WhenUnlocked`) on purpose: changing it
+ * would only affect newly written items, but would still be a change to what iOS users get.
+ */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
-class MacosSecureStorage : SecureStorageInterface {
+class AppleSecureStorage : SecureStorageInterface {
     private val serviceName = "DualisApp"
     private val keysKey = "_stored_keys"
 
@@ -108,6 +138,7 @@ class MacosSecureStorage : SecureStorageInterface {
             kCFTypeDictionaryValueCallBacks.ptr
         ).apply {
             CFDictionarySetValue(this, kSecClass, kSecClassGenericPassword)
+            CFDictionarySetValue(this, kSecUseDataProtectionKeychain, kCFBooleanTrue)
             CFDictionarySetValue(this, kSecAttrService, CFBridgingRetain(NSString.create(serviceName)))
             CFDictionarySetValue(this, kSecAttrAccount, CFBridgingRetain(NSString.create(key)))
 

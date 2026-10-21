@@ -55,38 +55,54 @@ class AndroidLectureReminderScheduler(
         cancelScheduled()
 
         val exact = firesExactly()
-        reminders.forEach { reminder ->
-            val triggerAt = reminder.fireAt
-                .toInstant(TimeZone.currentSystemDefault())
-                .toEpochMilliseconds()
-
-            val pending = pendingIntent(reminder.id, reminder.title, reminder.body)
-            if (exact) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
-            } else {
-                // A five-minute window: late enough for the system to batch it with something
-                // else, early enough that "in an hour" is still true when it arrives.
-                alarmManager.setWindow(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerAt,
-                    5 * 60 * 1000L,
-                    pending,
-                )
-            }
-        }
+        reminders.forEach { setAlarm(it, exact) }
 
         settings.setString(SCHEDULED_IDS_KEY, reminders.joinToString("\n") { it.id })
         Napier.d("Scheduled ${reminders.size} reminder(s), exact=$exact", tag = TAG)
     }
 
+    /**
+     * Adds one alarm and records its id, so the next [replaceAll] cancels it like any other.
+     * See [LectureReminderScheduler.add].
+     */
+    override suspend fun add(reminder: LectureReminder) {
+        setAlarm(reminder, firesExactly())
+        val ids = scheduledIds() + reminder.id
+        settings.setString(SCHEDULED_IDS_KEY, ids.distinct().joinToString("\n"))
+        Napier.d("Scheduled one extra reminder ${reminder.id}", tag = TAG)
+    }
+
     override fun firesExactly(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
 
-    private fun cancelScheduled() {
-        val ids = settings.getStringOrNull(SCHEDULED_IDS_KEY)
+    private fun setAlarm(reminder: LectureReminder, exact: Boolean) {
+        val triggerAt = reminder.fireAt
+            .toInstant(TimeZone.currentSystemDefault())
+            .toEpochMilliseconds()
+
+        val pending = pendingIntent(reminder.id, reminder.title, reminder.body)
+        if (exact) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        } else {
+            // A five-minute window: late enough for the system to batch it with something
+            // else, early enough that "in an hour" is still true when it arrives.
+            alarmManager.setWindow(
+                AlarmManager.RTC_WAKEUP,
+                triggerAt,
+                5 * 60 * 1000L,
+                pending,
+            )
+        }
+    }
+
+    private fun scheduledIds(): List<String> =
+        settings.getStringOrNull(SCHEDULED_IDS_KEY)
             ?.split("\n")
             ?.filter { it.isNotBlank() }
             .orEmpty()
+
+    private fun cancelScheduled() {
+        val ids = scheduledIds()
 
         ids.forEach { id -> alarmManager.cancel(pendingIntent(id, "", "")) }
         settings.remove(SCHEDULED_IDS_KEY)

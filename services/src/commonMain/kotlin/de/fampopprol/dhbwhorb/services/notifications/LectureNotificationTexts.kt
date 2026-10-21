@@ -42,6 +42,12 @@ object LectureNotificationTexts {
         leadMinutes: Int,
     ): Pair<String, String> = strings.reminder(courseName, location, startsAt, leadMinutes)
 
+    /** Title and body of the test notification sent from the debug-only settings section. */
+    fun testNotification(): Pair<String, String> = strings.testNotification()
+
+    /** Title and body of the test reminder created from the debug-only settings section. */
+    fun testReminder(): Pair<String, String> = strings.testReminder()
+
     // ── The two tables ──────────────────────────────────────────────────────────────────────
 
     private interface Strings {
@@ -53,6 +59,8 @@ object LectureNotificationTexts {
             startsAt: LocalDateTime,
             leadMinutes: Int,
         ): Pair<String, String>
+        fun testNotification(): Pair<String, String>
+        fun testReminder(): Pair<String, String>
     }
 
     private object German : Strings {
@@ -115,6 +123,12 @@ object LectureNotificationTexts {
             val room = location.takeIf { it.isNotBlank() }?.let { ", $it" }.orEmpty()
             return "$lead: $courseName" to "${startsAt.hour.pad()}:${startsAt.minute.pad()} Uhr$room"
         }
+
+        override fun testNotification(): Pair<String, String> =
+            "Testbenachrichtigung" to "Wenn du das liest, kommen Benachrichtigungen an."
+
+        override fun testReminder(): Pair<String, String> =
+            "Testerinnerung" to "Diese Erinnerung wurde zum Testen angelegt."
 
         private fun LocalDateTime?.dayAndTime(): String =
             if (this == null) "unbekannt" else "${day.pad()}.${month.number.pad()}., ${hour.pad()}:${minute.pad()} Uhr"
@@ -180,6 +194,12 @@ object LectureNotificationTexts {
             val room = location.takeIf { it.isNotBlank() }?.let { ", $it" }.orEmpty()
             return "$lead: $courseName" to "${startsAt.hour.pad()}:${startsAt.minute.pad()}$room"
         }
+
+        override fun testNotification(): Pair<String, String> =
+            "Test notification" to "If you can read this, notifications arrive."
+
+        override fun testReminder(): Pair<String, String> =
+            "Test reminder" to "This reminder was created to test notifications."
 
         private fun LocalDateTime?.dayAndTime(): String =
             if (this == null) "unknown" else "${day.pad()}/${month.number.pad()}, ${hour.pad()}:${minute.pad()}"

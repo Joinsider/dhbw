@@ -38,6 +38,7 @@
 
 /* Begin PBXFileReference section */
 		8F41FE2E3088A4F1009C77F1 /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
+		8F9F0CBC3088BCBD00DEDAAC /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		8FA245AF3041F67000BE69E1 /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		8FBC13C32F640F9800803DDB /* TimetableWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TimetableWidgetExtension.entitlements; sourceTree = "<group>"; };
 		8FC8A4852F629DED005E3108 /* TimetableWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TimetableWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -137,6 +138,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		8F9F0CC13088BCBD00DEDAAC /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		8FA245B33041F67000BE69E1 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
@@ -163,6 +169,7 @@
 				8FA245AF3041F67000BE69E1 /* iosApp.xcodeproj */,
 				8FF88F92303B8E6B0004600A /* iosApp.xcodeproj */,
 				8FEEBC89306A92D200436D4F /* iosApp.xcodeproj */,
+				8F41FE2E3088A4F1009C77F1 /* iosApp.xcodeproj */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -270,6 +277,10 @@
 					ProjectRef = 8F41FE2E3088A4F1009C77F1 /* iosApp.xcodeproj */;
 				},
 				{
+					ProductGroup = 8F9F0CC13088BCBD00DEDAAC /* Products */;
+					ProjectRef = 8F9F0CBC3088BCBD00DEDAAC /* iosApp.xcodeproj */;
+				},
+				{
 					ProductGroup = 8FCB0983303CE7C300C617F1 /* Products */;
 					ProjectRef = 8FCB097F303CE7C300C617F1 /* iosApp.xcodeproj */;
 				},
@@ -327,6 +338,25 @@
 			shellPath = /bin/sh;
 			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\ncd \"$SRCROOT/..\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
 		};
+		8FEEBC9A306A92D200436D01 /* Embed Shared.framework (macOS) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Shared.framework (macOS)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"$PLATFORM_NAME\" != \"macosx\" ]; then exit 0; fi\n# BUILT_PRODUCTS_DIR/Shared.framework is a symlink into shared/build/xcode-frameworks (made by the\n# Gradle embedAndSign task). Resolve it to the real bundle, then copy it with ditto, which keeps the\n# framework's internal symlinks (Versions/Current, top-level Shared/Resources/Headers/Modules).\n# cp -RL dereferenced them and left a second, shallow copy next to Versions/, which codesign rejects.\nSRC=\"$BUILT_PRODUCTS_DIR/Shared.framework\"\nSRC_REAL=\"$(cd -P \"$SRC\" && pwd -P)\" || exit 1\nDEST_DIR=\"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH\"\nDEST=\"$DEST_DIR/Shared.framework\"\nmkdir -p \"$DEST_DIR\"\nrm -rf \"$DEST\"\nditto \"$SRC_REAL\" \"$DEST\" || exit 1\nif [ \"$CODE_SIGNING_ALLOWED\" != \"NO\" ] && [ -n \"$EXPANDED_CODE_SIGN_IDENTITY\" ]; then\n  # Archives are notarized, so they need a secure timestamp and, with hardened runtime, the runtime flag.\n  if [ \"$ACTION\" = \"install\" ]; then TS_FLAG=\"--timestamp\"; else TS_FLAG=\"--timestamp=none\"; fi\n  RT_FLAG=\"\"\n  if [ \"$ENABLE_HARDENED_RUNTIME\" = \"YES\" ]; then RT_FLAG=\"--options runtime\"; fi\n  codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" $TS_FLAG $RT_FLAG $OTHER_CODE_SIGN_FLAGS \"$DEST\" || exit 1\nfi\n";
+		};
 		F3EBDF150C4302295F18394B /* Compile Kotlin Framework */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -345,25 +375,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\ncd \"$SRCROOT/..\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
-		};
-		8FEEBC9A306A92D200436D01 /* Embed Shared.framework (macOS) */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Embed Shared.framework (macOS)";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ \"$PLATFORM_NAME\" != \"macosx\" ]; then exit 0; fi\nSRC=\"$BUILT_PRODUCTS_DIR/Shared.framework\"\nDEST_DIR=\"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH\"\nDEST=\"$DEST_DIR/Shared.framework\"\nmkdir -p \"$DEST_DIR\"\nrm -rf \"$DEST\"\ncp -RL \"$SRC\" \"$DEST\"\nif [ \"$CODE_SIGNING_ALLOWED\" != \"NO\" ] && [ -n \"$EXPANDED_CODE_SIGN_IDENTITY\" ]; then\n  codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \"$DEST\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -465,27 +476,25 @@
 		1762169A2088308114AB936C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				SDKROOT = auto;
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
-				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
-				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = iosApp/iosApp-macOS.entitlements;
-				ENABLE_HARDENED_RUNTIME = YES;
-				"INFOPLIST_KEY_LSApplicationCategoryType[sdk=macosx*]" = "public.app-category.education";
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = ("$(inherited)", "@executable_path/../Frameworks");
 				ASSETCATALOG_COMPILER_APPICON_NAME = DHBW;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "iosApp/iosApp-macOS.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
+				DEVELOPMENT_TEAM = 56T6W6Z755;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iosApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "DHBW Horb";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				"INFOPLIST_KEY_LSApplicationCategoryType[sdk=macosx*]" = "public.app-category.education";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app needs network access to connect to the DHBW Dualis system.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -497,7 +506,13 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.fampopprol.dhbw;
+				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -510,27 +525,25 @@
 		8BDDCADAC5228C4A21F80639 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				SDKROOT = auto;
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
-				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
-				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = iosApp/iosApp-macOS.entitlements;
-				ENABLE_HARDENED_RUNTIME = YES;
-				"INFOPLIST_KEY_LSApplicationCategoryType[sdk=macosx*]" = "public.app-category.education";
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = ("$(inherited)", "@executable_path/../Frameworks");
 				ASSETCATALOG_COMPILER_APPICON_NAME = DHBW;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "iosApp/iosApp-macOS.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
+				DEVELOPMENT_TEAM = 56T6W6Z755;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iosApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "DHBW Horb";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				"INFOPLIST_KEY_LSApplicationCategoryType[sdk=macosx*]" = "public.app-category.education";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app needs network access to connect to the DHBW Dualis system.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -542,7 +555,13 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.fampopprol.dhbw;
+				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -555,8 +574,6 @@
 		8FC8A49B2F629DED005E3108 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = TimetableWidgetExtension.entitlements;
@@ -564,6 +581,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = TimetableWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = TimetableWidget;
@@ -579,6 +597,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
@@ -590,8 +609,6 @@
 		8FC8A49C2F629DED005E3108 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = TimetableWidgetExtension.entitlements;
@@ -599,6 +616,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = TimetableWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = TimetableWidget;
@@ -614,6 +632,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;

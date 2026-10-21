@@ -177,6 +177,7 @@ class LectureReminderPlannerTest {
             scheduled = reminders
         }
 
+        override suspend fun add(reminder: LectureReminder) = Unit
         override fun firesExactly(): Boolean = true
     }
 

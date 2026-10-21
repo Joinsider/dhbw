@@ -20,6 +20,21 @@ struct LoginScreen: View {
 
     private enum Field { case username, password }
 
+    /// The height of the sign-in button, and therefore of each input on macOS, so the form reads
+    /// as one column of equal controls.
+    static let controlHeight: CGFloat = 52
+
+#if os(macOS)
+    /// macOS inputs are their own rounded fields, sized and styled like the button.
+    private static let fieldInset: CGFloat = 0
+    private static let fieldPadding: CGFloat = 0
+    private static let messageIndent: CGFloat = 48
+#else
+    private static let fieldInset: CGFloat = 16
+    private static let fieldPadding: CGFloat = 14
+    private static let messageIndent: CGFloat = 32
+#endif
+
     private var state: AuthState { model.auth.state }
 
     var body: some View {
@@ -82,46 +97,66 @@ struct LoginScreen: View {
     }
 
     private var card: some View {
+#if os(macOS)
+        VStack(spacing: 10) {
+            usernameField
+            passwordField
+        }
+#else
         VStack(spacing: 0) {
-            field(
-                icon: "envelope",
-                title: "login.email",
-                message: usernameMessage
-            ) {
-                TextField("login.email", text: usernameBinding, prompt: Text("login.emailPrompt"))
-                    .textContentType(.username)
-                    .emailEntryTraits()
-                    .autocorrectionDisabled()
-                    .focused($focused, equals: .username)
-                    .submitLabel(.next)
-                    .onSubmit { focused = .password }
-                    .accessibilityIdentifier("loginUsernameField")
-            }
+            usernameField
 
             Divider().padding(.leading, 44)
 
-            // .password rather than .newPassword: this is a sign-in, so iOS offers the saved
-            // credential instead of proposing a generated one.
-            field(
-                icon: "lock",
-                title: "login.password",
-                message: passwordMessage
-            ) {
-                SecureField("login.password", text: passwordBinding, prompt: Text("login.passwordPrompt"))
-                    .textContentType(.password)
-                    .focused($focused, equals: .password)
-                    .submitLabel(.go)
-                    .onSubmit { submit() }
-                    .accessibilityIdentifier("loginPasswordField")
-            }
+            passwordField
         }
         .background(Color.platformSecondaryGroupedBackground, in: .rect(cornerRadius: 18))
+#endif
+    }
+
+    private var usernameField: some View {
+        field(
+            icon: "envelope",
+            title: "login.email",
+            message: usernameMessage,
+            isFocused: focused == .username
+        ) {
+            TextField("login.email", text: usernameBinding, prompt: Text("login.emailPrompt"))
+                .textContentType(.username)
+                .emailEntryTraits()
+                .platformLoginField()
+                .autocorrectionDisabled()
+                .focused($focused, equals: .username)
+                .submitLabel(.next)
+                .onSubmit { focused = .password }
+                .accessibilityIdentifier("loginUsernameField")
+        }
+    }
+
+    // .password rather than .newPassword: this is a sign-in, so iOS offers the saved
+    // credential instead of proposing a generated one.
+    private var passwordField: some View {
+        field(
+            icon: "lock",
+            title: "login.password",
+            message: passwordMessage,
+            isFocused: focused == .password
+        ) {
+            SecureField("login.password", text: passwordBinding, prompt: Text("login.passwordPrompt"))
+                .textContentType(.password)
+                .platformLoginField()
+                .focused($focused, equals: .password)
+                .submitLabel(.go)
+                .onSubmit { submit() }
+                .accessibilityIdentifier("loginPasswordField")
+        }
     }
 
     private func field<Content: View>(
         icon: String,
         title: LocalizedStringKey,
         message: String?,
+        isFocused: Bool,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -132,15 +167,16 @@ struct LoginScreen: View {
                     .accessibilityHidden(true)
                 content()
             }
+            .modifier(FieldChrome(isFocused: isFocused))
             if let message {
                 Text(message)
                     .font(.caption)
                     .foregroundStyle(.red)
-                    .padding(.leading, 32)
+                    .padding(.leading, Self.messageIndent)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, Self.fieldInset)
+        .padding(.vertical, Self.fieldPadding)
     }
 
     private var submitButton: some View {
@@ -155,7 +191,7 @@ struct LoginScreen: View {
             }
             .font(.headline)
             .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, minHeight: 52)
+            .frame(maxWidth: .infinity, minHeight: Self.controlHeight)
             .background(.brandGradient, in: .rect(cornerRadius: 16))
         }
         .buttonStyle(.plain)
@@ -195,5 +231,31 @@ struct LoginScreen: View {
 
     private var passwordMessage: String? {
         state.passwordError == nil ? nil : String(localized: "login.passwordEmpty")
+    }
+}
+
+/// The macOS frame of one sign-in input: the button's height and corner radius, and a stroke that
+/// turns brand-coloured while the field has focus, because a plain field draws no focus ring of
+/// its own. iOS keeps the card and its dividers, so the modifier does nothing there.
+private struct FieldChrome: ViewModifier {
+
+    let isFocused: Bool
+
+    func body(content: Content) -> some View {
+#if os(macOS)
+        content
+            .padding(.horizontal, 16)
+            .frame(height: LoginScreen.controlHeight)
+            .background(Color.platformSecondaryGroupedBackground, in: .rect(cornerRadius: 16))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(
+                        isFocused ? Color.brand : Color.platformSeparator,
+                        lineWidth: isFocused ? 2 : 1
+                    )
+            }
+#else
+        content
+#endif
     }
 }

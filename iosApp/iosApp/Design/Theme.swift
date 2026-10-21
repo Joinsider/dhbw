@@ -184,6 +184,18 @@ extension View {
 #endif
     }
 
+    /// The text of a login input. macOS gets a plain field, because the bordered default ignores the
+    /// height the login fields are given, and the size of the button's label; iOS keeps its own.
+    @ViewBuilder
+    func platformLoginField() -> some View {
+#if os(macOS)
+        textFieldStyle(.plain)
+            .font(.title3)
+#else
+        self
+#endif
+    }
+
     /// A minimum size for a sheet's content. iOS sizes sheets itself; a macOS sheet takes the size
     /// of its content, which without this can be a few pixels tall.
     @ViewBuilder

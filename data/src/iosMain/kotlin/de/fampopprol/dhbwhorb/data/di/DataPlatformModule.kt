@@ -6,7 +6,7 @@
 
 package de.fampopprol.dhbwhorb.data.di
 
-import de.fampopprol.dhbwhorb.data.storage.credentials.IosSecureStorage
+import de.fampopprol.dhbwhorb.data.storage.credentials.AppleSecureStorage
 import de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorageInterface
 import de.fampopprol.dhbwhorb.data.storage.database.AppDatabase
 import de.fampopprol.dhbwhorb.data.storage.database.createRoomDatabase
@@ -18,6 +18,6 @@ import org.koin.dsl.module
 
 actual fun dataPlatformModule(): Module = module {
     single<PlatformSettings> { ApplePlatformSettings() }
-    single<SecureStorageInterface> { IosSecureStorage() }
+    single<SecureStorageInterface> { AppleSecureStorage() }
     single<AppDatabase> { createRoomDatabase(getDatabaseBuilder()) }
 }

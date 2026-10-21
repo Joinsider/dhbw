@@ -40,35 +40,40 @@ class AppleLectureReminderScheduler : LectureReminderScheduler {
     override suspend fun replaceAll(reminders: List<LectureReminder>) {
         removeOurPendingRequests()
 
-        reminders.forEach { reminder ->
-            val content = UNMutableNotificationContent().apply {
-                setTitle(reminder.title)
-                setBody(reminder.body)
-                setSound(UNNotificationSound.defaultSound())
-            }
-
-            val components = NSDateComponents().apply {
-                year = reminder.fireAt.year.toLong()
-                month = reminder.fireAt.month.number.toLong()
-                day = reminder.fireAt.day.toLong()
-                hour = reminder.fireAt.hour.toLong()
-                minute = reminder.fireAt.minute.toLong()
-            }
-
-            center.addNotificationRequest(
-                UNNotificationRequest.requestWithIdentifier(
-                    identifier = reminder.id,
-                    content = content,
-                    trigger = UNCalendarNotificationTrigger.triggerWithDateMatchingComponents(
-                        dateComponents = components,
-                        repeats = false,
-                    ),
-                ),
-            ) { error ->
-                if (error != null) Napier.e("Could not schedule ${reminder.id}: $error", tag = TAG)
-            }
-        }
+        reminders.forEach { schedule(it) }
         Napier.d("Handed ${reminders.size} reminder(s) to the system", tag = TAG)
+    }
+
+    /** Adds one request by its own id; a request with the same id is replaced by the system. */
+    override suspend fun add(reminder: LectureReminder) = schedule(reminder)
+
+    private fun schedule(reminder: LectureReminder) {
+        val content = UNMutableNotificationContent().apply {
+            setTitle(reminder.title)
+            setBody(reminder.body)
+            setSound(UNNotificationSound.defaultSound())
+        }
+
+        val components = NSDateComponents().apply {
+            year = reminder.fireAt.year.toLong()
+            month = reminder.fireAt.month.number.toLong()
+            day = reminder.fireAt.day.toLong()
+            hour = reminder.fireAt.hour.toLong()
+            minute = reminder.fireAt.minute.toLong()
+        }
+
+        center.addNotificationRequest(
+            UNNotificationRequest.requestWithIdentifier(
+                identifier = reminder.id,
+                content = content,
+                trigger = UNCalendarNotificationTrigger.triggerWithDateMatchingComponents(
+                    dateComponents = components,
+                    repeats = false,
+                ),
+            ),
+        ) { error ->
+            if (error != null) Napier.e("Could not schedule ${reminder.id}: $error", tag = TAG)
+        }
     }
 
     /**

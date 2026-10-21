@@ -6,6 +6,7 @@
 
 package de.fampopprol.dhbwhorb.shared.ios
 
+import de.fampopprol.dhbwhorb.data.helpers.TimeHelper
 import de.fampopprol.dhbwhorb.data.storage.database.AppDatabase
 import de.fampopprol.dhbwhorb.presentation.app.AppStore
 import de.fampopprol.dhbwhorb.presentation.auth.AuthStore
@@ -14,15 +15,22 @@ import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
 import de.fampopprol.dhbwhorb.presentation.settings.SettingsStore
 import de.fampopprol.dhbwhorb.presentation.timetable.TimetableStore
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
+import de.fampopprol.dhbwhorb.services.notifications.LectureNotificationTexts
+import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminderPlanner
+import de.fampopprol.dhbwhorb.services.reminders.LectureReminderScheduler
+import de.fampopprol.dhbwhorb.services.reminders.TestReminder
 import de.fampopprol.dhbwhorb.shared.initKoin
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import org.koin.core.Koin
 import org.koin.mp.KoinPlatform
 
@@ -99,6 +107,56 @@ object SharedApp {
         scope.launch {
             koin.get<LectureReminderPlanner>().reschedule()
             onDone()
+        }
+    }
+
+    /**
+     * Sends one notification through the real delivery path. Used by the debug-only test section.
+     *
+     * Permission is checked first, so a missing permission answers with `false` at once and
+     * nothing is sent. [delaySeconds] of 0 sends now; otherwise this waits on the scope before
+     * sending, which leaves time to switch to another app and watch the banner arrive.
+     *
+     * [onDone] runs on the main thread: the scope is `Dispatchers.Main`, and the dispatcher's
+     * callbacks resume there.
+     */
+    fun sendTestNotification(delaySeconds: Int, onDone: (Boolean) -> Unit) {
+        scope.launch {
+            val dispatcher = koin.get<NotificationDispatcher>()
+            if (!dispatcher.hasPermission()) {
+                Napier.w("Test notification not sent: permission is not granted", tag = TAG)
+                onDone(false)
+                return@launch
+            }
+            if (delaySeconds > 0) delay(delaySeconds * 1_000L)
+
+            val (title, message) = LectureNotificationTexts.testNotification()
+            val now = TimeHelper.now()
+            val key = "test_${now.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds()}"
+            dispatcher.showNotification(title, message, notificationKey = key)
+            onDone(true)
+        }
+    }
+
+    /**
+     * Schedules one test reminder for the next whole minute, through the real reminder scheduler.
+     *
+     * Uses [LectureReminderScheduler.add], not a replan: the timetable's reminders stay exactly as
+     * they are. A later replan removes the test reminder again, since it carries the reminder id
+     * prefix. Like [sendTestNotification], [onDone] gets `false` at once when permission is missing.
+     */
+    fun sendTestReminder(onDone: (Boolean) -> Unit) {
+        scope.launch {
+            val granted = koin.get<NotificationDispatcher>().hasPermission()
+            if (!granted) {
+                Napier.w("Test reminder not scheduled: permission is not granted", tag = TAG)
+                onDone(false)
+                return@launch
+            }
+            val reminder = TestReminder.create(TimeHelper.now())
+            koin.get<LectureReminderScheduler>().add(reminder)
+            Napier.d("Test reminder ${reminder.id} fires at ${reminder.fireAt}", tag = TAG)
+            onDone(true)
         }
     }
 
