@@ -6,6 +6,8 @@
 
 package de.fampopprol.dhbwhorb.services.reminders
 
+import android.app.AlarmManager
+import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import de.fampopprol.dhbwhorb.testutil.TestPlatformSettings
 import kotlinx.coroutines.test.runTest
@@ -13,7 +15,11 @@ import kotlinx.datetime.LocalDateTime
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowAlarmManager
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 /**
  * The bookkeeping half of [AndroidLectureReminderScheduler]: which ids it remembers as scheduled,
@@ -76,5 +82,18 @@ class AndroidLectureReminderSchedulerTest {
         scheduler.add(reminder("solo"))
 
         assertEquals("solo", rememberedIds())
+    }
+
+    @Test
+    @Config(sdk = [34])
+    fun replaceAll_withoutExactAlarmPermission_setsAFiveMinuteWindowInstead() = runTest {
+        val alarmManager = ApplicationProvider.getApplicationContext<Context>()
+            .getSystemService(AlarmManager::class.java)
+        ShadowAlarmManager.setCanScheduleExactAlarms(false)
+
+        scheduler.replaceAll(listOf(reminder("a")))
+
+        assertFalse(scheduler.firesExactly())
+        assertEquals(5 * 60 * 1000L, shadowOf(alarmManager).nextScheduledAlarm?.windowLengthMs)
     }
 }

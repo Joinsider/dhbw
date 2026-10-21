@@ -20,15 +20,15 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * The shared desktop/macOS scheduler (see build.gradle.kts's `desktopAndMacosMain` source set).
+ * The desktop (JVM) scheduler. Named apart from the Android class of the same simple name, because Kover merges JVM classes by name.
  *
  * No [NotificationManager] is bound in these tests, so every run takes the "not in the graph"
- * branch in [LectureMonitorScheduler] — the same thing a platform without the full DI graph wired
+ * branch in [DesktopLectureMonitorScheduler] — the same thing a platform without the full DI graph wired
  * up yet would see. What's under test here is the scheduler's own state machine: starting,
  * ignoring a second start, and stopping — not what a completed check does.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class LectureMonitorSchedulerTest {
+class DesktopLectureMonitorSchedulerTest {
 
     @BeforeTest
     fun startEmptyKoin() {
@@ -42,13 +42,13 @@ class LectureMonitorSchedulerTest {
 
     @Test
     fun isScheduled_falseBeforeScheduling() {
-        val scheduler = LectureMonitorScheduler(TestScope())
+        val scheduler = DesktopLectureMonitorScheduler(TestScope())
         assertFalse(scheduler.isScheduled())
     }
 
     @Test
     fun schedule_marksItActive_andRunsAtLeastOneCheck() = runTest {
-        val scheduler = LectureMonitorScheduler(this)
+        val scheduler = DesktopLectureMonitorScheduler(this)
 
         scheduler.schedule()
         assertTrue(scheduler.isScheduled())
@@ -64,7 +64,7 @@ class LectureMonitorSchedulerTest {
 
     @Test
     fun schedule_calledWhileAlreadyActive_doesNotStartASecondLoop() = runTest {
-        val scheduler = LectureMonitorScheduler(this)
+        val scheduler = DesktopLectureMonitorScheduler(this)
 
         scheduler.schedule()
         scheduler.schedule()
@@ -76,7 +76,7 @@ class LectureMonitorSchedulerTest {
 
     @Test
     fun cancel_beforeScheduling_isANoOp() {
-        val scheduler = LectureMonitorScheduler(TestScope())
+        val scheduler = DesktopLectureMonitorScheduler(TestScope())
         scheduler.cancel()
         assertFalse(scheduler.isScheduled())
     }

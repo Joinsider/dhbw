@@ -12,10 +12,13 @@ import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesIn
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemePreferences
 import de.fampopprol.dhbwhorb.data.storage.settings.SettingsStorage
+import de.fampopprol.dhbwhorb.domain.model.LectureCheck
+import de.fampopprol.dhbwhorb.domain.model.LectureCheckOutcome
 import de.fampopprol.dhbwhorb.testutil.TestPlatformSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -65,6 +68,20 @@ class PreferencesRepositoryImplTest {
         repository.setCustomColor(0xFF00FF00)
 
         assertEquals(0xFF00FF00, repository.getCustomColor())
+    }
+
+    @Test
+    fun lastLectureCheck_isReadAndObservedThroughTheRepository() {
+        val settingsStorage = SettingsStorage(TestPlatformSettings(), NoOpSecureStorage())
+        val interactor = NotificationPreferencesInteractor(NotificationPreferences(settingsStorage))
+        val repository = PreferencesRepositoryImpl(ThemePreferences(settingsStorage), interactor)
+        assertNull(repository.getLastLectureCheck())
+        val check = LectureCheck(epochMillis = 42L, outcome = LectureCheckOutcome.SUCCESS)
+
+        interactor.recordLectureCheck(check)
+
+        assertEquals(check, repository.getLastLectureCheck())
+        assertEquals(check, repository.observeLastLectureCheck().value)
     }
 
     @Test

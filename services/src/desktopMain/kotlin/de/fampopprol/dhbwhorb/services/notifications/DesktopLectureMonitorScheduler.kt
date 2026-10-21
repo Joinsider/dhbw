@@ -19,10 +19,10 @@ import kotlin.time.Duration.Companion.minutes
  * background service, so quitting the app ends the monitoring with it. macOS uses
  * `NSBackgroundActivityScheduler` instead (see `services/src/macosMain`).
  */
-class LectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent {
+class DesktopLectureMonitorScheduler(private val scope: CoroutineScope) : KoinComponent {
 
     companion object {
-        private const val TAG = "LectureMonitorScheduler"
+        private const val TAG = "DesktopLectureMonitorScheduler"
         private val REPEAT_INTERVAL = 60.minutes
     }
 
