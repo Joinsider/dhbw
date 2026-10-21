@@ -67,9 +67,15 @@ struct TimetableScreen: View {
         }
         .sheet(isPresented: lectureSheetBinding) {
             if let lecture = state.selectedLecture {
+                #if os(macOS)
+                // The macOS sheet is as tall as its content; a medium detent would leave a gap.
+                MacLectureDetailsView(lecture: lecture)
+                    .presentationSizing(.fitted)
+                #else
                 LectureDetailSheet(lecture: lecture)
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
+                #endif
             }
         }
         .alert(
