@@ -3,8 +3,12 @@
 
 import QuickLook
 import SwiftUI
-import UIKit
 import Shared
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 
 /// The documents Dualis has for the student.
 ///
@@ -26,6 +30,10 @@ struct DocumentsScreen: View {
     @State private var shareURL: URL?
     @State private var delivery: Delivery = .saveToFiles
     @State private var downloadError: String?
+    /// The row whose download is in flight, so a finished save knows which row to show the share
+    /// picker from. The Mac picker anchors to that row's Share button.
+    @State private var pendingDocument: DualisDocument?
+    @State private var sharingDocument: DualisDocument?
 
     private var state: DocumentsState { model.documents.state }
 
@@ -63,7 +71,7 @@ struct DocumentsScreen: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .platformGroupedList()
         .navigationTitle("documents.title")
         // The store owns the query — the filtered list is derived from it in `DocumentsState`, so
         // there is no second copy of "what is being searched for" here.
@@ -78,8 +86,15 @@ struct DocumentsScreen: View {
                 case let save as DocumentsEffectSaveFile:
                     let url = writeToTemporaryFile(name: save.fileName, bytes: save.bytes)
                     switch delivery {
-                    case .saveToFiles: exportURL = url
-                    case .share: shareURL = url
+                    case .saveToFiles:
+                        #if os(iOS)
+                        exportURL = url
+                        #else
+                        if let url { saveWithPanel(url) }
+                        #endif
+                    case .share:
+                        shareURL = url
+                        sharingDocument = pendingDocument
                     }
                 case let failed as DocumentsEffectDownloadFailed:
                     downloadError = failed.error.userMessage
@@ -88,11 +103,10 @@ struct DocumentsScreen: View {
                 }
             }
         }
-        .sheet(isPresented: binding($previewURL)) {
-            if let previewURL {
-                QuickLookSheet(url: previewURL).ignoresSafeArea()
-            }
-        }
+        // QuickLook is the same SwiftUI modifier on both platforms: a panel on the Mac, the
+        // full-screen preview on iOS.
+        .quickLookPreview($previewURL)
+        #if os(iOS)
         .sheet(isPresented: binding($exportURL)) {
             if let exportURL {
                 DocumentExportSheet(url: exportURL)
@@ -103,6 +117,7 @@ struct DocumentsScreen: View {
                 ActivitySheet(url: shareURL)
             }
         }
+        #endif
         .alert(
             Text("common.error"),
             isPresented: Binding(get: { downloadError != nil }, set: { if !$0 { downloadError = nil } })
@@ -123,6 +138,14 @@ struct DocumentsScreen: View {
             }
             .buttonStyle(.plain)
 
+            #if os(macOS)
+            if state.isDownloading(document: document) {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                macActions(for: document)
+            }
+            #else
             Menu {
                 Button {
                     model.documents.dispatch(DocumentsIntentOpen(document: document))
@@ -145,7 +168,31 @@ struct DocumentsScreen: View {
                     .padding(.leading, 8)
             }
             .accessibilityLabel(Text("documents.actions"))
+            #endif
         }
+        #if os(macOS)
+        // The separator follows these guides; without them it starts at the first Text it finds,
+        // which is inside the trailing buttons, and the line stops short of the row.
+        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+        .alignmentGuide(.listRowSeparatorTrailing) { dimensions in dimensions.width }
+        .contextMenu {
+            Button {
+                model.documents.dispatch(DocumentsIntentOpen(document: document))
+            } label: {
+                Label("documents.open", systemImage: "eye")
+            }
+            Button {
+                save(document, as: .saveToFiles)
+            } label: {
+                Label("documents.save", systemImage: "square.and.arrow.down")
+            }
+            Button {
+                save(document, as: .share)
+            } label: {
+                Label("documents.share", systemImage: "square.and.arrow.up")
+            }
+        }
+        #endif
         .swipeActions(edge: .trailing) {
             Button {
                 save(document, as: .saveToFiles)
@@ -162,8 +209,48 @@ struct DocumentsScreen: View {
         }
     }
 
+    #if os(macOS)
+    /// The three row actions as visible buttons at the trailing edge. The same actions are in the
+    /// row's context menu, so the buttons are the primary path and the menu the secondary one.
+    ///
+    /// The share picker hangs from the Share button itself: the background of that button is the
+    /// anchor view, and it exists only while this row is the one being shared.
+    private func macActions(for document: DualisDocument) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                model.documents.dispatch(DocumentsIntentOpen(document: document))
+            } label: {
+                Label("documents.open", systemImage: "eye")
+            }
+            .help(Text("documents.open"))
+
+            Button {
+                save(document, as: .saveToFiles)
+            } label: {
+                Label("documents.save", systemImage: "square.and.arrow.down")
+            }
+            .help(Text("documents.save"))
+
+            Button {
+                save(document, as: .share)
+            } label: {
+                Label("documents.share", systemImage: "square.and.arrow.up")
+            }
+            .help(Text("documents.share"))
+            .background {
+                if sharingDocument == document, let shareURL {
+                    SharingPicker(url: shareURL).id(shareURL)
+                }
+            }
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.regular)
+    }
+    #endif
+
     private func save(_ document: DualisDocument, as delivery: Delivery) {
         self.delivery = delivery
+        pendingDocument = document
         model.documents.dispatch(DocumentsIntentSave(document: document))
     }
 
@@ -177,6 +264,26 @@ struct DocumentsScreen: View {
             set: { model.documents.dispatch(DocumentsIntentSearchChanged(query: $0)) }
         )
     }
+
+    #if os(macOS)
+    /// "Save" on a Mac: the standard save panel, then a copy to wherever the user picks.
+    private func saveWithPanel(_ source: URL) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = source.lastPathComponent
+        panel.canCreateDirectories = true
+        panel.begin { response in
+            guard response == .OK, let destination = panel.url else { return }
+            do {
+                if FileManager.default.fileExists(atPath: destination.path) {
+                    try FileManager.default.removeItem(at: destination)
+                }
+                try FileManager.default.copyItem(at: source, to: destination)
+            } catch {
+                downloadError = String(localized: "error.storage")
+            }
+        }
+    }
+    #endif
 
     /// QuickLook, the share sheet and the Files picker all work on files, not on bytes.
     ///
@@ -202,57 +309,49 @@ private struct DocumentRow: View {
     let document: DualisDocument
     let isDownloading: Bool
 
+    #if os(macOS)
+    // A Mac list row is a pointer target and reads cramped at the iOS sizes.
+    private static let iconWidth: CGFloat = 30
+    private static let minRowHeight: CGFloat = 56
+    private static let verticalPadding: CGFloat = 6
+    private static let lineSpacing: CGFloat = 3
+    private static let subtitleFont: Font = .callout
+    #else
+    private static let iconWidth: CGFloat = 24
+    private static let minRowHeight: CGFloat = 0
+    private static let verticalPadding: CGFloat = 0
+    private static let lineSpacing: CGFloat = 2
+    private static let subtitleFont: Font = .caption
+    #endif
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "doc.text.fill")
                 .foregroundStyle(Color.brand)
-                .frame(width: 24)
+                .frame(width: Self.iconWidth)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Self.lineSpacing) {
                 Text(document.title)
                 Text("\(document.date) \(document.time)")
-                    .font(.caption)
+                    .font(Self.subtitleFont)
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            #if os(iOS)
             if isDownloading {
                 ProgressView()
             }
+            #endif
         }
+        .frame(minHeight: Self.minRowHeight)
+        .padding(.vertical, Self.verticalPadding)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
     }
 }
 
-/// `QLPreviewController`. SwiftUI's own `.quickLookPreview` modifier exists on macOS only.
-private struct QuickLookSheet: UIViewControllerRepresentable {
-
-    let url: URL
-
-    func makeCoordinator() -> Coordinator { Coordinator(url: url) }
-
-    func makeUIViewController(context: Context) -> QLPreviewController {
-        let controller = QLPreviewController()
-        controller.dataSource = context.coordinator
-        return controller
-    }
-
-    func updateUIViewController(_ controller: QLPreviewController, context: Context) {
-        context.coordinator.url = url
-        controller.reloadData()
-    }
-
-    final class Coordinator: NSObject, QLPreviewControllerDataSource {
-        var url: URL
-        init(url: URL) { self.url = url }
-        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
-        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
-            url as NSURL
-        }
-    }
-}
-
+#if os(iOS)
 /// "Save to Files": the system's own export picker, so the document lands wherever the user keeps
 /// their documents — iCloud Drive, On My iPhone, or any provider they have installed.
 private struct DocumentExportSheet: UIViewControllerRepresentable {
@@ -279,3 +378,25 @@ private struct ActivitySheet: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
+#else
+/// The Mac share menu for `url`, shown from this window.
+///
+/// `NSSharingServicePicker` is a popover that needs a view to hang from, not a sheet, so an
+/// invisible view carries it. It is created for one file at a time (`.id(url)` in the caller), and
+/// the picker is shown as the view appears, once the window has it.
+private struct SharingPicker: NSViewRepresentable {
+
+    let url: URL
+
+    func makeNSView(context: Context) -> NSView {
+        let anchor = NSView()
+        DispatchQueue.main.async {
+            NSSharingServicePicker(items: [url])
+                .show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
+        }
+        return anchor
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+#endif

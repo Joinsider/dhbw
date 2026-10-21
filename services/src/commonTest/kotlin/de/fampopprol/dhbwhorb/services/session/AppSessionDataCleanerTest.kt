@@ -25,6 +25,7 @@ private class RecordingScheduler(
         lastScheduled = reminders
     }
 
+    override suspend fun add(reminder: LectureReminder) = Unit
     override fun firesExactly(): Boolean = true
 }
 

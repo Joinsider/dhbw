@@ -18,14 +18,23 @@ package de.fampopprol.dhbwhorb.services.reminders
  * `NotificationDispatcher`: the platform implementations need constructor parameters (Android wants
  * a `Context`), and a test wants to see what was handed over without a platform underneath.
  *
- * Implemented on the two platforms that can wake an app up: `UNUserNotificationCenter` on iOS and
- * `AlarmManager` on Android. Desktop and macOS bind [NoLectureReminderScheduler]; a scheduler that
- * only works while the app happens to be open is not a reminder.
+ * Implemented on the two platforms that can wake an app up: `UNUserNotificationCenter` on Apple
+ * platforms (iOS and macOS) and `AlarmManager` on Android. Desktop binds [NoLectureReminderScheduler];
+ * a scheduler that only works while the app happens to be open is not a reminder.
  */
 interface LectureReminderScheduler {
 
     /** Cancels everything previously scheduled and schedules [reminders] instead. */
     suspend fun replaceAll(reminders: List<LectureReminder>)
+
+    /**
+     * Schedules one more reminder and leaves everything already scheduled alone.
+     *
+     * Only the debug-only "test reminder" button uses this: a replan would wipe the timetable's
+     * reminders with [replaceAll], and a test must not do that. Planning never calls it, and the
+     * next replan removes the added reminder again, as it removes every other one.
+     */
+    suspend fun add(reminder: LectureReminder)
 
     /**
      * Whether the system will run these at the minute they name.

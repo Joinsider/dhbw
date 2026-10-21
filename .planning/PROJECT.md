@@ -6,8 +6,8 @@ and documents — that stays smooth and responsive on every platform it ships to
 
 ## Core Objectives
 - **Feature Parity:** everything the Dualis web portal offers (grades, timetable, documents).
-- **Cross-Platform:** one Kotlin codebase for Android, iOS, Desktop and macOS. Shared down to the
-  presentation layer; the UI is per platform.
+- **Cross-Platform:** one Kotlin codebase for Android, iOS, macOS and Desktop (JVM). Shared down to the
+  presentation layer; the UI is per platform (Compose on Android and Desktop, SwiftUI on Apple).
 - **Resilience:** the portal has no API. Parsing and error handling have to survive an HTML page
   that changes without notice.
 - **Security:** secure connections to the DHBW servers, including on JVMs whose trust store does
@@ -28,8 +28,8 @@ lives on the local `v3` branch and nothing has been pushed.
 :services        notifications, lecture reminders, widget use cases
 :presentation    MVI stores (State / Intent / Msg / Effect) — no Compose, by rule
 :shared          umbrella; exports the above as Shared.framework for Apple targets
-:composeApp      Compose UI for Android, Desktop and macOS, plus the Glance widget
-iosApp/          the SwiftUI app and the timetable widget extension
+:composeApp      Compose UI for Android and Desktop (Linux, Windows), plus the Glance widget
+iosApp/          the SwiftUI app for iOS and macOS, and the iOS timetable widget extension
 ```
 
 **What the rebuild delivered:** a typed error model instead of thrown exceptions, Koin as the
@@ -56,12 +56,12 @@ most of them wait for a real device or for a decision, not for code.
 
 ## Tech Stack
 - **Framework:** Kotlin Multiplatform, Kotlin 2.3
-- **UI:** Compose Multiplatform on Android, Desktop and macOS; SwiftUI on iOS
+- **UI:** Compose Multiplatform on Android and Desktop; SwiftUI on iOS and macOS (one target)
 - **DI:** Koin, one graph started from `:shared`
 - **Storage:** Room (bundled SQLite) plus platform secure storage for credentials
 - **Network:** Ktor 3
 - **Parsing:** regex-based HTML scraping, covered by fixture tests
-- **Platforms:** Android, iOS, Desktop (JVM), macOS
+- **Platforms:** Android, iOS, macOS, Desktop (JVM: Linux, Windows)
 
 ---
 *Last updated: 2026-08-22, during P9.*

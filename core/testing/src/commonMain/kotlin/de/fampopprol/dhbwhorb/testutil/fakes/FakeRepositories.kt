@@ -11,6 +11,7 @@ import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.data.dualis.models.DualisDocument
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
+import de.fampopprol.dhbwhorb.domain.model.LectureCheck
 import de.fampopprol.dhbwhorb.domain.model.Lecture
 import de.fampopprol.dhbwhorb.domain.model.ModuleResultDetails
 import de.fampopprol.dhbwhorb.domain.model.Semester
@@ -187,8 +188,11 @@ class FakePreferencesRepository(
     private var seedColor: Long = SettingsState.DEFAULT_SEED_COLOR,
     private var notifications: Boolean = false,
     private var lectureAlerts: Boolean = false,
-    private var reminderLeadMinutes: Int = 0
+    private var reminderLeadMinutes: Int = 0,
+    lastLectureCheck: LectureCheck? = null,
 ) : PreferencesRepository {
+    private val lastCheck = MutableStateFlow(lastLectureCheck)
+
     override fun getThemeMode() = themeMode
     override fun setThemeMode(mode: ThemeMode) { themeMode = mode }
     override fun isMaterialYouEnabled() = materialYou
@@ -201,6 +205,11 @@ class FakePreferencesRepository(
     override fun setLectureAlertsEnabled(enabled: Boolean) { lectureAlerts = enabled }
     override fun getReminderLeadMinutes() = reminderLeadMinutes
     override fun setReminderLeadMinutes(minutes: Int) { reminderLeadMinutes = minutes }
+    override fun getLastLectureCheck(): LectureCheck? = lastCheck.value
+    override fun observeLastLectureCheck(): StateFlow<LectureCheck?> = lastCheck.asStateFlow()
+
+    /** Stands in for a background run finishing, which is what the watch observes. */
+    fun recordLectureCheck(check: LectureCheck) { lastCheck.value = check }
 }
 
 /** A repository whose every call fails the same way, for the error paths. */

@@ -41,22 +41,18 @@ struct TimetableScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            #if os(iOS)
             weekBar
             Divider()
+            #endif
             pages
         }
         .navigationTitle("timetable.title")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    layoutRaw = (layout == .grid ? TimetableLayout.list : .grid).rawValue
-                } label: {
-                    Label(layout.switchLabel, systemImage: layout.symbol)
-                }
-                .accessibilityIdentifier("timetableLayoutButton")
-            }
-        }
+        .platformInlineTitle()
+        #if os(macOS)
+        .navigationSubtitle(Text(verbatim: weekSubtitle))
+        #endif
+        .toolbar { toolbarContent }
         .onChange(of: focusedOffset) { _, new in
             model.timetable.dispatch(TimetableIntentWeekFocused(offset: Int32(new)))
         }
@@ -71,9 +67,14 @@ struct TimetableScreen: View {
         }
         .sheet(isPresented: lectureSheetBinding) {
             if let lecture = state.selectedLecture {
-                LectureDetailSheet(lecture: lecture)
-                    .presentationDetents([.medium])
+                LectureDetailsView(lecture: lecture)
+                    #if os(macOS)
+                    // The macOS sheet is as tall as its content; a medium detent would leave a gap.
+                    .presentationSizing(.fitted)
+                    #else
+                    .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
+                    #endif
             }
         }
         .alert(
@@ -84,6 +85,52 @@ struct TimetableScreen: View {
         } message: {
             Text(refreshError ?? "")
         }
+    }
+
+    /// The week's range as the window subtitle, where macOS puts the detail the toolbar does not show.
+    private var weekSubtitle: String {
+        weekRangeText(start: week.start, end: week.end) ?? ""
+    }
+
+    /// Everything the toolbar offers. The layout switch is on both platforms; on macOS the week
+    /// buttons live here as well, because there is no week bar to hold them.
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                layoutRaw = (layout == .grid ? TimetableLayout.list : .grid).rawValue
+            } label: {
+                Label(layout.switchLabel, systemImage: layout.symbol)
+            }
+            .accessibilityIdentifier("timetableLayoutButton")
+        }
+
+        #if os(macOS)
+        // ⌘← and ⌘→ are the keyboard form of the swipe: both change `focusedOffset`, and the
+        // `onChange` above sends the same `WeekFocused` intent the page swipe sends.
+        ToolbarItemGroup(placement: .navigation) {
+            Button { step(-1) } label: {
+                Label("timetable.previousWeek", systemImage: "chevron.left")
+            }
+            .keyboardShortcut(.leftArrow, modifiers: .command)
+            .help(Text("timetable.previousWeek"))
+            .accessibilityIdentifier("timetablePreviousWeek")
+
+            Button { withAnimation { focusedOffset = 0 } } label: {
+                Label("timetable.today", systemImage: "calendar")
+            }
+            .disabled(focusedOffset == 0)
+            .help(Text("timetable.today"))
+            .accessibilityIdentifier("timetableTodayButton")
+
+            Button { step(1) } label: {
+                Label("timetable.nextWeek", systemImage: "chevron.right")
+            }
+            .keyboardShortcut(.rightArrow, modifiers: .command)
+            .help(Text("timetable.nextWeek"))
+            .accessibilityIdentifier("timetableNextWeek")
+        }
+        #endif
     }
 
     /// Week range with a step button on either side.
@@ -137,7 +184,9 @@ struct TimetableScreen: View {
     /// its load, the sheet closing — could leave the scroll offset between two pages, and the
     /// binding then reported a week nobody had navigated to. A `TabView` selection is the page,
     /// not a position that has to be rounded back into one.
+    @ViewBuilder
     private var pages: some View {
+        #if os(iOS)
         TabView(selection: $focusedOffset) {
             ForEach(Self.offsets, id: \.self) { offset in
                 WeekPage(week: state.week(offset: Int32(offset)), offset: offset, layout: layout)
@@ -145,6 +194,11 @@ struct TimetableScreen: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
+        #else
+        // A Mac has no page swipe, and a paging TabView there would be a row of tabs across the
+        // top. One week at a time, changed by the toolbar and ⌘← / ⌘→.
+        WeekPage(week: week, offset: focusedOffset, layout: layout)
+        #endif
     }
 
     private func step(_ delta: Int) {
@@ -223,7 +277,7 @@ private struct WeekPage: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .platformGroupedList()
         .refreshable {
             model.timetable.dispatch(TimetableIntentRefresh(offset: Int32(offset)))
         }
@@ -288,39 +342,5 @@ struct LectureRow: View {
         .contentShape(Rectangle())
         // One label per row, so VoiceOver reads a lecture as a sentence instead of six fragments.
         .accessibilityElement(children: .combine)
-    }
-}
-
-struct LectureDetailSheet: View {
-
-    @Environment(\.dismiss) private var dismiss
-    let lecture: Lecture
-
-    var body: some View {
-        NavigationStack {
-            List {
-                LabeledContent("timetable.subject", value: lecture.displayName)
-                LabeledContent("timetable.date", value: lecture.start.dateText)
-                LabeledContent("timetable.start", value: lecture.start.timeText)
-                LabeledContent("timetable.end", value: lecture.end.timeText)
-                if !lecture.location.isEmpty {
-                    LabeledContent("timetable.room", value: lecture.location)
-                }
-                if !lecture.lecturers.isEmpty {
-                    LabeledContent("timetable.lecturers", value: lecture.lecturers.joined(separator: ", "))
-                }
-                if lecture.isTest {
-                    Label("timetable.exam", systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                }
-            }
-            .navigationTitle("timetable.details")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("common.close") { dismiss() }
-                }
-            }
-        }
     }
 }

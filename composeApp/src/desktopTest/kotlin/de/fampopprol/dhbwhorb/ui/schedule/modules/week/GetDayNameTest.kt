@@ -20,8 +20,8 @@ import kotlin.test.Test
 
 /**
  * Runs on desktopTest (not commonTest) because it pins [Locale] to make the `stringResource(...)`
- * day names deterministic regardless of the machine/CI's default locale — `java.util.Locale` is not
- * available on the Kotlin/Native macOS targets that also compile commonTest.
+ * day names deterministic regardless of the machine/CI's default locale — `java.util.Locale` is a JVM API
+ * that commonTest cannot use (composeApp has no Kotlin/Native target either).
  */
 @OptIn(ExperimentalTestApi::class)
 class GetDayNameTest {

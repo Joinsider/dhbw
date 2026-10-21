@@ -6,6 +6,7 @@
 
 package de.fampopprol.dhbwhorb.data.storage.preferences
 
+import de.fampopprol.dhbwhorb.domain.model.LectureCheck
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -109,5 +110,16 @@ class NotificationPreferencesInteractor(
     fun setReminderLeadMinutes(minutes: Int) {
         preferences.setReminderLeadMinutes(minutes)
         _reminderLeadMinutes.value = minutes
+    }
+
+    private val _lastLectureCheck = MutableStateFlow(preferences.getLastLectureCheck())
+
+    /** The last completed background check. Observable so a settings screen shows a run as it finishes. */
+    val lastLectureCheck: StateFlow<LectureCheck?> = _lastLectureCheck.asStateFlow()
+
+    /** Written by `NotificationManager` at the end of every run, whatever its outcome. */
+    fun recordLectureCheck(check: LectureCheck) {
+        preferences.setLastLectureCheck(check)
+        _lastLectureCheck.value = check
     }
 }

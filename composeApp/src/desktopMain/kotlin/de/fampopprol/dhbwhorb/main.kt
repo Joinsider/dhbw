@@ -9,7 +9,7 @@ package de.fampopprol.dhbwhorb
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
-import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
+import de.fampopprol.dhbwhorb.services.notifications.DesktopLectureMonitorScheduler
 import de.fampopprol.dhbwhorb.shared.initKoin
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
@@ -29,7 +29,7 @@ fun main() {
     val koin = initKoin().koin
 
     val notificationPreferences: NotificationPreferencesInteractor = koin.get()
-    val lectureMonitorScheduler: LectureMonitorScheduler = koin.get()
+    val lectureMonitorScheduler: DesktopLectureMonitorScheduler = koin.get()
     val appScope: CoroutineScope = koin.get()
 
     // Background monitoring runs only while both toggles are on.

@@ -18,7 +18,6 @@ kotlin {
     iosSimulatorArm64()
 
     macosArm64()
-    macosX64()
 
     jvm("desktop")
 
@@ -55,22 +54,8 @@ kotlin {
         iosMain.dependencies {
         }
 
-        // Desktop (JVM) and macOS (Native) share the exact same coroutine-based scheduler — no
-        // platform API on either side — so it lives once here instead of twice, byte-for-byte,
-        // per target (see the S1192 duplication SonarCloud flagged on the old copies).
-        val desktopAndMacosMain by creating {
-            dependsOn(commonMain.get())
-        }
-
-        macosMain {
-            dependsOn(desktopAndMacosMain)
-        }
-
-        val desktopMain by getting {
-            dependsOn(desktopAndMacosMain)
-            dependencies {
-            }
-        }
+        // Desktop (JVM) keeps the coroutine loop (desktopMain); macOS schedules its checks with
+        // NSBackgroundActivityScheduler (macosMain). Nothing is shared between the two anymore.
     }
 }
 

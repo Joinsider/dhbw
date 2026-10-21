@@ -8,14 +8,14 @@
 - Kotlin 2.3.10 - Used across the entire codebase for common logic, UI (Compose), and platform-specific implementations (KMP).
 
 **Secondary:**
-- Swift - Used in `iosApp/` and `macosApp/` for platform-specific entry points and UI wrappers.
+- Swift - Used in `iosApp/` for the SwiftUI app on iOS and macOS (one multiplatform target).
 - Ruby - Used in `Gemfile` for Fastlane and mobile automation scripts.
 
 ## Runtime
 
 **Environment:**
 - JVM - Desktop and Android runtimes.
-- Darwin - iOS and macOS native runtimes (via Kotlin/Native).
+- Darwin - iOS and macOS native runtimes (via Kotlin/Native, `iosArm64`, `iosSimulatorArm64`, `macosArm64`).
 
 **Package Manager:**
 - Gradle 8.x (Kotlin DSL)
@@ -24,7 +24,7 @@
 ## Frameworks
 
 **Core:**
-- Compose Multiplatform 1.10.3 - UI framework for Android, Desktop, iOS, and macOS.
+- Compose Multiplatform 1.10.3 - UI framework for Android and Desktop (iOS and macOS use SwiftUI).
 - Ktor 3.4.2 - Networking client used for API requests and HTML scraping.
 - Room 2.8.4 - Database abstraction layer for local storage (SQLite).
 
@@ -67,12 +67,12 @@
 **Development:**
 - JDK 17+
 - Android Studio / IntelliJ IDEA
-- Xcode (for iOS/macOS builds)
+- Xcode 26 (for iOS/macOS builds; macOS builds need Apple Silicon)
 
 **Production:**
 - Android (minSdk 24)
 - iOS
-- macOS
+- macOS (Mac App Store and notarized DMG; see `documentation/macOS/README.md`)
 - Windows/Linux (via JVM Desktop)
 
 ---

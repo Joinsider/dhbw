@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Direct distribution outside the Mac App Store: Developer ID signed, notarized. -->
+    <key>method</key>
+    <string>developer-id</string>
+    <key>teamID</key>
+    <string>56T6W6Z755</string>
+    <!-- Lets xcodebuild create or fetch the Developer ID profile when -allowProvisioningUpdates is given. -->
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>destination</key>
+    <string>export</string>
+</dict>
+</plist>

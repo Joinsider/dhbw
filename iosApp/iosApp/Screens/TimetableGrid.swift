@@ -114,7 +114,7 @@ struct TimetableGrid: View {
                 VStack(spacing: 0) {
                     ForEach(hours, id: \.self) { _ in
                         Rectangle()
-                            .fill(Color(uiColor: .separator).opacity(0.35))
+                            .fill(Color.platformSeparator.opacity(0.35))
                             .frame(height: 0.5)
                             .frame(maxHeight: Self.hourHeight, alignment: .top)
                     }

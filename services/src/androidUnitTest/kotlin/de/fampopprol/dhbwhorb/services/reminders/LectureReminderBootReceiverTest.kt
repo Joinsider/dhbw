@@ -39,6 +39,7 @@ class LectureReminderBootReceiverTest {
         override suspend fun replaceAll(reminders: List<LectureReminder>) {
             replaceAllCalls += reminders
         }
+        override suspend fun add(reminder: LectureReminder) = Unit
         override fun firesExactly(): Boolean = true
     }
 

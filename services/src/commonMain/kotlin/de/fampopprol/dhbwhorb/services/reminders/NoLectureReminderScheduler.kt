@@ -26,5 +26,9 @@ class NoLectureReminderScheduler : LectureReminderScheduler {
         }
     }
 
+    override suspend fun add(reminder: LectureReminder) {
+        Napier.d("Ignoring reminder ${reminder.id}: this platform cannot be woken up", tag = "LectureReminderScheduler")
+    }
+
     override fun firesExactly(): Boolean = false
 }

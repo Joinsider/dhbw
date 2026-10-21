@@ -7,6 +7,8 @@
 package de.fampopprol.dhbwhorb.presentation.settings
 
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
+import de.fampopprol.dhbwhorb.domain.model.LectureCheck
+import de.fampopprol.dhbwhorb.domain.model.LectureCheckOutcome
 import de.fampopprol.dhbwhorb.presentation.TestScopes
 import de.fampopprol.dhbwhorb.testutil.fakes.FakePreferencesRepository
 import kotlinx.coroutines.test.runTest
@@ -115,5 +117,51 @@ class SettingsStoreTest {
 
         store.close()
         reloaded.close()
+    }
+
+    @Test
+    fun loading_readsTheLastLectureCheck() = runTest {
+        val check = LectureCheck(epochMillis = 1_700_000_000_000, outcome = LectureCheckOutcome.OFFLINE)
+        val store = store(FakePreferencesRepository(lastLectureCheck = check))
+
+        store.dispatch(SettingsIntent.Load)
+
+        assertEquals(check, store.state.value.lastLectureCheck)
+        store.close()
+    }
+
+    @Test
+    fun watchingTheLastLectureCheck_showsEachFinishedRunWithoutReloading() = runTest {
+        val preferences = FakePreferencesRepository()
+        val store = store(preferences)
+        store.dispatch(SettingsIntent.WatchLastLectureCheck)
+        assertEquals(null, store.state.value.lastLectureCheck)
+
+        val run = LectureCheck(epochMillis = 1_700_000_500_000, outcome = LectureCheckOutcome.SUCCESS)
+        preferences.recordLectureCheck(run)
+
+        assertEquals(run, store.state.value.lastLectureCheck)
+        store.close()
+    }
+
+    @Test
+    fun reducer_lastLectureCheckChanged_replacesOnlyTheCheck() {
+        val check = LectureCheck(epochMillis = 42, outcome = LectureCheckOutcome.FAILED)
+        val before = SettingsState(themeMode = ThemeMode.DARK, reminderLeadMinutes = 30)
+
+        val after = reduceSettings(before, SettingsMsg.LastLectureCheckChanged(check))
+
+        assertEquals(check, after.lastLectureCheck)
+        assertEquals(ThemeMode.DARK, after.themeMode)
+        assertEquals(30, after.reminderLeadMinutes)
+    }
+
+    @Test
+    fun reducer_lastLectureCheckChangedToNull_clearsIt() {
+        val before = SettingsState(lastLectureCheck = LectureCheck(7, LectureCheckOutcome.SUCCESS))
+
+        val after = reduceSettings(before, SettingsMsg.LastLectureCheckChanged(null))
+
+        assertEquals(null, after.lastLectureCheck)
     }
 }

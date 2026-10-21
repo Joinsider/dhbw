@@ -55,7 +55,8 @@ class MacosNotificationDispatcher : NotificationDispatcher {
     override suspend fun hasPermission(): Boolean = suspendCoroutine { continuation ->
         Napier.d("hasPermission (macOS) checking current authorization status", tag = TAG)
         notificationCenter.getNotificationSettingsWithCompletionHandler { settings ->
-            val granted = settings?.authorizationStatus == UNAuthorizationStatusAuthorized
+            val granted = settings != null &&
+                NotificationAuthorization.allowsDelivery(settings.authorizationStatus)
             Napier.d("hasPermission (macOS) -> $granted", tag = TAG)
             continuation.resume(granted)
         }

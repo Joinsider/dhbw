@@ -8,11 +8,14 @@ package de.fampopprol.dhbwhorb.data.storage.preferences
 
 import de.fampopprol.dhbwhorb.data.storage.credentials.SecureStorageInterface
 import de.fampopprol.dhbwhorb.data.storage.settings.SettingsStorage
+import de.fampopprol.dhbwhorb.domain.model.LectureCheck
+import de.fampopprol.dhbwhorb.domain.model.LectureCheckOutcome
 import de.fampopprol.dhbwhorb.testutil.TestPlatformSettings
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -102,6 +105,25 @@ class NotificationPreferencesInteractorTest {
 
         assertTrue(interactor.getNotificationsEnabled())
         assertTrue(interactor.getLectureAlertsEnabled())
+    }
+
+    @Test
+    fun recordLectureCheck_updatesTheFlowAndPersistsIt() {
+        assertNull(interactor.lastLectureCheck.value)
+        val check = LectureCheck(epochMillis = 1_700_000_000_000L, outcome = LectureCheckOutcome.OFFLINE)
+
+        interactor.recordLectureCheck(check)
+
+        assertEquals(check, interactor.lastLectureCheck.value)
+        assertEquals(check, preferences.getLastLectureCheck())
+    }
+
+    @Test
+    fun lastLectureCheck_isLoadedFromStorageByAFreshInteractor() {
+        val check = LectureCheck(epochMillis = 99L, outcome = LectureCheckOutcome.FAILED)
+        preferences.setLastLectureCheck(check)
+
+        assertEquals(check, NotificationPreferencesInteractor(preferences).lastLectureCheck.value)
     }
 
     @Test

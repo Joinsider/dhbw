@@ -18,8 +18,8 @@ import kotlin.test.Test
 
 /**
  * Runs on desktopTest (not commonTest) because the null-status case renders a localised
- * `stringResource(...)` fallback, and pinning [Locale] needs `java.util.Locale`, which is not
- * available on the Kotlin/Native macOS targets that also compile commonTest.
+ * `stringResource(...)` fallback, and pinning [Locale] needs `java.util.Locale`, a JVM API
+ * that commonTest cannot use (composeApp has no Kotlin/Native target either).
  */
 @OptIn(ExperimentalTestApi::class)
 class GradeCardTest {

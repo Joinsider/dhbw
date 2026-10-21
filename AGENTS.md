@@ -1,8 +1,9 @@
 # AGENTS.md – DHBW Horb Student App
 
-Kotlin Multiplatform (KMP) app targeting **Android, Desktop (JVM), iOS, macOS**. Android, Desktop
-and macOS use Compose Multiplatform; **iOS is native SwiftUI since P7** and shares everything below
-the UI through `Shared.framework`. Scrapes the DHBW Dualis web portal for timetable and grades.
+Kotlin Multiplatform (KMP) app targeting **Android, Desktop (JVM: Linux and Windows), iOS and
+macOS**. Android and Desktop use Compose Multiplatform. **iOS and macOS are one native SwiftUI
+app** (iOS since P7, macOS since the SwiftUI target became multiplatform), and both share everything
+below the UI through `Shared.framework`. Scrapes the DHBW Dualis web portal for timetable and grades.
 
 ## Architecture Overview
 
@@ -23,13 +24,14 @@ boundaries do not change package names, so imports are identical across the spli
 :presentation    MVI stores: State / Intent / Msg / Effect,
                  reducers                                       -> :services
 :shared          Umbrella; exports the five production modules above as
-                 `Shared.framework` for Apple targets — no Compose,
-                 plus the Swift bridge in `shared/iosMain/…/ios/`
+                 `Shared.framework` for Apple targets (iOS and macOS) — no Compose,
+                 plus the Swift bridge in `shared/appleMain/…/ios/` (WidgetSnapshot
+                 stays in `shared/iosMain`)
 :composeApp      Compose UI, navigation, platform entry points,
                  Android Glance widget                           -> all of the above
-                 (Android, Desktop and macOS only — no iOS target)
-iosApp/          The SwiftUI app: `RootView` + five screens,
-                 links `Shared.framework`
+                 (Android and JVM desktop only — no Apple target)
+iosApp/          The SwiftUI app for iOS and macOS: `RootView` + five screens,
+                 links `Shared.framework` (see "macOS is the SwiftUI app")
 ```
 
 Everything above `:data` talks to the six repository interfaces in `:domain`
@@ -46,6 +48,9 @@ Verify the framework stays Compose-free after changes:
 ```bash
 ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
 nm -gU shared/build/bin/iosSimulatorArm64/debugFramework/Shared.framework/Shared | grep -c androidx.compose   # must be 0
+
+./gradlew :shared:linkDebugFrameworkMacosArm64
+nm -gU shared/build/bin/macosArm64/debugFramework/Shared.framework/Shared | grep -c androidx.compose   # must be 0
 ```
 
 There are no service locators left. Three used to exist as bridges, each initialised from
@@ -108,7 +113,7 @@ excluding `dualis_secure_prefs.xml` in `res/xml/backup_rules.xml` and
 `res/xml/data_extraction_rules.xml`.
 
 Platform entry points: `composeApp/androidMain/MainActivity.kt`, `composeApp/desktopMain/main.kt`,
-`composeApp/macosMain/main.kt`, and `iosApp/iosApp/iOSApp.swift` (which calls `SharedApp.start()`).
+and `iosApp/iosApp/iOSApp.swift` (which calls `SharedApp.start()`; the same file serves macOS).
 
 **On iOS there is a second process.** Since P8 the widget extension links `Shared.framework` too
 and starts its own Koin graph through `WidgetSnapshotProvider`; the two processes share the
@@ -129,7 +134,89 @@ database file in the App Group container, nothing else. That means:
   missing, registration fails and the first `submit` terminates the process.
 * App and extension see the same keychain items because both entitlement files list
   `$(AppIdentifierPrefix)de.fampopprol.dhbw` first. No access group is named in code — see
-  `IosSecureStorage`.
+  `AppleSecureStorage`.
+
+### macOS is the SwiftUI app, built from the same target
+
+The Mac app is not a second Compose app. It is the SwiftUI target in `iosApp/`, which is one
+multiplatform target built for iOS 26 and macOS 26 with the same bundle id (`de.fampopprol.dhbw`).
+On the Mac App Store that makes macOS a platform of the existing iOS app record, so Universal
+Purchase covers it and it replaces the "Designed for iPad" build. The reason for one target rather
+than a separate Mac project is that the Swift code, the bridges and the store plumbing are shared;
+the differences are `#if os(macOS)` branches inside the same files: the timetable uses a toolbar
+(previous / Today / next, ⌘← / ⌘→) instead of the page TabView, documents use Quick Look, NSSavePanel
+and NSSharingServicePicker, the root uses `.sidebarAdaptable`, and the default window is 1040×700.
+Apple Silicon only: the shared modules build `macosArm64`, and the `macosX64` target was removed
+everywhere.
+
+The framework is **dynamic on macOS** (`isStatic = appleTarget.name != "macosArm64"` in
+`shared/build.gradle.kts`). Linked statically, Xcode's linker pulled in androidx.sqlite's
+sqlite-framework cinterop member, which references six SQLite symbols that the macOS SDK's
+`libsqlite3` does not export, and the link failed. Kotlin's `embedAndSign` task skips dynamic
+frameworks, so the app target has its own run script phase, "Embed Shared.framework (macOS)", that
+copies and signs it into `Contents/Frameworks`. Do not switch the macOS framework back to static
+without linking the app again.
+
+What differs from iOS at runtime:
+- **No widget and no App Group.** The widget extension is iOS-only (`platformFilter = ios`), so the
+  macOS database lives in the sandbox container, and `setWidgetReload` is a no-op there
+  (`installWidgetReload` is the expect/actual).
+- **Hourly check on `NSBackgroundActivityScheduler`.** There is no `BGTaskScheduler` on macOS.
+  `LectureMonitorScheduler` in `services/src/macosMain` creates one `NSBackgroundActivityScheduler`
+  (identifier `de.fampopprol.dhbwhorb.lecture-monitor`, hourly, ten minutes' tolerance, utility QoS).
+  The system picks the moment, defers under load and does not fire during sleep. The JVM desktop keeps
+  its own coroutine loop in `desktopMain`. `registerTaskHandler()` is a no-op on both. Every run goes
+  through `NotificationManager.checkAndNotify()`, which replans the reminders first, as on iOS. The
+  check runs only while the process runs, so on its own it stops when the app quits. Each run that finishes is recorded by `NotificationManager.checkAndNotify()` as a `LectureCheck` (time and
+  success, offline or failed) in PlatformSettings, and shown as "Letzte Prüfung" in Settings → Background and in the menu bar.
+- **Background mode: a login item that starts hidden (`iosApp/iosApp/Mac/`).** The
+  Settings switch "Beim Anmelden im Hintergrund starten" registers `SMAppService.mainApp`. Its
+  status is the only state: nothing stores a second flag, and `BackgroundMode.shared` re-reads it on
+  every app activation, because the user can remove the item in System Settings. Turning it on
+  while the status is `.requiresApproval` shows a button to Login Items.
+  - *Login launch detection* (`LaunchContext` in `Mac/BackgroundMode.swift`): either the launching
+    Apple event carries `keyAELaunchedAsLogInItem`, or the system has been up for less than five
+    minutes. The second signal is what makes it work after a reboot; logout and login without a reboot
+    is only recognised by the first, which SwiftUI does not guarantee to be current.
+  - *Starting hidden* (only when the launch is a login launch and the item is enabled): the activation
+    policy is `.accessory` before the first window exists, the `Window` scene uses
+    `defaultLaunchBehavior(.suppressed)` with `restorationBehavior(.disabled)`, and
+    `applicationDidFinishLaunching` closes any window that appeared anyway.
+  - *Window and Dock:* a key window switches the app to `.regular`; the last user window closing
+    switches it back to `.accessory` (menu bar only, no Dock icon). `applicationShouldTerminateAfterLastWindowClosed`
+    returns `false` in both modes, which is AppKit's default and today's behaviour. The window is a
+    single `Window` scene so the menu's "Stundenplan öffnen" brings it forward rather than duplicating it.
+  - *Menu bar:* `MenuBarExtra` with `isInserted:` bound to the login-item status, so it exists only in
+    background mode. It shows the next lecture today or tomorrow from the timetable store, "Stundenplan
+    öffnen", "Jetzt aktualisieren" (timetable refresh for the current week) and "Beenden".
+  - *Stores start at launch:* `AppModel` is created by `@State` on the `App`, so the stores, the monitor
+    schedule and the reminder replan run on a hidden launch too.
+  - *What does not run:* nothing before the user logs in; nothing after ⌘Q or after the login item is
+    switched off. Launching
+    the app again from Finder while it is hidden does not open the window: use the menu bar item.
+- **Reminders use the iOS mechanism.** `AppleLectureReminderScheduler` (`services/src/appleMain`) is
+  bound on both Apple platforms and plans `UNCalendarNotificationTrigger` requests, so the 64-pending
+  limit and `MAX_REMINDERS` apply on macOS too.
+- **Sandbox entitlements** live in `iosApp/iosApp/iosApp-macOS.entitlements`: app sandbox, outgoing
+  network, user-selected files read/write (for the save panel) and the keychain access group. The
+  app is built with the hardened runtime.
+- **Credentials use the data protection keychain, like iOS.** `AppleSecureStorage` (`data/src/appleMain`)
+  is bound on both Apple platforms and sets `kSecUseDataProtectionKeychain` on every query. The
+  older macOS implementation used the legacy file-based login keychain, where each item's access
+  list is bound to the code signature of the app that wrote it: every rebuild or re-signing
+  prompted for the Mac password once per item, about eight times at launch. The data protection
+  keychain authorises by the entitlement instead and does not prompt. Consequences: the legacy
+  items are neither read nor deleted (reading them is what prompts), so macOS users log in once
+  more after this change. An unsigned or ad-hoc build cannot write to the data protection keychain
+  (`errSecMissingEntitlement`, -34018) and cannot log in; that is expected.
+- **Uninstall does not clear credentials on macOS.** The install guard is disabled there
+  (`currentInstallStamp()` is `null`): the sandbox container survives deleting the app, so its
+  creation date cannot tell a reinstall from an update, and the bundle date changes on every
+  update. The keychain items therefore survive an uninstall on macOS, as they did before. Closing
+  that needs a marker the installer writes, not a timestamp.
+
+Distribution is covered in `documentation/macOS/README.md`: the App Store upload, and the Developer
+ID DMG that the `build-dmg-macos` job in the release workflow archives, notarizes and packages.
 
 ## Critical Patterns
 
@@ -219,17 +306,21 @@ halfway would log the user out for good.
 suite touches — and migrates — the developer's own keyring.
 
 Secure storage is **not** expect/actual any more: `SecureStorageInterface` has one implementation
-per platform (`AndroidSecureStorage`, `DesktopSecureStorage`, `IosSecureStorage`,
-`MacosSecureStorage`), bound in `dataPlatformModule()`. An expect class cannot take a
-platform-specific constructor parameter, which is what Android needs for its Context.
+per platform (`AndroidSecureStorage`, `DesktopSecureStorage`, and `AppleSecureStorage` shared by
+iOS and macOS), bound in `dataPlatformModule()`. An expect class cannot take a platform-specific
+constructor parameter, which is what Android needs for its Context.
 - Android → `EncryptedSharedPreferences`, Context injected via `androidContext()`
 - Desktop → `java-keyring`, falling back to `Preferences.userNodeForPackage`
+- iOS and macOS → `AppleSecureStorage`, the Keychain on the data protection keychain (see
+  "macOS is the SwiftUI app"); the item layout (service `DualisApp`, one item per key, `_stored_keys`
+  index) is the same on both, and iOS items are unaffected by the flag
 - Android DB path → `Context.getDatabasePath("grades_database.db")`
 - Desktop DB path → per-user data directory (`~/Library/Application Support/…`, `%APPDATA%`,
   `$XDG_DATA_HOME`); it used to be `java.io.tmpdir`, where the OS may delete it
 - iOS DB path → the app group container `group.de.fampopprol.dhbwhorb`, so the widget extension
   can read it; falls back to `NSDocumentDirectory` with a logged error if the entitlement is absent
-- macOS DB path → `NSApplicationSupportDirectory` (no widget extension, so no app group)
+- macOS DB path → `NSApplicationSupportDirectory`, inside the sandbox container (no widget
+  extension, so no app group)
 
 ### Dependency Injection (Koin)
 One composition root: `initKoin()` in `:shared`, called from `DualisApplication.onCreate()`,
@@ -391,7 +482,11 @@ cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration 
   -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath /tmp/dhbwderived build
 
-# Desktop native packages (Dmg/Msi/Deb)
+# macOS app (Debug, Apple Silicon). Built from the SwiftUI target; see "macOS is the SwiftUI app"
+cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration Debug \
+  -destination 'platform=macOS,arch=arm64' -derivedDataPath /tmp/dhbwderived-mac build
+
+# Desktop native packages (Msi on Windows, Deb on Linux; run on that OS only)
 ./gradlew :composeApp:packageDistributionForCurrentOS
 
 # Fat JAR for Linux distribution
@@ -423,9 +518,15 @@ cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration 
 | `iosApp/iosApp/RootView.swift` | `AppModel` (stores, widget reload, background schedule) plus login gate and tab bar |
 | `shared/src/iosMain/…/ios/WidgetSnapshot.kt` | The widget's data, defined once; the extension's only Kotlin entry point |
 | `services/…/notifications/LectureMonitorScheduler.ios.kt` | `BGTaskScheduler` registration, submission and the background check |
+| `services/src/macosMain/…/notifications/LectureMonitorScheduler.kt` | `NSBackgroundActivityScheduler` for macOS; the JVM desktop loop is in `desktopMain` |
+| `iosApp/iosApp/Mac/BackgroundMode.swift` | macOS background mode: login item, login-launch detection, `MacAppDelegate` (activation policy, last window) |
+| `iosApp/iosApp/Mac/MenuBarMenu.swift` | The menu bar item shown in background mode |
 | `iosApp/TimetableWidgetExtension.entitlements` | App Group + keychain group for the extension (the app's are in `iosApp/iosApp/iosApp.entitlements`) |
 | `iosApp/iosApp/Localizable.xcstrings` | iOS strings (en/de); the Compose UI has its own in `composeResources` |
 | `iosApp/TimetableWidget/Localizable.xcstrings` | The widget extension's strings (en/de) — a bundle of its own, not the app's |
+| `iosApp/iosApp/iosApp-macOS.entitlements` | Sandbox, network, user-selected files and keychain group for the macOS app |
+| `shared/build.gradle.kts` | Framework linkage per Apple target — dynamic on macOS, see "macOS is the SwiftUI app" |
+| `packaging/macos/make-dmg.sh` | Builds the Developer ID DMG shipped by the release workflow |
 | `core/testing/src/commonMain/…/testutil/` | The fakes every module's tests build on |
 | `…/data/storage/database/AppDatabase.kt` | Room DB definition; `clearAllData()` for logout |
 | `…/data/storage/database/AppDatabaseMigrations.kt` | Schema version, migration list, destructive-fallback allowlist |

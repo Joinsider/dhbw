@@ -13,13 +13,18 @@ kotlin {
         }
     }
 
+    // Apple targets share one Shared.framework per platform: the Swift-facing API is identical on
+    // iOS and macOS (Apple Silicon only, Intel Macs are not supported).
     listOf(
         iosArm64(),
-        iosSimulatorArm64()
-    ).forEach { iosTarget ->
-        iosTarget.binaries.framework {
+        iosSimulatorArm64(),
+        macosArm64()
+    ).forEach { appleTarget ->
+        appleTarget.binaries.framework {
             baseName = "Shared"
-            isStatic = true
+            // macOS: dynamic, so the framework links its own bundled SQLite and Xcode does not
+            // pull the static archive members into the app executable. iOS stays static.
+            isStatic = appleTarget.name != "macosArm64"
 
             // Without export() the modules are linked but their APIs stay invisible to Swift.
             export(projects.core.common)
@@ -29,9 +34,6 @@ kotlin {
             export(projects.presentation)
         }
     }
-
-    macosArm64()
-    macosX64()
 
     jvm("desktop")
 
