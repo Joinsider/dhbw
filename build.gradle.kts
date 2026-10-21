@@ -78,6 +78,11 @@ sonar {
                 "**/src/iosMain/**",
                 "**/src/macosMain/**",
                 "**/src/appleMain/**",
+                // The SwiftUI app (iosApp/, Swift). Nothing in the JVM coverage run compiles or
+                // executes it, and no Swift coverage report is imported, so each of its lines would
+                // count as uncovered new code by construction. Its logic that matters lives in the
+                // shared Kotlin modules, which are measured above.
+                "iosApp/**",
                 // The fakes every module's tests build on. Deliberately without a Kover variant
                 // (see core/testing/build.gradle.kts), so the same reasoning applies: every line in
                 // it is 0% by construction, and a new line in a fake counted against the change.
