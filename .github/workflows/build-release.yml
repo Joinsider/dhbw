@@ -51,6 +51,7 @@ jobs:
       new_version: ${{ steps.semver.outputs.new_version }}
       new_tag: ${{ steps.semver.outputs.new_tag }}
       new_code: ${{ steps.versioncode.outputs.new_code }}
+      new_apple_build: ${{ steps.applebuild.outputs.new_build }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -125,8 +126,27 @@ jobs:
           grep 'versionCode' composeApp/build.gradle.kts
           echo "new_code=$NEW_CODE" >> "$GITHUB_OUTPUT"
 
+      # Apple's build number is a counter of its own in Config.xcconfig, not the Android
+      # versionCode: App Store Connect rejects a number it has seen, and the two have drifted
+      # apart (Apple was at 34 when Android was at 30).
+      - name: Bump Apple build number
+        id: applebuild
+        if: steps.semver.outputs.skipped != 'true'
+        run: |
+          XCCONFIG=iosApp/Configuration/Config.xcconfig
+          CURRENT_BUILD=$(sed -n -E 's/^CURRENT_PROJECT_VERSION[[:space:]]*=[[:space:]]*([0-9]+)[[:space:]]*$/\1/p' "$XCCONFIG")
+          if [ -z "$CURRENT_BUILD" ]; then
+            echo "::error::No numeric CURRENT_PROJECT_VERSION in $XCCONFIG."
+            exit 1
+          fi
+          NEW_BUILD=$((CURRENT_BUILD + 1))
+          echo "Apple build number: $CURRENT_BUILD → $NEW_BUILD"
+          echo "new_build=$NEW_BUILD" >> "$GITHUB_OUTPUT"
+
       - name: Write new versions into build files
         if: steps.semver.outputs.skipped != 'true'
+        env:
+          APPLE_BUILD: ${{ steps.applebuild.outputs.new_build }}
         run: |
           NEW="${{ steps.semver.outputs.new_version }}"
           NEW_CODE="${{ steps.versioncode.outputs.new_code }}"
@@ -141,22 +161,21 @@ jobs:
           # Update Fat Jar archiveVersion
           sed -i -E "s/(archiveVersion\.set\()\"[^\"]+\"\)/\1\"$NEW\")/" composeApp/build.gradle.kts
           
-          # 2. Update iOS in Config.xcconfig
-          if [ -f "iosApp/Configuration/Config.xcconfig" ]; then
-            sed -i -E "s/(MARKETING_VERSION\s*=\s*).*/\1$NEW/" iosApp/Configuration/Config.xcconfig
-            sed -i -E "s/(CURRENT_PROJECT_VERSION\s*=\s*).*/\1$NEW_CODE/" iosApp/Configuration/Config.xcconfig
-          fi
+          # 2. Update the Apple app (iOS, macOS, widget) in Config.xcconfig — its only version source.
+          # Anchored, so the comment block above the two settings is left alone.
+          sed -i -E "s/^(MARKETING_VERSION\s*=\s*).*/\1$NEW/" iosApp/Configuration/Config.xcconfig
+          sed -i -E "s/^(CURRENT_PROJECT_VERSION\s*=\s*).*/\1$APPLE_BUILD/" iosApp/Configuration/Config.xcconfig
 
           echo "--- Updated composeApp/build.gradle.kts ---"
           grep -E "versionName|versionCode|packageVersion|archiveVersion" composeApp/build.gradle.kts
           
-          if [ -f "iosApp/Configuration/Config.xcconfig" ]; then
-            echo "--- Updated iosApp/Configuration/Config.xcconfig ---"
-            cat iosApp/Configuration/Config.xcconfig
-          fi
+          echo "--- Updated iosApp/Configuration/Config.xcconfig ---"
+          grep -E "^(MARKETING_VERSION|CURRENT_PROJECT_VERSION)" iosApp/Configuration/Config.xcconfig
 
       - name: Validate all version fields
         if: steps.semver.outputs.skipped != 'true'
+        env:
+          APPLE_BUILD: ${{ steps.applebuild.outputs.new_build }}
         run: |
            NEW="${{ steps.semver.outputs.new_version }}"
            NEW_CODE="${{ steps.versioncode.outputs.new_code }}"
@@ -184,22 +203,27 @@ jobs:
              ERRORS=$((ERRORS + 1))
            fi
            
-           # iOS (2 fields)
-           if ! grep -q "MARKETING_VERSION.*$NEW" iosApp/Configuration/Config.xcconfig; then
-             echo "❌ ERROR: iOS MARKETING_VERSION not updated to $NEW"
+           # Apple (2 fields, exact lines — a looser match would also accept 3.0.40 for 3.0.4)
+           if ! grep -Fxq "MARKETING_VERSION=$NEW" iosApp/Configuration/Config.xcconfig; then
+             echo "❌ ERROR: Apple MARKETING_VERSION not updated to $NEW"
              ERRORS=$((ERRORS + 1))
            fi
-           if ! grep -q "CURRENT_PROJECT_VERSION.*$NEW_CODE" iosApp/Configuration/Config.xcconfig; then
-             echo "❌ ERROR: iOS CURRENT_PROJECT_VERSION not updated to $NEW_CODE"
+           if ! grep -Fxq "CURRENT_PROJECT_VERSION=$APPLE_BUILD" iosApp/Configuration/Config.xcconfig; then
+             echo "❌ ERROR: Apple CURRENT_PROJECT_VERSION not updated to $APPLE_BUILD"
              ERRORS=$((ERRORS + 1))
            fi
-           
+           # Config.xcconfig only wins while no target overrides it.
+           if grep -qE "(MARKETING_VERSION|CURRENT_PROJECT_VERSION) = " iosApp/iosApp.xcodeproj/project.pbxproj; then
+             echo "❌ ERROR: project.pbxproj sets a version itself and would override Config.xcconfig"
+             ERRORS=$((ERRORS + 1))
+           fi
+
            if [ $ERRORS -gt 0 ]; then
              echo "❌ Version validation FAILED with $ERRORS errors"
              exit 1
            fi
-           
-           echo "✅ All 9 version fields verified successfully"
+
+           echo "✅ All version fields verified successfully"
 
       - name: Commit & push version bump
         if: steps.semver.outputs.skipped != 'true'

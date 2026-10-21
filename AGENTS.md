@@ -220,6 +220,15 @@ ID DMG that `.github/workflows/build-macos.yml` archives, notarizes and packages
 release workflow, and startable on its own. It signs manually with a Developer ID profile, because
 the keychain group entitlement is restricted on macOS and the app does not launch without one.
 
+**The Apple version lives in `iosApp/Configuration/Config.xcconfig` and nowhere else.** No target in
+`project.pbxproj` sets `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION`; a value there would win
+over the file, and the release bump would silently stop reaching Xcode builds — which is what
+happened until the targets were cleaned (the bump wrote 3.0.3 (29) while Xcode kept 3.0.4 (34)).
+Xcode's General tab writes into the target when a version is edited there, so edit the file. The
+version follows the Android `versionName`; the build number is Apple's own counter, one up per
+release, because App Store Connect rejects a number it has already seen. The bump job's validation
+fails if a target sets either value again.
+
 ## Critical Patterns
 
 ### Shared HttpClient (cookie sharing)
