@@ -12,7 +12,7 @@ import Shared
 ///
 /// One view for both platforms, laid out like the lecture details: a header with the module's name
 /// and its grade, then grouped sections with an icon per row. The values are selectable, so a
-/// number can be copied on a Mac. On macOS the sheet is 480pt wide and as tall as its content.
+/// number can be copied on a Mac. On macOS the sheet is 480 × 560pt and the form scrolls.
 struct ModuleDetailsSheet: View {
 
     let module: GradeEntry
@@ -231,13 +231,15 @@ struct ModuleDetailsSheet: View {
 
 private extension View {
 
-    /// A macOS sheet is 480pt wide and takes the height of its content. Its own minimum size is
-    /// left off on purpose: a short module would otherwise stand in a box of empty space.
+    /// A macOS sheet is 480pt wide and 560pt tall, and the form scrolls inside it. It used to take
+    /// the height of its content, but a module with several attempts and units then grew taller
+    /// than the window: the bottom bar with the close button was cut off, and a form already as
+    /// tall as its content had nothing to scroll.
     @ViewBuilder
     func sheetPlatformFit() -> some View {
         #if os(macOS)
         frame(width: 480)
-            .fixedSize(horizontal: false, vertical: true)
+            .frame(minHeight: 280, idealHeight: 560)
         #else
         self
         #endif
