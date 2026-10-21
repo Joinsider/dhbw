@@ -188,7 +188,7 @@ jobs:
 
           # Apple's Developer ID G2 intermediate, so codesign can build the chain on a fresh runner.
           curl -fsSL --proto '=https' --tlsv1.2 -o "$RUNNER_TEMP/DeveloperIDG2CA.cer" \
-            https://www.apple.com/certificationauthority/DeveloperIDG2CA.cer
+            https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
           security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$KEYCHAIN" -T /usr/bin/codesign
 
           printf '%s' "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/devid.p12"
