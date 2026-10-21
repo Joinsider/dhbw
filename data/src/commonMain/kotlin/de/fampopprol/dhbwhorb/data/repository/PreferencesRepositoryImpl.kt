@@ -9,7 +9,9 @@ package de.fampopprol.dhbwhorb.data.repository
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemePreferences
+import de.fampopprol.dhbwhorb.domain.model.LectureCheck
 import de.fampopprol.dhbwhorb.domain.repository.PreferencesRepository
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * One entry point for the settings, over the two preference stores that hold them.
@@ -39,4 +41,7 @@ class PreferencesRepositoryImpl(
 
     override fun getReminderLeadMinutes(): Int = notificationPreferences.getReminderLeadMinutes()
     override fun setReminderLeadMinutes(minutes: Int) = notificationPreferences.setReminderLeadMinutes(minutes)
+
+    override fun getLastLectureCheck(): LectureCheck? = notificationPreferences.lastLectureCheck.value
+    override fun observeLastLectureCheck(): StateFlow<LectureCheck?> = notificationPreferences.lastLectureCheck
 }

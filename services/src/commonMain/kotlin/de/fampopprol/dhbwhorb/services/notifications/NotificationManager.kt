@@ -6,11 +6,15 @@
 
 package de.fampopprol.dhbwhorb.services.notifications
 
+import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.core.error.Outcome
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
+import de.fampopprol.dhbwhorb.domain.model.LectureCheck
+import de.fampopprol.dhbwhorb.domain.model.LectureCheckOutcome
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminderPlanner
 import de.fampopprol.dhbwhorb.services.widget.WidgetRefresher
 import io.github.aakira.napier.Napier
+import kotlin.time.Clock
 
 /**
  * One background run: check the preferences, check for changes, tell the user, refresh the widget.
@@ -22,6 +26,7 @@ import io.github.aakira.napier.Napier
  *   last one, whether this run finds a change or not.
  * @param widgetRefresher optional on purpose — a platform without widgets binds nothing, and a
  *   widget that does not refresh must never fail the run.
+ * @param clock the time a run is recorded at, as epoch millis; injectable for tests.
  */
 class NotificationManager(
     private val monitor: LectureChangeMonitor,
@@ -29,13 +34,20 @@ class NotificationManager(
     private val preferences: NotificationPreferencesInteractor,
     private val reminders: LectureReminderPlanner,
     private val widgetRefresher: WidgetRefresher? = null,
+    private val clock: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
     companion object {
         private const val TAG = "NotificationManager"
     }
 
     /**
-     * Runs one check.
+     * Runs one check and records how it ended.
+     *
+     * Every platform's scheduler goes through here, so this is the one place the "last check"
+     * shown in Settings and the menu bar is written. Only a run that actually compared the timetable
+     * against Dualis is recorded, successful or not: a run skipped because alerts are off or the
+     * permission is missing did no check, and showing it as one would mislead the user. A run that
+     * is cancelled part-way is not recorded either, because it did not finish.
      *
      * Returns [Outcome.Ok] both when something was found and when there was nothing to do —
      * including when the user has notifications switched off, which is not a failure. An
@@ -57,7 +69,7 @@ class NotificationManager(
             return Outcome.Ok(Unit)
         }
 
-        return when (val result = monitor.checkForChanges()) {
+        val outcome: Outcome<Unit> = when (val result = monitor.checkForChanges()) {
             is MonitorResult.Changes -> {
                 notify(result.changes)
                 // The timetable in the shared database moved, and the widget reads that database.
@@ -75,6 +87,20 @@ class NotificationManager(
                 Outcome.Err(result.error)
             }
         }
+        recordLectureCheck(outcome)
+        return outcome
+    }
+
+    private fun recordLectureCheck(outcome: Outcome<Unit>) {
+        preferences.recordLectureCheck(
+            LectureCheck(
+                epochMillis = clock(),
+                outcome = when (outcome) {
+                    is Outcome.Ok -> LectureCheckOutcome.SUCCESS
+                    is Outcome.Err -> if (outcome.error is AppError.Offline) LectureCheckOutcome.OFFLINE else LectureCheckOutcome.FAILED
+                },
+            )
+        )
     }
 
     /**

@@ -7,6 +7,7 @@
 package de.fampopprol.dhbwhorb.presentation.settings
 
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
+import de.fampopprol.dhbwhorb.domain.model.LectureCheck
 
 /**
  * Theme and notification settings.
@@ -26,7 +27,14 @@ data class SettingsState(
      * One number instead of a switch plus a duration: for the user it is one choice, and two
      * fields could disagree about whether reminders are on.
      */
-    val reminderLeadMinutes: Int = 0
+    val reminderLeadMinutes: Int = 0,
+    /**
+     * When the background lecture check last finished, and how. Null until one has run.
+     *
+     * Read-only here: nothing in the settings writes it, the background run does. It is kept live by
+     * [SettingsIntent.WatchLastLectureCheck].
+     */
+    val lastLectureCheck: LectureCheck? = null,
 ) {
     companion object {
         /** Purple40, the value `ThemePreferences` falls back to. */
@@ -42,6 +50,9 @@ sealed interface SettingsIntent {
     data class NotificationsChanged(val enabled: Boolean) : SettingsIntent
     data class LectureAlertsChanged(val enabled: Boolean) : SettingsIntent
     data class ReminderLeadChanged(val minutes: Int) : SettingsIntent
+
+    /** Keeps [SettingsState.lastLectureCheck] up to date for as long as the store lives. */
+    data object WatchLastLectureCheck : SettingsIntent
 }
 
 sealed interface SettingsMsg {
@@ -52,6 +63,7 @@ sealed interface SettingsMsg {
     data class NotificationsChanged(val enabled: Boolean) : SettingsMsg
     data class LectureAlertsChanged(val enabled: Boolean) : SettingsMsg
     data class ReminderLeadChanged(val minutes: Int) : SettingsMsg
+    data class LastLectureCheckChanged(val check: LectureCheck?) : SettingsMsg
 }
 
 /** Nothing here is one-shot: every setting is state the whole app reads. */

@@ -22,6 +22,8 @@ import de.fampopprol.dhbwhorb.data.storage.database.entities.timetable.LectureEv
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferences
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
 import de.fampopprol.dhbwhorb.data.storage.settings.SettingsStorage
+import de.fampopprol.dhbwhorb.domain.model.LectureCheck
+import de.fampopprol.dhbwhorb.domain.model.LectureCheckOutcome
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminder
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminderPlanner
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminderScheduler
@@ -186,7 +188,10 @@ class NotificationManagerTest {
         preferences = preferencesInteractor,
         reminders = reminderPlanner,
         widgetRefresher = widgetRefresher?.let { refresh -> de.fampopprol.dhbwhorb.services.widget.WidgetRefresher { refresh() } },
+        clock = { recordedAt },
     )
+
+    private val recordedAt = 1_772_614_800_000L
 
     @Test
     fun checkAndNotify_lectureAlertsOff_skipsTheCheckEntirely() = runTest {
@@ -311,5 +316,74 @@ class NotificationManagerTest {
         val error = assertIs<Outcome.Err>(result).error
         assertEquals(AppError.Offline, error)
         assertTrue(dispatcher.singleNotifications.isEmpty())
+    }
+
+    @Test
+    fun checkAndNotify_recordsAFinishedCheck_withItsTimeAndOutcome() = runTest {
+        preferences.setNotificationsEnabled(true)
+        preferences.setLectureAlertsEnabled(true)
+        preferencesInteractor.refresh()
+        assertEquals(null, preferencesInteractor.lastLectureCheck.value)
+
+        manager().checkAndNotify()
+
+        assertEquals(LectureCheck(recordedAt, LectureCheckOutcome.SUCCESS), preferencesInteractor.lastLectureCheck.value)
+    }
+
+    @Test
+    fun checkAndNotify_aSkippedRun_isNotRecorded() = runTest {
+        preferences.setNotificationsEnabled(false)
+        preferencesInteractor.refresh()
+
+        manager().checkAndNotify()
+
+        assertEquals(null, preferencesInteractor.lastLectureCheck.value, "a run that compared nothing is not a check")
+    }
+
+    @Test
+    fun checkAndNotify_noPermission_isNotRecorded() = runTest {
+        preferences.setNotificationsEnabled(true)
+        preferences.setLectureAlertsEnabled(true)
+        preferencesInteractor.refresh()
+
+        manager(RecordingNotificationDispatcher(permission = false)).checkAndNotify()
+
+        assertEquals(null, preferencesInteractor.lastLectureCheck.value)
+    }
+
+    @Test
+    fun checkAndNotify_recordsAnOfflineFailure_asOffline() = runTest {
+        preferences.setNotificationsEnabled(true)
+        preferences.setLectureAlertsEnabled(true)
+        preferencesInteractor.refresh()
+
+        val result = manager(failWithError = AppError.Offline).checkAndNotify()
+
+        assertIs<Outcome.Err>(result)
+        assertEquals(LectureCheckOutcome.OFFLINE, preferencesInteractor.lastLectureCheck.value?.outcome)
+    }
+
+    @Test
+    fun checkAndNotify_recordsAnyOtherFailure_asFailed() = runTest {
+        preferences.setNotificationsEnabled(true)
+        preferences.setLectureAlertsEnabled(true)
+        preferencesInteractor.refresh()
+
+        manager(failWithError = AppError.SessionExpired).checkAndNotify()
+
+        assertEquals(LectureCheckOutcome.FAILED, preferencesInteractor.lastLectureCheck.value?.outcome)
+    }
+
+    @Test
+    fun lastLectureCheck_survivesAnInteractorRestart() = runTest {
+        preferences.setNotificationsEnabled(true)
+        preferences.setLectureAlertsEnabled(true)
+        preferencesInteractor.refresh()
+        manager().checkAndNotify()
+
+        // A fresh interactor over the same storage is what the app builds on the next launch.
+        val afterRestart = NotificationPreferencesInteractor(preferences)
+
+        assertEquals(LectureCheck(recordedAt, LectureCheckOutcome.SUCCESS), afterRestart.lastLectureCheck.value)
     }
 }

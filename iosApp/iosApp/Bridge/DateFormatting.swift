@@ -43,6 +43,37 @@ extension Kotlinx_datetimeLocalDateTime {
     }
 }
 
+/// When the background lecture check last finished, as Settings and the menu bar show it.
+///
+/// `heute, 14:03`, `gestern, 09:12`, `21.10., 18:40`. Absolute on purpose: a relative "vor 5 Min."
+/// would go stale on an open window, because nothing redraws it.
+enum LectureCheckText {
+
+    /// The day and time of a run, in the device's clock format.
+    static func when(_ check: LectureCheck) -> String {
+        let date = Date(timeIntervalSince1970: TimeInterval(check.epochMillis) / 1000)
+        let calendar = Calendar.current
+        let day: String
+        if calendar.isDateInToday(date) {
+            day = String(localized: "lastCheck.today")
+        } else if calendar.isDateInYesterday(date) {
+            day = String(localized: "lastCheck.yesterday")
+        } else {
+            day = date.formatted(.dateTime.day().month(.twoDigits))
+        }
+        return "\(day), \(date.formatted(date: .omitted, time: .shortened))"
+    }
+
+    /// Why a run failed, or nil when it succeeded.
+    static func failure(_ check: LectureCheck) -> String? {
+        switch check.outcome {
+        case .offline: return String(localized: "lastCheck.failedOffline")
+        case .failed: return String(localized: "lastCheck.failed")
+        default: return nil
+        }
+    }
+}
+
 /// `13 – 17 Oct`, the title over a timetable week.
 func weekRangeText(start: Kotlinx_datetimeLocalDateTime?, end: Kotlinx_datetimeLocalDateTime?) -> String? {
     guard let start, let end else { return nil }

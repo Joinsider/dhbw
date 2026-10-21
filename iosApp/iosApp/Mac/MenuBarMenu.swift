@@ -34,6 +34,7 @@ struct MenuBarMenu: View {
     var body: some View {
         Group {
             Text(verbatim: nextLectureLine)
+            Text(verbatim: lastCheckLine)
             Divider()
             Button("menu.openTimetable") { MacWindow.show(openWindow) }
             Button("menu.refresh") {
@@ -46,6 +47,17 @@ struct MenuBarMenu: View {
         .onAppear {
             model.timetable.dispatch(TimetableIntentWeekFocused(offset: 0))
         }
+    }
+
+    /// `Letzte Prüfung: heute, 14:03`, with the failure after it when the last run failed.
+    private var lastCheckLine: String {
+        let label = String(localized: "settings.lastCheck")
+        guard let check = model.settings.state.lastLectureCheck else {
+            return "\(label): \(String(localized: "settings.lastCheckNever"))"
+        }
+        let line = "\(label): \(LectureCheckText.when(check))"
+        guard let failure = LectureCheckText.failure(check) else { return line }
+        return "\(line) · \(failure)"
     }
 
     /// The first lecture that starts today or tomorrow, or a line saying there is none.

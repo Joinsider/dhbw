@@ -149,10 +149,38 @@ struct MacSettingsView: View {
     private var backgroundSection: some View {
         Section {
             BackgroundModeSettings()
+            lastCheckRow
         } header: {
             Text("settings.backgroundHeader")
         } footer: {
             Text("settings.backgroundFooter")
+        }
+    }
+
+    /// When the background check last ran. The value is absolute (`heute, 14:03`), so it cannot go
+    /// stale while the window is open.
+    private var lastCheckRow: some View {
+        LabeledContent {
+            lastCheckValue
+        } label: {
+            rowLabel("settings.lastCheck", systemName: "clock.arrow.circlepath", color: .teal)
+        }
+    }
+
+    @ViewBuilder
+    private var lastCheckValue: some View {
+        if let check = state.lastLectureCheck {
+            HStack(spacing: 4) {
+                Text(verbatim: LectureCheckText.when(check))
+                if let failure = LectureCheckText.failure(check) {
+                    Text(verbatim: "· \(failure)")
+                        .foregroundStyle(.red)
+                }
+            }
+            .foregroundStyle(.secondary)
+        } else {
+            Text("settings.lastCheckNever")
+                .foregroundStyle(.secondary)
         }
     }
 

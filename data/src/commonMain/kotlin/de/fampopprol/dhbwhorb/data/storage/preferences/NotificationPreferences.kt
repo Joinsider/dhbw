@@ -7,6 +7,8 @@
 package de.fampopprol.dhbwhorb.data.storage.preferences
 
 import de.fampopprol.dhbwhorb.data.storage.settings.SettingsStorage
+import de.fampopprol.dhbwhorb.domain.model.LectureCheck
+import de.fampopprol.dhbwhorb.domain.model.LectureCheckOutcome
 
 /**
  * Manages notification preferences. These are settings, not secrets — see [SettingsStorage].
@@ -17,6 +19,7 @@ class NotificationPreferences(private val storage: SettingsStorage) {
         private const val NOTIFICATIONS_ENABLED_KEY = "notifications_enabled"
         private const val LECTURE_ALERTS_ENABLED_KEY = "lecture_alerts_enabled"
         private const val REMINDER_LEAD_MINUTES_KEY = "lecture_reminder_lead_minutes"
+        private const val LAST_LECTURE_CHECK_KEY = "last_lecture_check"
 
         /** The offsets the settings screen offers. `0` means the reminder is off. */
         val REMINDER_LEAD_CHOICES = listOf(0, 15, 30, 60)
@@ -69,5 +72,23 @@ class NotificationPreferences(private val storage: SettingsStorage) {
 
     fun setReminderLeadMinutes(minutes: Int) {
         storage.setString(REMINDER_LEAD_MINUTES_KEY, minutes.toString())
+    }
+
+    /**
+     * When the last background check finished and how it ended, stored as `"<epochMillis>;<OUTCOME>"`
+     * so the time and the outcome are written in one step and cannot disagree. Null when no check
+     * has run, or when the stored value is unreadable — the next run overwrites it either way.
+     */
+    fun getLastLectureCheck(): LectureCheck? {
+        val stored = storage.getString(LAST_LECTURE_CHECK_KEY, "")
+        val parts = stored.split(';')
+        if (parts.size != 2) return null
+        val epochMillis = parts[0].toLongOrNull() ?: return null
+        val outcome = LectureCheckOutcome.entries.firstOrNull { it.name == parts[1] } ?: return null
+        return LectureCheck(epochMillis, outcome)
+    }
+
+    fun setLastLectureCheck(check: LectureCheck) {
+        storage.setString(LAST_LECTURE_CHECK_KEY, "${check.epochMillis};${check.outcome.name}")
     }
 }

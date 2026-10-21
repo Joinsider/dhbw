@@ -167,7 +167,8 @@ What differs from iOS at runtime:
   The system picks the moment, defers under load and does not fire during sleep. The JVM desktop keeps
   its own coroutine loop in `desktopMain`. `registerTaskHandler()` is a no-op on both. Every run goes
   through `NotificationManager.checkAndNotify()`, which replans the reminders first, as on iOS. The
-  check runs only while the process runs, so on its own it stops when the app quits.
+  check runs only while the process runs, so on its own it stops when the app quits. Each run that finishes is recorded by `NotificationManager.checkAndNotify()` as a `LectureCheck` (time and
+  success, offline or failed) in PlatformSettings, and shown as "Letzte Prüfung" in Settings → Background and in the menu bar.
 - **Background mode: a login item that starts hidden (`iosApp/iosApp/Mac/`).** The
   Settings switch "Beim Anmelden im Hintergrund starten" registers `SMAppService.mainApp`. Its
   status is the only state: nothing stores a second flag, and `BackgroundMode.shared` re-reads it on

@@ -40,6 +40,9 @@ final class AppModel {
 
         app.dispatch(AppIntentStarted())
         settings.dispatch(SettingsIntentLoad())
+        // Keeps `lastLectureCheck` current while the app runs, so Settings and the menu bar show a
+        // background run as it finishes. One watch per store; the store drops a second one.
+        settings.dispatch(SettingsIntentWatchLastLectureCheck())
 
 #if os(macOS)
         // A background launch has no timetable screen to ask for the current week, and the menu bar

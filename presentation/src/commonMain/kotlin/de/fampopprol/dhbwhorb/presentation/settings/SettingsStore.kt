@@ -27,6 +27,12 @@ class SettingsStore(
 
     override fun reduce(state: SettingsState, msg: SettingsMsg): SettingsState = reduceSettings(state, msg)
 
+    /** One watch is enough for the life of the store; a second dispatch while it runs is dropped. */
+    override fun dedupeKey(intent: SettingsIntent): Any? = when (intent) {
+        SettingsIntent.WatchLastLectureCheck -> "watch-last-lecture-check"
+        else -> null
+    }
+
     override suspend fun EffectScope<SettingsMsg, SettingsEffect>.handle(
         intent: SettingsIntent,
         state: SettingsState
@@ -40,7 +46,8 @@ class SettingsStore(
                         seedColor = preferences.getCustomColor(),
                         notificationsEnabled = preferences.areNotificationsEnabled(),
                         lectureAlertsEnabled = preferences.areLectureAlertsEnabled(),
-                        reminderLeadMinutes = preferences.getReminderLeadMinutes()
+                        reminderLeadMinutes = preferences.getReminderLeadMinutes(),
+                        lastLectureCheck = preferences.getLastLectureCheck(),
                     )
                 )
             )
@@ -75,6 +82,11 @@ class SettingsStore(
                 preferences.setReminderLeadMinutes(intent.minutes)
                 emit(SettingsMsg.ReminderLeadChanged(intent.minutes))
             }
+
+            // Runs until the store closes: every background run that finishes is emitted here.
+            SettingsIntent.WatchLastLectureCheck -> preferences.observeLastLectureCheck().collect { check ->
+                emit(SettingsMsg.LastLectureCheckChanged(check))
+            }
         }
     }
 }
@@ -93,4 +105,5 @@ fun reduceSettings(state: SettingsState, msg: SettingsMsg): SettingsState = when
     is SettingsMsg.NotificationsChanged -> state.copy(notificationsEnabled = msg.enabled)
     is SettingsMsg.LectureAlertsChanged -> state.copy(lectureAlertsEnabled = msg.enabled)
     is SettingsMsg.ReminderLeadChanged -> state.copy(reminderLeadMinutes = msg.minutes)
+    is SettingsMsg.LastLectureCheckChanged -> state.copy(lastLectureCheck = msg.check)
 }
