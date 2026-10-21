@@ -3,5 +3,9 @@ TEAM_ID=
 PRODUCT_NAME=DHBW-Horb
 PRODUCT_BUNDLE_IDENTIFIER=de.fampopprol.dhbwhorb.dhbw$(TEAM_ID)
 
-CURRENT_PROJECT_VERSION=30
+// The only place the Apple app (iOS, macOS and the widget) takes its version from: no target in
+// project.pbxproj sets one. The release workflow's bump job writes both lines. The build number
+// is Apple's own counter, one up per release; it is not the Android versionCode, because App
+// Store Connect rejects a build number it has already seen and the two have drifted apart.
+CURRENT_PROJECT_VERSION=34
 MARKETING_VERSION=3.0.4
