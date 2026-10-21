@@ -213,5 +213,23 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build
 
+      # The macOS app is the native SwiftUI target in iosApp/ (same scheme), linking the dynamic
+      # macosArm64 Shared.framework. Same Compose-free rule as the iOS framework above.
+      - name: Link macOS Shared.framework
+        run: ./gradlew :shared:linkDebugFrameworkMacosArm64 --no-daemon --stacktrace
+
+      - name: macOS Shared.framework must stay Compose-free
+        run: |
+          count=$(nm -gU shared/build/bin/macosArm64/debugFramework/Shared.framework/Shared \
+            | grep -c androidx.compose || true)
+          echo "androidx.compose symbols: $count"
+          test "$count" -eq 0
+
+      # Unsigned, like the iOS build: proves the macOS app compiles and links against the framework.
       - name: Build the macOS app
-        run: ./gradlew :composeApp:compileKotlinMacosArm64 --no-daemon --stacktrace
+        working-directory: iosApp
+        run: |
+          xcodebuild -project iosApp.xcodeproj -scheme iosApp \
+            -configuration Debug \
+            -destination 'generic/platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO build
