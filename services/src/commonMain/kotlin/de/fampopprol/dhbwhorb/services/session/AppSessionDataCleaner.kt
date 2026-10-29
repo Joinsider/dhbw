@@ -34,7 +34,6 @@ class AppSessionDataCleaner(
 
     override suspend fun clearSessionData() {
         step("cancelling scheduled reminders") { reminders.replaceAll(emptyList()) }
-        // Clears the app badge too: the dispatcher Koin hands out is the badging one.
         step("removing delivered notifications") { notifications.cancelAllDelivered() }
         step("deleting cached files") { cachedFiles?.deleteAll() }
         // Last: the widget reads the database, which by now is empty, so this is what makes it

@@ -8,8 +8,6 @@ package de.fampopprol.dhbwhorb.services.di
 
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
 import de.fampopprol.dhbwhorb.services.notifications.MacosNotificationDispatcher
-import de.fampopprol.dhbwhorb.services.notifications.AppleBadgeDisplay
-import de.fampopprol.dhbwhorb.services.notifications.BadgeDisplay
 import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
 import de.fampopprol.dhbwhorb.services.reminders.AppleLectureReminderScheduler
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminderScheduler
@@ -17,9 +15,7 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 
 actual fun servicesPlatformModule(): Module = module {
-    // The platform dispatcher, wrapped with the badge in servicesModule; see BadgingNotificationDispatcher.
-    single<NotificationDispatcher>(PlatformNotificationDispatcher) { MacosNotificationDispatcher() }
-    single<BadgeDisplay> { AppleBadgeDisplay() }
+    single<NotificationDispatcher> { MacosNotificationDispatcher() }
     single { LectureMonitorScheduler(scope = get()) }
     single<LectureReminderScheduler> { AppleLectureReminderScheduler() }
 }

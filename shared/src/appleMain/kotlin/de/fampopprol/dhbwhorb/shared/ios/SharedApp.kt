@@ -14,7 +14,6 @@ import de.fampopprol.dhbwhorb.presentation.documents.DocumentsStore
 import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
 import de.fampopprol.dhbwhorb.presentation.settings.SettingsStore
 import de.fampopprol.dhbwhorb.presentation.timetable.TimetableStore
-import de.fampopprol.dhbwhorb.services.notifications.AppBadge
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
 import de.fampopprol.dhbwhorb.services.notifications.LectureNotificationTexts
 import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
@@ -136,16 +135,6 @@ object SharedApp {
             val key = "test_${now.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds()}"
             dispatcher.showNotification(title, message, notificationKey = key)
             onDone(true)
-        }
-    }
-
-    /**
-     * Clears the app-icon count. Swift calls this when the scene becomes active: the timetable the
-     * user is about to see is the state the notifications described.
-     */
-    fun markLectureChangesSeen() {
-        scope.launch {
-            koin.get<AppBadge>().clear()
         }
     }
 

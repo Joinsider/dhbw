@@ -8,7 +8,6 @@ package de.fampopprol.dhbwhorb.services.di
 
 import de.fampopprol.dhbwhorb.services.notifications.AndroidNotificationDispatcher
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
-import de.fampopprol.dhbwhorb.services.notifications.BadgeDisplay
 import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
 import de.fampopprol.dhbwhorb.services.reminders.AndroidLectureReminderScheduler
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminderScheduler
@@ -19,9 +18,7 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 
 actual fun servicesPlatformModule(): Module = module {
-    // The platform dispatcher, wrapped with the badge in servicesModule; see BadgingNotificationDispatcher.
-    single<NotificationDispatcher>(PlatformNotificationDispatcher) { AndroidNotificationDispatcher(androidContext()) }
-    single<BadgeDisplay> { BadgeDisplay.None }
+    single<NotificationDispatcher> { AndroidNotificationDispatcher(androidContext()) }
     single { LectureMonitorScheduler(androidContext()) }
     single<LectureReminderScheduler> { AndroidLectureReminderScheduler(androidContext(), settings = get()) }
 

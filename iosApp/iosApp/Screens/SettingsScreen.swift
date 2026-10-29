@@ -124,7 +124,7 @@ struct SettingsScreen: View {
     private func enableNotifications() async {
         do {
             let granted = try await UNUserNotificationCenter.current()
-                .requestAuthorization(options: [.alert, .sound, .badge])
+                .requestAuthorization(options: [.alert, .sound])
             notificationLog.notice("Notification permission \(granted ? "granted" : "denied", privacy: .public)")
             if !granted {
                 notificationsBlocked = true
@@ -162,8 +162,8 @@ struct SettingsScreen: View {
     ///
     /// The delay runs inside the app, and iOS suspends an app a few seconds after it leaves the
     /// screen — which is exactly when the delayed button is used. Without the background task the
-    /// notification, and with it the badge, arrived only when the app was opened again, and opening
-    /// it cleared the badge at once. The task buys the half minute the delay needs.
+    /// notification arrived only when the app was opened again. The task buys the half minute the
+    /// delay needs.
     private func sendTestNotification(delaySeconds: Int32) {
         #if os(iOS)
         let task = UIApplication.shared.beginBackgroundTask(withName: "test-notification")

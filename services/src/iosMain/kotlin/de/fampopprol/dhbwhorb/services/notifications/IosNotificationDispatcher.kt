@@ -35,7 +35,7 @@ class IosNotificationDispatcher : NotificationDispatcher {
     override suspend fun requestPermission(): Boolean = suspendCoroutine { continuation ->
         Napier.d("requestPermission (iOS) called", tag = TAG)
         notificationCenter.requestAuthorizationWithOptions(
-            UNAuthorizationOptionAlert or UNAuthorizationOptionSound or UNAuthorizationOptionBadge
+            UNAuthorizationOptionAlert or UNAuthorizationOptionSound
         ) { granted, error ->
             if (error != null) {
                 Napier.e("Error requesting notification permission: $error", tag = TAG)

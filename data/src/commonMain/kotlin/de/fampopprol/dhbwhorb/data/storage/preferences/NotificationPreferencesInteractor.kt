@@ -122,22 +122,4 @@ class NotificationPreferencesInteractor(
         preferences.setLastLectureCheck(check)
         _lastLectureCheck.value = check
     }
-
-    /**
-     * Adds [count] notified changes to the unseen total and returns the new total — the number the
-     * app icon should show.
-     */
-    fun addUnseenLectureChanges(count: Int): Int {
-        val total = preferences.getUnseenLectureChanges() + count
-        preferences.setUnseenLectureChanges(total)
-        return total
-    }
-
-    /** Changes notified since the app was last opened. */
-    fun getUnseenLectureChanges(): Int = preferences.getUnseenLectureChanges()
-
-    /** Called when the app comes to the foreground and on logout. */
-    fun resetUnseenLectureChanges() {
-        preferences.setUnseenLectureChanges(0)
-    }
 }

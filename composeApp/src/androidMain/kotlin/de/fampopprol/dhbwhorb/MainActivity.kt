@@ -17,7 +17,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.lifecycleScope
 import de.fampopprol.dhbwhorb.data.storage.preferences.NotificationPreferencesInteractor
-import de.fampopprol.dhbwhorb.services.notifications.AppBadge
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminderPlanner
 import de.fampopprol.dhbwhorb.widget.sync.WidgetSyncWorker
@@ -35,15 +34,6 @@ class MainActivity : ComponentActivity() {
     private val notificationPreferences: NotificationPreferencesInteractor by inject()
     private val lectureMonitorScheduler: LectureMonitorScheduler by inject()
     private val reminderPlanner: LectureReminderPlanner by inject()
-    private val appBadge: AppBadge by inject()
-
-    override fun onResume() {
-        super.onResume()
-        // Coming back to the app counts as having seen the changes it reported. Android shows the
-        // count on the notification itself, so this only keeps the stored total from growing without
-        // bound.
-        lifecycleScope.launch { appBadge.clear() }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // System bars draw under app content; insets are handled by the theme.
