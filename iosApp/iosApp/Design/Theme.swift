@@ -126,6 +126,131 @@ extension Color {
     }
 }
 
+/// The accents the user can choose on iOS and macOS. Android and Desktop choose a seed colour
+/// instead; see ADR-0002 for why the two are different settings.
+///
+/// Every entry is a hand-checked triple: the accent, the lecture block fill and the dark variants
+/// of both. The palette is curated rather than free because a free colour cannot promise the
+/// contrast the controls need, nor that a pink lecture is not mistaken for an orange exam.
+/// `brand` is the DHBW red the app has always shown and must stay identical to `Color.brand`.
+///
+/// The ids are what Kotlin stores (`SettingsState.KNOWN_ACCENT_CHOICES`); adding a case means
+/// adding its id there too.
+enum AccentChoice: String, CaseIterable, Identifiable {
+    case brand, pink, purple, blue, teal, green
+
+    var id: String { rawValue }
+
+    /// The choice for a stored id. Anything unknown, such as a colour removed in a later version,
+    /// shows as DHBW red rather than failing.
+    init(id: String) {
+        self = AccentChoice(rawValue: id) ?? .brand
+    }
+
+    /// Tint for controls, and for text and icons that carry the accent.
+    var accent: Color {
+        Color(light: palette.accentLight, dark: palette.accentDark)
+    }
+
+    /// The fill of a timetable block. Opaque for the same reason as `Color.lectureFill`.
+    var lectureFill: Color {
+        Color(light: palette.fillLight, dark: palette.fillDark)
+    }
+
+    /// A quiet tint behind text, the way `Color.brandSoft` is behind the current day.
+    var soft: Color {
+        Color(light: palette.accentLight.withAlpha(0.10), dark: palette.accentDark.withAlpha(0.22))
+    }
+
+    /// The name shown under the swatch and read out by VoiceOver.
+    var name: LocalizedStringKey {
+        switch self {
+        case .brand: "accent.brand"
+        case .pink: "accent.pink"
+        case .purple: "accent.purple"
+        case .blue: "accent.blue"
+        case .teal: "accent.teal"
+        case .green: "accent.green"
+        }
+    }
+
+    private struct Palette {
+        let accentLight: RGBAValue
+        let accentDark: RGBAValue
+        let fillLight: RGBAValue
+        let fillDark: RGBAValue
+    }
+
+    private var palette: Palette {
+        switch self {
+        case .brand:
+            Palette(
+                accentLight: RGBAValue(0.78, 0.09, 0.14),
+                accentDark: RGBAValue(1.00, 0.35, 0.36),
+                fillLight: RGBAValue(0.98, 0.91, 0.92),
+                fillDark: RGBAValue(0.23, 0.10, 0.11)
+            )
+        case .pink:
+            Palette(
+                accentLight: RGBAValue(0.76, 0.09, 0.36),
+                accentDark: RGBAValue(1.00, 0.45, 0.70),
+                fillLight: RGBAValue(0.98, 0.91, 0.95),
+                fillDark: RGBAValue(0.26, 0.10, 0.18)
+            )
+        case .purple:
+            Palette(
+                accentLight: RGBAValue(0.48, 0.25, 0.75),
+                accentDark: RGBAValue(0.78, 0.60, 1.00),
+                fillLight: RGBAValue(0.94, 0.91, 0.98),
+                fillDark: RGBAValue(0.19, 0.12, 0.26)
+            )
+        case .blue:
+            Palette(
+                accentLight: RGBAValue(0.05, 0.40, 0.80),
+                accentDark: RGBAValue(0.44, 0.70, 1.00),
+                fillLight: RGBAValue(0.90, 0.94, 1.00),
+                fillDark: RGBAValue(0.09, 0.14, 0.26)
+            )
+        case .teal:
+            Palette(
+                accentLight: RGBAValue(0.00, 0.45, 0.47),
+                accentDark: RGBAValue(0.35, 0.85, 0.85),
+                fillLight: RGBAValue(0.88, 0.97, 0.97),
+                fillDark: RGBAValue(0.07, 0.22, 0.23)
+            )
+        case .green:
+            Palette(
+                accentLight: RGBAValue(0.14, 0.45, 0.18),
+                accentDark: RGBAValue(0.45, 0.88, 0.50),
+                fillLight: RGBAValue(0.90, 0.97, 0.90),
+                fillDark: RGBAValue(0.11, 0.24, 0.12)
+            )
+        }
+    }
+}
+
+/// Where the chosen accent id is mirrored for the widget extension. The widget is another process
+/// and cannot see this target's files, so it reads the same two constants from its own copy in
+/// `TimetableWidget/WidgetViews.swift`; change both together.
+enum WidgetAccentStore {
+    static let suiteName = "group.de.fampopprol.dhbwhorb"
+    static let key = "accent_choice"
+}
+
+extension RGBAValue {
+    /// The same colour with another alpha, for the translucent tints.
+    func withAlpha(_ alpha: CGFloat) -> RGBAValue {
+        RGBAValue(r, g, b, alpha)
+    }
+}
+
+extension EnvironmentValues {
+    /// The accent the user chose. Set once at the root next to `.tint`, for views that colour
+    /// things themselves (timetable blocks, today's column, the accent in a few headers): a
+    /// `.tint` reaches controls only, not a `foregroundStyle` or a `fill`.
+    @Entry var accentChoice: AccentChoice = .brand
+}
+
 extension ShapeStyle where Self == LinearGradient {
 
     /// The gradient on the app mark and the login button — the icon's own top-to-bottom fade.

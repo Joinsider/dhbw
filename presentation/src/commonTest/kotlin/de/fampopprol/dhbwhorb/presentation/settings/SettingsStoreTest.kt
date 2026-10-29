@@ -74,6 +74,54 @@ class SettingsStoreTest {
     }
 
     @Test
+    fun accentChoice_isPersistedAndSurvivesAReload() = runTest {
+        val preferences = FakePreferencesRepository()
+        val store = store(preferences)
+
+        store.dispatch(SettingsIntent.AccentChoiceChanged("pink"))
+        assertEquals("pink", store.state.value.accentChoice)
+
+        val reloaded = store(preferences)
+        reloaded.dispatch(SettingsIntent.Load)
+        assertEquals("pink", reloaded.state.value.accentChoice)
+
+        store.close()
+        reloaded.close()
+    }
+
+    @Test
+    fun accentChoice_unknownIdFallsBackToBrand() = runTest {
+        val preferences = FakePreferencesRepository()
+        val store = store(preferences)
+
+        store.dispatch(SettingsIntent.AccentChoiceChanged("orange-of-the-future"))
+
+        assertEquals(SettingsState.DEFAULT_ACCENT_CHOICE, store.state.value.accentChoice)
+        assertEquals(SettingsState.DEFAULT_ACCENT_CHOICE, preferences.getAccentChoice())
+        store.close()
+    }
+
+    @Test
+    fun loading_replacesAStoredUnknownAccentWithBrand() = runTest {
+        val store = store(FakePreferencesRepository(accentChoice = "removed-colour"))
+
+        store.dispatch(SettingsIntent.Load)
+
+        assertEquals("brand", store.state.value.accentChoice)
+        store.close()
+    }
+
+    @Test
+    fun reducer_accentChoiceChanged_replacesOnlyTheAccent() {
+        val before = SettingsState(themeMode = ThemeMode.DARK, accentChoice = "brand")
+
+        val after = reduceSettings(before, SettingsMsg.AccentChoiceChanged("teal"))
+
+        assertEquals("teal", after.accentChoice)
+        assertEquals(ThemeMode.DARK, after.themeMode)
+    }
+
+    @Test
     fun notificationTogglesAreIndependent() = runTest {
         val store = store()
 

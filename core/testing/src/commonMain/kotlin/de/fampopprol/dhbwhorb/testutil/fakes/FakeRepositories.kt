@@ -186,6 +186,7 @@ class FakePreferencesRepository(
     private var themeMode: ThemeMode = ThemeMode.SYSTEM,
     private var materialYou: Boolean = true,
     private var seedColor: Long = SettingsState.DEFAULT_SEED_COLOR,
+    private var accentChoice: String = SettingsState.DEFAULT_ACCENT_CHOICE,
     private var notifications: Boolean = false,
     private var lectureAlerts: Boolean = false,
     private var reminderLeadMinutes: Int = 0,
@@ -199,6 +200,8 @@ class FakePreferencesRepository(
     override fun setMaterialYouEnabled(enabled: Boolean) { materialYou = enabled }
     override fun getCustomColor() = seedColor
     override fun setCustomColor(color: Long) { seedColor = color }
+    override fun getAccentChoice() = accentChoice
+    override fun setAccentChoice(id: String) { accentChoice = id }
     override fun areNotificationsEnabled() = notifications
     override fun setNotificationsEnabled(enabled: Boolean) { notifications = enabled }
     override fun areLectureAlertsEnabled() = lectureAlerts

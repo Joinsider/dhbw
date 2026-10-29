@@ -22,6 +22,7 @@ struct SettingsContentView: View {
     let isDemo: Bool
     let state: SettingsState
     let theme: Binding<ThemeMode>
+    let accent: Binding<AccentChoice>
     let notifications: Binding<Bool>
     let lectureAlerts: Binding<Bool>
     let reminder: Binding<Int32>
@@ -109,7 +110,48 @@ struct SettingsContentView: View {
             }
             .pickerStyle(.segmented)
             .accessibilityIdentifier("settingsThemePicker")
+
+            accentRow
         }
+    }
+
+    /// The curated accents as a row of round swatches. The selected one carries a checkmark, and
+    /// each swatch is labelled with its name, so VoiceOver does not have to tell colours apart.
+    private var accentRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            rowLabel("settings.accentColor", systemName: "paintbrush.fill", color: accent.wrappedValue.accent)
+            HStack(spacing: 12) {
+                ForEach(AccentChoice.allCases) { choice in
+                    Button {
+                        accent.wrappedValue = choice
+                    } label: {
+                        accentSwatch(choice, isSelected: choice == accent.wrappedValue)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text(choice.name))
+                    .accessibilityAddTraits(choice == accent.wrappedValue ? .isSelected : [])
+                    .accessibilityIdentifier("settingsAccent-\(choice.rawValue)")
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func accentSwatch(_ choice: AccentChoice, isSelected: Bool) -> some View {
+        Circle()
+            .fill(choice.accent)
+            .frame(width: 30, height: 30)
+            .overlay {
+                if isSelected {
+                    // The grouped background is white in light mode and black in dark, so the
+                    // mark stays readable on every accent in both.
+                    Image(systemName: "checkmark")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Color.platformGroupedBackground)
+                }
+            }
+            .frame(width: 36, height: 36)
+            .contentShape(.circle)
     }
 
     @ViewBuilder

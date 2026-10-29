@@ -16,6 +16,7 @@ import Shared
 struct GradesScreen: View {
 
     @Environment(AppModel.self) private var model
+    @Environment(\.accentChoice) private var accentChoice
     @State private var searchText = ""
     @State private var refreshError: String?
 
@@ -164,7 +165,7 @@ struct GradesScreen: View {
                     Text(state.overallGpa.map { $0.doubleValue.formatted(.number.precision(.fractionLength(2))) } ?? "–")
                         .font(.system(size: 44, weight: .bold, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(Color.brand)
+                        .foregroundStyle(accentChoice.accent)
                     Text("grades.overallGpa")
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -265,6 +266,7 @@ extension View {
 /// Semester name on the left, its own average on the right.
 private struct SemesterHeader: View {
 
+    @Environment(\.accentChoice) private var accentChoice
     let section: SemesterGrades
 
     var body: some View {
@@ -274,7 +276,7 @@ private struct SemesterHeader: View {
             if let average = semesterAverage {
                 Text(average.formatted(.number.precision(.fractionLength(2))))
                     .monospacedDigit()
-                    .foregroundStyle(Color.brand)
+                    .foregroundStyle(accentChoice.accent)
             }
         }
         .accessibilityElement(children: .combine)

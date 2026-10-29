@@ -6,6 +6,40 @@ import WidgetKit
 import Shared
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// MARK: – Akzentfarbe
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// The accent the user picked in the app (ADR-0002).
+///
+/// The app mirrors the choice's id into the App Group and reloads the timelines when it changes.
+/// This is the widget's copy of the palette in `iosApp/iosApp/Design/Theme.swift`: the widget target
+/// cannot see the app's files, so the values are written out again here. Change both together, and
+/// keep the ids in step with `SettingsState.KNOWN_ACCENT_CHOICES`. An unknown or missing id is DHBW red.
+enum WidgetAccent {
+
+    private typealias RGB = (r: Double, g: Double, b: Double)
+
+    private static let table: [String: (light: RGB, dark: RGB)] = [
+        "brand": ((0.78, 0.09, 0.14), (1.00, 0.35, 0.36)),
+        "pink": ((0.76, 0.09, 0.36), (1.00, 0.45, 0.70)),
+        "purple": ((0.48, 0.25, 0.75), (0.78, 0.60, 1.00)),
+        "blue": ((0.05, 0.40, 0.80), (0.44, 0.70, 1.00)),
+        "teal": ((0.00, 0.45, 0.47), (0.35, 0.85, 0.85)),
+        "green": ((0.14, 0.45, 0.18), (0.45, 0.88, 0.50)),
+    ]
+
+    /// The accent for the current choice, read on every timeline build.
+    static var color: Color {
+        let id = UserDefaults(suiteName: "group.de.fampopprol.dhbwhorb")?.string(forKey: "accent_choice")
+        let pair = table[id ?? "brand"] ?? table["brand"]!
+        return Color(uiColor: UIColor { traits in
+            let value = traits.userInterfaceStyle == .dark ? pair.dark : pair.light
+            return UIColor(red: value.r, green: value.g, blue: value.b, alpha: 1)
+        })
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // MARK: – Small (.systemSmall)  ·  Nächste / aktuelle Vorlesung
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -16,7 +50,7 @@ struct SmallWidgetView: View {
         if let lecture = entry.snapshot.upNext {
             upNextCard(
                 label: entry.snapshot.upNextIsRunning ? String(localized: "NOW") : String(localized: "NEXT"),
-                labelColor: entry.snapshot.upNextIsRunning ? .red : .accentColor,
+                labelColor: entry.snapshot.upNextIsRunning ? .red : WidgetAccent.color,
                 lecture: lecture
             )
         } else {
@@ -178,7 +212,7 @@ struct ClassRowView: View {
 
     private var accentColor: Color {
         if lecture.isTest    { return .red }
-        if lecture.isOngoing { return .accentColor }
+        if lecture.isOngoing { return WidgetAccent.color }
         return Color.secondary.opacity(0.4)
     }
 

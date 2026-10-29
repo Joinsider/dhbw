@@ -33,6 +33,9 @@ class PreferencesRepositoryImpl(
     override fun getCustomColor(): Long = themePreferences.getCustomColor()
     override fun setCustomColor(color: Long) = themePreferences.setCustomColor(color)
 
+    override fun getAccentChoice(): String = themePreferences.getAccentChoice()
+    override fun setAccentChoice(id: String) = themePreferences.setAccentChoice(id)
+
     override fun areNotificationsEnabled(): Boolean = notificationPreferences.getNotificationsEnabled()
     override fun setNotificationsEnabled(enabled: Boolean) = notificationPreferences.setNotificationsEnabled(enabled)
 

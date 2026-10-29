@@ -44,6 +44,7 @@ class SettingsStore(
                         themeMode = preferences.getThemeMode(),
                         materialYouEnabled = preferences.isMaterialYouEnabled(),
                         seedColor = preferences.getCustomColor(),
+                        accentChoice = SettingsState.accentChoiceOrDefault(preferences.getAccentChoice()),
                         notificationsEnabled = preferences.areNotificationsEnabled(),
                         lectureAlertsEnabled = preferences.areLectureAlertsEnabled(),
                         reminderLeadMinutes = preferences.getReminderLeadMinutes(),
@@ -66,6 +67,12 @@ class SettingsStore(
             is SettingsIntent.SeedColorChanged -> {
                 preferences.setCustomColor(intent.argb)
                 emit(SettingsMsg.SeedColorChanged(intent.argb))
+            }
+
+            is SettingsIntent.AccentChoiceChanged -> {
+                val id = SettingsState.accentChoiceOrDefault(intent.id)
+                preferences.setAccentChoice(id)
+                emit(SettingsMsg.AccentChoiceChanged(id))
             }
 
             is SettingsIntent.NotificationsChanged -> {
@@ -102,6 +109,7 @@ fun reduceSettings(state: SettingsState, msg: SettingsMsg): SettingsState = when
     is SettingsMsg.ThemeModeChanged -> state.copy(themeMode = msg.mode)
     is SettingsMsg.MaterialYouChanged -> state.copy(materialYouEnabled = msg.enabled)
     is SettingsMsg.SeedColorChanged -> state.copy(seedColor = msg.argb)
+    is SettingsMsg.AccentChoiceChanged -> state.copy(accentChoice = msg.id)
     is SettingsMsg.NotificationsChanged -> state.copy(notificationsEnabled = msg.enabled)
     is SettingsMsg.LectureAlertsChanged -> state.copy(lectureAlertsEnabled = msg.enabled)
     is SettingsMsg.ReminderLeadChanged -> state.copy(reminderLeadMinutes = msg.minutes)
