@@ -20,6 +20,7 @@ class NotificationPreferences(private val storage: SettingsStorage) {
         private const val LECTURE_ALERTS_ENABLED_KEY = "lecture_alerts_enabled"
         private const val REMINDER_LEAD_MINUTES_KEY = "lecture_reminder_lead_minutes"
         private const val LAST_LECTURE_CHECK_KEY = "last_lecture_check"
+        private const val UNSEEN_LECTURE_CHANGES_KEY = "unseen_lecture_changes"
 
         /** The offsets the settings screen offers. `0` means the reminder is off. */
         val REMINDER_LEAD_CHOICES = listOf(0, 15, 30, 60)
@@ -90,5 +91,16 @@ class NotificationPreferences(private val storage: SettingsStorage) {
 
     fun setLastLectureCheck(check: LectureCheck) {
         storage.setString(LAST_LECTURE_CHECK_KEY, "${check.epochMillis};${check.outcome.name}")
+    }
+
+    /**
+     * Lecture changes notified since the app was last opened — the number on the app icon. `0`
+     * when nothing is stored or the stored value is unreadable.
+     */
+    fun getUnseenLectureChanges(): Int =
+        storage.getString(UNSEEN_LECTURE_CHANGES_KEY, "0").toIntOrNull()?.takeIf { it >= 0 } ?: 0
+
+    fun setUnseenLectureChanges(count: Int) {
+        storage.setString(UNSEEN_LECTURE_CHANGES_KEY, count.toString())
     }
 }

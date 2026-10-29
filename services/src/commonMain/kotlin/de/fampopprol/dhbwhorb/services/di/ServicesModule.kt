@@ -48,11 +48,13 @@ val servicesModule = module {
     // What logout has to undo outside the database. Resolved by the Logout use case, which lives
     // in :domain and cannot see any of these types.
     single<SessionDataCleaner> {
+        val notificationManager: NotificationManager = get()
         AppSessionDataCleaner(
             reminders = get(),
             notifications = get(),
             widgetRefresher = getOrNull<WidgetRefresher>(),
             cachedFiles = getOrNull<CachedFileCleaner>(),
+            resetUnseenChanges = { notificationManager.markChangesSeen() },
         )
     }
 

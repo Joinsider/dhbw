@@ -104,8 +104,20 @@ class NotificationManager(
     }
 
     /**
+     * Resets the app-icon count to zero. Called when the app comes to the foreground — the
+     * timetable it opens shows the state the notifications described — and on logout.
+     */
+    suspend fun markChangesSeen() {
+        preferences.resetUnseenLectureChanges()
+        dispatcher.setBadge(0)
+    }
+
+    /**
      * One change is worth spelling out; several are not — six notifications for one timetable
      * update is how an app gets its notifications switched off.
+     *
+     * The app-icon count is the number of changes notified since the app was last opened, so it
+     * grows by the size of every notification, a single one included.
      */
     private suspend fun notify(changes: List<LectureChange>) {
         if (changes.size == 1) {
@@ -118,5 +130,6 @@ class NotificationManager(
             Napier.d("Notifying about ${changes.size} changes: $message", tag = TAG)
             dispatcher.showSummaryNotification(title, message, changes.size)
         }
+        dispatcher.setBadge(preferences.addUnseenLectureChanges(changes.size))
     }
 }

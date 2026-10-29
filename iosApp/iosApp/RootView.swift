@@ -85,6 +85,7 @@ final class AppModel {
 struct RootView: View {
 
     @Environment(AppModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -105,6 +106,15 @@ struct RootView: View {
         .tint(Color.brand)
         .preferredColorScheme(colorScheme)
         .animation(.default, value: model.app.state.isLoggedIn)
+        // The app icon's count is the lecture changes since the app was last opened. Coming to the
+        // foreground is "opened": `initial` covers a launch straight into the foreground, which
+        // onChange alone would not report. A hidden macOS login launch creates no window, so it
+        // does not reach here and the count survives it.
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            if phase == .active {
+                SharedApp.shared.markLectureChangesSeen()
+            }
+        }
     }
 
     /// `nil` means "follow the system", which is what `ThemeMode.SYSTEM` asks for.
