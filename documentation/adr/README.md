@@ -7,5 +7,6 @@ Status: `Vorgeschlagen` → `Angenommen` | `Abgelehnt` → später ggf. `Ersetzt
 
 | Nr. | Titel | Status |
 |---|---|---|
-| [0001](0001-app-badge-ungesehene-aenderungen.md) | App-Badge zählt ungesehene Änderungen und wird beim Öffnen zurückgesetzt | Angenommen |
+| [0001](0001-app-badge-ungesehene-aenderungen.md) | App-Badge zählt ungesehene Änderungen und wird beim Öffnen zurückgesetzt | Ersetzt durch 0003 |
 | [0002](0002-akzentfarbe-auf-apple-plattformen.md) | Wählbare Akzentfarbe auf iOS und macOS | Angenommen |
+| [0003](0003-app-badge-entfernen.md) | App-Badge entfernen, bis die App zeigt, was sich geändert hat | Angenommen |

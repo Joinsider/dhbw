@@ -1,6 +1,6 @@
 # ADR-0001: App-Badge zählt ungesehene Änderungen und wird beim Öffnen zurückgesetzt
 
-- **Status:** Angenommen
+- **Status:** Ersetzt durch [ADR-0003](0003-app-badge-entfernen.md)
 - **Datum:** 2026-10-29
 - **Auslöser:** Support-Anfrage — „die App zeigt seit 5 Tagen 2 offene Mitteilungen an, beim Öffnen
   sehe ich aber keine ungeöffneten Nachrichten“
