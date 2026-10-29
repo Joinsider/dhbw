@@ -102,19 +102,6 @@ class MacosNotificationDispatcher : NotificationDispatcher {
         notificationCenter.removeAllDeliveredNotifications()
     }
 
-    /**
-     * Sets the app-icon badge (the Dock icon). Absolute, so the count is always the total
-     * [NotificationManager] holds.
-     */
-    override suspend fun setBadge(count: Int) {
-        Napier.d("setBadge (macOS) -> $count", tag = TAG)
-        notificationCenter.setBadgeCount(count.toLong()) { error ->
-            if (error != null) {
-                Napier.e("Error setting app badge: $error", tag = TAG)
-            }
-        }
-    }
-
     override suspend fun showSummaryNotification(title: String, message: String, changeCount: Int) {
         if (!hasPermission()) {
             Napier.w("Cannot show notification: permission not granted", tag = TAG)

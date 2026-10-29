@@ -7,7 +7,10 @@
 package de.fampopprol.dhbwhorb.services.di
 
 import de.fampopprol.dhbwhorb.domain.session.SessionDataCleaner
+import de.fampopprol.dhbwhorb.services.notifications.AppBadge
+import de.fampopprol.dhbwhorb.services.notifications.BadgingNotificationDispatcher
 import de.fampopprol.dhbwhorb.services.notifications.LectureChangeMonitor
+import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
 import de.fampopprol.dhbwhorb.services.notifications.NotificationManager
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminderPlanner
 import de.fampopprol.dhbwhorb.services.session.AppSessionDataCleaner
@@ -24,6 +27,13 @@ import org.koin.dsl.module
 expect fun servicesPlatformModule(): Module
 
 val servicesModule = module {
+
+    // The app badge, and the dispatcher everyone resolves: the platform's, counting what it shows.
+    // No caller handles the badge itself; see AppBadge.
+    single { AppBadge(store = get(), display = get()) }
+    single<NotificationDispatcher> {
+        BadgingNotificationDispatcher(platform = get(PlatformNotificationDispatcher), badge = get())
+    }
 
     single {
         LectureChangeMonitor(
@@ -48,13 +58,11 @@ val servicesModule = module {
     // What logout has to undo outside the database. Resolved by the Logout use case, which lives
     // in :domain and cannot see any of these types.
     single<SessionDataCleaner> {
-        val notificationManager: NotificationManager = get()
         AppSessionDataCleaner(
             reminders = get(),
             notifications = get(),
             widgetRefresher = getOrNull<WidgetRefresher>(),
             cachedFiles = getOrNull<CachedFileCleaner>(),
-            resetUnseenChanges = { notificationManager.markChangesSeen() },
         )
     }
 

@@ -126,7 +126,6 @@ class NotificationManagerTest {
     ) : NotificationDispatcher {
         var singleNotifications = mutableListOf<Triple<String, String, String>>()
         var summaryNotifications = mutableListOf<Triple<String, String, Int>>()
-        var badgeCalls = mutableListOf<Int>()
 
         override suspend fun requestPermission(): Boolean = permission
         override suspend fun hasPermission(): Boolean = permission
@@ -135,9 +134,6 @@ class NotificationManagerTest {
         }
         override suspend fun showSummaryNotification(title: String, message: String, changeCount: Int) {
             summaryNotifications += Triple(title, message, changeCount)
-        }
-        override suspend fun setBadge(count: Int) {
-            badgeCalls += count
         }
     }
 
@@ -389,62 +385,5 @@ class NotificationManagerTest {
         val afterRestart = NotificationPreferencesInteractor(preferences)
 
         assertEquals(LectureCheck(recordedAt, LectureCheckOutcome.SUCCESS), afterRestart.lastLectureCheck.value)
-    }
-
-    private fun enableAlerts() {
-        preferences.setNotificationsEnabled(true)
-        preferences.setLectureAlertsEnabled(true)
-        preferencesInteractor.refresh()
-    }
-
-    private fun newLecture(id: Int, startHour: Int) = LectureEventEntity(
-        lectureId = id.toLong(),
-        shortSubjectName = "SUBJ$id",
-        fullSubjectName = "Subject $id",
-        startTime = LocalDateTime(2026, 3, 4, startHour, 0),
-        endTime = LocalDateTime(2026, 3, 4, startHour + 1, 30),
-        location = "HOR-$id",
-    )
-
-    @Test
-    fun checkAndNotify_oneChange_setsTheBadgeToOne() = runTest {
-        enableAlerts()
-        val dispatcher = RecordingNotificationDispatcher()
-
-        manager(dispatcher, currentWeekLectures = listOf(newLecture(1, 10))).checkAndNotify()
-
-        assertEquals(listOf(1), dispatcher.badgeCalls, "a single notification counts too, not only summaries")
-    }
-
-    @Test
-    fun checkAndNotify_twoChecksWithTwoAndThreeChanges_accumulateTheBadgeToFive() = runTest {
-        enableAlerts()
-
-        manager(
-            RecordingNotificationDispatcher(),
-            currentWeekLectures = listOf(newLecture(1, 10), newLecture(2, 13)),
-        ).checkAndNotify()
-
-        val second = RecordingNotificationDispatcher()
-        manager(
-            second,
-            currentWeekLectures = listOf(newLecture(3, 8), newLecture(4, 11), newLecture(5, 15)),
-        ).checkAndNotify()
-
-        assertEquals(listOf(5), second.badgeCalls, "the count is the total since the app was last opened")
-        assertEquals(5, preferencesInteractor.getUnseenLectureChanges())
-    }
-
-    @Test
-    fun markChangesSeen_resetsTheCounterAndTheBadge() = runTest {
-        enableAlerts()
-        manager(currentWeekLectures = listOf(newLecture(1, 10), newLecture(2, 13))).checkAndNotify()
-        assertEquals(2, preferencesInteractor.getUnseenLectureChanges())
-
-        val dispatcher = RecordingNotificationDispatcher()
-        manager(dispatcher).markChangesSeen()
-
-        assertEquals(0, preferencesInteractor.getUnseenLectureChanges())
-        assertEquals(listOf(0), dispatcher.badgeCalls)
     }
 }

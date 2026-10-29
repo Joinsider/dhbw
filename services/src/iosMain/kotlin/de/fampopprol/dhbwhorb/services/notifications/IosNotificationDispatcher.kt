@@ -100,19 +100,6 @@ class IosNotificationDispatcher : NotificationDispatcher {
         notificationCenter.removeAllDeliveredNotifications()
     }
 
-    /**
-     * Sets the app-icon badge. Absolute, so the count is always the total [NotificationManager]
-     * holds — a notification never adds to whatever the system last showed.
-     */
-    override suspend fun setBadge(count: Int) {
-        Napier.d("setBadge (iOS) -> $count", tag = TAG)
-        notificationCenter.setBadgeCount(count.toLong()) { error ->
-            if (error != null) {
-                Napier.e("Error setting app badge: $error", tag = TAG)
-            }
-        }
-    }
-
     override suspend fun showSummaryNotification(title: String, message: String, changeCount: Int) {
         if (!hasPermission()) {
             Napier.w("Cannot show notification: permission not granted", tag = TAG)

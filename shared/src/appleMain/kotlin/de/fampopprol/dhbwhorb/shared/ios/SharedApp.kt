@@ -14,10 +14,10 @@ import de.fampopprol.dhbwhorb.presentation.documents.DocumentsStore
 import de.fampopprol.dhbwhorb.presentation.grades.GradesStore
 import de.fampopprol.dhbwhorb.presentation.settings.SettingsStore
 import de.fampopprol.dhbwhorb.presentation.timetable.TimetableStore
+import de.fampopprol.dhbwhorb.services.notifications.AppBadge
 import de.fampopprol.dhbwhorb.services.notifications.LectureMonitorScheduler
 import de.fampopprol.dhbwhorb.services.notifications.LectureNotificationTexts
 import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
-import de.fampopprol.dhbwhorb.services.notifications.NotificationManager
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminderPlanner
 import de.fampopprol.dhbwhorb.services.reminders.LectureReminderScheduler
 import de.fampopprol.dhbwhorb.services.reminders.TestReminder
@@ -140,12 +140,12 @@ object SharedApp {
     }
 
     /**
-     * Resets the app-icon count of lecture changes. Swift calls this when the scene becomes active:
-     * the timetable the user is about to see is the state the notifications described.
+     * Clears the app-icon count. Swift calls this when the scene becomes active: the timetable the
+     * user is about to see is the state the notifications described.
      */
     fun markLectureChangesSeen() {
         scope.launch {
-            koin.get<NotificationManager>().markChangesSeen()
+            koin.get<AppBadge>().clear()
         }
     }
 

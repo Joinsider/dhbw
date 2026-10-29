@@ -169,6 +169,8 @@ class KoinGraphTest {
             de.fampopprol.dhbwhorb.data.storage.database.dao.timetable.LectureLecturerCrossRefDao::class,
             de.fampopprol.dhbwhorb.data.storage.database.dao.SyncMetadataDao::class,
             de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher::class,
+            // The icon badge's drawing side: AppleBadgeDisplay on iOS and macOS, BadgeDisplay.None elsewhere.
+            de.fampopprol.dhbwhorb.services.notifications.BadgeDisplay::class,
             // Bound per platform (Glance on Android, a Swift closure on iOS) or not at all.
             de.fampopprol.dhbwhorb.services.widget.WidgetRefresher::class,
             de.fampopprol.dhbwhorb.services.reminders.LectureReminderScheduler::class

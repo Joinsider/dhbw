@@ -75,6 +75,28 @@ Umsetzung:
 5. **Bestehende Installationen:** Der erste Start nach dem Update kommt in den Vordergrund und setzt
    die hängende Badge auf 0. Damit ist der gemeldete Fall ohne weiteres Zutun behoben.
 
+### Nachtrag: eine Klasse für die Badge
+
+Die erste Umsetzung verteilte das Zählen auf `NotificationManager`, den Logout-Cleaner und beide
+Apple-Dispatcher. Jeder neue Weg, eine Benachrichtigung zu zeigen, musste selbst daran denken —
+die Debug-Testbuttons taten es nicht, und die Zahl stieg dort nicht. Deshalb:
+
+- **`AppBadge`** (`:services`) ist der einzige Besitzer der Zahl: `add(n)`, `clear()`, `count()`.
+  Das Hochzählen läuft unter einem `Mutex`, weil Lesen-plus-Schreiben in den Settings sonst bei
+  zwei schnellen Benachrichtigungen eine verliert. Gezeichnet wird über `BadgeDisplay`
+  (`AppleBadgeDisplay` auf iOS/macOS, `BadgeDisplay.None` sonst).
+- **`BadgingNotificationDispatcher`** umhüllt den Plattform-Dispatcher und ist der
+  `NotificationDispatcher`, den Koin an alle ausgibt. Jede tatsächlich gezeigte Benachrichtigung
+  zählt (ohne Berechtigung nichts), `cancelAllDelivered()` leert die Badge. Kein Aufrufer fasst die
+  Badge mehr an; der Plattform-Dispatcher ist nur noch unter `PlatformNotificationDispatcher`
+  erreichbar.
+- Öffnen der App ruft `AppBadge.clear()` (Swift über `SharedApp`, Android in `onResume`).
+- „In 10 Sekunden“ wartet in einer iOS-Hintergrundaufgabe: ohne sie friert iOS die App nach
+  wenigen Sekunden ein, und Benachrichtigung samt Zählung kamen erst beim nächsten Öffnen.
+
+Erinnerungen zählen weiterhin nicht: Sie hält das System selbst und zeigt sie, ohne die App zu
+wecken, und sie melden keine Änderung.
+
 ### Prozessgrenze iOS
 
 Die Hintergrundprüfung (`BGTaskScheduler`) läuft im App-Prozess, der Prozess der Widget-Extension

@@ -55,17 +55,6 @@ interface NotificationDispatcher {
     }
 
     /**
-     * Set the number on the app icon (iOS and macOS). [count] is the total of lecture changes not
-     * yet seen, not the size of the last notification — [NotificationManager] keeps that total.
-     *
-     * Default-empty because only Apple platforms have an app badge: Android shows the count on the
-     * notification itself through `setNumber`, and desktop has no badge to set.
-     */
-    suspend fun setBadge(count: Int) {
-        // No-op by default — see the KDoc above: only the Apple dispatchers draw an app badge.
-    }
-
-    /**
      * Show a notification for multiple lecture changes (summary).
      * @param title Notification title
      * @param message Notification message body

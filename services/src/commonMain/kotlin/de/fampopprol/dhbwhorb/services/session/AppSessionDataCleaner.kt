@@ -30,15 +30,12 @@ class AppSessionDataCleaner(
     private val notifications: NotificationDispatcher,
     private val widgetRefresher: WidgetRefresher?,
     private val cachedFiles: CachedFileCleaner?,
-    /** Resets the app-icon count; [de.fampopprol.dhbwhorb.services.notifications.NotificationManager.markChangesSeen]. */
-    private val resetUnseenChanges: suspend () -> Unit,
 ) : SessionDataCleaner {
 
     override suspend fun clearSessionData() {
         step("cancelling scheduled reminders") { reminders.replaceAll(emptyList()) }
+        // Clears the app badge too: the dispatcher Koin hands out is the badging one.
         step("removing delivered notifications") { notifications.cancelAllDelivered() }
-        // The count is the previous user's too: it describes their timetable's changes.
-        step("resetting the app badge") { resetUnseenChanges() }
         step("deleting cached files") { cachedFiles?.deleteAll() }
         // Last: the widget reads the database, which by now is empty, so this is what makes it
         // draw an empty week instead of the previous user's.

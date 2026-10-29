@@ -159,9 +159,20 @@ struct SettingsScreen: View {
     /// Sends through the real Kotlin path: permission, the dispatcher, and the foreground presenter
     /// in `NotificationPresenter`. A `false` means iOS does not allow notifications, which is the
     /// same answer the switch above gets, so it gets the same alert.
+    ///
+    /// The delay runs inside the app, and iOS suspends an app a few seconds after it leaves the
+    /// screen — which is exactly when the delayed button is used. Without the background task the
+    /// notification, and with it the badge, arrived only when the app was opened again, and opening
+    /// it cleared the badge at once. The task buys the half minute the delay needs.
     private func sendTestNotification(delaySeconds: Int32) {
+        #if os(iOS)
+        let task = UIApplication.shared.beginBackgroundTask(withName: "test-notification")
+        #endif
         SharedApp.shared.sendTestNotification(delaySeconds: delaySeconds) { delivered in
             if !delivered.boolValue { Task { @MainActor in notificationsBlocked = true } }
+            #if os(iOS)
+            UIApplication.shared.endBackgroundTask(task)
+            #endif
         }
     }
 

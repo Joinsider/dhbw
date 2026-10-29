@@ -49,20 +49,17 @@ class AppSessionDataCleanerTest {
         val dispatcher = RecordingDispatcher()
         var refreshes = 0
         var filesDeleted = 0
-        var badgeResets = 0
 
         AppSessionDataCleaner(
             reminders = scheduler,
             notifications = dispatcher,
             widgetRefresher = WidgetRefresher { refreshes++ },
             cachedFiles = CachedFileCleaner { filesDeleted++ },
-            resetUnseenChanges = { badgeResets++ },
         ).clearSessionData()
 
         assertEquals(emptyList(), scheduler.lastScheduled, "every alarm has to go")
         assertEquals(1, dispatcher.cancelled)
         assertEquals(1, filesDeleted)
-        assertEquals(1, badgeResets, "the app icon count belongs to the previous user")
         assertEquals(1, refreshes, "the widget still draws the old week until it is told")
     }
 
@@ -76,7 +73,6 @@ class AppSessionDataCleanerTest {
             notifications = dispatcher,
             widgetRefresher = WidgetRefresher { refreshes++ },
             cachedFiles = null,
-            resetUnseenChanges = {},
         ).clearSessionData()
 
         assertEquals(1, dispatcher.cancelled)
@@ -93,7 +89,6 @@ class AppSessionDataCleanerTest {
             notifications = dispatcher,
             widgetRefresher = null,
             cachedFiles = null,
-            resetUnseenChanges = {},
         ).clearSessionData()
 
         assertTrue(scheduler.lastScheduled?.isEmpty() == true)
