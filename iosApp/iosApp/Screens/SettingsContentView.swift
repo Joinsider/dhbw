@@ -115,12 +115,14 @@ struct SettingsContentView: View {
         }
     }
 
-    /// The curated accents as a row of round swatches. The selected one carries a checkmark, and
+    /// The curated accents as rows of round swatches. The selected one carries a checkmark, and
     /// each swatch is labelled with its name, so VoiceOver does not have to tell colours apart.
+    /// A grid rather than one row: there are as many accents as Android has seed colours, and a
+    /// phone fits about nine across.
     private var accentRow: some View {
         VStack(alignment: .leading, spacing: 10) {
             rowLabel("settings.accentColor", systemName: "paintbrush.fill", color: accent.wrappedValue.accent)
-            HStack(spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 36), spacing: 6)], alignment: .leading, spacing: 6) {
                 ForEach(AccentChoice.allCases) { choice in
                     Button {
                         accent.wrappedValue = choice
@@ -180,6 +182,10 @@ struct SettingsContentView: View {
                 rowLabel("settings.reminder", systemName: "clock.fill", color: .orange)
             }
             .disabled(!state.notificationsEnabled)
+            // A menu picker keeps the tint it was first drawn with, so the value stayed in the old
+            // accent after a change. Naming the tint here and rebuilding on a change keeps it current.
+            .tint(accent.wrappedValue.accent)
+            .id(accent.wrappedValue)
             .accessibilityIdentifier("settingsReminderPicker")
         } header: {
             Text("settings.notificationsHeader")

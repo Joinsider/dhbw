@@ -137,7 +137,8 @@ extension Color {
 /// The ids are what Kotlin stores (`SettingsState.KNOWN_ACCENT_CHOICES`); adding a case means
 /// adding its id there too.
 enum AccentChoice: String, CaseIterable, Identifiable {
-    case brand, pink, purple, blue, teal, green
+    case brand, pink, raspberry, purple, violet, indigo, blue, lightBlue, cyan, teal, green
+    case lightGreen, lime, yellow, amber, orange, deepOrange, blueGrey
 
     var id: String { rawValue }
 
@@ -162,15 +163,49 @@ enum AccentChoice: String, CaseIterable, Identifiable {
         Color(light: palette.accentLight.withAlpha(0.10), dark: palette.accentDark.withAlpha(0.22))
     }
 
+    /// Exams are orange so that they stand apart from the red accent. Next to a yellow, amber or
+    /// orange accent that orange would be one more shade of the same colour, so those accents move
+    /// the exam to violet instead — the rule `Color.examFill` states for red, applied to them.
+    private var examIsViolet: Bool {
+        switch self {
+        case .yellow, .amber, .orange, .deepOrange: true
+        default: false
+        }
+    }
+
+    var examFill: Color {
+        examIsViolet
+            ? Color(light: RGBAValue(0.94, 0.91, 0.98), dark: RGBAValue(0.19, 0.12, 0.26))
+            : .examFill
+    }
+
+    var examEdge: Color {
+        examIsViolet
+            ? Color(light: RGBAValue(0.48, 0.25, 0.75), dark: RGBAValue(0.78, 0.60, 1.00))
+            : .examEdge
+    }
+
     /// The name shown under the swatch and read out by VoiceOver.
     var name: LocalizedStringKey {
         switch self {
         case .brand: "accent.brand"
         case .pink: "accent.pink"
+        case .raspberry: "accent.raspberry"
         case .purple: "accent.purple"
+        case .violet: "accent.violet"
+        case .indigo: "accent.indigo"
         case .blue: "accent.blue"
+        case .lightBlue: "accent.lightBlue"
+        case .cyan: "accent.cyan"
         case .teal: "accent.teal"
         case .green: "accent.green"
+        case .lightGreen: "accent.lightGreen"
+        case .lime: "accent.lime"
+        case .yellow: "accent.yellow"
+        case .amber: "accent.amber"
+        case .orange: "accent.orange"
+        case .deepOrange: "accent.deepOrange"
+        case .blueGrey: "accent.blueGrey"
         }
     }
 
@@ -190,7 +225,7 @@ enum AccentChoice: String, CaseIterable, Identifiable {
                 fillLight: RGBAValue(0.98, 0.91, 0.92),
                 fillDark: RGBAValue(0.23, 0.10, 0.11)
             )
-        case .pink:
+        case .raspberry:
             Palette(
                 accentLight: RGBAValue(0.76, 0.09, 0.36),
                 accentDark: RGBAValue(1.00, 0.45, 0.70),
@@ -224,6 +259,91 @@ enum AccentChoice: String, CaseIterable, Identifiable {
                 accentDark: RGBAValue(0.45, 0.88, 0.50),
                 fillLight: RGBAValue(0.90, 0.97, 0.90),
                 fillDark: RGBAValue(0.11, 0.24, 0.12)
+            )
+
+        case .pink:
+            Palette(
+                accentLight: RGBAValue(1.00, 0.24, 0.87),
+                accentDark: RGBAValue(1.00, 0.62, 0.93),
+                fillLight: RGBAValue(1.00, 0.95, 0.99),
+                fillDark: RGBAValue(0.24, 0.00, 0.20)
+            )
+        case .violet:
+            Palette(
+                accentLight: RGBAValue(0.37, 0.21, 0.69),
+                accentDark: RGBAValue(0.64, 0.53, 0.86),
+                fillLight: RGBAValue(0.93, 0.91, 0.97),
+                fillDark: RGBAValue(0.10, 0.06, 0.18)
+            )
+        case .indigo:
+            Palette(
+                accentLight: RGBAValue(0.22, 0.29, 0.67),
+                accentDark: RGBAValue(0.52, 0.57, 0.84),
+                fillLight: RGBAValue(0.91, 0.92, 0.97),
+                fillDark: RGBAValue(0.06, 0.08, 0.18)
+            )
+        case .lightBlue:
+            Palette(
+                accentLight: RGBAValue(0.01, 0.49, 0.72),
+                accentDark: RGBAValue(0.01, 0.62, 0.92),
+                fillLight: RGBAValue(0.88, 0.96, 1.00),
+                fillDark: RGBAValue(0.00, 0.16, 0.24)
+            )
+        case .cyan:
+            Palette(
+                accentLight: RGBAValue(0.00, 0.51, 0.57),
+                accentDark: RGBAValue(0.00, 0.67, 0.76),
+                fillLight: RGBAValue(0.88, 0.99, 1.00),
+                fillDark: RGBAValue(0.00, 0.21, 0.24)
+            )
+        case .lightGreen:
+            Palette(
+                accentLight: RGBAValue(0.35, 0.50, 0.19),
+                accentDark: RGBAValue(0.49, 0.70, 0.26),
+                fillLight: RGBAValue(0.94, 0.97, 0.91),
+                fillDark: RGBAValue(0.12, 0.18, 0.06)
+            )
+        case .lime:
+            Palette(
+                accentLight: RGBAValue(0.46, 0.48, 0.12),
+                accentDark: RGBAValue(0.75, 0.79, 0.20),
+                fillLight: RGBAValue(0.97, 0.98, 0.90),
+                fillDark: RGBAValue(0.18, 0.19, 0.05)
+            )
+        case .yellow:
+            Palette(
+                accentLight: RGBAValue(0.55, 0.45, 0.01),
+                accentDark: RGBAValue(0.99, 0.85, 0.21),
+                fillLight: RGBAValue(1.00, 0.98, 0.88),
+                fillDark: RGBAValue(0.24, 0.19, 0.00)
+            )
+        case .amber:
+            Palette(
+                accentLight: RGBAValue(0.61, 0.43, 0.00),
+                accentDark: RGBAValue(1.00, 0.70, 0.00),
+                fillLight: RGBAValue(1.00, 0.96, 0.88),
+                fillDark: RGBAValue(0.24, 0.17, 0.00)
+            )
+        case .orange:
+            Palette(
+                accentLight: RGBAValue(0.69, 0.39, 0.00),
+                accentDark: RGBAValue(0.98, 0.55, 0.00),
+                fillLight: RGBAValue(1.00, 0.95, 0.88),
+                fillDark: RGBAValue(0.24, 0.13, 0.00)
+            )
+        case .deepOrange:
+            Palette(
+                accentLight: RGBAValue(0.85, 0.23, 0.04),
+                accentDark: RGBAValue(0.96, 0.41, 0.24),
+                fillLight: RGBAValue(0.99, 0.91, 0.89),
+                fillDark: RGBAValue(0.23, 0.06, 0.01)
+            )
+        case .blueGrey:
+            Palette(
+                accentLight: RGBAValue(0.33, 0.43, 0.48),
+                accentDark: RGBAValue(0.50, 0.60, 0.65),
+                fillLight: RGBAValue(0.93, 0.94, 0.95),
+                fillDark: RGBAValue(0.10, 0.13, 0.14)
             )
         }
     }

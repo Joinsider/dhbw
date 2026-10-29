@@ -287,10 +287,10 @@ private struct LectureBlock: View {
         .padding(.horizontal, 3)
         .padding(.vertical, 2)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(lecture.isTest ? Color.examFill : accentChoice.lectureFill, in: .rect(cornerRadius: 6))
+        .background(lecture.isTest ? accentChoice.examFill : accentChoice.lectureFill, in: .rect(cornerRadius: 6))
         .overlay(alignment: .leading) {
             Rectangle()
-                .fill(lecture.isTest ? Color.examEdge : accentChoice.accent)
+                .fill(lecture.isTest ? accentChoice.examEdge : accentChoice.accent)
                 .frame(width: 2.5)
                 .clipShape(.rect(topLeadingRadius: 6, bottomLeadingRadius: 6))
         }
@@ -298,7 +298,7 @@ private struct LectureBlock: View {
             if lecture.isTest {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 8))
-                    .foregroundStyle(Color.examEdge)
+                    .foregroundStyle(accentChoice.examEdge)
                     .padding(2)
             }
         }

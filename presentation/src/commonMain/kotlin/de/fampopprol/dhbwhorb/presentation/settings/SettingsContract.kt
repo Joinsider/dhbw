@@ -58,7 +58,10 @@ data class SettingsState(
          * The accent identifiers Apple can show, in palette order. The Swift `AccentChoice` enum
          * has to carry the same ids; adding one means adding it in both places.
          */
-        val KNOWN_ACCENT_CHOICES: List<String> = listOf("brand", "pink", "purple", "blue", "teal", "green")
+        val KNOWN_ACCENT_CHOICES: List<String> = listOf(
+            "brand", "pink", "raspberry", "purple", "violet", "indigo", "blue", "lightBlue", "cyan",
+            "teal", "green", "lightGreen", "lime", "yellow", "amber", "orange", "deepOrange", "blueGrey",
+        )
 
         /** [id] if it is a known accent, otherwise the default: a downgrade or a removed colour must not break the screen. */
         fun accentChoiceOrDefault(id: String): String =

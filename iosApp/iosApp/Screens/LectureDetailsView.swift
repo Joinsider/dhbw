@@ -12,6 +12,7 @@ struct LectureDetailsView: View {
     let lecture: Lecture
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accentChoice) private var accentChoice
 
     /// Lecturers can be unknown for a lecture, and the room can be empty; either way the form only
     /// appears when there is something in it.
@@ -113,10 +114,10 @@ struct LectureDetailsView: View {
             if lecture.isTest {
                 Label("timetable.exam", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.examEdge)
+                    .foregroundStyle(accentChoice.examEdge)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(Color.examFill, in: .capsule)
+                    .background(accentChoice.examFill, in: .capsule)
             }
 
             Text(verbatim: lecture.displayName)

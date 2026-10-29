@@ -317,7 +317,7 @@ struct LectureRow: View {
             .frame(width: 56, alignment: .leading)
 
             RoundedRectangle(cornerRadius: 2)
-                .fill(lecture.isTest ? Color.orange : accentChoice.accent)
+                .fill(lecture.isTest ? accentChoice.examEdge : accentChoice.accent)
                 .frame(width: 3)
                 .accessibilityHidden(true)
 
@@ -337,7 +337,7 @@ struct LectureRow: View {
 
             if lecture.isTest {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(accentChoice.examEdge)
                     .accessibilityLabel(Text("timetable.exam"))
             }
         }
