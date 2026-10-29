@@ -7,6 +7,7 @@
 package de.fampopprol.dhbwhorb.presentation.settings
 
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
+import de.fampopprol.dhbwhorb.data.storage.preferences.ThemePreferences
 import de.fampopprol.dhbwhorb.domain.model.LectureCheck
 
 /**
@@ -19,6 +20,16 @@ data class SettingsState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val materialYouEnabled: Boolean = true,
     val seedColor: Long = DEFAULT_SEED_COLOR,
+    /**
+     * The Apple accent: the identifier of one entry in the curated palette in `Theme.swift`
+     * (`"brand"`, `"pink"`, …). Only iOS and macOS read it; Android and Desktop use [seedColor].
+     *
+     * It is an identifier rather than a colour on purpose. A seed colour yields a whole Material
+     * scheme, while an Apple accent is one tint plus a lecture fill that somebody checked for
+     * contrast by hand. A name also survives a later retuning of the values, which a stored ARGB
+     * would not. Ids outside [KNOWN_ACCENT_CHOICES] are replaced by [DEFAULT_ACCENT_CHOICE].
+     */
+    val accentChoice: String = DEFAULT_ACCENT_CHOICE,
     val notificationsEnabled: Boolean = false,
     val lectureAlertsEnabled: Boolean = false,
     /**
@@ -39,6 +50,19 @@ data class SettingsState(
     companion object {
         /** Purple40, the value `ThemePreferences` falls back to. */
         const val DEFAULT_SEED_COLOR: Long = 4284932260
+
+        /** DHBW red, the Apple default. */
+        const val DEFAULT_ACCENT_CHOICE: String = ThemePreferences.DEFAULT_ACCENT_CHOICE
+
+        /**
+         * The accent identifiers Apple can show, in palette order. The Swift `AccentChoice` enum
+         * has to carry the same ids; adding one means adding it in both places.
+         */
+        val KNOWN_ACCENT_CHOICES: List<String> = listOf("brand", "pink", "purple", "blue", "teal", "green")
+
+        /** [id] if it is a known accent, otherwise the default: a downgrade or a removed colour must not break the screen. */
+        fun accentChoiceOrDefault(id: String): String =
+            if (id in KNOWN_ACCENT_CHOICES) id else DEFAULT_ACCENT_CHOICE
     }
 }
 
@@ -47,6 +71,9 @@ sealed interface SettingsIntent {
     data class ThemeModeChanged(val mode: ThemeMode) : SettingsIntent
     data class MaterialYouChanged(val enabled: Boolean) : SettingsIntent
     data class SeedColorChanged(val argb: Long) : SettingsIntent
+
+    /** Apple only. An unknown [id] is stored as [SettingsState.DEFAULT_ACCENT_CHOICE]. */
+    data class AccentChoiceChanged(val id: String) : SettingsIntent
     data class NotificationsChanged(val enabled: Boolean) : SettingsIntent
     data class LectureAlertsChanged(val enabled: Boolean) : SettingsIntent
     data class ReminderLeadChanged(val minutes: Int) : SettingsIntent
@@ -60,6 +87,7 @@ sealed interface SettingsMsg {
     data class ThemeModeChanged(val mode: ThemeMode) : SettingsMsg
     data class MaterialYouChanged(val enabled: Boolean) : SettingsMsg
     data class SeedColorChanged(val argb: Long) : SettingsMsg
+    data class AccentChoiceChanged(val id: String) : SettingsMsg
     data class NotificationsChanged(val enabled: Boolean) : SettingsMsg
     data class LectureAlertsChanged(val enabled: Boolean) : SettingsMsg
     data class ReminderLeadChanged(val minutes: Int) : SettingsMsg

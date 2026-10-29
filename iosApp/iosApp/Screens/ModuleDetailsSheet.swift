@@ -15,6 +15,7 @@ import Shared
 /// number can be copied on a Mac. On macOS the sheet is 480 × 560pt and the form scrolls.
 struct ModuleDetailsSheet: View {
 
+    @Environment(\.accentChoice) private var accentChoice
     let module: GradeEntry
     /// Every row the list holds for this module, one per semester it was attempted in.
     let entries: [GradeEntry]
@@ -202,7 +203,7 @@ struct ModuleDetailsSheet: View {
                 // or superseded attempt is on the transcript but not in the average.
                 Text(entry.countsTowardDegree ? "grades.details.counted" : "grades.details.notCounted")
                     .font(.caption2)
-                    .foregroundStyle(entry.countsTowardDegree ? Color.brand : .secondary)
+                    .foregroundStyle(entry.countsTowardDegree ? accentChoice.accent : .secondary)
             }
         }
     }
@@ -221,7 +222,7 @@ struct ModuleDetailsSheet: View {
             if unit.attended {
                 Image(systemName: "checkmark")
                     .fontWeight(.semibold)
-                    .foregroundStyle(Color.brand)
+                    .foregroundStyle(accentChoice.accent)
             }
         }
     }

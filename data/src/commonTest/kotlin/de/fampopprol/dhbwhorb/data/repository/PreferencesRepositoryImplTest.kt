@@ -71,6 +71,16 @@ class PreferencesRepositoryImplTest {
     }
 
     @Test
+    fun accentChoice_defaultsToBrand_andRoundTrips() {
+        val repository = repository()
+        assertEquals("brand", repository.getAccentChoice(), "DHBW red is the documented default")
+
+        repository.setAccentChoice("pink")
+
+        assertEquals("pink", repository.getAccentChoice())
+    }
+
+    @Test
     fun lastLectureCheck_isReadAndObservedThroughTheRepository() {
         val settingsStorage = SettingsStorage(TestPlatformSettings(), NoOpSecureStorage())
         val interactor = NotificationPreferencesInteractor(NotificationPreferences(settingsStorage))

@@ -27,6 +27,13 @@ interface PreferencesRepository {
     fun getCustomColor(): Long
     fun setCustomColor(color: Long)
 
+    /**
+     * The Apple accent, as the identifier of one entry in the curated palette (`"brand"`, `"pink"`, …).
+     * Not a colour: Apple's palette is defined in Swift, and the identifier is what both sides agree on.
+     */
+    fun getAccentChoice(): String
+    fun setAccentChoice(id: String)
+
     fun areNotificationsEnabled(): Boolean
     fun setNotificationsEnabled(enabled: Boolean)
 
