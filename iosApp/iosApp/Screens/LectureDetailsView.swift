@@ -92,7 +92,7 @@ struct LectureDetailsView: View {
                 Text(verbatim: lecture.location)
                     .textSelection(.enabled)
             } label: {
-                rowLabel("timetable.room", systemName: "door.left.hand.open", color: .blue)
+                rowLabel("timetable.room", systemName: "door.left.hand.open")
             }
         }
         if !lecture.lecturers.isEmpty {
@@ -104,7 +104,7 @@ struct LectureDetailsView: View {
                     }
                 }
             } label: {
-                rowLabel("timetable.lecturers", systemName: "person.2.fill", color: .teal)
+                rowLabel("timetable.lecturers", systemName: "person.2.fill")
             }
         }
     }
@@ -135,11 +135,11 @@ struct LectureDetailsView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func rowLabel(_ key: LocalizedStringKey, systemName: String, color: Color) -> some View {
+    private func rowLabel(_ key: LocalizedStringKey, systemName: String) -> some View {
         Label {
             Text(key)
         } icon: {
-            SettingsIcon(systemName: systemName, color: color)
+            SettingsIcon(systemName: systemName)
         }
     }
 }

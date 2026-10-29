@@ -158,6 +158,12 @@ enum AccentChoice: String, CaseIterable, Identifiable {
         Color(light: palette.fillLight, dark: palette.fillDark)
     }
 
+    /// The background of an icon tile, under a white glyph. The light variant in both appearances:
+    /// the dark one is lifted for text on black and would leave a white glyph unreadable.
+    var tile: Color {
+        Color(light: palette.accentLight, dark: palette.accentLight)
+    }
+
     /// A quiet tint behind text, the way `Color.brandSoft` is behind the current day.
     var soft: Color {
         Color(light: palette.accentLight.withAlpha(0.10), dark: palette.accentDark.withAlpha(0.22))

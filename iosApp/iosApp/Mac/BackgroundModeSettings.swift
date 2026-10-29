@@ -30,7 +30,7 @@ struct BackgroundModeSettings: View {
             Label {
                 Text("settings.backgroundMode")
             } icon: {
-                SettingsIcon(systemName: "moon.fill", color: .indigo)
+                SettingsIcon(systemName: "moon.fill")
             }
         }
         .toggleStyle(.switch)

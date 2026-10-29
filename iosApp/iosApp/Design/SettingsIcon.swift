@@ -8,10 +8,13 @@ import SwiftUI
 /// square box inside the tile rather than sized by its font alone, so wide or badged symbols
 /// (calendar.badge.clock, chevron.left.forwardslash.chevron.right) cannot reach the tile's edges.
 /// The tile grows with Dynamic Type, capped so accessibility sizes do not swamp the rows.
+///
+/// Every tile is the chosen accent, so the icons speak with the same voice as the tint (ADR-0002).
 struct SettingsIcon: View {
 
     let systemName: String
-    let color: Color
+
+    @Environment(\.accentChoice) private var accentChoice
 
     #if os(macOS)
     @ScaledMetric(relativeTo: .body) private var scaledTile: CGFloat = 24
@@ -40,7 +43,7 @@ struct SettingsIcon: View {
             .foregroundStyle(.white)
             .frame(width: glyphSize, height: glyphSize)
             .frame(width: tileSize, height: tileSize)
-            .background(color, in: .rect(cornerRadius: Self.cornerRadius))
+            .background(accentChoice.tile, in: .rect(cornerRadius: Self.cornerRadius))
             .accessibilityHidden(true)
     }
 }
