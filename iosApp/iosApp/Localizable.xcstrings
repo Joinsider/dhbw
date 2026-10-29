@@ -1500,23 +1500,6 @@
         }
       }
     },
-    "accent.raspberry" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Himbeere"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Raspberry"
-          }
-        }
-      }
-    },
     "accent.teal" : {
       "extractionState" : "manual",
       "localizations" : {

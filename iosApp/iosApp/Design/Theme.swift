@@ -137,7 +137,7 @@ extension Color {
 /// The ids are what Kotlin stores (`SettingsState.KNOWN_ACCENT_CHOICES`); adding a case means
 /// adding its id there too.
 enum AccentChoice: String, CaseIterable, Identifiable {
-    case brand, pink, raspberry, purple, violet, indigo, blue, lightBlue, cyan, teal, green
+    case brand, pink, purple, violet, indigo, blue, lightBlue, cyan, teal, green
     case lightGreen, lime, yellow, amber, orange, deepOrange, blueGrey
 
     var id: String { rawValue }
@@ -190,7 +190,6 @@ enum AccentChoice: String, CaseIterable, Identifiable {
         switch self {
         case .brand: "accent.brand"
         case .pink: "accent.pink"
-        case .raspberry: "accent.raspberry"
         case .purple: "accent.purple"
         case .violet: "accent.violet"
         case .indigo: "accent.indigo"
@@ -225,7 +224,7 @@ enum AccentChoice: String, CaseIterable, Identifiable {
                 fillLight: RGBAValue(0.98, 0.91, 0.92),
                 fillDark: RGBAValue(0.23, 0.10, 0.11)
             )
-        case .raspberry:
+        case .pink:
             Palette(
                 accentLight: RGBAValue(0.76, 0.09, 0.36),
                 accentDark: RGBAValue(1.00, 0.45, 0.70),
@@ -261,13 +260,6 @@ enum AccentChoice: String, CaseIterable, Identifiable {
                 fillDark: RGBAValue(0.11, 0.24, 0.12)
             )
 
-        case .pink:
-            Palette(
-                accentLight: RGBAValue(1.00, 0.24, 0.87),
-                accentDark: RGBAValue(1.00, 0.62, 0.93),
-                fillLight: RGBAValue(1.00, 0.95, 0.99),
-                fillDark: RGBAValue(0.24, 0.00, 0.20)
-            )
         case .violet:
             Palette(
                 accentLight: RGBAValue(0.37, 0.21, 0.69),

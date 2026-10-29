@@ -50,14 +50,14 @@ die Datenbank im App-Group-Container.
 Farbwähler. DHBW-Rot bleibt der Standard.**
 
 1. **Kuratierte Palette in `Theme.swift`.** Ein Swift-`enum AccentChoice: String, CaseIterable` mit
-   18 Einträgen, einer pro Seed-Farbe des Android-`ColorPicker` (dessen Rot ist `brand`):
-   `brand` (DHBW-Rot, Standard), `pink`, `raspberry`, `purple`, `violet`, `indigo`, `blue`,
-   `lightBlue`, `cyan`, `teal`, `green`, `lightGreen`, `lime`, `yellow`, `amber`, `orange`,
-   `deepOrange`, `blueGrey`. Die neuen Einträge sind aus den Android-Seeds abgeleitet: gleicher
-   Farbton, im hellen Modus abgedunkelt bis 4,5:1 gegen Weiß, im dunklen aufgehellt bis 7:1 gegen
-   Schwarz. `pink` folgt dem Wunsch aus der Anfrage (#FF9FEE): im dunklen Modus genau dieser Ton, im
-   hellen #FF3EDD bei 3:1 — der einzige Eintrag, der nur die Grenze für Bedienelemente erreicht,
-   weil jeder dunklere Ton nicht mehr nach diesem Pink aussähe.
+   17 Einträgen, einer pro Seed-Farbe des Android-`ColorPicker` (dessen Rot ist `brand`, die zwei
+   Pinktöne dort sind hier einer):
+   `brand` (DHBW-Rot, Standard), `pink`, `purple`, `violet`, `indigo`, `blue`, `lightBlue`, `cyan`,
+   `teal`, `green`, `lightGreen`, `lime`, `yellow`, `amber`, `orange`, `deepOrange`, `blueGrey`.
+   Die von Android übernommenen Einträge behalten den Farbton des Seeds, im hellen Modus
+   abgedunkelt bis 4,5:1 gegen Weiß, im dunklen aufgehellt bis 7:1 gegen Schwarz. Ein helleres
+   Pink (#FF9FEE) war kurz Teil der Palette und wurde wieder entfernt: im hellen Modus erreichte es
+   nur 3:1 und wirkte zu grell.
    Jeder Eintrag liefert `accent` und `lectureFill` je hell/dunkel. Gelb, Bernstein, Orange und
    Dunkelorange setzen Prüfungen violett statt orange, aus demselben Grund, aus dem das Rot sie
    orange setzt. Jede Kombination wird vor dem Merge gegen WCAG AA (4,5:1 für Text auf

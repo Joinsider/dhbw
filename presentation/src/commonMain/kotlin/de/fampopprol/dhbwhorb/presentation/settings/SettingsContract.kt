@@ -59,7 +59,7 @@ data class SettingsState(
          * has to carry the same ids; adding one means adding it in both places.
          */
         val KNOWN_ACCENT_CHOICES: List<String> = listOf(
-            "brand", "pink", "raspberry", "purple", "violet", "indigo", "blue", "lightBlue", "cyan",
+            "brand", "pink", "purple", "violet", "indigo", "blue", "lightBlue", "cyan",
             "teal", "green", "lightGreen", "lime", "yellow", "amber", "orange", "deepOrange", "blueGrey",
         )
 

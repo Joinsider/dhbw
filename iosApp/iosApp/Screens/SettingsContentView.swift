@@ -115,45 +115,20 @@ struct SettingsContentView: View {
         }
     }
 
-    /// The curated accents as rows of round swatches. The selected one carries a checkmark, and
-    /// each swatch is labelled with its name, so VoiceOver does not have to tell colours apart.
-    /// A grid rather than one row: there are as many accents as Android has seed colours, and a
-    /// phone fits about nine across.
+    /// The curated accents on one snapping slider across the row, with the chosen colour's name
+    /// next to the label — see `AccentSlider`.
     private var accentRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            rowLabel("settings.accentColor", systemName: "paintbrush.fill", color: accent.wrappedValue.accent)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 36), spacing: 6)], alignment: .leading, spacing: 6) {
-                ForEach(AccentChoice.allCases) { choice in
-                    Button {
-                        accent.wrappedValue = choice
-                    } label: {
-                        accentSwatch(choice, isSelected: choice == accent.wrappedValue)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text(choice.name))
-                    .accessibilityAddTraits(choice == accent.wrappedValue ? .isSelected : [])
-                    .accessibilityIdentifier("settingsAccent-\(choice.rawValue)")
-                }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                rowLabel("settings.accentColor", systemName: "paintbrush.fill", color: accent.wrappedValue.accent)
+                Spacer()
+                Text(accent.wrappedValue.name)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
             }
+            AccentSlider(selection: accent)
         }
         .padding(.vertical, 4)
-    }
-
-    private func accentSwatch(_ choice: AccentChoice, isSelected: Bool) -> some View {
-        Circle()
-            .fill(choice.accent)
-            .frame(width: 30, height: 30)
-            .overlay {
-                if isSelected {
-                    // The grouped background is white in light mode and black in dark, so the
-                    // mark stays readable on every accent in both.
-                    Image(systemName: "checkmark")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(Color.platformGroupedBackground)
-                }
-            }
-            .frame(width: 36, height: 36)
-            .contentShape(.circle)
     }
 
     @ViewBuilder
