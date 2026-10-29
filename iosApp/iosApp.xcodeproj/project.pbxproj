@@ -48,6 +48,7 @@
 		8FCB097F303CE7C300C617F1 /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		8FEEBC89306A92D200436D4F /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		8FF88F92303B8E6B0004600A /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
+		8FF93E4C309386E800FEB915 /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		E3D9F0C275BF0BFDE5506549 /* DHBW-Horb.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "DHBW-Horb.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -177,6 +178,7 @@
 				8FEEBC89306A92D200436D4F /* iosApp.xcodeproj */,
 				8F41FE2E3088A4F1009C77F1 /* iosApp.xcodeproj */,
 				8F9F0CBC3088BCBD00DEDAAC /* iosApp.xcodeproj */,
+				8F9F0D003088BD8B00DEDAAC /* iosApp.xcodeproj */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -187,6 +189,11 @@
 			sourceTree = "<group>";
 		};
 		8FF88F96303B8E6B0004600A /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		8FF93E51309386E800FEB915 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -298,6 +305,10 @@
 				{
 					ProductGroup = 8F9F0D053088BD8B00DEDAAC /* Products */;
 					ProjectRef = 8F9F0D003088BD8B00DEDAAC /* iosApp.xcodeproj */;
+				},
+				{
+					ProductGroup = 8FF93E51309386E800FEB915 /* Products */;
+					ProjectRef = 8FF93E4C309386E800FEB915 /* iosApp.xcodeproj */;
 				},
 				{
 					ProductGroup = 8FF88F96303B8E6B0004600A /* Products */;
@@ -493,6 +504,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "iosApp/iosApp-macOS.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 35;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
 				DEVELOPMENT_TEAM = 56T6W6Z755;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -520,7 +532,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				PRODUCT_BUNDLE_IDENTIFIER = de.fampopprol.dhbw;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
@@ -541,6 +553,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "iosApp/iosApp-macOS.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 35;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
 				DEVELOPMENT_TEAM = 56T6W6Z755;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -568,7 +581,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				PRODUCT_BUNDLE_IDENTIFIER = de.fampopprol.dhbw;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
@@ -588,6 +601,7 @@
 				CODE_SIGN_ENTITLEMENTS = TimetableWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 35;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -621,6 +635,7 @@
 				CODE_SIGN_ENTITLEMENTS = TimetableWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 35;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
