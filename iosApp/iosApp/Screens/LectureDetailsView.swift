@@ -12,6 +12,7 @@ struct LectureDetailsView: View {
     let lecture: Lecture
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accentChoice) private var accentChoice
 
     /// Lecturers can be unknown for a lecture, and the room can be empty; either way the form only
     /// appears when there is something in it.
@@ -91,7 +92,7 @@ struct LectureDetailsView: View {
                 Text(verbatim: lecture.location)
                     .textSelection(.enabled)
             } label: {
-                rowLabel("timetable.room", systemName: "door.left.hand.open", color: .blue)
+                rowLabel("timetable.room", systemName: "door.left.hand.open")
             }
         }
         if !lecture.lecturers.isEmpty {
@@ -103,7 +104,7 @@ struct LectureDetailsView: View {
                     }
                 }
             } label: {
-                rowLabel("timetable.lecturers", systemName: "person.2.fill", color: .teal)
+                rowLabel("timetable.lecturers", systemName: "person.2.fill")
             }
         }
     }
@@ -113,10 +114,10 @@ struct LectureDetailsView: View {
             if lecture.isTest {
                 Label("timetable.exam", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.examEdge)
+                    .foregroundStyle(accentChoice.examEdge)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(Color.examFill, in: .capsule)
+                    .background(accentChoice.examFill, in: .capsule)
             }
 
             Text(verbatim: lecture.displayName)
@@ -134,11 +135,11 @@ struct LectureDetailsView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func rowLabel(_ key: LocalizedStringKey, systemName: String, color: Color) -> some View {
+    private func rowLabel(_ key: LocalizedStringKey, systemName: String) -> some View {
         Label {
             Text(key)
         } icon: {
-            SettingsIcon(systemName: systemName, color: color)
+            SettingsIcon(systemName: systemName)
         }
     }
 }

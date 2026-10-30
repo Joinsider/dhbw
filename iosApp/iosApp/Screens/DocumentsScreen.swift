@@ -17,6 +17,8 @@ import AppKit
 /// all three, and the store only ever emits the bytes.
 struct DocumentsScreen: View {
 
+    @Environment(\.accentChoice) private var accentChoice
+
     /// What to do with the bytes once they arrive.
     ///
     /// `DocumentsIntent.Save` covers both keeping and sharing — the store's job ends at the
@@ -164,7 +166,7 @@ struct DocumentsScreen: View {
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
-                    .foregroundStyle(Color.brand)
+                    .foregroundStyle(accentChoice.accent)
                     .padding(.leading, 8)
             }
             .accessibilityLabel(Text("documents.actions"))
@@ -199,7 +201,7 @@ struct DocumentsScreen: View {
             } label: {
                 Label("documents.saveToFiles", systemImage: "folder.badge.plus")
             }
-            .tint(Color.brand)
+            .tint(accentChoice.accent)
             Button {
                 save(document, as: .share)
             } label: {
@@ -306,6 +308,7 @@ struct DocumentsScreen: View {
 
 private struct DocumentRow: View {
 
+    @Environment(\.accentChoice) private var accentChoice
     let document: DualisDocument
     let isDownloading: Bool
 
@@ -327,7 +330,7 @@ private struct DocumentRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "doc.text.fill")
-                .foregroundStyle(Color.brand)
+                .foregroundStyle(accentChoice.accent)
                 .frame(width: Self.iconWidth)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Self.lineSpacing) {

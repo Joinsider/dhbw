@@ -22,6 +22,7 @@ struct SettingsContentView: View {
     let isDemo: Bool
     let state: SettingsState
     let theme: Binding<ThemeMode>
+    let accent: Binding<AccentChoice>
     let notifications: Binding<Bool>
     let lectureAlerts: Binding<Bool>
     let reminder: Binding<Int32>
@@ -85,11 +86,11 @@ struct SettingsContentView: View {
                 LabeledContent {
                     Text(verbatim: userName)
                 } label: {
-                    rowLabel("settings.signedInAs", systemName: "person.crop.circle.fill", color: .gray)
+                    rowLabel("settings.signedInAs", systemName: "person.crop.circle.fill")
                 }
             }
             if isDemo {
-                rowLabel("settings.demoMode", systemName: "theatermasks.fill", color: .gray)
+                rowLabel("settings.demoMode", systemName: "theatermasks.fill")
                     .foregroundStyle(.secondary)
             }
             Button("settings.logout", role: .destructive, action: onLogout)
@@ -105,11 +106,29 @@ struct SettingsContentView: View {
                 Text("settings.themeLight").tag(ThemeMode.light)
                 Text("settings.themeDark").tag(ThemeMode.dark)
             } label: {
-                rowLabel("settings.themeMode", systemName: "paintpalette.fill", color: .blue)
+                rowLabel("settings.themeMode", systemName: "paintpalette.fill")
             }
             .pickerStyle(.segmented)
             .accessibilityIdentifier("settingsThemePicker")
+
+            accentRow
         }
+    }
+
+    /// The curated accents on one snapping slider across the row, with the chosen colour's name
+    /// next to the label — see `AccentSlider`.
+    private var accentRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                rowLabel("settings.accentColor", systemName: "paintbrush.fill")
+                Spacer()
+                Text(accent.wrappedValue.name)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+            AccentSlider(selection: accent)
+        }
+        .padding(.vertical, 4)
     }
 
     @ViewBuilder
@@ -119,12 +138,12 @@ struct SettingsContentView: View {
                 blockedRow
             }
             Toggle(isOn: notifications) {
-                rowLabel("settings.notifications", systemName: "bell.badge.fill", color: .red)
+                rowLabel("settings.notifications", systemName: "bell.badge.fill")
             }
             .accessibilityIdentifier("settingsNotificationsToggle")
 
             Toggle(isOn: lectureAlerts) {
-                rowLabel("settings.lectureAlerts", systemName: "calendar.badge.clock", color: .green)
+                rowLabel("settings.lectureAlerts", systemName: "calendar.badge.clock")
             }
             .disabled(!state.notificationsEnabled)
             .accessibilityIdentifier("settingsLectureAlertsToggle")
@@ -135,9 +154,13 @@ struct SettingsContentView: View {
                 Text("settings.reminder30").tag(Int32(30))
                 Text("settings.reminder60").tag(Int32(60))
             } label: {
-                rowLabel("settings.reminder", systemName: "clock.fill", color: .orange)
+                rowLabel("settings.reminder", systemName: "clock.fill")
             }
             .disabled(!state.notificationsEnabled)
+            // A menu picker keeps the tint it was first drawn with, so the value stayed in the old
+            // accent after a change. Naming the tint here and rebuilding on a change keeps it current.
+            .tint(accent.wrappedValue.accent)
+            .id(accent.wrappedValue)
             .accessibilityIdentifier("settingsReminderPicker")
         } header: {
             Text("settings.notificationsHeader")
@@ -188,7 +211,7 @@ struct SettingsContentView: View {
         LabeledContent {
             lastCheckValue
         } label: {
-            rowLabel("settings.lastCheck", systemName: "clock.arrow.circlepath", color: .teal)
+            rowLabel("settings.lastCheck", systemName: "clock.arrow.circlepath")
         }
     }
 
@@ -217,11 +240,11 @@ struct SettingsContentView: View {
                 Text(verbatim: versionText)
                     .foregroundStyle(.secondary)
             } label: {
-                rowLabel("settings.version", systemName: "info.circle.fill", color: .gray)
+                rowLabel("settings.version", systemName: "info.circle.fill")
             }
             if let sourceURL = Self.sourceURL {
                 Link(destination: sourceURL) {
-                    rowLabel("settings.sourceCode", systemName: "chevron.left.forwardslash.chevron.right", color: .gray)
+                    rowLabel("settings.sourceCode", systemName: "chevron.left.forwardslash.chevron.right")
                 }
             }
         }
@@ -249,11 +272,11 @@ struct SettingsContentView: View {
 
     /// A row title with its coloured icon. Every labelled row in this view uses it, so the icons
     /// line up down the page.
-    private func rowLabel(_ key: LocalizedStringKey, systemName: String, color: Color) -> some View {
+    private func rowLabel(_ key: LocalizedStringKey, systemName: String) -> some View {
         Label {
             Text(key)
         } icon: {
-            SettingsIcon(systemName: systemName, color: color)
+            SettingsIcon(systemName: systemName)
         }
     }
 

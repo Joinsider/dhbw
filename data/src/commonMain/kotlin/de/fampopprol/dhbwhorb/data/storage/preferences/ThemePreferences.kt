@@ -17,6 +17,10 @@ class ThemePreferences(private val storage: SettingsStorage) {
         private const val THEME_MODE_KEY = "theme_mode_preference"
         private const val MATERIAL_YOU_KEY = "material_you_preference"
         private const val CUSTOM_COLOR_KEY = "custom_color_preference"
+        private const val ACCENT_CHOICE_KEY = "accent_choice"
+
+        /** The DHBW red, which is also what Apple shows when nothing was chosen. */
+        const val DEFAULT_ACCENT_CHOICE = "brand"
     }
 
     /**
@@ -68,6 +72,16 @@ class ThemePreferences(private val storage: SettingsStorage) {
      */
     fun setCustomColor(color: Long) {
         storage.setString(CUSTOM_COLOR_KEY, color.toString())
+    }
+
+    /**
+     * The Apple accent identifier, defaults to [DEFAULT_ACCENT_CHOICE]. Stored as given: whether
+     * it names a known accent is decided by the presentation layer, not here.
+     */
+    fun getAccentChoice(): String = storage.getString(ACCENT_CHOICE_KEY, DEFAULT_ACCENT_CHOICE)
+
+    fun setAccentChoice(id: String) {
+        storage.setString(ACCENT_CHOICE_KEY, id)
     }
 }
 

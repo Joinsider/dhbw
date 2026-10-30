@@ -13,6 +13,7 @@ import Shared
 /// one when it is a list of rows.
 struct TimetableGrid: View {
 
+    @Environment(\.accentChoice) private var accentChoice
     let week: WeekState
     let onLecture: (Lecture) -> Void
     let onRefresh: () -> Void
@@ -62,14 +63,14 @@ struct TimetableGrid: View {
                 VStack(spacing: 1) {
                     Text(day.weekdayText)
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(day.isToday ? Color.brand : .secondary)
+                        .foregroundStyle(day.isToday ? accentChoice.accent : .secondary)
                     Text(day.dayNumberText)
                         .font(.footnote.weight(day.isToday ? .bold : .regular))
-                        .foregroundStyle(day.isToday ? Color.brand : .primary)
+                        .foregroundStyle(day.isToday ? accentChoice.accent : .primary)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
-                .background(day.isToday ? Color.brandSoft : .clear)
+                .background(day.isToday ? accentChoice.soft : .clear)
                 .accessibilityElement(children: .combine)
             }
         }
@@ -130,7 +131,7 @@ struct TimetableGrid: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
-            .background(day.isToday ? Color.brandSoft.opacity(0.35) : .clear)
+            .background(day.isToday ? accentChoice.soft.opacity(0.35) : .clear)
         }
         .frame(height: CGFloat(hours.count) * Self.hourHeight)
     }
@@ -266,6 +267,7 @@ struct TimetableGrid: View {
 /// half that when two lectures run at the same time.
 private struct LectureBlock: View {
 
+    @Environment(\.accentChoice) private var accentChoice
     let lecture: Lecture
     let isNarrow: Bool
 
@@ -285,10 +287,10 @@ private struct LectureBlock: View {
         .padding(.horizontal, 3)
         .padding(.vertical, 2)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(lecture.isTest ? Color.examFill : Color.lectureFill, in: .rect(cornerRadius: 6))
+        .background(lecture.isTest ? accentChoice.examFill : accentChoice.lectureFill, in: .rect(cornerRadius: 6))
         .overlay(alignment: .leading) {
             Rectangle()
-                .fill(lecture.isTest ? Color.examEdge : Color.brand)
+                .fill(lecture.isTest ? accentChoice.examEdge : accentChoice.accent)
                 .frame(width: 2.5)
                 .clipShape(.rect(topLeadingRadius: 6, bottomLeadingRadius: 6))
         }
@@ -296,7 +298,7 @@ private struct LectureBlock: View {
             if lecture.isTest {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 8))
-                    .foregroundStyle(Color.examEdge)
+                    .foregroundStyle(accentChoice.examEdge)
                     .padding(2)
             }
         }

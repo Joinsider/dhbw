@@ -33,6 +33,11 @@ struct iOSApp: App {
         // Before anything can post: a change found while the window is open must still show.
         UNUserNotificationCenter.current().delegate = Self.notificationPresenter
 
+        // Clears a number an older version left on the app icon. It is the only badge call left:
+        // the app no longer sets one. Only earlier versions wrote a number, so this line can go once
+        // no version before this one is in use.
+        Task { try? await UNUserNotificationCenter.current().setBadgeCount(0) }
+
 #if os(iOS)
         // Kotlin presents UIKit controllers (the iOS-only file and share hand-offs) through the
         // root view controller. macOS has no such controller, and nothing on that side asks.

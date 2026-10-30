@@ -16,8 +16,9 @@ private let notificationLog = Logger(subsystem: "de.fampopprol.dhbw", category: 
 /// Appearance, notifications, and signing out.
 ///
 /// Two settings the Compose screen offers are missing here on purpose: Material You and the seed
-/// colour. They pick a Material palette from the wallpaper, and iOS has neither — the app follows
-/// the system accent and `ThemeMode` instead. The store still holds them for Android and Desktop.
+/// colour. They pick a Material palette from the wallpaper, and iOS has neither. Instead the
+/// accent is one of a curated set (`AccentChoice`, ADR-0002), stored as an id in the shared
+/// settings. The store still holds the seed colour for Android and Desktop.
 ///
 /// The store's bindings and actions. The layout is `SettingsContentView`, shared by iOS and macOS;
 /// keeping the behaviour here means the two platforms cannot drift apart.
@@ -74,6 +75,7 @@ struct SettingsScreen: View {
             isDemo: model.app.state.isDemo,
             state: state,
             theme: themeBinding,
+            accent: accentBinding,
             notifications: notificationsBinding,
             lectureAlerts: lectureAlertsBinding,
             reminder: reminderBinding,
@@ -88,6 +90,13 @@ struct SettingsScreen: View {
         Binding(
             get: { state.themeMode },
             set: { model.settings.dispatch(SettingsIntentThemeModeChanged(mode: $0)) }
+        )
+    }
+
+    private var accentBinding: Binding<AccentChoice> {
+        Binding(
+            get: { AccentChoice(id: state.accentChoice) },
+            set: { model.settings.dispatch(SettingsIntentAccentChoiceChanged(id: $0.rawValue)) }
         )
     }
 
@@ -115,7 +124,7 @@ struct SettingsScreen: View {
     private func enableNotifications() async {
         do {
             let granted = try await UNUserNotificationCenter.current()
-                .requestAuthorization(options: [.alert, .sound, .badge])
+                .requestAuthorization(options: [.alert, .sound])
             notificationLog.notice("Notification permission \(granted ? "granted" : "denied", privacy: .public)")
             if !granted {
                 notificationsBlocked = true
@@ -150,9 +159,20 @@ struct SettingsScreen: View {
     /// Sends through the real Kotlin path: permission, the dispatcher, and the foreground presenter
     /// in `NotificationPresenter`. A `false` means iOS does not allow notifications, which is the
     /// same answer the switch above gets, so it gets the same alert.
+    ///
+    /// The delay runs inside the app, and iOS suspends an app a few seconds after it leaves the
+    /// screen — which is exactly when the delayed button is used. Without the background task the
+    /// notification arrived only when the app was opened again. The task buys the half minute the
+    /// delay needs.
     private func sendTestNotification(delaySeconds: Int32) {
+        #if os(iOS)
+        let task = UIApplication.shared.beginBackgroundTask(withName: "test-notification")
+        #endif
         SharedApp.shared.sendTestNotification(delaySeconds: delaySeconds) { delivered in
             if !delivered.boolValue { Task { @MainActor in notificationsBlocked = true } }
+            #if os(iOS)
+            UIApplication.shared.endBackgroundTask(task)
+            #endif
         }
     }
 

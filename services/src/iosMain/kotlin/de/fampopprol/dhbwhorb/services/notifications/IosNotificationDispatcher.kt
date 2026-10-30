@@ -8,7 +8,6 @@ package de.fampopprol.dhbwhorb.services.notifications
 
 import io.github.aakira.napier.Napier
 import kotlinx.cinterop.ExperimentalForeignApi
-import platform.Foundation.NSNumber
 import platform.UserNotifications.*
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -36,7 +35,7 @@ class IosNotificationDispatcher : NotificationDispatcher {
     override suspend fun requestPermission(): Boolean = suspendCoroutine { continuation ->
         Napier.d("requestPermission (iOS) called", tag = TAG)
         notificationCenter.requestAuthorizationWithOptions(
-            UNAuthorizationOptionAlert or UNAuthorizationOptionSound or UNAuthorizationOptionBadge
+            UNAuthorizationOptionAlert or UNAuthorizationOptionSound
         ) { granted, error ->
             if (error != null) {
                 Napier.e("Error requesting notification permission: $error", tag = TAG)
@@ -111,7 +110,6 @@ class IosNotificationDispatcher : NotificationDispatcher {
             setTitle(title)
             setBody(message)
             setSound(UNNotificationSound.defaultSound())
-            setBadge(NSNumber(int = changeCount))
             setCategoryIdentifier(CATEGORY_LECTURE_CHANGE)
         }
 

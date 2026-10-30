@@ -71,6 +71,19 @@ final class AppModel {
             if wanted { monitor.schedule() } else { monitor.cancel() }
         })
 
+        // The widget is another process and cannot read this app's preferences, so the accent is
+        // mirrored into the App Group, the one store both can see. The timelines are reloaded only
+        // when the value actually changes, not on every state update.
+#if os(iOS)
+        var mirroredAccent: String?
+        handles.append(shared.settings.observeState { state in
+            guard state.accentChoice != mirroredAccent else { return }
+            mirroredAccent = state.accentChoice
+            UserDefaults(suiteName: WidgetAccentStore.suiteName)?.set(state.accentChoice, forKey: WidgetAccentStore.key)
+            WidgetCenter.shared.reloadAllTimelines()
+        })
+#endif
+
         // The reminders iOS holds are wall-clock notification requests, and nothing refreshes them
         // on its own: a reinstall or an app update clears them, and the timetable moves underneath
         // them. Replanning at launch is what MainActivity does on Android.
@@ -100,11 +113,16 @@ struct RootView: View {
                 LoginScreen()
             }
         }
-        // One accent for the whole app — see Design/Theme.swift for why that is the iOS
-        // equivalent of the Material You seed colour the other platforms use.
-        .tint(Color.brand)
+        // One accent for the whole app, chosen in Settings — see Design/Theme.swift and ADR-0002.
+        // `.tint` reaches the controls; the environment reaches the views that paint with it.
+        .tint(accent.accent)
+        .environment(\.accentChoice, accent)
         .preferredColorScheme(colorScheme)
         .animation(.default, value: model.app.state.isLoggedIn)
+    }
+
+    private var accent: AccentChoice {
+        AccentChoice(id: model.settings.state.accentChoice)
     }
 
     /// `nil` means "follow the system", which is what `ThemeMode.SYSTEM` asks for.

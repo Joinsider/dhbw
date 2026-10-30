@@ -15,6 +15,7 @@ import Shared
 /// number can be copied on a Mac. On macOS the sheet is 480 × 560pt and the form scrolls.
 struct ModuleDetailsSheet: View {
 
+    @Environment(\.accentChoice) private var accentChoice
     let module: GradeEntry
     /// Every row the list holds for this module, one per semester it was attempted in.
     let entries: [GradeEntry]
@@ -131,7 +132,7 @@ struct ModuleDetailsSheet: View {
 
             if let result = attempt.result {
                 HStack(spacing: 12) {
-                    SettingsIcon(systemName: "sum", color: .brand)
+                    SettingsIcon(systemName: "sum")
                     Text("grades.details.total")
                         .fontWeight(.semibold)
                     Spacer()
@@ -152,7 +153,7 @@ struct ModuleDetailsSheet: View {
 
     private func examRow(_ exam: ExamResult) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            SettingsIcon(systemName: "doc.text.fill", color: .blue)
+            SettingsIcon(systemName: "doc.text.fill")
             VStack(alignment: .leading, spacing: 2) {
                 if let unit = exam.unitName {
                     Text(unit)
@@ -184,7 +185,7 @@ struct ModuleDetailsSheet: View {
 
     private func entryRow(_ entry: GradeEntry) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            SettingsIcon(systemName: "list.bullet.rectangle.fill", color: .gray)
+            SettingsIcon(systemName: "list.bullet.rectangle.fill")
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.semesterName)
                 if let status = entry.status, !status.isEmpty {
@@ -202,14 +203,14 @@ struct ModuleDetailsSheet: View {
                 // or superseded attempt is on the transcript but not in the average.
                 Text(entry.countsTowardDegree ? "grades.details.counted" : "grades.details.notCounted")
                     .font(.caption2)
-                    .foregroundStyle(entry.countsTowardDegree ? Color.brand : .secondary)
+                    .foregroundStyle(entry.countsTowardDegree ? accentChoice.accent : .secondary)
             }
         }
     }
 
     private func unitRow(_ unit: ModuleUnit) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            SettingsIcon(systemName: "book.closed.fill", color: .teal)
+            SettingsIcon(systemName: "book.closed.fill")
             VStack(alignment: .leading, spacing: 2) {
                 Text(unit.name)
                     .fixedSize(horizontal: false, vertical: true)
@@ -221,7 +222,7 @@ struct ModuleDetailsSheet: View {
             if unit.attended {
                 Image(systemName: "checkmark")
                     .fontWeight(.semibold)
-                    .foregroundStyle(Color.brand)
+                    .foregroundStyle(accentChoice.accent)
             }
         }
     }

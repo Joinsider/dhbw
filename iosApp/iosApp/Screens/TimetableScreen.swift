@@ -27,6 +27,7 @@ enum TimetableLayout: String {
 struct TimetableScreen: View {
 
     @Environment(AppModel.self) private var model
+    @Environment(\.accentChoice) private var accentChoice
     @AppStorage("timetableLayout") private var layoutRaw = TimetableLayout.grid.rawValue
     @State private var focusedOffset = 0
     @State private var refreshError: String?
@@ -156,7 +157,7 @@ struct TimetableScreen: View {
                     Button("timetable.today") { withAnimation { focusedOffset = 0 } }
                         .font(.caption2.weight(.semibold))
                         .buttonStyle(.plain)
-                        .foregroundStyle(Color.brand)
+                        .foregroundStyle(accentChoice.accent)
                         .accessibilityIdentifier("timetableTodayButton")
                 } else {
                     Text("timetable.thisWeek")
@@ -304,6 +305,7 @@ extension WeekState {
 
 struct LectureRow: View {
 
+    @Environment(\.accentChoice) private var accentChoice
     let lecture: Lecture
 
     var body: some View {
@@ -315,7 +317,7 @@ struct LectureRow: View {
             .frame(width: 56, alignment: .leading)
 
             RoundedRectangle(cornerRadius: 2)
-                .fill(lecture.isTest ? Color.orange : Color.brand)
+                .fill(lecture.isTest ? accentChoice.examEdge : accentChoice.accent)
                 .frame(width: 3)
                 .accessibilityHidden(true)
 
@@ -335,7 +337,7 @@ struct LectureRow: View {
 
             if lecture.isTest {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(accentChoice.examEdge)
                     .accessibilityLabel(Text("timetable.exam"))
             }
         }
