@@ -233,28 +233,42 @@ dependencies {
 
 val javaToolchains = extensions.getByType<JavaToolchainService>()
 
+// The Compose Desktop tasks that end up calling jpackage.  Android has packageDebug and
+// packageRelease of its own, which is why this names the formats instead of matching "package".
+val desktopPackagingTask = Regex(
+    "package(Release)?(Deb|Msi|Dmg|Exe|Rpm|Pkg|DistributionForCurrentOS)" +
+        "|(create|run)(Release)?Distributable" +
+        "|checkRuntime|createRuntimeImage|suggestRuntimeModules|notarize.*"
+)
+val isDesktopPackagingBuild = gradle.startParameter.taskNames.any {
+    desktopPackagingTask.matches(it.substringAfterLast(':'))
+}
+
 compose.desktop {
     application {
         mainClass = "de.fampopprol.dhbwhorb.MainKt"
 
         // jpackage ships only with a full JDK, and by default the packaging tasks inherit
         // whatever JVM the Gradle daemon happens to run on.  That is not dependable:
-        // gradle/gradle-daemon-jvm.properties asks for "a JetBrains 21" without naming a
-        // specific installation, and the JBR bundled inside Android Studio satisfies that
-        // while shipping no jpackage — checkRuntime then fails with "'jpackage' is
-        // missing".  Asking for a JetBrains toolchain here does not help, because Gradle
-        // resolves that against the same set of installations and favours a matching JVM
-        // it is already running on.
+        // gradle/gradle-daemon-jvm.properties accepts any JDK 21, and the JBR bundled inside
+        // Android Studio satisfies that while shipping no jpackage — checkRuntime then fails
+        // with "'jpackage' is missing".
         //
-        // Temurin is requested instead: Android Studio's JBR cannot satisfy an Adoptium
-        // vendor constraint, every Temurin build carries jpackage, the CI runners already
-        // install it via setup-java, and the foojay resolver in settings.gradle.kts
-        // provisions it anywhere else.  That makes the packaging JDK the same everywhere,
-        // whatever JVM the daemon ended up on.
-        javaHome = javaToolchains.launcherFor {
-            languageVersion.set(JavaLanguageVersion.of(21))
-            vendor.set(JvmVendorSpec.AZUL)
-        }.get().metadata.installationPath.asFile.absolutePath
+        // Azul is requested instead: Android Studio's JBR cannot satisfy that vendor
+        // constraint, every Zulu JDK carries jpackage, the CI runners already install it via
+        // setup-java, and the foojay resolver in settings.gradle.kts provisions it anywhere
+        // else.  That makes the packaging JDK, and so the runtime inside the Deb and Msi, the
+        // same everywhere, whatever JVM the daemon ended up on.
+        //
+        // Only packaging resolves it.  Doing this for every build made an Android APK depend
+        // on a desktop JDK it never uses, which breaks builders that ship a single OpenJDK,
+        // such as IzzyOnDroid's.  An abbreviated task name falls back to the daemon's JVM.
+        if (isDesktopPackagingBuild) {
+            javaHome = javaToolchains.launcherFor {
+                languageVersion.set(JavaLanguageVersion.of(21))
+                vendor.set(JvmVendorSpec.AZUL)
+            }.get().metadata.installationPath.asFile.absolutePath
+        }
 
         buildTypes.release.proguard {
             isEnabled.set(false)
