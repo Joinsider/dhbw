@@ -66,9 +66,11 @@ kotlin {
             // not exist — tried in P9, 45 compile errors.
             //
             // The old comment here warned against "upgrading to stable (1.10.0)". There is no such
-            // release: the artefact goes 1.9.0 → 1.10.0-alphaNN → 1.11.0-alphaNN. alpha05 is the
-            // last of the 1.10 line and matches the Compose Multiplatform runtime; the 1.11 and
-            // 1.12 alphas run ahead of it, so moving there is a runtime bump, not a version bump.
+            // release: the artefact goes 1.9.0 → 1.10.0-alphaNN → 1.11.0-alphaNN → 1.12.0-alphaNN.
+            // Keep it on the line that matches the Compose Multiplatform runtime: 1.12.0-alpha03 is
+            // the last of the 1.12 line and is built against 1.12.0-beta01, for CMP 1.12.2. The 1.13
+            // builds run ahead of it, so moving there is a runtime bump, not a version bump. A
+            // mismatched pair compiles but fails at run time with AbstractMethodError.
             //
             // Since P7 this only ships to Android and Desktop — the iOS app is SwiftUI and
             // never sees Compose.
