@@ -63,6 +63,9 @@ class AppStore(
                     session != null ->
                         emit(AppMsg.SessionRestored(session.userFullName, session.isDemo))
                     sessionRepository.autoLoginBlocked.value -> emit(AppMsg.AutoLoginBlocked)
+                    // Unreadable is not absent: keep the splash until the store can be read again
+                    // (the iOS shell retries on protected-data-available).
+                    sessionRepository.isCredentialStoreLocked() -> emit(AppMsg.CredentialsLocked)
                     else -> emit(AppMsg.NoSession)
                 }
             }
@@ -117,4 +120,7 @@ fun reduceApp(state: AppState, msg: AppMsg): AppState = when (msg) {
     AppMsg.LoggedOut -> AppState(isRestoring = false)
 
     AppMsg.AutoLoginBlocked -> AppState(isRestoring = false, reLoginRequired = true)
+
+    // The session could not be read, so it is not known yet: stay restoring, change nothing else.
+    AppMsg.CredentialsLocked -> state.copy(isRestoring = true)
 }
