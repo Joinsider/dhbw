@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 package de.fampopprol.dhbwhorb.data.storage.credentials
 
 import com.github.javakeyring.BackendNotSupportedException
@@ -7,6 +13,7 @@ import io.github.aakira.napier.Napier
 import kotlinx.serialization.json.Json
 import java.util.prefs.Preferences
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 
 private const val TAG = "SecureStorage"
@@ -33,22 +40,24 @@ private const val TAG = "SecureStorage"
  * because on Linux every attempt can open an unlock dialog.
  */
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
-class DesktopSecureStorage : SecureStorageInterface {
+class DesktopSecureStorage internal constructor(
+    /** `null` when there is no keyring backend; values then live in [preferences]. */
+    private val keyring: KeyringAccess?,
+    preferences: () -> Preferences,
+    /** Clock for the [RETRY_INTERVAL] window; a test substitutes a controllable one. */
+    private val timeSource: TimeSource = TimeSource.Monotonic,
+) : SecureStorageInterface {
 
-    private val keyring: Keyring? = try {
-        val keyring = Keyring.create()
-        Napier.d("Using native keyring backend: ${keyring::class.java.name}", tag = TAG)
-        keyring
-    } catch (e: BackendNotSupportedException) {
-        Napier.w("No keyring backend available — falling back to Preferences.", tag = TAG)
-        null
-    }
+    constructor() : this(
+        keyring = nativeKeyring(),
+        preferences = {
+            // userNodeForPackage keys on the package, not the class, and this class sits in the same
+            // package as the former SecureStorage — existing users keep their stored values.
+            Preferences.userNodeForPackage(DesktopSecureStorage::class.java)
+        },
+    )
 
-    private val prefs: Preferences by lazy {
-        // userNodeForPackage keys on the package, not the class, and this class sits in the same
-        // package as the former SecureStorage — existing users keep their stored values.
-        Preferences.userNodeForPackage(DesktopSecureStorage::class.java)
-    }
+    private val prefs: Preferences by lazy(preferences)
 
     /** Loaded from the keyring at most once per run; `null` until the first successful access. */
     private var cache: MutableMap<String, String>? = null
@@ -57,7 +66,7 @@ class DesktopSecureStorage : SecureStorageInterface {
     private var locked = false
 
     /** When the last failed load happened; loads inside [RETRY_INTERVAL] of it do not touch the keyring. */
-    private var lastFailure: TimeSource.Monotonic.ValueTimeMark? = null
+    private var lastFailure: TimeMark? = null
 
     /**
      * True when the keyring exists but could not be read on the last attempt. Reads then answer the
@@ -144,7 +153,7 @@ class DesktopSecureStorage : SecureStorageInterface {
         }
         if (values == null) {
             locked = true
-            lastFailure = TimeSource.Monotonic.markNow()
+            lastFailure = timeSource.markNow()
             Napier.w("Keyring could not be read; treating credentials as unavailable for now", tag = TAG)
             return mutableMapOf()
         }
@@ -161,7 +170,7 @@ class DesktopSecureStorage : SecureStorageInterface {
      * something is stored, and `null` when an entry could not be read: the old entries are then
      * neither moved nor deleted, so a failed read cannot turn into lost credentials.
      */
-    private fun migrateFromPerKeyEntries(keyring: Keyring): MutableMap<String, String>? {
+    private fun migrateFromPerKeyEntries(keyring: KeyringAccess): MutableMap<String, String>? {
         val trackedKeys = when (val index = readEntry(keyring, LEGACY_KEY_INDEX)) {
             is EntryRead.Value -> index.text.split(",").filter { it.isNotBlank() }
             EntryRead.Absent -> return mutableMapOf()
@@ -208,7 +217,7 @@ class DesktopSecureStorage : SecureStorageInterface {
         data object Failed : EntryRead
     }
 
-    private fun readEntry(keyring: Keyring, account: String): EntryRead =
+    private fun readEntry(keyring: KeyringAccess, account: String): EntryRead =
         try {
             keyring.getPassword(SERVICE_NAME, account)
                 ?.takeIf { it.isNotEmpty() }
@@ -234,6 +243,16 @@ class DesktopSecureStorage : SecureStorageInterface {
     }
 
     private companion object {
+        /** The native keyring, or `null` when this platform has no backend. */
+        fun nativeKeyring(): KeyringAccess? = try {
+            val keyring = Keyring.create()
+            Napier.d("Using native keyring backend: ${keyring::class.java.name}", tag = TAG)
+            JavaKeyringAccess(keyring)
+        } catch (e: BackendNotSupportedException) {
+            Napier.w("No keyring backend available — falling back to Preferences.", tag = TAG)
+            null
+        }
+
         const val SERVICE_NAME = "DualisApp"
 
         /** The single entry everything is stored in. */
