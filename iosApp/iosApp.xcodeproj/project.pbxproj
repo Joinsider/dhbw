@@ -504,7 +504,6 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "iosApp/iosApp-macOS.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 35;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
 				DEVELOPMENT_TEAM = 56T6W6Z755;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -553,7 +552,6 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "iosApp/iosApp-macOS.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 35;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
 				DEVELOPMENT_TEAM = 56T6W6Z755;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -601,7 +599,6 @@
 				CODE_SIGN_ENTITLEMENTS = TimetableWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 35;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -635,7 +632,6 @@
 				CODE_SIGN_ENTITLEMENTS = TimetableWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 35;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
