@@ -169,6 +169,12 @@ jobs:
           build_tools=$(sed -n 's/.*buildToolsVersion = "\(.*\)"/\1/p' composeApp/build.gradle.kts)
           echo "compileSdk: $compile_sdk, build tools: $build_tools"
           test -n "$compile_sdk" && test -n "$build_tools"
+          # From API 37 the SDK platform package carries a minor version (`platforms;android-37.0`);
+          # there is no `platforms;android-37`, and AGP resolves compileSdk 37 to android-37.0.
+          case "$compile_sdk" in
+            *.*) platform="$compile_sdk" ;;
+            *) if [ "$compile_sdk" -ge 37 ]; then platform="$compile_sdk.0"; else platform="$compile_sdk"; fi ;;
+          esac
 
           echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
@@ -177,7 +183,7 @@ jobs:
           (yes || true) | "$sdkmanager" --licenses > /dev/null
           "$sdkmanager" --install \
             "platform-tools" \
-            "platforms;android-$compile_sdk" \
+            "platforms;android-$platform" \
             "build-tools;$build_tools"
 
       - name: Cache Gradle packages
