@@ -17,12 +17,20 @@ import de.fampopprol.dhbwhorb.presentation.store.SessionScopedStore
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeAuthRepository
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeDocumentRepository
 import de.fampopprol.dhbwhorb.testutil.fakes.FakeSessionRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 class AppStoreTest {
 
@@ -30,14 +38,21 @@ class AppStoreTest {
         session: FakeSessionRepository,
         auth: FakeAuthRepository = FakeAuthRepository(),
         documents: FakeDocumentRepository = FakeDocumentRepository(),
-        sessionScopedStores: () -> List<SessionScopedStore> = { emptyList() }
+        sessionScopedStores: () -> List<SessionScopedStore> = { emptyList() },
+        scope: CoroutineScope = TestScopes.immediate(),
+        lockedRetryDelay: Duration = 30.seconds
     ) = AppStore(
         sessionRepository = session,
         logout = Logout(auth),
         purgeExpiredDocuments = PurgeExpiredDocuments(documents),
-        scope = TestScopes.immediate(),
-        sessionScopedStores = sessionScopedStores
+        scope = scope,
+        sessionScopedStores = sessionScopedStores,
+        lockedRetryDelay = lockedRetryDelay
     )
+
+    /** A store scope on the test's own clock, so the locked-retry delays can be advanced. */
+    private fun TestScope.onTestClock(): CoroutineScope =
+        CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
 
     @Test
     fun beforeTheSessionIsChecked_theRootIsRestoring() {
@@ -83,6 +98,46 @@ class AppStoreTest {
         val state = store.state.value
         assertTrue(state.isRestoring, "the root keeps showing the splash until the store is readable")
         assertFalse(state.isLoggedIn)
+        assertFalse(state.reLoginRequired)
+        store.close()
+    }
+
+    @Test
+    fun aLockedStoreThatOpensDuringTheRetry_restoresTheSession() = runTest {
+        // Desktop has no unlock notification, so the store asks again after a delay.
+        val sessions = FakeSessionRepository(session = null).apply { credentialStoreLocked = true }
+        val store = store(sessions, scope = onTestClock())
+
+        store.dispatch(AppIntent.Started)
+        assertTrue(store.state.value.isRestoring)
+
+        sessions.credentialStoreLocked = false
+        sessions.session = Session("Max Mustermann")
+        advanceTimeBy(29.seconds)
+        assertTrue(store.state.value.isRestoring, "the first retry is not due yet")
+
+        advanceUntilIdle()
+        val state = store.state.value
+        assertTrue(state.isLoggedIn)
+        assertFalse(state.isRestoring)
+        assertEquals("Max Mustermann", state.userFullName)
+        store.close()
+    }
+
+    @Test
+    fun aLockedStoreThatStaysLocked_givesUpAfterTheRetriesAndOpensTheLogin() = runTest {
+        // A splash that never ends is worse than the login screen; two retries, then NoSession.
+        val sessions = FakeSessionRepository(session = null).apply { credentialStoreLocked = true }
+        val store = store(sessions, scope = onTestClock())
+
+        store.dispatch(AppIntent.Started)
+        advanceTimeBy(59.seconds)
+        assertTrue(store.state.value.isRestoring, "the second retry is not due yet")
+
+        advanceUntilIdle()
+        val state = store.state.value
+        assertFalse(state.isLoggedIn)
+        assertFalse(state.isRestoring)
         assertFalse(state.reLoginRequired)
         store.close()
     }
