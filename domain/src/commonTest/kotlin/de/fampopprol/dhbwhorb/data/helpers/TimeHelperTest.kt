@@ -1,7 +1,9 @@
 package de.fampopprol.dhbwhorb.data.helpers
 
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.Month
+import kotlinx.datetime.minus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -139,15 +141,10 @@ class TimeHelperTest {
 
     @Test
     fun testIsDataStale_WithinThreshold() {
+        // Date arithmetic, not `day - 2`: on the 1st or 2nd of a month that is day 0 or -1, which
+        // LocalDateTime rejects, so this test used to fail two days every month.
         val now = TimeHelper.now()
-        val lastUpdate = LocalDateTime(
-            year = now.year,
-            month = now.month,
-            day = now.day - 2,
-            hour = now.hour,
-            minute = now.minute,
-            second = now.second
-        )
+        val lastUpdate = LocalDateTime(now.date.minus(2, DateTimeUnit.DAY), now.time)
 
         val isStale = TimeHelper.isDataStale(lastUpdate, thresholdDays = 7)
         assertFalse(isStale)
