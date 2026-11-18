@@ -2435,6 +2435,23 @@
         }
       }
     },
+    "timetable.reload" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neu laden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reload"
+          }
+        }
+      }
+    },
     "timetable.room" : {
       "extractionState" : "manual",
       "localizations" : {

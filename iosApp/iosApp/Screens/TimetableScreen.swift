@@ -130,6 +130,19 @@ struct TimetableScreen: View {
             .keyboardShortcut(.rightArrow, modifiers: .command)
             .help(Text("timetable.nextWeek"))
             .accessibilityIdentifier("timetableNextWeek")
+
+            // Refresh is the same intent the pull-to-refresh and the menu bar send, but for the week on
+            // screen. `Refresh` always fetches, unlike `EnsureLoaded`, which answers from the cache.
+            Button {
+                model.timetable.dispatch(TimetableIntentRefresh(offset: Int32(focusedOffset)))
+            } label: {
+                Label("timetable.reload", systemImage: "arrow.clockwise")
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            .disabled(week.isLoading || week.isRefreshing)
+            .help(Text("timetable.reload"))
+            .accessibilityLabel(Text("timetable.reload"))
+            .accessibilityIdentifier("timetableReloadButton")
         }
         #endif
     }
