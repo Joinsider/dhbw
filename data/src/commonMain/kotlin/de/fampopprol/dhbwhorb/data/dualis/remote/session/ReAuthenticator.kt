@@ -81,6 +81,12 @@ class ReAuthenticator(
     private suspend fun performLogin(): Outcome<Session> {
         val credentials = sessionManager.getStoredCredentials()
         if (credentials == null) {
+            if (sessionManager.isCredentialStoreLocked()) {
+                // Not "nothing stored": the store cannot be read yet. Telling the user to log in
+                // again would replace a working login with the login screen.
+                Napier.w("Credential store is locked; re-authentication postponed", tag = TAG)
+                return Outcome.Err(AppError.Storage("credential store locked"))
+            }
             Napier.w("No stored credentials for re-authentication", tag = TAG)
             return Outcome.Err(AppError.NoCredentials)
         }

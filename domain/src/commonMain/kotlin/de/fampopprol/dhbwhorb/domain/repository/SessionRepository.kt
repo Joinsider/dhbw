@@ -36,6 +36,13 @@ interface SessionRepository {
     fun isDemoMode(): Boolean
 
     /**
+     * True when the stored session cannot be read right now, typically because the device is
+     * locked. A null [currentSession] then means "not known yet" and must not send the user to the
+     * login screen.
+     */
+    fun isCredentialStoreLocked(): Boolean
+
+    /**
      * True once Dualis rejected the stored credentials often enough that no automatic login is
      * attempted any more. Survives restarts; only a successful manual login or a logout clears it.
      *

@@ -113,6 +113,36 @@ class ReAuthenticatorTest {
     }
 
     @Test
+    fun withoutStoredCredentials_whileTheStoreIsLocked_itReportsStorageNotNoCredentials() = runTest {
+        // Before the first unlock the keychain answers "nothing" for items that exist. That must
+        // not look like a logged-out user, or the login screen replaces a working session.
+        val storage = FakeSecureStorage().apply { isLocked = true }
+        val sessionManager = SessionManager(storage)
+        val authService = CountingAuthService(sessionManager) {
+            Outcome.Ok(Session(userFullName = null))
+        }
+        val reAuthenticator = ReAuthenticator(sessionManager, authService)
+
+        assertEquals(
+            Outcome.Err(AppError.Storage("credential store locked")),
+            reAuthenticator.reAuthenticate()
+        )
+        assertEquals(0, authService.loginCount)
+    }
+
+    @Test
+    fun withoutStoredCredentials_whileTheStoreIsReadable_itReportsNoCredentials() = runTest {
+        val storage = FakeSecureStorage().apply { isLocked = false }
+        val sessionManager = SessionManager(storage)
+        val authService = CountingAuthService(sessionManager) {
+            Outcome.Ok(Session(userFullName = null))
+        }
+        val reAuthenticator = ReAuthenticator(sessionManager, authService)
+
+        assertEquals(Outcome.Err(AppError.NoCredentials), reAuthenticator.reAuthenticate())
+    }
+
+    @Test
     fun withoutStoredCredentials_itReportsNoCredentials() = runTest {
         val sessionManager = SessionManager(FakeSecureStorage())
         val authService = CountingAuthService(sessionManager) {

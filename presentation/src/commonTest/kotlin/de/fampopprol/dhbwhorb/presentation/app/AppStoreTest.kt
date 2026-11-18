@@ -73,6 +73,30 @@ class AppStoreTest {
     }
 
     @Test
+    fun noSessionWhileTheCredentialStoreIsLocked_keepsTheRootRestoring() = runTest {
+        // A locked device is not a logged-out user: the login screen must wait for the unlock.
+        val sessions = FakeSessionRepository(session = null).apply { credentialStoreLocked = true }
+        val store = store(sessions)
+
+        store.dispatch(AppIntent.Started)
+
+        val state = store.state.value
+        assertTrue(state.isRestoring, "the root keeps showing the splash until the store is readable")
+        assertFalse(state.isLoggedIn)
+        assertFalse(state.reLoginRequired)
+        store.close()
+    }
+
+    @Test
+    fun credentialsLockedMsg_changesNothingButTheRestoringFlag() {
+        val before = AppState(isRestoring = false, userFullName = "Max", isDemo = true)
+
+        val after = reduceApp(before, AppMsg.CredentialsLocked)
+
+        assertEquals(before.copy(isRestoring = true), after)
+    }
+
+    @Test
     fun aDemoSession_isMarkedAsOne() = runTest {
         val store = store(
             FakeSessionRepository(session = Session(userFullName = null, isDemo = true))

@@ -148,6 +148,10 @@ class FakeSessionRepository(
     override fun canAuthenticate(): Boolean = canAuthenticate
     override fun isDemoMode(): Boolean = session?.isDemo == true
 
+    /** Simulates a locked credential store; see [SessionRepository.isCredentialStoreLocked]. */
+    var credentialStoreLocked: Boolean = false
+    override fun isCredentialStoreLocked(): Boolean = credentialStoreLocked
+
     private val blocked = MutableStateFlow(false)
     override val autoLoginBlocked: StateFlow<Boolean> = blocked.asStateFlow()
 

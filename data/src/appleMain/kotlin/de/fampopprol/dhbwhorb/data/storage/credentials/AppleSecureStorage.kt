@@ -1,5 +1,9 @@
+// SPDX-FileCopyrightText: 2024 Joinside <suitor-fall-life@duck.com>
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package de.fampopprol.dhbwhorb.data.storage.credentials
 
+import io.github.aakira.napier.Napier
 import kotlinx.cinterop.*
 import platform.Foundation.*
 import platform.Security.*
@@ -32,12 +36,24 @@ import platform.CoreFoundation.*
  * Item layout (unchanged, iOS users stay logged in): generic password, service `DualisApp`,
  * account = the key, plus an index item `_stored_keys` listing the tracked keys.
  *
- * Accessibility is left at the Security framework default (`WhenUnlocked`) on purpose: changing it
- * would only affect newly written items, but would still be a change to what iOS users get.
+ * Accessibility is `kSecAttrAccessibleAfterFirstUnlock`, not the `WhenUnlocked` default. iOS starts
+ * the app while the device is still locked — prewarming, the BGTaskScheduler background check, the
+ * widget extension — and with `WhenUnlocked` every read in that state fails with
+ * `errSecInteractionNotAllowed` (-25308). The credentials then look absent, and the app shows the
+ * login screen, which stays up after the user unlocks. `AfterFirstUnlock` keeps the items readable
+ * from the first unlock after a reboot onwards, which is the state every background launch runs in.
+ * Items written before this change are moved to the new accessibility by [migrateAccessibility],
+ * once per process, before the first keychain access. A migration that hits the locked device is
+ * retried on the next access; [isLocked] tells the rest of the app that a miss means "not yet
+ * readable", not "absent".
  */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 class AppleSecureStorage : SecureStorageInterface {
+    private companion object {
+        const val TAG = "AppleSecureStorage"
+    }
+
     private val serviceName = "DualisApp"
     private val keysKey = "_stored_keys"
 
@@ -45,11 +61,17 @@ class AppleSecureStorage : SecureStorageInterface {
     private val fallbackStorage = mutableMapOf<String, String>()
     private var useKeychainFallback = false
 
+    private var accessibilityMigrated = false
+    private var locked = false
+
+    override val isLocked: Boolean get() = locked
+
     override fun setString(key: String, value: String) {
         if (useKeychainFallback) {
             fallbackStorage[key] = value
             return
         }
+        ensureAccessibilityMigrated()
 
         // First, try to delete any existing value
         deleteFromKeychain(key)
@@ -59,13 +81,14 @@ class AppleSecureStorage : SecureStorageInterface {
         val query = createKeychainQuery(key, includeData = true, data = valueData)
 
         val status = SecItemAdd(query, null)
+        recordStatus(status)
         if (status == errSecNotAvailable) {
             // Keychain not available, switch to fallback
             useKeychainFallback = true
             fallbackStorage[key] = value
             return
         } else if (status != errSecSuccess) {
-            println("Failed to save to keychain with status: $status")
+            Napier.e("Failed to save '$key' to keychain with status: $status", tag = TAG)
         }
 
         addKeyToTracking(key)
@@ -75,12 +98,14 @@ class AppleSecureStorage : SecureStorageInterface {
         if (useKeychainFallback) {
             return fallbackStorage[key] ?: defaultValue
         }
+        ensureAccessibilityMigrated()
 
         val query = createKeychainQuery(key, returnData = true)
 
         memScoped {
             val result = alloc<CFTypeRefVar>()
             val status = SecItemCopyMatching(query, result.ptr)
+            recordStatus(status, isRead = true)
 
             if (status == errSecNotAvailable) {
                 // Keychain not available, switch to fallback
@@ -102,6 +127,7 @@ class AppleSecureStorage : SecureStorageInterface {
             fallbackStorage.remove(key)
             return
         }
+        ensureAccessibilityMigrated()
 
         deleteFromKeychain(key)
         removeKeyFromTracking(key)
@@ -112,6 +138,7 @@ class AppleSecureStorage : SecureStorageInterface {
             fallbackStorage.clear()
             return
         }
+        ensureAccessibilityMigrated()
 
         val keys = getTrackedKeys()
         keys.forEach { key ->
@@ -120,9 +147,63 @@ class AppleSecureStorage : SecureStorageInterface {
         deleteFromKeychain(keysKey)
     }
 
+    /**
+     * Moves every item of this service to `kSecAttrAccessibleAfterFirstUnlock`. Runs at most once
+     * per process, and only after it has succeeded (or found nothing to move).
+     */
+    private fun ensureAccessibilityMigrated() {
+        if (accessibilityMigrated) return
+        migrateAccessibility()
+    }
+
+    private fun migrateAccessibility() {
+        val query = CFDictionaryCreateMutable(
+            null,
+            0,
+            kCFTypeDictionaryKeyCallBacks.ptr,
+            kCFTypeDictionaryValueCallBacks.ptr
+        ).apply {
+            CFDictionarySetValue(this, kSecClass, kSecClassGenericPassword)
+            CFDictionarySetValue(this, kSecUseDataProtectionKeychain, kCFBooleanTrue)
+            CFDictionarySetValue(this, kSecAttrService, CFBridgingRetain(NSString.create(serviceName)))
+        }
+        val attributes = CFDictionaryCreateMutable(
+            null,
+            0,
+            kCFTypeDictionaryKeyCallBacks.ptr,
+            kCFTypeDictionaryValueCallBacks.ptr
+        ).apply {
+            CFDictionarySetValue(this, kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlock)
+        }
+
+        val status = SecItemUpdate(query, attributes)
+        recordStatus(status)
+        when (status) {
+            errSecSuccess, errSecItemNotFound -> {
+                accessibilityMigrated = true
+                Napier.d("Keychain accessibility is AfterFirstUnlock (status $status)", tag = TAG)
+            }
+            errSecInteractionNotAllowed ->
+                // Device locked: leave the flag unset so the next keychain access tries again.
+                Napier.w("Keychain accessibility migration deferred: device locked", tag = TAG)
+            else -> Napier.e("Keychain accessibility migration failed with status: $status", tag = TAG)
+        }
+    }
+
+    /**
+     * Remembers whether the keychain refused access because the device is locked. A successful
+     * read, or a read that found nothing, proves the store is readable again.
+     */
+    private fun recordStatus(status: Int, isRead: Boolean = false) {
+        when {
+            status == errSecInteractionNotAllowed -> locked = true
+            isRead && (status == errSecSuccess || status == errSecItemNotFound) -> locked = false
+        }
+    }
+
     private fun deleteFromKeychain(key: String) {
         val query = createKeychainQuery(key)
-        SecItemDelete(query)
+        recordStatus(SecItemDelete(query))
     }
 
     private fun createKeychainQuery(
@@ -148,6 +229,8 @@ class AppleSecureStorage : SecureStorageInterface {
             }
 
             if (includeData && data != null) {
+                // Every item this class adds is readable after the first unlock, see the class KDoc.
+                CFDictionarySetValue(this, kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlock)
                 CFDictionarySetValue(this, kSecValueData, CFBridgingRetain(data))
             }
         }
@@ -167,7 +250,7 @@ class AppleSecureStorage : SecureStorageInterface {
         deleteFromKeychain(keysKey)
         val valueData = keys.joinToString(",").toNSData()
         val query = createKeychainQuery(keysKey, includeData = true, data = valueData)
-        SecItemAdd(query, null)
+        recordStatus(SecItemAdd(query, null))
     }
 
     private fun removeKeyFromTracking(key: String) {
@@ -180,7 +263,7 @@ class AppleSecureStorage : SecureStorageInterface {
         if (keys.isNotEmpty()) {
             val valueData = keys.joinToString(",").toNSData()
             val query = createKeychainQuery(keysKey, includeData = true, data = valueData)
-            SecItemAdd(query, null)
+            recordStatus(SecItemAdd(query, null))
         }
     }
 
@@ -192,4 +275,3 @@ class AppleSecureStorage : SecureStorageInterface {
         return NSString.create(this, NSUTF8StringEncoding)?.toString() ?: ""
     }
 }
-

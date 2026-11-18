@@ -64,6 +64,12 @@ class SessionManager(private val secureStorage: SecureStorageInterface) {
     }
 
     /**
+     * True when the credential store cannot be read right now (device locked), so that absent
+     * credentials may only mean "not readable yet".
+     */
+    fun isCredentialStoreLocked(): Boolean = secureStorage.isLocked
+
+    /**
      * Store authentication data (session ID and auth token).
      */
     fun storeAuthData(authData: AuthData) {

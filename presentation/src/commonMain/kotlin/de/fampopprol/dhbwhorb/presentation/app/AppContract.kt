@@ -48,6 +48,12 @@ sealed interface AppMsg {
 
     /** The stored credentials were rejected too often; the user has to log in by hand. */
     data object AutoLoginBlocked : AppMsg
+
+    /**
+     * No session could be read because the credential store is locked. Not a logged-out state, so
+     * the root keeps restoring instead of showing the login screen.
+     */
+    data object CredentialsLocked : AppMsg
 }
 
 sealed interface AppEffect {

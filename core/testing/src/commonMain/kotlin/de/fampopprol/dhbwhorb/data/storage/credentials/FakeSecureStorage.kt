@@ -7,6 +7,9 @@ package de.fampopprol.dhbwhorb.data.storage.credentials
 class FakeSecureStorage : SecureStorageInterface {
     private val storage = mutableMapOf<String, String>()
 
+    /** Set to simulate a locked keychain; reads then still answer, but the caller sees [isLocked]. */
+    override var isLocked: Boolean = false
+
     override fun setString(key: String, value: String) {
         storage[key] = value
     }

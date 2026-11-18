@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 import WidgetKit
 import Shared
 
@@ -39,6 +42,20 @@ final class AppModel {
         }
 
         app.dispatch(AppIntentStarted())
+
+#if os(iOS)
+        // A launch while the device is locked (prewarming, background check) finds the credential
+        // store unreadable, and the app store then waits instead of showing the login screen. The
+        // first unlock is when it becomes readable: check the session again then.
+        protectedDataObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.protectedDataDidBecomeAvailableNotification,
+            object: nil,
+            queue: .main
+        ) { [app] _ in
+            app.dispatch(AppIntentStarted())
+        }
+#endif
+
         settings.dispatch(SettingsIntentLoad())
         // Keeps `lastLectureCheck` current while the app runs, so Settings and the menu bar show a
         // background run as it finishes. One watch per store; the store drops a second one.
@@ -93,6 +110,12 @@ final class AppModel {
     /// Observations that live as long as the app does. Nothing cancels them; the process ending
     /// is what stops them, which is the honest lifetime for "while the app runs".
     private var handles: [ObservationHandle] = []
+
+#if os(iOS)
+    /// The unlock observer. Kept here because NotificationCenter removes nothing on its own, and
+    /// the process ending is what stops it, as with `handles`.
+    private var protectedDataObserver: NSObjectProtocol?
+#endif
 }
 
 struct RootView: View {

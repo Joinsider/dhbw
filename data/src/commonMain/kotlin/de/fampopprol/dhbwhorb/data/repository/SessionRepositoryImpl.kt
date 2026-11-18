@@ -34,5 +34,7 @@ class SessionRepositoryImpl(
 
     override fun isDemoMode(): Boolean = sessionManager.isDemoMode()
 
+    override fun isCredentialStoreLocked(): Boolean = sessionManager.isCredentialStoreLocked()
+
     override val autoLoginBlocked: StateFlow<Boolean> get() = guard.blocked
 }
