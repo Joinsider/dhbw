@@ -13,7 +13,13 @@ import de.fampopprol.dhbwhorb.domain.usecase.PurgeExpiredDocuments
 import de.fampopprol.dhbwhorb.presentation.store.BaseStore
 import de.fampopprol.dhbwhorb.presentation.store.EffectScope
 import de.fampopprol.dhbwhorb.presentation.store.SessionScopedStore
+import io.github.aakira.napier.Napier
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+
+private const val TAG = "AppStore"
 
 /**
  * Who is logged in.
@@ -33,7 +39,12 @@ class AppStore(
      * A lambda rather than the list itself: these stores and this one are all singletons in the
      * same graph, and asking for them while this one is being built is a cycle.
      */
-    private val sessionScopedStores: () -> List<SessionScopedStore> = { emptyList() }
+    private val sessionScopedStores: () -> List<SessionScopedStore> = { emptyList() },
+    /**
+     * How long to wait before asking again while the credential store is locked. Desktop has no
+     * unlock notification, so the store polls; iOS re-dispatches [AppIntent.Started] on unlock.
+     */
+    private val lockedRetryDelay: Duration = 30.seconds
 ) : BaseStore<AppState, AppIntent, AppMsg, AppEffect>(
     initialState = AppState(),
     scope = scope
@@ -58,16 +69,19 @@ class AppStore(
                 // deletion deadline, and app start is the one moment every user reaches.
                 purgeExpiredDocuments()
 
-                val session = sessionRepository.currentSession()
-                when {
-                    session != null ->
-                        emit(AppMsg.SessionRestored(session.userFullName, session.isDemo))
-                    sessionRepository.autoLoginBlocked.value -> emit(AppMsg.AutoLoginBlocked)
-                    // Unreadable is not absent: keep the splash until the store can be read again
-                    // (the iOS shell retries on protected-data-available).
-                    sessionRepository.isCredentialStoreLocked() -> emit(AppMsg.CredentialsLocked)
-                    else -> emit(AppMsg.NoSession)
+                // Unreadable is not absent: keep the splash while the store is locked, asking
+                // again a couple of times. If it is still locked after that, the login screen is
+                // better than a splash that never ends; iOS recovers on its unlock notification.
+                var msg = restoreMsg()
+                var retries = 0
+                while (msg == AppMsg.CredentialsLocked && retries < MAX_LOCKED_RETRIES) {
+                    emit(msg)
+                    Napier.d("Credential store locked; retry ${retries + 1} in $lockedRetryDelay", tag = TAG)
+                    delay(lockedRetryDelay)
+                    retries++
+                    msg = restoreMsg()
                 }
+                emit(if (msg == AppMsg.CredentialsLocked) AppMsg.NoSession else msg)
             }
 
             AppIntent.WatchAutoLogin -> sessionRepository.autoLoginBlocked.collect { blocked ->
@@ -92,6 +106,22 @@ class AppStore(
                 if (result is Outcome.Err) send(AppEffect.CacheNotCleared)
             }
         }
+    }
+
+    /** What the store says about the session right now; the one place the three checks are ordered. */
+    private fun restoreMsg(): AppMsg {
+        val session = sessionRepository.currentSession()
+        return when {
+            session != null -> AppMsg.SessionRestored(session.userFullName, session.isDemo)
+            sessionRepository.autoLoginBlocked.value -> AppMsg.AutoLoginBlocked
+            sessionRepository.isCredentialStoreLocked() -> AppMsg.CredentialsLocked
+            else -> AppMsg.NoSession
+        }
+    }
+
+    private companion object {
+        /** Re-checks after the first locked answer; three checks in all, roughly a minute. */
+        const val MAX_LOCKED_RETRIES = 2
     }
 }
 
