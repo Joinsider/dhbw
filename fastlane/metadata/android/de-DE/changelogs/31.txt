@@ -1,0 +1,1 @@
+Neu auf iPhone, iPad und Mac: Die Akzentfarbe ist jetzt wählbar, mit denselben 18 Farben wie auf Android, und das Widget übernimmt sie. Das App-Symbol zeigt keine Zahl mehr an.  Desktop-Version für Windows und Linux: Die mitgelieferte Java-Laufzeit enthält die Sicherheitsupdates vom November 2026.  Außerdem Fehlerbehebungen und aktualisierte Bibliotheken.

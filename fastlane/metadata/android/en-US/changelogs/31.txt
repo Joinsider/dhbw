@@ -1,0 +1,1 @@
+New on iPhone, iPad and Mac: you can now choose the accent colour, with the same 18 colours as on Android, and the widget follows it. The app icon no longer shows a number.  Desktop version for Windows and Linux: the bundled Java runtime includes the November 2026 security updates.  Also bug fixes and updated libraries.
