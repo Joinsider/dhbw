@@ -25,7 +25,7 @@ jobs:
       GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           lfs: true
 
@@ -207,7 +207,7 @@ jobs:
           EOF
 
       - name: Generate directory listings
-        uses: gacts/directory-listing@382b3439bf3a5787b20350780a0cc18553a47acd # v1
+        uses: gacts/directory-listing@dbce3ff489d0e8689b0c45c6a63fe28b2a23ca66 # v1.0.6
         with:
           target: public
           ignore: |
@@ -215,13 +215,13 @@ jobs:
             **/.git*
 
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v6
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: 'public'
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

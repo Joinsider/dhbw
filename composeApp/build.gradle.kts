@@ -90,7 +90,7 @@ kotlin {
             implementation(libs.napier)
             implementation(libs.kotlinx.datetime.v040)
             implementation(libs.kotlinx.serialization.json)
-            implementation("com.materialkolor:material-kolor:4.0.5") {
+            implementation("com.materialkolor:material-kolor:5.0.1") {
                 exclude(group = "org.jetbrains.compose.material3", module = "material3")
             }
         }
