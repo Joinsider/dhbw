@@ -52,25 +52,23 @@ struct LectureDetailsView: View {
     @ViewBuilder
     private var content: some View {
         #if os(macOS)
-        VStack(alignment: .leading, spacing: 0) {
-            header
-                .padding(.horizontal, 24)
-                .padding(.top, 8)
-                .padding(.bottom, hasDetails ? 16 : 24)
-
+        // The title and the time sit in a box of their own, like the room and the lecturers:
+        // they are details of the lecture too, not a caption above them.
+        Form {
+            Section {
+                header
+                    .padding(.vertical, 4)
+            }
             if hasDetails {
-                Form {
-                    Section {
-                        detailsRows
-                    }
+                Section {
+                    detailsRows
                 }
-                .formStyle(.grouped)
-                .scrollDisabled(true)
-                .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .frame(width: 460)
+        .formStyle(.grouped)
+        .scrollDisabled(true)
         .fixedSize(horizontal: false, vertical: true)
+        .frame(width: 460)
         #else
         // iOS scrolls the form, so the medium and large detents both work without a fixed height.
         Form {
