@@ -305,17 +305,26 @@ private struct GradeRow: View {
                 Text(detailLine)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                if let status = entry.status, !status.isEmpty {
-                    Text(status)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                // Always laid out, even for a module that has no status yet: without the line
+                // those rows were a line shorter, and the list jumped in height between a
+                // running module and a graded one. The placeholder is hidden, not left out.
+                Text(verbatim: statusText ?? " ")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .opacity(statusText == nil ? 0 : 1)
+                    .accessibilityHidden(statusText == nil)
             }
             Spacer(minLength: 8)
             GradeBadge(grade: entry.grade, countsTowardDegree: entry.countsTowardDegree)
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
+    }
+
+    /// Dualis' status column ("bestanden", "unvollständig", …), or nil while it is empty.
+    private var statusText: String? {
+        guard let status = entry.status, !status.isEmpty else { return nil }
+        return status
     }
 
     /// `05-01-0101 · 6,0 CP`: the module number and what the module is worth.
