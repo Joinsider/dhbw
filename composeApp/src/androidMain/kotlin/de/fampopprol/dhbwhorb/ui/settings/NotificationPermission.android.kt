@@ -18,6 +18,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import de.fampopprol.dhbwhorb.services.notifications.NotificationDispatcher
 import org.koin.compose.koinInject
 
@@ -64,17 +65,30 @@ actual fun checkNotificationPermission(): Boolean {
     return hasPermission
 }
 
+/**
+ * Whether exact alarms are allowed, read again every time the app comes back to the foreground.
+ *
+ * The permission is granted on a system screen the button below opens, so the user leaves the app
+ * to change it. Read once, as this used to be, the warning stayed on screen after they had allowed
+ * exact alarms and come back — until the settings screen was built again from scratch.
+ */
 @Composable
 actual fun remindersFireExactly(): Boolean {
     val context = LocalContext.current
-    return remember(context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            true
-        } else {
-            (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).canScheduleExactAlarms()
-        }
+    var exact by remember(context) { mutableStateOf(canScheduleExactAlarms(context)) }
+    LifecycleResumeEffect(context) {
+        exact = canScheduleExactAlarms(context)
+        onPauseOrDispose { }
     }
+    return exact
 }
+
+private fun canScheduleExactAlarms(context: Context): Boolean =
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        true
+    } else {
+        (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).canScheduleExactAlarms()
+    }
 
 @Composable
 actual fun rememberExactAlarmSettingsOpener(): (() -> Unit)? {

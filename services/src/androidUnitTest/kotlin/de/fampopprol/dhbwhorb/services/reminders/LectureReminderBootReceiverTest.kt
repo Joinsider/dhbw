@@ -88,6 +88,22 @@ class LectureReminderBootReceiverTest {
     }
 
     @Test
+    fun onReceive_exactAlarmsAllowed_replansReminders() {
+        // Reminders planned while exact alarms were off were set inexactly; allowing them must
+        // replan at once instead of waiting for the next hourly check.
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val receiver = LectureReminderBootReceiver()
+
+        receiver.onReceive(
+            context,
+            Intent(android.app.AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED)
+        )
+        awaitReschedule()
+
+        assertEquals(listOf(emptyList<LectureReminder>()), scheduler.replaceAllCalls)
+    }
+
+    @Test
     fun onReceive_myPackageReplaced_replansReminders() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val receiver = LectureReminderBootReceiver()
