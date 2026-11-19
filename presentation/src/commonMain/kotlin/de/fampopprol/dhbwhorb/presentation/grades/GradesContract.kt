@@ -11,11 +11,18 @@ import de.fampopprol.dhbwhorb.domain.model.GradeAttempts
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
 import de.fampopprol.dhbwhorb.domain.model.ModuleResultDetails
 import de.fampopprol.dhbwhorb.domain.model.SemesterOrder
+import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
 
 /** One semester's results, in the order [GradesState.sections] puts them. */
 data class SemesterGrades(
     val semesterName: String,
     val grades: List<GradeEntry>
+)
+
+/** One point of the grade trend: a semester and its credit-weighted average. */
+data class SemesterAverage(
+    val semesterName: String,
+    val average: Double
 )
 
 /**
@@ -91,6 +98,25 @@ data class GradesState(
     val sections: List<SemesterGrades>
         get() = GradeAttempts.listed(grades).groupBy { it.semesterName }
             .map { (name, entries) -> SemesterGrades(name, entries) }
+
+    /**
+     * The grade trend: each semester's credit-weighted average, oldest semester first.
+     *
+     * Built from [sections], so a repeated module contributes only the attempt that counts, the
+     * same one the list shows. The average is kept exact: the UIs round it for their labels, and
+     * rounding here would make the line and its labels disagree with the grades they plot.
+     * A semester without a single graded module has no average yet and is left out rather than
+     * drawn as a zero.
+     *
+     * [sections] is newest first, so the result is sorted explicitly: a chart reads left to right
+     * in time, and the order of the input is not something to rely on.
+     */
+    val semesterTrend: List<SemesterAverage>
+        get() = sections
+            .mapNotNull { section ->
+                ComputeGpa()(section.grades).average?.let { SemesterAverage(section.semesterName, it) }
+            }
+            .sortedWith { x, y -> SemesterOrder.oldestFirst.compare(x.semesterName, y.semesterName) }
 }
 
 sealed interface GradesIntent {

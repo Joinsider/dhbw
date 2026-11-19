@@ -132,6 +132,9 @@ struct GradesScreen: View {
                 } else {
                     if searchText.isEmpty {
                         summary
+                        if state.semesterTrend.count >= 2 {
+                            trend
+                        }
                     }
                     ForEach(visibleSections, id: \.semesterName) { section in
                         Section {
@@ -181,6 +184,16 @@ struct GradesScreen: View {
             }
             .padding(.vertical, 6)
             .accessibilityElement(children: .combine)
+        }
+    }
+
+    /// The average per semester as a line, in a section of its own under the summary.
+    private var trend: some View {
+        Section {
+            GradeTrendChart(
+                points: state.semesterTrend,
+                overall: state.overallGpa?.doubleValue
+            )
         }
     }
 

@@ -36,6 +36,7 @@ import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.grades
 import de.fampopprol.dhbwhorb.resources.login_required_for_grades
 import de.fampopprol.dhbwhorb.resources.retry
+import de.fampopprol.dhbwhorb.ui.grades.components.GradeTrendChart
 import de.fampopprol.dhbwhorb.ui.grades.components.OverallStatsCard
 import de.fampopprol.dhbwhorb.ui.grades.components.SemesterGroupCard
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
@@ -210,7 +211,17 @@ private fun GradesContent(
                 }
             }
 
-            // One card per semester, oldest first — the order the store sorted them
+            // A single semester is not a trend, so the chart needs at least two points.
+            if (uiState.semesterTrend.size >= 2) {
+                item {
+                    GradeTrendChart(
+                        points = uiState.semesterTrend,
+                        overallGpa = uiState.overallGpa
+                    )
+                }
+            }
+
+            // One card per semester, newest first — the order the store sorted them
             // into, which is why this must not group or sort again.
             uiState.sections.forEach { section ->
                 item {

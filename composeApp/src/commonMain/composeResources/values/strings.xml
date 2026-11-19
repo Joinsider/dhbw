@@ -166,4 +166,6 @@
     <string name="credits_earned">Credits Earned</string>
     <string name="modules_completed">Modules Completed</string>
     <string name="login_required_for_grades">Please log in to view your grades.</string>
+    <string name="grade_trend">Grade trend</string>
+    <string name="grade_trend_overall">Overall</string>
 </resources>
