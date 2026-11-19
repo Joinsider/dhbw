@@ -63,7 +63,7 @@ jobs:
         id: semver
         run: |
           # ── Read current version (strip leading "v" if present) ──────────────
-          CURRENT=$(grep -m1 'versionName' androidApp/build.gradle.kts \
+          CURRENT=$(grep -m1 -E '^[[:space:]]*versionName[[:space:]]*=' androidApp/build.gradle.kts \
             | sed -E 's/.*"v?([^"]+)".*/\1/')
           echo "Current version: $CURRENT"
 
@@ -118,7 +118,7 @@ jobs:
         if: steps.semver.outputs.skipped != 'true'
         run: |
           # Read the current integer versionCode
-          CURRENT_CODE=$(grep -m1 'versionCode' androidApp/build.gradle.kts \
+          CURRENT_CODE=$(grep -m1 -E '^[[:space:]]*versionCode[[:space:]]*=' androidApp/build.gradle.kts \
             | sed -E 's/.*versionCode\s*=\s*([0-9]+).*/\1/')
           NEW_CODE=$((CURRENT_CODE + 1))
           echo "versionCode: $CURRENT_CODE → $NEW_CODE"
@@ -309,7 +309,7 @@ jobs:
           VERSION_NAME="${{ needs.bump-version.outputs.new_version }}"
           if [ -z "$VERSION_NAME" ]; then
             # Fallback: read from file (should not normally be needed)
-            VERSION_NAME=$(grep -m1 'versionName' androidApp/build.gradle.kts | sed -E 's/.*"v?([^"]+)".*/\1/')
+            VERSION_NAME=$(grep -m1 -E '^[[:space:]]*versionName[[:space:]]*=' androidApp/build.gradle.kts | sed -E 's/.*"v?([^"]+)".*/\1/')
           fi
           echo "version=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION_NAME"    >> "$GITHUB_OUTPUT"
