@@ -490,6 +490,8 @@ jobs:
     needs: create-release
     if: needs.create-release.outputs.skipped != 'true'
     runs-on: ubuntu-latest
+    # The upload keystore is an environment secret of release-signing, see build-macos.yml.
+    environment: release-signing
     steps:
       - uses: actions/checkout@v7
         with:
@@ -564,6 +566,7 @@ jobs:
     needs: create-release
     if: needs.create-release.outputs.skipped != 'true'
     runs-on: ubuntu-latest
+    environment: release-signing
     steps:
       - uses: actions/checkout@v7
         with:
@@ -703,11 +706,36 @@ jobs:
       - build-msi-app
     if: always() && needs.create-release.outputs.skipped != 'true' && !failure() && !cancelled()
     runs-on: ubuntu-latest
+    permissions:
+      contents: write       # upload the assets and publish the release
+      id-token: write       # sign the provenance attestation (Sigstore, keyless)
+      attestations: write   # store it with the repository
     steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v8
+      # By name, so intermediate artifacts (the unsigned macOS app) never reach the release.
+      - name: Download release artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: release-assets
+          pattern: '{apk-android,aab-android,deb-amd64,dmg-macos,msi-package}'
+
+      - name: Check release artifacts
+        run: |
+          missing=0
+          for name in apk-android aab-android deb-amd64 dmg-macos msi-package; do
+            if [ -z "$(find "release-assets/$name" -type f 2>/dev/null)" ]; then
+              echo "::error::Artifact $name is missing or empty."
+              missing=1
+            fi
+          done
+          find release-assets -type f -exec sha256sum {} +
+          exit "$missing"
+
+      # Build provenance for every asset: which repository, workflow, commit and run produced it.
+      # Verify a download with: gh attestation verify <file> --repo Joinsider/dhbw
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: 'release-assets/**/*'
 
       - name: Upload all assets to draft release
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4

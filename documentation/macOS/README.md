@@ -22,25 +22,71 @@ the run artifact `dmg-macos` for 14 days, named `dhbw-student-app-v<version>-<co
 is released. Called from the release workflow it builds the tag, fails if `Config.xcconfig` does
 not carry the release version, and hands the DMG to the release.
 
-Steps, each with a script or plist in `packaging/macos/`:
+The workflow has two jobs on two separate runners, so the signing key never shares a machine
+with the build:
 
-1. Install the Developer ID certificate into a temporary keychain and the Developer ID profile
-   into Xcode's profile directory; the profile is checked for app id, type and keychain group.
-2. Archive `iosApp/iosApp.xcodeproj` for macOS with manual signing.
-3. Export the archive with Developer ID (`ExportOptions-DeveloperID.plist`, the profile is added
-   at runtime) and check signature, hardened runtime, embedded profile and entitlements.
-4. Notarize the `.app` with the App Store Connect API key (`notarize-submission.sh`).
-5. Package the stapled `.app` into the disk image (`make-dmg.sh`), sign it, and notarize it.
+1. **build** (no secrets): archives `iosApp/iosApp.xcodeproj` for macOS with
+   `CODE_SIGNING_ALLOWED=NO`. This is the only place Gradle runs, and with it every Kotlin and
+   Android plugin and dependency. The unsigned `.app` is zipped with `ditto` (keeps the framework's
+   symlinks) and handed over as the artifact `macos-unsigned-app`, kept for one day and never
+   attached to a release.
+2. **sign** (environment `release-signing`, fresh runner): runs only Apple's tools and the scripts in
+   `packaging/macos/`.
+   - imports the Developer ID certificate into a temporary keychain with `-x`, so the private key
+     cannot be exported again: a misbehaving step could sign with it during the run, not take it
+     along;
+   - `sign-app.sh` checks the profile (Developer ID, app id, keychain group, and that it lists the
+     signing certificate — without that macOS refuses to launch the app), embeds it, signs
+     `Shared.framework` and then the app with the entitlements from
+     `iosApp/iosApp/iosApp-macOS.entitlements` (with `$(AppIdentifierPrefix)` expanded and the
+     application and team identifier added), hardened runtime and a secure timestamp, and verifies
+     the result;
+   - notarizes the `.app` (`notarize-submission.sh`), builds and signs the disk image
+     (`make-dmg.sh`) and notarizes that too.
+
+What the split protects: the key cannot be stolen by build code, and nothing that runs during the
+build can sign anything. What it does not protect: whatever the build job produces gets signed, so
+a compromised dependency that changes the app itself still ends up in a signed app. The release
+workflow attaches a build provenance attestation to every asset (`gh attestation verify <file>
+--repo Joinsider/dhbw`), which shows where an asset came from but not that its code is harmless.
+
+`sign-app.sh` works locally too, against the login keychain, for an archive made with
+`CODE_SIGNING_ALLOWED=NO`:
+
+```bash
+packaging/macos/sign-app.sh DHBW-Horb.app "Developer ID Application: Johannes Popp (56T6W6Z755)" \
+  DHBW_Horb_Developer_ID.provisionprofile iosApp/iosApp/iosApp-macOS.entitlements
+```
 
 Signing is manual because automatic signing needs an Apple Development certificate for the
 archive step, and with an API key Xcode creates a new one on every CI run. The profile is needed
 in any case: `keychain-access-groups` is a restricted entitlement on macOS, and an app that
-carries it without an embedded profile is not allowed to launch.
+carries it without an embedded profile is not allowed to launch. If the app gains an entitlement,
+it goes into `iosApp-macOS.entitlements` and is picked up by both Xcode and `sign-app.sh`; a nested
+bundle (extension, XPC service, login item) makes `sign-app.sh` stop, because it would need its own
+entitlements and profile.
 
 ## Secrets
 
-Repository secrets (Settings → Secrets and variables → Actions). The release workflow passes them
-on with `secrets: inherit`.
+Environment secrets of `release-signing` (Settings → Environments). The release workflow passes
+them on with `secrets: inherit`; an environment secret wins over a repository secret of the same
+name, so the protection only holds once the repository copies are deleted.
+
+The environment should allow only `main` and the release tags, so a workflow started from any
+other branch gets no signing secrets. Its jobs: `sign` in `build-macos.yml`, and
+`build-android-apk` and `build-android-aab` in `build-release.yml`, which hold the Android upload
+keystore (`UPLOAD_KEYSTORE_BASE64`, `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_PASSWORD`). Adding
+yourself as a required reviewer makes every release wait for one approval click.
+
+```bash
+gh api -X PUT repos/Joinsider/dhbw/environments/release-signing \
+  -F 'deployment_branch_policy[protected_branches]=false' \
+  -F 'deployment_branch_policy[custom_branch_policies]=true'
+gh api -X POST repos/Joinsider/dhbw/environments/release-signing/deployment-branch-policies \
+  -f name=main -f type=branch
+gh api -X POST repos/Joinsider/dhbw/environments/release-signing/deployment-branch-policies \
+  -f name='v*' -f type=tag
+```
 
 | Secret | Holds |
 |---|---|
@@ -66,12 +112,12 @@ How to get each one:
 Encoding and storing them with the GitHub CLI:
 
 ```bash
-base64 -i DeveloperID.p12 | gh secret set MACOS_DEVID_P12_BASE64
-gh secret set MACOS_DEVID_P12_PASSWORD
-base64 -i DHBW_Horb_Developer_ID.provisionprofile | gh secret set MACOS_DEVID_PROFILE_BASE64
-base64 -i AuthKey_XXXXXXXXXX.p8 | gh secret set ASC_KEY_P8_BASE64
-gh secret set ASC_KEY_ID
-gh secret set ASC_ISSUER_ID
+base64 -i DeveloperID.p12 | gh secret set MACOS_DEVID_P12_BASE64 --env release-signing
+gh secret set MACOS_DEVID_P12_PASSWORD --env release-signing
+base64 -i DHBW_Horb_Developer_ID.provisionprofile | gh secret set MACOS_DEVID_PROFILE_BASE64 --env release-signing
+base64 -i AuthKey_XXXXXXXXXX.p8 | gh secret set ASC_KEY_P8_BASE64 --env release-signing
+gh secret set ASC_KEY_ID --env release-signing
+gh secret set ASC_ISSUER_ID --env release-signing
 ```
 
 The first step of the job names every secret that is missing. The release cannot be published

@@ -239,6 +239,12 @@ Distribution is covered in `documentation/macOS/README.md`: the App Store upload
 ID DMG that `.github/workflows/build-macos.yml` archives, notarizes and packages — called by the
 release workflow, and startable on its own. It signs manually with a Developer ID profile, because
 the keychain group entitlement is restricted on macOS and the app does not launch without one.
+**Build and signing run on two runners:** the `build` job archives with `CODE_SIGNING_ALLOWED=NO`
+and has no secrets — it is where Gradle and every dependency run — and the `sign` job, in the
+`release-signing` environment, signs with `packaging/macos/sign-app.sh`, notarizes and packages.
+Do not move a Gradle invocation into the `sign` job; entitlements go into
+`iosApp-macOS.entitlements`, which both Xcode and `sign-app.sh` read. The release attaches only
+the artifacts it names, plus a build provenance attestation for each.
 
 **The Apple version lives in `iosApp/Configuration/Config.xcconfig` and nowhere else.** No target in
 `project.pbxproj` sets `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION`; a value there would win
