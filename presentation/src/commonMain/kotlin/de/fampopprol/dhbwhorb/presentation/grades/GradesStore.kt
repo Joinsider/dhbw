@@ -103,9 +103,10 @@ class GradesStore(
     private fun gradesLoaded(grades: List<GradeEntry>): GradesMsg.GradesLoaded {
         // Sorted here, once, so that both UIs and the section grouping in GradesState agree on
         // what "in order" means. By semester name it would read WiSe 2024/25, WiSe 2025/26,
-        // SoSe 2025 — alphabetical, and not the order anybody studied them in.
+        // SoSe 2025 — alphabetical, and not the order anybody studied them in. Newest first:
+        // the semester a student opens the screen for is the current one.
         val ordered = grades.sortedWith { a, b ->
-            val bySemester = SemesterOrder.oldestFirst.compare(a.semesterName, b.semesterName)
+            val bySemester = SemesterOrder.oldestFirst.compare(b.semesterName, a.semesterName)
             if (bySemester != 0) bySemester else a.moduleName.compareTo(b.moduleName)
         }
         val gpa = computeGpa(ordered)

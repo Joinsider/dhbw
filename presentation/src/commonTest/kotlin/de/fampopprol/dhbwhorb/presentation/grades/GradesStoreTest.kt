@@ -102,7 +102,7 @@ class GradesStoreTest {
         store.dispatch(GradesIntent.Load)
 
         assertEquals(
-            listOf("WiSe 2024/25", "SoSe 2025", "WiSe 2025/26"),
+            listOf("WiSe 2025/26", "SoSe 2025", "WiSe 2024/25"),
             store.state.value.sections.map { it.semesterName }
         )
         store.close()

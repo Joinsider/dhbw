@@ -10,6 +10,7 @@ import de.fampopprol.dhbwhorb.core.error.AppError
 import de.fampopprol.dhbwhorb.domain.model.GradeAttempts
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
 import de.fampopprol.dhbwhorb.domain.model.ModuleResultDetails
+import de.fampopprol.dhbwhorb.domain.model.SemesterOrder
 
 /** One semester's results, in the order [GradesState.sections] puts them. */
 data class SemesterGrades(
@@ -29,7 +30,7 @@ data class SemesterGrades(
  * refreshing — and the two could report different things at the same moment.
  */
 data class GradesState(
-    /** Every semester's grades, oldest semester first, modules alphabetical within a semester. */
+    /** Every semester's grades, newest semester first, modules alphabetical within a semester. */
     val grades: List<GradeEntry> = emptyList(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
@@ -64,11 +65,17 @@ data class GradesState(
     /**
      * Every row the list holds for the open module, oldest semester first.
      *
+     * Chronological although the list runs newest first: it sits under the attempts, which count
+     * upwards, and reads as the module's history.
+     *
      * The local answer to "which grades are recorded": a repeated module has one row per
      * semester, and they are worth showing even when the details page cannot be reached.
      */
     val selectedModuleEntries: List<GradeEntry>
-        get() = selectedModule?.let { open -> grades.filter { it.moduleNumber == open.moduleNumber } }
+        get() = selectedModule?.let { open ->
+            grades.filter { it.moduleNumber == open.moduleNumber }
+                .sortedWith { x, y -> SemesterOrder.oldestFirst.compare(x.semesterName, y.semesterName) }
+        }
             .orEmpty()
 
     /**
