@@ -29,6 +29,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import de.fampopprol.dhbwhorb.MainActivity
 import de.fampopprol.dhbwhorb.services.widget.models.WidgetClassState
+import de.fampopprol.dhbwhorb.services.widget.models.WidgetDayState
 import de.fampopprol.dhbwhorb.widget.state.TimetableWidgetState
 
 /** 4×2 layout – "Daily Schedule (Wide)". */
@@ -53,48 +54,36 @@ fun DailyScheduleWideLayout(state: TimetableWidgetState) {
 private fun WideSuccessContent(state: TimetableWidgetState.Success) {
     Row(modifier = GlanceModifier.fillMaxSize()) {
         Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
-            state.day0?.let { day ->
-                Text(
-                    formatDate(day.date),
-                    style = TextStyle(
-                        color = GlanceTheme.colors.primary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-                Spacer(GlanceModifier.height(4.dp))
-                day.classes.take(4)
-                    .forEach { cls -> WideRow(cls); Spacer(GlanceModifier.height(3.dp)) }
-                if (day.classes.size > 4) Text(
-                    "+${day.classes.size - 4} weitere",
-                    style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 10.sp)
-                )
-            } ?: Text(
+            state.day0?.let { day -> WideDay(day) } ?: Text(
                 "Keine Vorlesungen",
                 style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 11.sp)
             )
         }
         Spacer(GlanceModifier.width(8.dp))
         Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
-            state.day1?.let { day ->
-                Text(
-                    formatDate(day.date),
-                    style = TextStyle(
-                        color = GlanceTheme.colors.primary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-                Spacer(GlanceModifier.height(4.dp))
-                day.classes.take(4)
-                    .forEach { cls -> WideRow(cls); Spacer(GlanceModifier.height(3.dp)) }
-                if (day.classes.size > 4) Text(
-                    "+${day.classes.size - 4} weitere",
-                    style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 10.sp)
-                )
-            }
+            state.day1?.let { day -> WideDay(day) }
         }
     }
+}
+
+/** One day's column: its date, at most four lectures, and how many more there are. */
+@Composable
+private fun WideDay(day: WidgetDayState) {
+    Text(
+        formatDate(day.date),
+        style = TextStyle(
+            color = GlanceTheme.colors.primary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
+    )
+    Spacer(GlanceModifier.height(4.dp))
+    day.classes.take(4)
+        .forEach { cls -> WideRow(cls); Spacer(GlanceModifier.height(3.dp)) }
+    if (day.classes.size > 4) Text(
+        "+${day.classes.size - 4} weitere",
+        style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 10.sp)
+    )
 }
 
 @Composable
