@@ -5,7 +5,8 @@
 xcuserdata
 !src/**/build/
 local.properties
-.idea
+.idea/*
+!.idea/runConfigurations.xml
 .DS_Store
 captures
 .externalNativeBuild
@@ -26,3 +27,5 @@ node_modules/
 dhbw-next-*.tar.gz
 /dhbw-next/
 *.pkg.tar.xz
+# fastlane run report
+/fastlane/report.xml

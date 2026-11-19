@@ -8,7 +8,7 @@ See AGENTS.md, "macOS is the SwiftUI app", for why the target is built this way.
 ## Steps
 
 1. **App Store Connect**: open the existing app, add the **macOS** platform, and create a macOS
-   version with the same metadata. Release notes are maintained in `metadata/` and fastlane; they
+   version with the same metadata. Release notes are maintained in `fastlane/metadata/`; they
    are not changed by this guide.
 2. **Build settings** (already set in the project): macOS 26, Apple Silicon only, sandbox entitlements
    in `iosApp/iosApp/iosApp-macOS.entitlements`, hardened runtime on. Xcode's automatic signing needs
