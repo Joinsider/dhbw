@@ -162,7 +162,7 @@ struct GradesScreen: View {
         Section {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(state.overallGpa.map { $0.doubleValue.formatted(.number.precision(.fractionLength(2))) } ?? "–")
+                    Text(state.overallGpa.map { GradeTruncation.shared.oneDecimal(average: $0.doubleValue).formatted(.number.precision(.fractionLength(1))) } ?? "–")
                         .font(.system(size: 44, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(accentChoice.accent)
@@ -274,7 +274,7 @@ private struct SemesterHeader: View {
             Text(section.semesterName)
             Spacer()
             if let average = semesterAverage {
-                Text(average.formatted(.number.precision(.fractionLength(2))))
+                Text(GradeTruncation.shared.oneDecimal(average: average).formatted(.number.precision(.fractionLength(1))))
                     .monospacedDigit()
                     .foregroundStyle(accentChoice.accent)
             }
