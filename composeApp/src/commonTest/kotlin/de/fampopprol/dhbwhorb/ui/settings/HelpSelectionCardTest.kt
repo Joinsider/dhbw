@@ -78,6 +78,16 @@ class HelpSelectionCardTest {
     }
 
     @Test
+    fun showsTheDisclaimerAboveTheButtons() = runComposeUiTest {
+        setUpCard(showRowLayout = false)(this)
+
+        // Not DHBW's app, and complaints go to GitHub — the button right below is the link.
+        onNodeWithTag("disclaimerUnofficialText").assertIsDisplayed()
+        onNodeWithTag("disclaimerComplaintsText").assertIsDisplayed()
+        onNodeWithTag("githubIssuesButton").assertIsDisplayed()
+    }
+
+    @Test
     fun showLogoutFalse_hidesLogoutButton_inBothLayouts() = runComposeUiTest {
         setUpCard(showRowLayout = true, showLogout = false)(this)
         assertFailsWith<AssertionError> { onNodeWithTag("logoutButton").assertIsDisplayed() }
@@ -110,6 +120,6 @@ class HelpSelectionCardTest {
 
         onNodeWithTag("githubIssuesButton").performClick()
 
-        assertEquals(listOf("https://github.com/Joinsider/dhbw/issues/"), handler.opened)
+        assertEquals(listOf("https://github.com/Joinsider/dhbw/issues"), handler.opened)
     }
 }

@@ -10,6 +10,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runComposeUiTest
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
 import de.fampopprol.dhbwhorb.presentation.TestScopes
@@ -42,6 +43,19 @@ class SettingsPageTest {
         // Tags instead of labels: nav captions are localised string resources.
         onNodeWithTag(navItemTestTag(BottomNavItem.TIMETABLE)).assertIsDisplayed()
         onNodeWithTag(navItemTestTag(BottomNavItem.GRADES)).assertIsDisplayed()
+        store.close()
+    }
+
+    @Test
+    fun settingsPage_showsTheDisclaimer() = runComposeUiTest {
+        val store = store()
+        setContent { WithTestKoin { SettingsPage(store = store) } }
+        waitForIdle()
+
+        onNodeWithTag("disclaimerText").performScrollTo().assertIsDisplayed()
+        onNodeWithTag("disclaimerComplaintsText").assertIsDisplayed()
+        // One link to the issues, not two: the disclaimer uses the Help card's button.
+        onNodeWithTag("githubIssuesButton").performScrollTo().assertIsDisplayed()
         store.close()
     }
 
@@ -101,7 +115,8 @@ class SettingsPageTest {
         setContent { WithTestKoin { SettingsPage(store = store) } }
         waitForIdle()
 
-        onNodeWithTag("logoutButton").assertIsDisplayed()
+        // Below the disclaimer, so below the fold of the test window: scroll first.
+        onNodeWithTag("logoutButton").performScrollTo().assertIsDisplayed()
         store.close()
     }
 
@@ -115,7 +130,7 @@ class SettingsPageTest {
         }
         waitForIdle()
 
-        onNodeWithTag("logoutButton").performClick()
+        onNodeWithTag("logoutButton").performScrollTo().performClick()
         waitForIdle()
         assertEquals(true, logoutCalled)
         store.close()

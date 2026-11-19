@@ -40,6 +40,8 @@ class LoginPageTest {
         onNodeWithTag("appTitle").assertIsDisplayed()
         onNodeWithTag("loginForm").assertIsDisplayed()
         onNodeWithTag("reLoginRequiredText").assertDoesNotExist()
+        // Not conditional: the login screen always says that this is not DHBW's app.
+        onNodeWithTag("unofficialAppNotice").assertIsDisplayed()
     }
 
     @Test
