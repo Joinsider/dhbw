@@ -35,16 +35,17 @@ jobs:
         run: |
           mkdir -p downloads
           
-          # Get the latest release (including drafts)
-          LATEST_RELEASE=$(gh api repos/${{ github.repository }}/releases | jq -r 'sort_by(.created_at) | reverse | .[0]')
+          # The latest published release. Drafts are left out on purpose: a draft
+          # is not released yet, and a stale draft must not replace what users get.
+          LATEST_RELEASE=$(gh api repos/${{ github.repository }}/releases/latest)
           RELEASE_TAG=$(echo "$LATEST_RELEASE" | jq -r '.tag_name')
-          
+
           echo "Latest release tag: $RELEASE_TAG"
-          
+
           # Find and download the deb asset
-          ASSET_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | endswith(".deb")) | .url')
-          ASSET_NAME=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | endswith(".deb")) | .name')
-          
+          ASSET_URL=$(echo "$LATEST_RELEASE" | jq -r '[.assets[] | select(.name | endswith(".deb"))][0].url // empty')
+          ASSET_NAME=$(echo "$LATEST_RELEASE" | jq -r '[.assets[] | select(.name | endswith(".deb"))][0].name // empty')
+
           if [ -z "$ASSET_URL" ]; then
             echo "Error: No .deb asset found in release $RELEASE_TAG"
             exit 1
@@ -75,8 +76,21 @@ jobs:
           mkdir -p public/pool/main
           mkdir -p public/dists/stable/main/binary-amd64
           
-          # Copy new .deb files to pool
-          cp downloads/*.deb public/pool/main/
+          # Copy the .deb into the pool under its Debian name, <package>_<version>_<arch>.deb.
+          # `dpkg-scanpackages -a <arch>` selects files by that name, not by the control
+          # file: the release asset is called dhbw-student-app-v<version>.deb, and as long
+          # as it was copied under that name the Packages index came out empty.
+          for f in downloads/*.deb; do
+            PKG=$(dpkg-deb -f "$f" Package)
+            VER=$(dpkg-deb -f "$f" Version)
+            ARCH=$(dpkg-deb -f "$f" Architecture)
+            if [ "$ARCH" != "amd64" ]; then
+              echo "Error: $f is built for '$ARCH', this repository only serves amd64"
+              exit 1
+            fi
+            cp "$f" "public/pool/main/${PKG}_${VER}_${ARCH}.deb"
+            echo "Added pool/main/${PKG}_${VER}_${ARCH}.deb"
+          done
 
       - name: Install APT repository tools
         run: |
@@ -87,24 +101,29 @@ jobs:
         run: |
           cd public
           
-          # dpkg-scanpackages filters strict architecture matches when looking inside the deb control files. Let's enforce that dpkg finds our files
-          mkdir -p tmp_deb_extract
-          for f in pool/main/*.deb; do 
-            dpkg-deb -R "$f" tmp_deb_extract
-            sed -i 's/Architecture: .*/Architecture: amd64/' tmp_deb_extract/DEBIAN/control
-            dpkg-deb -b tmp_deb_extract "$f"
-            rm -rf tmp_deb_extract/*
-          done
-          rm -rf tmp_deb_extract
-          
-          # Now scan the fixed debs
           dpkg-scanpackages -a amd64 pool/ > dists/stable/main/binary-amd64/Packages
+
+          # An empty index still signs and deploys fine, and apt then reports
+          # "Unable to locate package" to every user. Fail here instead.
+          ENTRIES=$(grep -c '^Package: ' dists/stable/main/binary-amd64/Packages || true)
+          if [ "$ENTRIES" -eq 0 ]; then
+            echo "Error: dpkg-scanpackages found no package in pool/ — refusing to publish an empty repository"
+            ls -l pool/main
+            exit 1
+          fi
+          echo "Packages index has $ENTRIES entries"
+
           gzip -9 -k -f dists/stable/main/binary-amd64/Packages
 
       - name: Generate Release file
         run: |
           cd public/dists/stable
-          
+
+          # Hash the index files before Release exists: apt-ftparchive hashes every file in
+          # the directory, and running it while appending to Release listed Release itself.
+          rm -f Release Release.gpg InRelease
+          apt-ftparchive release . > "$RUNNER_TEMP/release-checksums"
+
           cat > Release << 'EOF'
           Origin: DHBW Next
           Label: DHBW Next Repository
@@ -116,7 +135,7 @@ jobs:
           EOF
           
           # Add file checksums
-          apt-ftparchive release . >> Release
+          cat "$RUNNER_TEMP/release-checksums" >> Release
 
       - name: Import GPG key
         run: |
