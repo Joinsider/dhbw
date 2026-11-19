@@ -45,6 +45,8 @@ struct LectureDetailsView: View {
         // Escape closes the sheet, as it does on any macOS sheet; Return is on the button above.
         .onExitCommand { dismiss() }
         #endif
+        // So does a click next to it, in the timetable behind.
+        .dismissOnOutsideClick { dismiss() }
     }
 
     @ViewBuilder
