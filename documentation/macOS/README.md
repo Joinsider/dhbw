@@ -2,7 +2,7 @@
 
 The Mac app is the SwiftUI app in `iosApp/`, built for macOS from the same target as iOS (see
 AGENTS.md, "macOS is the SwiftUI app"). This page covers how it is distributed. Running it locally
-is in `RUNNING_MACOS_GUIDE.md`; the Mac App Store steps are in `MAC_APP_STORE_GUIDE.md`.
+is in [RUNNING_MACOS_GUIDE.md](RUNNING_MACOS_GUIDE.md); the Mac App Store steps are in [MAC_APP_STORE_GUIDE.md](MAC_APP_STORE_GUIDE.md).
 
 ## Channels
 

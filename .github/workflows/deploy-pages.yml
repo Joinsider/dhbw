@@ -60,9 +60,9 @@ jobs:
 
       - name: Setup APT repository structure
         run: |
-          # Copy existing apt-repo directory if it exists
-          if [ -d "apt-repo" ]; then
-            cp -r apt-repo public/
+          # Copy existing packaging/apt-repo directory if it exists
+          if [ -d "packaging/apt-repo" ]; then
+            cp -r packaging/apt-repo public/
             # Remove any old .deb files from the copied directory (they might be LFS pointers)
             find public/pool/main -name "*.deb" -type f -delete 2>/dev/null || true
             # Remove old Packages files to ensure fresh generation
