@@ -61,9 +61,9 @@ jobs:
       # Unqualified, so every module runs its own: since P9 the tests live next to the code they
       # test, not all together in :composeApp. One invocation (instead of two) avoids paying for
       # project configuration twice; org.gradle.parallel (gradle.properties) lets the independent
-      # Android/Desktop task graphs run concurrently across modules. :composeApp is built with the
-      # KMP Android library plugin, which has no build types: its Android tests are
-      # testAndroidHostTest, not testDebugUnitTest.
+      # Android/Desktop task graphs run concurrently across modules. The library modules use the
+      # KMP Android library plugin, which has no build types: their Android tests are
+      # testAndroidHostTest. Only :androidApp has testDebugUnitTest.
       - name: Run Android + Desktop tests
         run: ./gradlew testDebugUnitTest testAndroidHostTest desktopTest --continue --no-daemon --stacktrace
 
@@ -87,7 +87,7 @@ jobs:
             */build/reports/tests/testDebugUnitTest/
             */build/reports/tests/testAndroidHostTest/
             */build/reports/tests/desktopTest/
-            core/*/build/reports/tests/testDebugUnitTest/
+            core/*/build/reports/tests/testAndroidHostTest/
             core/*/build/reports/tests/desktopTest/
           retention-days: 14
 
@@ -115,7 +115,7 @@ jobs:
             */build/test-results/testDebugUnitTest/**/*.xml
             */build/test-results/testAndroidHostTest/**/*.xml
             */build/test-results/desktopTest/**/*.xml
-            core/*/build/test-results/testDebugUnitTest/**/*.xml
+            core/*/build/test-results/testAndroidHostTest/**/*.xml
             core/*/build/test-results/desktopTest/**/*.xml
 
       # ── SonarCloud analysis ───────────────────────────────────────────────────

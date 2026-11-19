@@ -44,17 +44,20 @@ Everything above `:data` talks to the six repository interfaces in `:domain`
 
 **The APK is built by `:androidApp`, not `:composeApp`.** From AGP 9 the Kotlin Multiplatform
 plugin may not share a project with `com.android.application`, so `:composeApp` uses
-`com.android.kotlin.multiplatform.library` (`kotlin { android { … } }`) and `:androidApp` is a plain
+`com.android.kotlin.multiplatform.library` (`kotlin { android { … } }`) — as do all the library
+modules — and `:androidApp` is a plain
 Android app module that depends on it. What only an app may have lives there: the manifest
 (deep-link scheme, widget receiver, `FileProvider`, the backup and data-extraction rules that keep
 `dualis_secure_prefs.xml` out of backups), launcher and widget resources, `applicationId`,
 `versionCode`/`versionName`, signing and `proguard-rules.pro`. The release workflow and F-Droid read
 the version from `androidApp/build.gradle.kts`; the desktop `packageVersion` stays in `:composeApp`.
-Consequences of the library plugin: `:composeApp` has no build types, so its Android tests run as
-`testAndroidHostTest` (not `testDebugUnitTest`) and its Kover variant is `android`; and Compose
-resources reach the APK only because `androidResources.enable` is on. `:androidApp` still applies
-`org.jetbrains.kotlin.android`, because `android.builtInKotlin=false` stays on while the other
-modules use `com.android.library` with `androidTarget()`.
+Consequences of the library plugin: a library has no build types, so its Android tests run as
+`testAndroidHostTest` from `src/androidHostTest` (only `:androidApp` has `testDebugUnitTest`), and
+every module's Kover variant aggregates `android` plus `desktop`. Android resources are compiled
+only where `androidResources.enable` is on — `:composeApp` (Compose resources are packed as
+assets) and `:services` (the notification icon). `:androidApp` uses AGP's built-in Kotlin and the
+new DSL; `gradle.properties` carries none of the AGP 8 compatibility flags any more, and
+`buildFeatures.resValues` is switched on in `:androidApp` only, for `app_name`.
 
 `:presentation` is part of `Shared.framework` since P4: the stores expose `StateFlow` and the
 module has no Compose plugin or dependency at all. Adding one would put the Compose runtime back
@@ -489,7 +492,7 @@ Compose UI.
 
 ```bash
 # Android unit tests (Compose UI tests are excluded on Android – run on Desktop instead).
-# :composeApp is a KMP Android library without build types, so its suite is testAndroidHostTest.
+# The libraries are KMP Android libraries without build types: their suite is testAndroidHostTest.
 ./gradlew testDebugUnitTest testAndroidHostTest
 
 # Desktop (JVM) tests – includes Compose UI tests

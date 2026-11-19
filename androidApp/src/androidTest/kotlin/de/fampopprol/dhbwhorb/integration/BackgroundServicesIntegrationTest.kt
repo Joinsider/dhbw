@@ -19,7 +19,7 @@ import kotlin.test.assertEquals
 /**
  * Instrumented tests for the Android background work around the widget.
  *
- * Runs on a device, so it is outside the gate — `testDebugUnitTest` and `desktopTest` never see it.
+ * Runs on a device, so it is outside the gate — `testDebugUnitTest`, `testAndroidHostTest` and `desktopTest` never see it.
  * That is exactly why it had rotted: eight tests, six of which ended in `assertTrue(true)` and
  * could not fail. P9 kept the two that can, and dropped the rest rather than leaving green
  * placeholders that look like coverage. What went, and why it could not be saved:

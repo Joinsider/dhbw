@@ -2,15 +2,32 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.androidKotlinMultiplatformLibrary)
     alias(libs.plugins.kover)
     alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
-    androidTarget {
+    android {
+        namespace = "de.fampopprol.dhbwhorb.services"
+        compileSdk = libs.versions.android.compileSdk.get().toInt()
+        minSdk = libs.versions.android.minSdk.get().toInt()
+
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
+        }
+
+        // The notification icon (R.drawable.ic_school) is an Android resource of this module; the
+        // KMP library plugin compiles resources only when asked to.
+        androidResources {
+            enable = true
+        }
+
+        // Napier logs through android.util.Log, which is a stub in a host test — without this every
+        // test that logs dies with "Method println in android.util.Log not mocked".
+        withHostTest {
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
         }
     }
 
@@ -44,7 +61,7 @@ kotlin {
             implementation(libs.androidx.core.ktx)
         }
 
-        androidUnitTest.dependencies {
+        getByName("androidHostTest").dependencies {
             // BroadcastReceiver.goAsync()'s PendingResult only behaves like the real thing under
             // Robolectric's shadow — a plain JVM test sees the unimplemented android.jar stub.
             implementation(libs.robolectric)
@@ -59,34 +76,11 @@ kotlin {
     }
 }
 
-android {
-    namespace = "de.fampopprol.dhbwhorb.services"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
-
-    defaultConfig {
-        minSdk = libs.versions.android.minSdk.get().toInt()
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    // Napier logs through android.util.Log, which is a stub in a unit test — without this every
-    // test that logs dies with "Method println in android.util.Log not mocked".
-    testOptions {
-        unitTests {
-            isIncludeAndroidResources = true
-            isReturnDefaultValues = true
-        }
-    }
-}
-
 // ─── Kover — same variant as :composeApp so the aggregated report covers this module ─────────
 kover {
     currentProject {
         createVariant("kmpCoverage") {
-            addWithDependencies("debug")
+            addWithDependencies("android")
             addWithDependencies("desktop")
         }
     }
@@ -94,6 +88,6 @@ kover {
 
 dependencies {
     constraints {
-        add("androidUnitTestImplementation", "org.bouncycastle:bcprov-jdk18on:1.86")
+        add("androidHostTestImplementation", "org.bouncycastle:bcprov-jdk18on:1.86")
     }
 }

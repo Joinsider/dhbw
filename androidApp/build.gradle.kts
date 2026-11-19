@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // read the version from this file.
 plugins {
     alias(libs.plugins.androidApplication)
-    alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kover)
 }
@@ -33,6 +32,11 @@ android {
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
+    }
+
+    // app_name comes from resValue below; resValues are off by default since AGP 9.
+    buildFeatures {
+        resValues = true
     }
 
     defaultConfig {

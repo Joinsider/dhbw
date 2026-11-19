@@ -258,12 +258,9 @@ kover {
         // Native targets (iOS, which is SwiftUI and not part of this module) are skipped
         // because they cannot produce JVM bytecode for instrumentation.
         createVariant("kmpCoverage") {
-            // The KMP library plugin gives this module's Android target a JVM variant named after
-            // the target, not build types — "android" is its host tests. The modules it aggregates
-            // are still `com.android.library` and report their unit tests as "debug", which this
-            // module no longer has: hence optional.
-            add("android")
-            addWithDependencies("debug", optional = true)
+            // The KMP Android library plugin has no build types: Kover names the Android variant
+            // after the target, "android", and it covers the host tests.
+            addWithDependencies("android")
             addWithDependencies("desktop")      // Desktop / JVM tests
         }
     }

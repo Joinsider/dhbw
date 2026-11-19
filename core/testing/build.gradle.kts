@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.androidKotlinMultiplatformLibrary)
 }
 
 /**
@@ -16,7 +16,11 @@ plugins {
  * No Kover variant: coverage of the fakes is not a number anybody wants.
  */
 kotlin {
-    androidTarget {
+    android {
+        namespace = "de.fampopprol.dhbwhorb.core.testing"
+        compileSdk = libs.versions.android.compileSdk.get().toInt()
+        minSdk = libs.versions.android.minSdk.get().toInt()
+
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
         }
@@ -50,25 +54,3 @@ kotlin {
     }
 }
 
-android {
-    namespace = "de.fampopprol.dhbwhorb.core.testing"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
-
-    defaultConfig {
-        minSdk = libs.versions.android.minSdk.get().toInt()
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    // Napier logs through android.util.Log, which is a stub in a unit test — without this every
-    // test that logs dies with "Method println in android.util.Log not mocked".
-    testOptions {
-        unitTests {
-            isIncludeAndroidResources = true
-            isReturnDefaultValues = true
-        }
-    }
-}

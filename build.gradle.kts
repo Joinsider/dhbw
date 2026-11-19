@@ -12,13 +12,11 @@ plugins {
     // this is necessary to avoid the plugins to be loaded multiple times
     // in each subproject's classloader
     alias(libs.plugins.androidApplication) apply false
-    alias(libs.plugins.androidLibrary) apply false
     alias(libs.plugins.androidKotlinMultiplatformLibrary) apply false
     alias(libs.plugins.composeHotReload) apply false
     alias(libs.plugins.composeMultiplatform) apply false
     alias(libs.plugins.composeCompiler) apply false
     alias(libs.plugins.kotlinMultiplatform) apply false
-    alias(libs.plugins.kotlinAndroid) apply false
     alias(libs.plugins.kover) apply false
     alias(libs.plugins.sonarqube)
 }
@@ -71,7 +69,7 @@ sonar {
                 // mean reversing that policy.
                 "composeApp/src/androidMain/kotlin/de/fampopprol/dhbwhorb/ui/settings/NotificationPermission.android.kt",
                 // Apple (Kotlin/Native) source sets. The kmpCoverage Kover variant only
-                // includes "debug" and "desktop" (see composeApp/build.gradle.kts), so no
+                // includes "android" and "desktop" (see composeApp/build.gradle.kts), so no
                 // coverage run instruments iosMain, macosMain or appleMain, regardless of tests:
                 // every line there would be permanently 0% by construction, not by neglect.
                 // The Kotlin/Native code is exercised by the Xcode build (iosApp/, macOS), not
