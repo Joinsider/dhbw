@@ -217,7 +217,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Deb)
             packageName = "dhbw-horb-student-app"
-            packageVersion = "3.0.7"
+            packageVersion = "3.0.6"
             // Avoid SSL trust chain issues in packaged apps caused by missing JDK modules.
             includeAllModules = true
             modules(
@@ -308,7 +308,7 @@ kover {
 // Custom fat JAR task - simple and reliable
 val packageFatJar by tasks.registering(Jar::class) {
     archiveBaseName.set("dhbw-horb-student-app")
-    archiveVersion.set("3.0.7")
+    archiveVersion.set("3.0.6")
     archiveClassifier.set("all")
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
