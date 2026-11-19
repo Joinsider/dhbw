@@ -22,6 +22,8 @@ RepoType: git
 Repo: https://github.com/joinsider/dhbw
 
 Builds:
+  # The entry below is historical (v2.0.0 built from composeApp). Since the AGP 9 split the APK is
+  # built by the androidApp module: builds of later commits need `subdir: androidApp`.
   - versionName: v2.0.1
     versionCode: 18
     commit: v2.0.0

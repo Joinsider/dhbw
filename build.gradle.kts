@@ -13,10 +13,12 @@ plugins {
     // in each subproject's classloader
     alias(libs.plugins.androidApplication) apply false
     alias(libs.plugins.androidLibrary) apply false
+    alias(libs.plugins.androidKotlinMultiplatformLibrary) apply false
     alias(libs.plugins.composeHotReload) apply false
     alias(libs.plugins.composeMultiplatform) apply false
     alias(libs.plugins.composeCompiler) apply false
     alias(libs.plugins.kotlinMultiplatform) apply false
+    alias(libs.plugins.kotlinAndroid) apply false
     alias(libs.plugins.kover) apply false
     alias(libs.plugins.sonarqube)
 }
@@ -60,12 +62,11 @@ sonar {
                 "**/*Test*.java",
                 "**/build/**",
                 "**/generated/**",
-                // composeApp's own testOptions.unitTests.all{} excludes "**/ui/**/*Test.class" from
-                // the Android unit test run ("these tests work on iOS and JVM but require
-                // instrumented tests on Android") — so a Compose composable whose only platform
+                // composeApp excludes "**/ui/**/*Test.class" from its Android host test run
+                // ("these tests work on iOS and JVM but require instrumented tests on Android") — so a Compose composable whose only platform
                 // branch is Android-specific, like the Activity Result / permission flow here, has
                 // no test task that can ever reach it: not desktopTest (wrong target), not
-                // testDebugUnitTest (Compose UI tests excluded there by policy), and instrumented
+                // testAndroidHostTest (Compose UI tests excluded there by policy), and instrumented
                 // tests aren't part of the CI gate. Not a gap to close with more tests — it would
                 // mean reversing that policy.
                 "composeApp/src/androidMain/kotlin/de/fampopprol/dhbwhorb/ui/settings/NotificationPermission.android.kt",

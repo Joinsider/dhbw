@@ -111,7 +111,7 @@ jobs:
           fi
 
           compile_sdk=$(sed -n 's/^android-compileSdk = "\(.*\)"/\1/p' gradle/libs.versions.toml)
-          build_tools=$(sed -n 's/.*buildToolsVersion = "\(.*\)"/\1/p' composeApp/build.gradle.kts)
+          build_tools=$(sed -n 's/.*buildToolsVersion = "\(.*\)"/\1/p' androidApp/build.gradle.kts)
           echo "compileSdk: $compile_sdk, build tools: $build_tools"
           test -n "$compile_sdk" && test -n "$build_tools"
           # From API 37 the SDK platform package carries a minor version (`platforms;android-37.0`);

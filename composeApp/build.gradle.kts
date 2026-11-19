@@ -4,7 +4,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidApplication)
+    alias(libs.plugins.androidKotlinMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
@@ -13,10 +13,30 @@ plugins {
 }
 
 kotlin {
-    androidTarget {
+    // A library since AGP 9: the Kotlin Multiplatform plugin no longer shares a project with
+    // `com.android.application`, so the APK — manifest, launcher, widget, signing, version — is
+    // built by :androidApp, which depends on this module. Here stays everything the Android and
+    // desktop UI have in common.
+    android {
+        namespace = "de.fampopprol.dhbwhorb.composeapp"
+        compileSdk = libs.versions.android.compileSdk.get().toInt()
+        minSdk = libs.versions.android.minSdk.get().toInt()
+
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
         }
+
+        // Compose Multiplatform resources are packed as Android assets, which the KMP library
+        // plugin only produces with Android resources switched on.
+        androidResources {
+            enable = true
+        }
+
+        withHostTest {
+            isReturnDefaultValues = true
+        }
+
+        // The instrumented suite moved to :androidApp with the code it exercises.
     }
 
     // No iOS targets since P7: the iOS app is SwiftUI and links `Shared.framework`. Compose
@@ -34,8 +54,6 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.security.crypto)
             implementation(libs.androidx.work.runtime.ktx)
-            implementation(libs.glance.appwidget)
-            implementation(libs.glance.material3)
             implementation(libs.ktor.client.okhttp)
             // Ensure OkHttp core is present for DoH
             implementation(libs.okhttp)
@@ -109,23 +127,6 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
         }
 
-        androidUnitTest.dependencies {
-            implementation(libs.robolectric)
-        }
-
-        // The instrumented suite had no dependencies at all, so it had not compiled since the
-        // module split — which is how eight tests that assert nothing survived unnoticed. It runs
-        // on a device (`:composeApp:connectedDebugAndroidTest`) and is not part of the gate.
-        androidInstrumentedTest.dependencies {
-            implementation(libs.kotlin.test)
-            implementation(libs.junit)
-            implementation(libs.androidx.testExt.junit)
-            implementation(libs.androidx.test.core)
-            implementation(libs.androidx.test.runner)
-            implementation(libs.androidx.work.testing)
-            implementation(libs.androidx.work.runtime.ktx)
-            implementation(libs.glance.appwidget)
-        }
 
         val desktopTest by getting {
             dependencies {
@@ -148,82 +149,19 @@ kotlin {
     }
 }
 
-android {
-    namespace = "de.fampopprol.dhbwhorb"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
-    buildToolsVersion = "36.0.0"
-
-    dependenciesInfo {
-        includeInApk = false
-        includeInBundle = false
-    }
-
-    defaultConfig {
-        applicationId = "de.fampopprol.dhbwhorb"
-        minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 32
-        versionName = "v3.0.6"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        resValue("string", "app_name", "DHBW Horb Studenten App")
-    }
-    packaging {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
-    }
-    signingConfigs {
-        create("release") {
-            storeFile = System.getenv("SIGNING_KEYSTORE_PATH")?.let { file(it) }
-            storePassword = System.getenv("SIGNING_KEYSTORE_PASSWORD")
-            keyAlias = System.getenv("SIGNING_KEY_ALIAS")
-            keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
-        }
-    }
-    buildTypes {
-        getByName("release") {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-            signingConfig = signingConfigs.getByName("release")
-        }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    testOptions {
-        unitTests {
-            isIncludeAndroidResources = true
-            isReturnDefaultValues = true
-            all {
-                // Exclude Compose UI tests from Android unit tests
-                // These tests work on iOS and JVM but require instrumented tests on Android
-                it.exclude(
-                    "**/AppTest.class",
-                    "**/AppRoutingTest.class",
-                    "**/LoginFormTest.class",
-                    "**/ui/**/*Test.class",
-                    // Renders Compose UI, needs an Android runtime (Build.FINGERPRINT); covered by desktopTest.
-                    "**/Phase8StabilityTest.class"
-                )
-            }
-        }
-    }
-    buildFeatures {
-        viewBinding = true
-    }
+// Compose UI tests render real UI and need an Android runtime (Build.FINGERPRINT); they work on
+// the desktop JVM and are covered by desktopTest instead. Same rule as before the split.
+tasks.withType<Test>().matching { it.name == "testAndroidHostTest" }.configureEach {
+    exclude(
+        "**/AppTest.class",
+        "**/AppRoutingTest.class",
+        "**/LoginFormTest.class",
+        "**/ui/**/*Test.class",
+        "**/Phase8StabilityTest.class"
+    )
 }
 
 dependencies {
-    debugImplementation(compose.uiTooling)
-
     // Aggregate the library modules into this project's coverage report — after the module split
     // the report would otherwise only cover the UI layer.
     kover(projects.core.common)
@@ -235,8 +173,8 @@ dependencies {
 
 val javaToolchains = extensions.getByType<JavaToolchainService>()
 
-// The Compose Desktop tasks that end up calling jpackage.  Android has packageDebug and
-// packageRelease of its own, which is why this names the formats instead of matching "package".
+// The Compose Desktop tasks that end up calling jpackage.  Named by format rather than by matching
+// "package", so that an Android task of that name could never resolve a desktop JDK.
 val desktopPackagingTask = Regex(
     "package(Release)?(Deb|Msi|Dmg|Exe|Rpm|Pkg|DistributionForCurrentOS)" +
         "|(create|run)(Release)?Distributable" +
@@ -316,11 +254,16 @@ compose.resources {
 // ─── Kover — KMP-unified coverage ────────────────────────────────────────────
 kover {
     currentProject {
-        // Instrument both Android (debug) and Desktop (JVM) compilations.
+        // Instrument both Android (host tests) and Desktop (JVM) compilations.
         // Native targets (iOS, which is SwiftUI and not part of this module) are skipped
         // because they cannot produce JVM bytecode for instrumentation.
         createVariant("kmpCoverage") {
-            addWithDependencies("debug")        // Android debug unit tests
+            // The KMP library plugin gives this module's Android target a JVM variant named after
+            // the target, not build types — "android" is its host tests. The modules it aggregates
+            // are still `com.android.library` and report their unit tests as "debug", which this
+            // module no longer has: hence optional.
+            add("android")
+            addWithDependencies("debug", optional = true)
             addWithDependencies("desktop")      // Desktop / JVM tests
         }
     }
@@ -391,10 +334,4 @@ val packageFatJar by tasks.registering(Jar::class) {
             if (it.isDirectory) it else zipTree(it)
         }
     })
-}
-
-dependencies {
-    constraints {
-        add("androidUnitTestImplementation", "org.bouncycastle:bcprov-jdk18on:1.86")
-    }
 }

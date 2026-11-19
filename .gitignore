@@ -22,6 +22,8 @@ node_modules/
 /dualis.old/
 /composeApp/debug/
 /composeApp/release/
+/androidApp/debug/
+/androidApp/release/
 /src/
 /pkg/
 dhbw-next-*.tar.gz

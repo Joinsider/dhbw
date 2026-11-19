@@ -3,6 +3,7 @@ version = 1
 [[annotations]]
 path = [
     "app/src/main/res/**",
+    "androidApp/src/main/res/**",
     "gradle/**",
     "fastlane/**/*",
     "Gemfile",

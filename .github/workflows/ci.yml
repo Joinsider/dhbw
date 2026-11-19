@@ -61,13 +61,15 @@ jobs:
       # Unqualified, so every module runs its own: since P9 the tests live next to the code they
       # test, not all together in :composeApp. One invocation (instead of two) avoids paying for
       # project configuration twice; org.gradle.parallel (gradle.properties) lets the independent
-      # Android/Desktop task graphs run concurrently across modules.
+      # Android/Desktop task graphs run concurrently across modules. :composeApp is built with the
+      # KMP Android library plugin, which has no build types: its Android tests are
+      # testAndroidHostTest, not testDebugUnitTest.
       - name: Run Android + Desktop tests
-        run: ./gradlew testDebugUnitTest desktopTest --continue --no-daemon --stacktrace
+        run: ./gradlew testDebugUnitTest testAndroidHostTest desktopTest --continue --no-daemon --stacktrace
 
       # ── Kover – generate unified XML + HTML coverage report ───────────────────
       # Unqualified, so every module with a kmpCoverage variant reports (domain, data, services,
-      # presentation, shared, core/common, composeApp) — not just composeApp. Sonar's coverage
+      # presentation, shared, core/common, composeApp, androidApp) — not just composeApp. Sonar's coverage
       # import lists every one of these paths (see build.gradle.kts); missing a module here means
       # its code shows up as 0% covered on SonarCloud even though it has real tests.
       - name: Generate Kover coverage report (XML + HTML)
@@ -83,6 +85,7 @@ jobs:
           name: junit-test-results
           path: |
             */build/reports/tests/testDebugUnitTest/
+            */build/reports/tests/testAndroidHostTest/
             */build/reports/tests/desktopTest/
             core/*/build/reports/tests/testDebugUnitTest/
             core/*/build/reports/tests/desktopTest/
@@ -110,6 +113,7 @@ jobs:
         with:
           files: |
             */build/test-results/testDebugUnitTest/**/*.xml
+            */build/test-results/testAndroidHostTest/**/*.xml
             */build/test-results/desktopTest/**/*.xml
             core/*/build/test-results/testDebugUnitTest/**/*.xml
             core/*/build/test-results/desktopTest/**/*.xml
@@ -166,7 +170,7 @@ jobs:
           fi
 
           compile_sdk=$(sed -n 's/^android-compileSdk = "\(.*\)"/\1/p' gradle/libs.versions.toml)
-          build_tools=$(sed -n 's/.*buildToolsVersion = "\(.*\)"/\1/p' composeApp/build.gradle.kts)
+          build_tools=$(sed -n 's/.*buildToolsVersion = "\(.*\)"/\1/p' androidApp/build.gradle.kts)
           echo "compileSdk: $compile_sdk, build tools: $build_tools"
           test -n "$compile_sdk" && test -n "$build_tools"
           # From API 37 the SDK platform package carries a minor version (`platforms;android-37.0`);
