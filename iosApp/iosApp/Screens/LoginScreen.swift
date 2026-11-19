@@ -61,6 +61,13 @@ struct LoginScreen: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .accessibilityIdentifier("loginError")
                 }
+                // On the first screen anybody sees: this is not the university's app.
+                Text("disclaimer.unofficial")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("loginDisclaimer")
             }
             .padding(.horizontal, 24)
             .padding(.top, 48)

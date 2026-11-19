@@ -13,6 +13,7 @@ import de.fampopprol.dhbwhorb.resources.Res
 import de.fampopprol.dhbwhorb.resources.app_name
 import de.fampopprol.dhbwhorb.resources.relogin_required
 import de.fampopprol.dhbwhorb.ui.auth.LoginForm
+import de.fampopprol.dhbwhorb.ui.settings.UnofficialAppNotice
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 
@@ -48,4 +49,11 @@ fun LoginPage(reLoginRequired: Boolean = false) {
     }
 
     LoginForm()
+
+    // Says on the first screen anyone sees that this is not the university's app.
+    UnofficialAppNotice(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 16.dp)
+    )
 }

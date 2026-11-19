@@ -16,6 +16,7 @@ import de.fampopprol.dhbwhorb.resources.settings_title
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavItem
 import de.fampopprol.dhbwhorb.ui.navigation.BottomNavigationBar
 import de.fampopprol.dhbwhorb.ui.settings.DesignSelectionCard
+import de.fampopprol.dhbwhorb.ui.settings.DisclaimerCard
 import de.fampopprol.dhbwhorb.ui.settings.HelpSelectionCard
 import de.fampopprol.dhbwhorb.ui.settings.NotificationSettingsCallbacks
 import de.fampopprol.dhbwhorb.ui.settings.NotificationSettingsCard
@@ -114,6 +115,9 @@ fun SettingsPage(
                 )
 
                 HelpSelectionCard(onLogout = onLogout, showLogout = true)
+
+                // Last on the page: not DHBW's app, and complaints go to GitHub.
+                DisclaimerCard()
             }
         }
     }

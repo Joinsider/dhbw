@@ -10,6 +10,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runComposeUiTest
 import de.fampopprol.dhbwhorb.data.storage.preferences.ThemeMode
 import de.fampopprol.dhbwhorb.presentation.TestScopes
@@ -42,6 +43,18 @@ class SettingsPageTest {
         // Tags instead of labels: nav captions are localised string resources.
         onNodeWithTag(navItemTestTag(BottomNavItem.TIMETABLE)).assertIsDisplayed()
         onNodeWithTag(navItemTestTag(BottomNavItem.GRADES)).assertIsDisplayed()
+        store.close()
+    }
+
+    @Test
+    fun settingsPage_showsTheDisclaimer() = runComposeUiTest {
+        val store = store()
+        setContent { WithTestKoin { SettingsPage(store = store) } }
+        waitForIdle()
+
+        onNodeWithTag("disclaimerCard").performScrollTo().assertIsDisplayed()
+        onNodeWithTag("disclaimerComplaintsText").assertIsDisplayed()
+        onNodeWithTag("disclaimerIssuesButton").assertIsDisplayed()
         store.close()
     }
 

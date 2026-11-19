@@ -36,6 +36,9 @@ struct SettingsContentView: View {
     /// The repository the source link points at, as in the app's store metadata.
     private static let sourceURL = URL(string: "https://github.com/joinsider/dhbw")
 
+    /// Where complaints about the app go: the project's issue tracker, not the university.
+    private static let issuesURL = URL(string: "https://github.com/Joinsider/dhbw/issues")
+
     #if os(macOS)
     /// The width of the settings column. The grouped Form itself fills the window, so the whole
     /// pane scrolls and the scroll indicator sits at the window edge; the column is kept at this
@@ -235,7 +238,7 @@ struct SettingsContentView: View {
 
     @ViewBuilder
     private var aboutSection: some View {
-        Section("settings.aboutHeader") {
+        Section {
             LabeledContent {
                 Text(verbatim: versionText)
                     .foregroundStyle(.secondary)
@@ -247,6 +250,21 @@ struct SettingsContentView: View {
                     rowLabel("settings.sourceCode", systemName: "chevron.left.forwardslash.chevron.right")
                 }
             }
+            if let issuesURL = Self.issuesURL {
+                Link(destination: issuesURL) {
+                    rowLabel("settings.githubIssues", systemName: "exclamationmark.bubble.fill")
+                }
+                .accessibilityIdentifier("settingsGithubIssues")
+            }
+        } header: {
+            Text("settings.aboutHeader")
+        } footer: {
+            // The app is a private project; complaints belong on GitHub, not with DHBW.
+            VStack(alignment: .leading, spacing: 6) {
+                Text("disclaimer.unofficial")
+                Text("disclaimer.complaints")
+            }
+            .accessibilityIdentifier("settingsDisclaimer")
         }
     }
 

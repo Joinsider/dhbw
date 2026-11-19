@@ -2633,6 +2633,54 @@
           }
         }
       }
+    },
+    "disclaimer.unofficial" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese App ist ein privates Projekt. Sie wird nicht von der DHBW entwickelt, betrieben oder unterstützt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app is a private project. It is not developed, operated or endorsed by DHBW."
+          }
+        }
+      }
+    },
+    "disclaimer.complaints" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beschwerden und Rückmeldungen zur App bitte ausschließlich als Issue auf GitHub einreichen, nicht bei der DHBW."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please submit complaints and feedback about this app only as an issue on GitHub, not to DHBW."
+          }
+        }
+      }
+    },
+    "settings.githubIssues" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub-Issues öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open GitHub Issues"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
