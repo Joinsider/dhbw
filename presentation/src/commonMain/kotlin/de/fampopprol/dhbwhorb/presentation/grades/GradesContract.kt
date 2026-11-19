@@ -7,6 +7,7 @@
 package de.fampopprol.dhbwhorb.presentation.grades
 
 import de.fampopprol.dhbwhorb.core.error.AppError
+import de.fampopprol.dhbwhorb.domain.model.GradeAttempts
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
 import de.fampopprol.dhbwhorb.domain.model.ModuleResultDetails
 
@@ -76,9 +77,12 @@ data class GradesState(
      * Derived here rather than in each UI: two groupings of the same list are two chances to
      * order them differently, and the order is the thing this screen most recently got wrong.
      * [grades] arrives sorted, and grouping preserves that.
+     *
+     * A module that was repeated shows up once, with the attempt that counts
+     * ([GradeAttempts.listed]); its earlier attempts stay in [grades] for the details sheet.
      */
     val sections: List<SemesterGrades>
-        get() = grades.groupBy { it.semesterName }
+        get() = GradeAttempts.listed(grades).groupBy { it.semesterName }
             .map { (name, entries) -> SemesterGrades(name, entries) }
 }
 

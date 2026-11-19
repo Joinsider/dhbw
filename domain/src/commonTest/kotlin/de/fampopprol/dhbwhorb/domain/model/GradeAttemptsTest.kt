@@ -129,4 +129,23 @@ class GradeAttemptsTest {
 
         assertEquals(listOf(readable), GradeAttempts.countable(listOf(unreadable, readable)))
     }
+
+    @Test
+    fun theListShowsARepeatedModuleOnceWithTheGradeThatCounts() {
+        // The 4,6 of the unfinished first attempt used to stand in the winter term as if it were
+        // the module's grade.
+        val failed = entry("T4INF2001", "4,6", 6.0, "WiSe 2025/26", "unvollständig")
+        val other = entry("T4INF2004", "2,9", 6.0, "WiSe 2025/26")
+        val passed = entry("T4INF2001", "3,2", 6.0, "SoSe 2026", "bestanden (Wh.)")
+
+        assertEquals(listOf(other, passed), GradeAttempts.listed(listOf(failed, other, passed)))
+    }
+
+    @Test
+    fun theListKeepsAFailedModuleUntilItIsPassed() {
+        val first = entry("A", "5,0", semester = "WiSe 2025/26", status = "nicht bestanden")
+        val second = entry("A", "4,7", semester = "SoSe 2026", status = "nicht bestanden")
+
+        assertEquals(listOf(first, second), GradeAttempts.listed(listOf(first, second)))
+    }
 }
