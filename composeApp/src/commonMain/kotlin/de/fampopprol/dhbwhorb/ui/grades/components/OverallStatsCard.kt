@@ -31,7 +31,7 @@ import de.fampopprol.dhbwhorb.resources.modules_completed
 import de.fampopprol.dhbwhorb.resources.overall_gpa
 import de.fampopprol.dhbwhorb.resources.overall_statistics
 import org.jetbrains.compose.resources.stringResource
-import kotlin.math.round
+import de.fampopprol.dhbwhorb.domain.model.GradeTruncation
 
 @Composable
 fun OverallStatsCard(
@@ -77,7 +77,7 @@ fun OverallStatsCard(
                 }
                 Text(
                     text = if (overallGpa != null) {
-                        (round(overallGpa * 100) / 100).toString()
+                        GradeTruncation.oneDecimal(overallGpa).toString()
                     } else {
                         "-"
                     },

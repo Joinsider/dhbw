@@ -46,9 +46,11 @@
 		8FC8A4872F629DED005E3108 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		8FC8A4892F629DED005E3108 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		8FCB097F303CE7C300C617F1 /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
+		8FCC188430AF06B00096E257 /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		8FEEBC89306A92D200436D4F /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		8FF88F92303B8E6B0004600A /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		8FF93E4C309386E800FEB915 /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
+		8FFC38EC30AED15700CC84BA /* iosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = iosApp.xcodeproj; sourceTree = "<group>"; };
 		E3D9F0C275BF0BFDE5506549 /* DHBW-Horb.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "DHBW-Horb.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -169,6 +171,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		8FCC188930AF06B00096E257 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		8FEEBC72306A92D200436D4F /* Recovered References */ = {
 			isa = PBXGroup;
 			children = (
@@ -179,6 +186,8 @@
 				8F41FE2E3088A4F1009C77F1 /* iosApp.xcodeproj */,
 				8F9F0CBC3088BCBD00DEDAAC /* iosApp.xcodeproj */,
 				8F9F0D003088BD8B00DEDAAC /* iosApp.xcodeproj */,
+				8FF93E4C309386E800FEB915 /* iosApp.xcodeproj */,
+				8FFC38EC30AED15700CC84BA /* iosApp.xcodeproj */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -194,6 +203,11 @@
 			sourceTree = "<group>";
 		};
 		8FF93E51309386E800FEB915 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		8FFC38F130AED15700CC84BA /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -283,6 +297,18 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
+					ProductGroup = 8F9F0D053088BD8B00DEDAAC /* Products */;
+					ProjectRef = 8F9F0D003088BD8B00DEDAAC /* iosApp.xcodeproj */;
+				},
+				{
+					ProductGroup = 8FF93E51309386E800FEB915 /* Products */;
+					ProjectRef = 8FF93E4C309386E800FEB915 /* iosApp.xcodeproj */;
+				},
+				{
+					ProductGroup = 8FF88F96303B8E6B0004600A /* Products */;
+					ProjectRef = 8FF88F92303B8E6B0004600A /* iosApp.xcodeproj */;
+				},
+				{
 					ProductGroup = 8FEEBC8D306A92D200436D4F /* Products */;
 					ProjectRef = 8FEEBC89306A92D200436D4F /* iosApp.xcodeproj */;
 				},
@@ -295,6 +321,10 @@
 					ProjectRef = 8F9F0CBC3088BCBD00DEDAAC /* iosApp.xcodeproj */;
 				},
 				{
+					ProductGroup = 8FFC38F130AED15700CC84BA /* Products */;
+					ProjectRef = 8FFC38EC30AED15700CC84BA /* iosApp.xcodeproj */;
+				},
+				{
 					ProductGroup = 8FCB0983303CE7C300C617F1 /* Products */;
 					ProjectRef = 8FCB097F303CE7C300C617F1 /* iosApp.xcodeproj */;
 				},
@@ -303,16 +333,8 @@
 					ProjectRef = 8FA245AF3041F67000BE69E1 /* iosApp.xcodeproj */;
 				},
 				{
-					ProductGroup = 8F9F0D053088BD8B00DEDAAC /* Products */;
-					ProjectRef = 8F9F0D003088BD8B00DEDAAC /* iosApp.xcodeproj */;
-				},
-				{
-					ProductGroup = 8FF93E51309386E800FEB915 /* Products */;
-					ProjectRef = 8FF93E4C309386E800FEB915 /* iosApp.xcodeproj */;
-				},
-				{
-					ProductGroup = 8FF88F96303B8E6B0004600A /* Products */;
-					ProjectRef = 8FF88F92303B8E6B0004600A /* iosApp.xcodeproj */;
+					ProductGroup = 8FCC188930AF06B00096E257 /* Products */;
+					ProjectRef = 8FCC188430AF06B00096E257 /* iosApp.xcodeproj */;
 				},
 			);
 			projectRoot = "";
@@ -532,6 +554,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MARKETING_VERSION = 3.0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = de.fampopprol.dhbw;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
@@ -580,6 +603,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MARKETING_VERSION = 3.0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = de.fampopprol.dhbw;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";

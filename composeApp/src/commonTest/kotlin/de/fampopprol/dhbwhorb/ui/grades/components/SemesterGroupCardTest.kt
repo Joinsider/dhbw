@@ -47,7 +47,8 @@ class SemesterGroupCardTest {
         onNodeWithTag("semesterGroupCard_WiSe 2025/26").assertIsDisplayed()
         onNodeWithText("WiSe 2025/26").assertIsDisplayed()
         onNodeWithText("2 modules • 12.0 credits").assertIsDisplayed()
-        onNodeWithText("Ø 1.85").assertIsDisplayed()
+        // Cut after the first decimal, as Dualis does, not rounded.
+        onNodeWithText("Ø 1.8").assertIsDisplayed()
     }
 
     @Test

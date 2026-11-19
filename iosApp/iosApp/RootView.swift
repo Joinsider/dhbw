@@ -4,6 +4,8 @@
 import SwiftUI
 #if os(iOS)
 import UIKit
+#else
+import AppKit
 #endif
 import WidgetKit
 import Shared
@@ -140,7 +142,7 @@ struct RootView: View {
         // `.tint` reaches the controls; the environment reaches the views that paint with it.
         .tint(accent.accent)
         .environment(\.accentChoice, accent)
-        .preferredColorScheme(colorScheme)
+        .appColorScheme(colorScheme)
         .animation(.default, value: model.app.state.isLoggedIn)
     }
 
@@ -185,3 +187,37 @@ struct MainTabView: View {
         #endif
     }
 }
+
+// MARK: - Appearance
+
+private extension View {
+
+    /// Light, dark or the system's appearance, for every window of the app.
+    ///
+    /// iOS uses `preferredColorScheme`. On macOS that modifier sets the window's `NSAppearance`
+    /// when it is given a scheme but does not reliably clear it when it gets `nil` again: after
+    /// Dark → System on a light Mac, parts of the window (the sidebar, the timetable header and
+    /// blocks) stayed dark until something happened to redraw them. `NSApp.appearance` is the
+    /// app-wide setting, and `nil` there really means "follow the system" — for the main window,
+    /// its sheets and the menu bar item alike.
+    @ViewBuilder
+    func appColorScheme(_ scheme: ColorScheme?) -> some View {
+        #if os(macOS)
+        onAppear { applyAppAppearance(scheme) }
+            .onChange(of: scheme) { _, newValue in applyAppAppearance(newValue) }
+        #else
+        preferredColorScheme(scheme)
+        #endif
+    }
+}
+
+#if os(macOS)
+@MainActor
+private func applyAppAppearance(_ scheme: ColorScheme?) {
+    switch scheme {
+    case .light: NSApp.appearance = NSAppearance(named: .aqua)
+    case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
+    default: NSApp.appearance = nil
+    }
+}
+#endif

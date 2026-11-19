@@ -132,6 +132,9 @@ struct GradesScreen: View {
                 } else {
                     if searchText.isEmpty {
                         summary
+                        if state.semesterTrend.count >= 2 {
+                            trend
+                        }
                     }
                     ForEach(visibleSections, id: \.semesterName) { section in
                         Section {
@@ -162,7 +165,7 @@ struct GradesScreen: View {
         Section {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(state.overallGpa.map { $0.doubleValue.formatted(.number.precision(.fractionLength(2))) } ?? "–")
+                    Text(state.overallGpa.map { GradeTruncation.shared.oneDecimal(average: $0.doubleValue).formatted(.number.precision(.fractionLength(1))) } ?? "–")
                         .font(.system(size: 44, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(accentChoice.accent)
@@ -181,6 +184,16 @@ struct GradesScreen: View {
             }
             .padding(.vertical, 6)
             .accessibilityElement(children: .combine)
+        }
+    }
+
+    /// The average per semester as a line, in a section of its own under the summary.
+    private var trend: some View {
+        Section {
+            GradeTrendChart(
+                points: state.semesterTrend,
+                overall: state.overallGpa?.doubleValue
+            )
         }
     }
 
@@ -274,7 +287,7 @@ private struct SemesterHeader: View {
             Text(section.semesterName)
             Spacer()
             if let average = semesterAverage {
-                Text(average.formatted(.number.precision(.fractionLength(2))))
+                Text(GradeTruncation.shared.oneDecimal(average: average).formatted(.number.precision(.fractionLength(1))))
                     .monospacedDigit()
                     .foregroundStyle(accentChoice.accent)
             }
@@ -305,17 +318,26 @@ private struct GradeRow: View {
                 Text(detailLine)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                if let status = entry.status, !status.isEmpty {
-                    Text(status)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                // Always laid out, even for a module that has no status yet: without the line
+                // those rows were a line shorter, and the list jumped in height between a
+                // running module and a graded one. The placeholder is hidden, not left out.
+                Text(verbatim: statusText ?? " ")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .opacity(statusText == nil ? 0 : 1)
+                    .accessibilityHidden(statusText == nil)
             }
             Spacer(minLength: 8)
             GradeBadge(grade: entry.grade, countsTowardDegree: entry.countsTowardDegree)
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
+    }
+
+    /// Dualis' status column ("bestanden", "unvollständig", …), or nil while it is empty.
+    private var statusText: String? {
+        guard let status = entry.status, !status.isEmpty else { return nil }
+        return status
     }
 
     /// `05-01-0101 · 6,0 CP`: the module number and what the module is worth.

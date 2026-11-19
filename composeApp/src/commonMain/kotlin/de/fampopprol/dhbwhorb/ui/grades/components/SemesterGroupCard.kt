@@ -35,7 +35,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
-import kotlin.math.round
+import de.fampopprol.dhbwhorb.domain.model.GradeTruncation
 
 @Composable
 fun SemesterGroupCard(
@@ -115,7 +115,7 @@ private fun SemesterGpaLabel(semesterGpa: Double?) {
     if (semesterGpa == null) return
 
     Text(
-        text = "Ø ${(round(semesterGpa * 100) / 100)}",
+        text = "Ø ${GradeTruncation.oneDecimal(semesterGpa)}",
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary

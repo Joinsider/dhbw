@@ -7,13 +7,22 @@
 package de.fampopprol.dhbwhorb.presentation.grades
 
 import de.fampopprol.dhbwhorb.core.error.AppError
+import de.fampopprol.dhbwhorb.domain.model.GradeAttempts
 import de.fampopprol.dhbwhorb.domain.model.GradeEntry
 import de.fampopprol.dhbwhorb.domain.model.ModuleResultDetails
+import de.fampopprol.dhbwhorb.domain.model.SemesterOrder
+import de.fampopprol.dhbwhorb.domain.usecase.ComputeGpa
 
 /** One semester's results, in the order [GradesState.sections] puts them. */
 data class SemesterGrades(
     val semesterName: String,
     val grades: List<GradeEntry>
+)
+
+/** One point of the grade trend: a semester and its credit-weighted average. */
+data class SemesterAverage(
+    val semesterName: String,
+    val average: Double
 )
 
 /**
@@ -28,7 +37,7 @@ data class SemesterGrades(
  * refreshing — and the two could report different things at the same moment.
  */
 data class GradesState(
-    /** Every semester's grades, oldest semester first, modules alphabetical within a semester. */
+    /** Every semester's grades, newest semester first, modules alphabetical within a semester. */
     val grades: List<GradeEntry> = emptyList(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
@@ -63,11 +72,17 @@ data class GradesState(
     /**
      * Every row the list holds for the open module, oldest semester first.
      *
+     * Chronological although the list runs newest first: it sits under the attempts, which count
+     * upwards, and reads as the module's history.
+     *
      * The local answer to "which grades are recorded": a repeated module has one row per
      * semester, and they are worth showing even when the details page cannot be reached.
      */
     val selectedModuleEntries: List<GradeEntry>
-        get() = selectedModule?.let { open -> grades.filter { it.moduleNumber == open.moduleNumber } }
+        get() = selectedModule?.let { open ->
+            grades.filter { it.moduleNumber == open.moduleNumber }
+                .sortedWith { x, y -> SemesterOrder.oldestFirst.compare(x.semesterName, y.semesterName) }
+        }
             .orEmpty()
 
     /**
@@ -76,10 +91,32 @@ data class GradesState(
      * Derived here rather than in each UI: two groupings of the same list are two chances to
      * order them differently, and the order is the thing this screen most recently got wrong.
      * [grades] arrives sorted, and grouping preserves that.
+     *
+     * A module that was repeated shows up once, with the attempt that counts
+     * ([GradeAttempts.listed]); its earlier attempts stay in [grades] for the details sheet.
      */
     val sections: List<SemesterGrades>
-        get() = grades.groupBy { it.semesterName }
+        get() = GradeAttempts.listed(grades).groupBy { it.semesterName }
             .map { (name, entries) -> SemesterGrades(name, entries) }
+
+    /**
+     * The grade trend: each semester's credit-weighted average, oldest semester first.
+     *
+     * Built from [sections], so a repeated module contributes only the attempt that counts, the
+     * same one the list shows. The average is kept exact: the UIs round it for their labels, and
+     * rounding here would make the line and its labels disagree with the grades they plot.
+     * A semester without a single graded module has no average yet and is left out rather than
+     * drawn as a zero.
+     *
+     * [sections] is newest first, so the result is sorted explicitly: a chart reads left to right
+     * in time, and the order of the input is not something to rely on.
+     */
+    val semesterTrend: List<SemesterAverage>
+        get() = sections
+            .mapNotNull { section ->
+                ComputeGpa()(section.grades).average?.let { SemesterAverage(section.semesterName, it) }
+            }
+            .sortedWith { x, y -> SemesterOrder.oldestFirst.compare(x.semesterName, y.semesterName) }
 }
 
 sealed interface GradesIntent {

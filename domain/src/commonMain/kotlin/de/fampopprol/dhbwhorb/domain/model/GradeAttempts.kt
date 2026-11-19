@@ -36,7 +36,23 @@ object GradeAttempts {
         return grades.filterIndexed { index, _ -> index in counted }
     }
 
-    /** Greatest = the attempt to keep: newest semester, then better grade, then later row. */
+    /**
+     * The rows the grade list shows: per module, only the attempt that counts once there is one.
+     *
+     * Without this, Mathematik III stood in the winter term with the 4,6 of its unfinished first
+     * attempt — a grade the transcript no longer holds — next to the 3,2 it came to in the summer.
+     * A module that has not been passed yet keeps every row, so a failed attempt stays visible
+     * until something replaces it. The superseded rows are still in the input and are what the
+     * module's details list under "entries in the grade list". Input order is preserved.
+     */
+    fun listed(grades: List<GradeEntry>): List<GradeEntry> {
+        val counted = countable(grades)
+        val settledModules = counted.mapTo(mutableSetOf()) { it.moduleNumber }
+        val keep = counted.toSet()
+        return grades.filter { it.moduleNumber !in settledModules || it in keep }
+    }
+
+    /** Greatest = the attempt to keep:newest semester, then better grade, then later row. */
     private val weakestFirst: Comparator<IndexedValue<GradeEntry>> =
         compareBy<IndexedValue<GradeEntry>> { SemesterOrder.sortKey(it.value.semesterName) ?: Int.MIN_VALUE }
             // Lower is better in the German scale, so "greater" here means the smaller number.

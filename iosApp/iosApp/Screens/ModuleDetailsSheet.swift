@@ -87,6 +87,8 @@ struct ModuleDetailsSheet: View {
         }
         // Escape closes the sheet on a Mac, as it does on any macOS sheet.
         .sheetExitCommand { dismiss() }
+        // So does a click next to it, in the grade list behind.
+        .dismissOnOutsideClick { dismiss() }
         .accessibilityIdentifier("moduleDetailsSheet")
     }
 
