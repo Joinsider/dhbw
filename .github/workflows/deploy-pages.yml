@@ -47,7 +47,7 @@ jobs:
           ASSET_NAME=$(echo "$LATEST_RELEASE" | jq -r '[.assets[] | select(.name | endswith(".deb"))][0].name // empty')
 
           if [ -z "$ASSET_URL" ]; then
-            echo "Error: No .deb asset found in release $RELEASE_TAG"
+            echo "Error: No .deb asset found in release $RELEASE_TAG" >&2
             exit 1
           fi
           
@@ -85,7 +85,7 @@ jobs:
             VER=$(dpkg-deb -f "$f" Version)
             ARCH=$(dpkg-deb -f "$f" Architecture)
             if [ "$ARCH" != "amd64" ]; then
-              echo "Error: $f is built for '$ARCH', this repository only serves amd64"
+              echo "Error: $f is built for '$ARCH', this repository only serves amd64" >&2
               exit 1
             fi
             cp "$f" "public/pool/main/${PKG}_${VER}_${ARCH}.deb"
@@ -107,8 +107,8 @@ jobs:
           # "Unable to locate package" to every user. Fail here instead.
           ENTRIES=$(grep -c '^Package: ' dists/stable/main/binary-amd64/Packages || true)
           if [ "$ENTRIES" -eq 0 ]; then
-            echo "Error: dpkg-scanpackages found no package in pool/ — refusing to publish an empty repository"
-            ls -l pool/main
+            echo "Error: dpkg-scanpackages found no package in pool/ — refusing to publish an empty repository" >&2
+            ls -l pool/main >&2
             exit 1
           fi
           echo "Packages index has $ENTRIES entries"
