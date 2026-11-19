@@ -62,6 +62,8 @@ fun HelpSelectionCard(
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
+            DisclaimerText(modifier = Modifier.padding(bottom = 16.dp))
+
             HelpActionButtons(onLogout = onLogout, showLogout = showLogout)
         }
     }
@@ -150,7 +152,7 @@ private fun GithubIssuesButton(modifier: Modifier = Modifier) {
     Button(
         onClick = {
             hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-            uriHandler.openUri("https://github.com/Joinsider/dhbw/issues/")
+            uriHandler.openUri(GITHUB_ISSUES_URL)
         },
         modifier = modifier.testTag("githubIssuesButton"),
         shape = MaterialTheme.shapes.medium,

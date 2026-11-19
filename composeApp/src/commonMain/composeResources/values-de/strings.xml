@@ -167,8 +167,6 @@
     <string name="grade_trend">Notenverlauf</string>
     <string name="grade_trend_overall">Gesamt</string>
     <!-- Hinweis: Die App ist kein offizielles Angebot der DHBW -->
-    <string name="disclaimer_title">Über diese App</string>
     <string name="disclaimer_unofficial">Diese App ist ein privates Projekt. Sie wird nicht von der DHBW entwickelt, betrieben oder unterstützt.</string>
     <string name="disclaimer_complaints">Beschwerden und Rückmeldungen zur App bitte ausschließlich als Issue auf GitHub einreichen, nicht bei der DHBW.</string>
-    <string name="disclaimer_open_issues">GitHub-Issues öffnen</string>
 </resources>

@@ -169,8 +169,6 @@
     <string name="grade_trend">Grade trend</string>
     <string name="grade_trend_overall">Overall</string>
     <!-- Disclaimer: the app is not an official DHBW product -->
-    <string name="disclaimer_title">About this app</string>
     <string name="disclaimer_unofficial">This app is a private project. It is not developed, operated or endorsed by DHBW.</string>
     <string name="disclaimer_complaints">Please submit complaints and feedback about this app only as an issue on GitHub, not to DHBW.</string>
-    <string name="disclaimer_open_issues">Open GitHub Issues</string>
 </resources>

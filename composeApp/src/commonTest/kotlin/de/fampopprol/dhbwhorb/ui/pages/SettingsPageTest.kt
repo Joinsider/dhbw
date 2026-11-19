@@ -52,9 +52,10 @@ class SettingsPageTest {
         setContent { WithTestKoin { SettingsPage(store = store) } }
         waitForIdle()
 
-        onNodeWithTag("disclaimerCard").performScrollTo().assertIsDisplayed()
+        onNodeWithTag("disclaimerText").performScrollTo().assertIsDisplayed()
         onNodeWithTag("disclaimerComplaintsText").assertIsDisplayed()
-        onNodeWithTag("disclaimerIssuesButton").assertIsDisplayed()
+        // One link to the issues, not two: the disclaimer uses the Help card's button.
+        onNodeWithTag("githubIssuesButton").performScrollTo().assertIsDisplayed()
         store.close()
     }
 
@@ -114,7 +115,8 @@ class SettingsPageTest {
         setContent { WithTestKoin { SettingsPage(store = store) } }
         waitForIdle()
 
-        onNodeWithTag("logoutButton").assertIsDisplayed()
+        // Below the disclaimer, so below the fold of the test window: scroll first.
+        onNodeWithTag("logoutButton").performScrollTo().assertIsDisplayed()
         store.close()
     }
 
@@ -128,7 +130,7 @@ class SettingsPageTest {
         }
         waitForIdle()
 
-        onNodeWithTag("logoutButton").performClick()
+        onNodeWithTag("logoutButton").performScrollTo().performClick()
         waitForIdle()
         assertEquals(true, logoutCalled)
         store.close()
