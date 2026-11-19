@@ -29,6 +29,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import de.fampopprol.dhbwhorb.MainActivity
+import de.fampopprol.dhbwhorb.services.widget.models.WidgetClassState
 import de.fampopprol.dhbwhorb.services.widget.models.WidgetUpNextState
 import de.fampopprol.dhbwhorb.widget.state.TimetableWidgetState
 
@@ -85,64 +86,48 @@ private fun UpNextSuccessContent(upNext: WidgetUpNextState) {
 
         is WidgetUpNextState.CurrentlyRunning -> {
             val lecture = upNext.lecture
-            Column(modifier = GlanceModifier.fillMaxSize()) {
-                StatusPill(
-                    label = if (lecture.isTest) "KLAUSUR LÄUFT" else "Läuft jetzt",
-                    isOngoing = true,
-                    isTest = lecture.isTest
-                )
-                Spacer(modifier = GlanceModifier.height(6.dp))
-                Text(
-                    text = lecture.shortName,
-                    style = TextStyle(
-                        color = if (lecture.isTest) GlanceTheme.colors.error else GlanceTheme.colors.onBackground,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                    maxLines = 2,
-                )
-
-                Spacer(modifier = GlanceModifier.height(4.dp))
-                Text(
-                    text = "${lecture.formattedStartTime} – ${lecture.formattedEndTime}",
-                    style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 11.sp),
-                )
-                Text(
-                    text = lecture.location,
-                    style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 11.sp),
-                )
-            }
+            LectureDetails(
+                lecture = lecture,
+                label = if (lecture.isTest) "KLAUSUR LÄUFT" else "Läuft jetzt",
+                isOngoing = true,
+            )
         }
 
         is WidgetUpNextState.ComingUp -> {
             val lecture = upNext.lecture
-            Column(modifier = GlanceModifier.fillMaxSize()) {
-                StatusPill(
-                    label = if (lecture.isTest) "NÄCHSTE: KLAUSUR" else "Nächste",
-                    isOngoing = false,
-                    isTest = lecture.isTest
-                )
-                Spacer(modifier = GlanceModifier.height(6.dp))
-                Text(
-                    text = lecture.shortName,
-                    style = TextStyle(
-                        color = if (lecture.isTest) GlanceTheme.colors.error else GlanceTheme.colors.onBackground,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                    maxLines = 2,
-                )
-                Spacer(modifier = GlanceModifier.height(4.dp))
-                Text(
-                    text = "${lecture.formattedStartTime} – ${lecture.formattedEndTime}",
-                    style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 11.sp),
-                )
-                Text(
-                    text = lecture.location,
-                    style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 11.sp),
-                )
-            }
+            LectureDetails(
+                lecture = lecture,
+                label = if (lecture.isTest) "NÄCHSTE: KLAUSUR" else "Nächste",
+                isOngoing = false,
+            )
         }
+    }
+}
+
+/** The running or next lecture: status pill, name, time and room. */
+@Composable
+private fun LectureDetails(lecture: WidgetClassState, label: String, isOngoing: Boolean) {
+    Column(modifier = GlanceModifier.fillMaxSize()) {
+        StatusPill(label = label, isOngoing = isOngoing, isTest = lecture.isTest)
+        Spacer(modifier = GlanceModifier.height(6.dp))
+        Text(
+            text = lecture.shortName,
+            style = TextStyle(
+                color = if (lecture.isTest) GlanceTheme.colors.error else GlanceTheme.colors.onBackground,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+            ),
+            maxLines = 2,
+        )
+        Spacer(modifier = GlanceModifier.height(4.dp))
+        Text(
+            text = "${lecture.formattedStartTime} – ${lecture.formattedEndTime}",
+            style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 11.sp),
+        )
+        Text(
+            text = lecture.location,
+            style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 11.sp),
+        )
     }
 }
 

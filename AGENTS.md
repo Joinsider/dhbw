@@ -27,9 +27,12 @@ boundaries do not change package names, so imports are identical across the spli
                  `Shared.framework` for Apple targets (iOS and macOS) — no Compose,
                  plus the Swift bridge in `shared/appleMain/…/ios/` (WidgetSnapshot
                  stays in `shared/iosMain`)
-:composeApp      Compose UI, navigation, platform entry points,
-                 Android Glance widget                           -> all of the above
+:composeApp      Compose UI, navigation, the desktop entry point;
+                 a KMP *library* on Android                      -> all of the above
                  (Android and JVM desktop only — no Apple target)
+:androidApp      The Android app: MainActivity, DualisApplication,
+                 manifest, launcher, Glance widget, signing,
+                 version, R8 rules                               -> :composeApp
 iosApp/          The SwiftUI app for iOS and macOS: `RootView` + five screens,
                  links `Shared.framework` (see "macOS is the SwiftUI app")
 ```
@@ -38,6 +41,23 @@ Everything above `:data` talks to the six repository interfaces in `:domain`
 (`AuthRepository`, `SessionRepository`, `TimetableRepository`, `GradeRepository`,
 `DocumentRepository`, `PreferencesRepository`) and to the use cases built on them. The
 `DualisXService` classes are `:data` internals — nothing outside `:data` should resolve one.
+
+**The APK is built by `:androidApp`, not `:composeApp`.** From AGP 9 the Kotlin Multiplatform
+plugin may not share a project with `com.android.application`, so `:composeApp` uses
+`com.android.kotlin.multiplatform.library` (`kotlin { android { … } }`) — as do all the library
+modules — and `:androidApp` is a plain
+Android app module that depends on it. What only an app may have lives there: the manifest
+(deep-link scheme, widget receiver, `FileProvider`, the backup and data-extraction rules that keep
+`dualis_secure_prefs.xml` out of backups), launcher and widget resources, `applicationId`,
+`versionCode`/`versionName`, signing and `proguard-rules.pro`. The release workflow and F-Droid read
+the version from `androidApp/build.gradle.kts`; the desktop `packageVersion` stays in `:composeApp`.
+Consequences of the library plugin: a library has no build types, so its Android tests run as
+`testAndroidHostTest` from `src/androidHostTest` (only `:androidApp` has `testDebugUnitTest`), and
+every module's Kover variant aggregates `android` plus `desktop`. Android resources are compiled
+only where `androidResources.enable` is on — `:composeApp` (Compose resources are packed as
+assets) and `:services` (the notification icon). `:androidApp` uses AGP's built-in Kotlin and the
+new DSL; `gradle.properties` carries none of the AGP 8 compatibility flags any more, and
+`buildFeatures.resValues` is switched on in `:androidApp` only, for `app_name`.
 
 `:presentation` is part of `Shared.framework` since P4: the stores expose `StateFlow` and the
 module has no Compose plugin or dependency at all. Adding one would put the Compose runtime back
@@ -112,7 +132,7 @@ that introduces this does not log anyone out. Android's second door is Auto Back
 excluding `dualis_secure_prefs.xml` in `res/xml/backup_rules.xml` and
 `res/xml/data_extraction_rules.xml`.
 
-Platform entry points: `composeApp/androidMain/MainActivity.kt`, `composeApp/desktopMain/main.kt`,
+Platform entry points: `androidApp/src/main/…/MainActivity.kt`, `composeApp/desktopMain/main.kt`,
 and `iosApp/iosApp/iOSApp.swift` (which calls `SharedApp.start()`; the same file serves macOS).
 
 **On iOS there is a second process.** Since P8 the widget extension links `Shared.framework` too
@@ -471,8 +491,9 @@ runs every module's own suite, and a qualified `:composeApp:desktopTest` now cov
 Compose UI.
 
 ```bash
-# Android unit tests (Compose UI tests are excluded on Android – run on Desktop instead)
-./gradlew testDebugUnitTest
+# Android unit tests (Compose UI tests are excluded on Android – run on Desktop instead).
+# The libraries are KMP Android libraries without build types: their suite is testAndroidHostTest.
+./gradlew testDebugUnitTest testAndroidHostTest
 
 # Desktop (JVM) tests – includes Compose UI tests
 ./gradlew desktopTest
@@ -484,8 +505,11 @@ Compose UI.
 # Desktop run with Compose Hot Reload
 ./gradlew :composeApp:jvmRun -t
 
+# Android debug APK
+./gradlew :androidApp:assembleDebug
+
 # Android release APK (requires env vars SIGNING_KEYSTORE_PATH, SIGNING_KEYSTORE_PASSWORD, SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD)
-./gradlew :composeApp:assembleRelease
+./gradlew :androidApp:assembleRelease
 
 # iOS app (Debug, simulator). Leave CODE_SIGNING_ALLOWED=NO out when checking anything that
 # hangs off an entitlement — without it the app runs without App Group and Keychain group.
@@ -509,6 +533,8 @@ cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration 
 | File | Purpose |
 |---|---|
 | `composeApp/src/commonMain/kotlin/…/App.kt` | Root composable: theme, and restoring / login / graph |
+| `androidApp/build.gradle.kts` | The Android app: applicationId, versionCode/versionName, signing, R8 |
+| `androidApp/src/main/AndroidManifest.xml` | Deep links, widget receiver, FileProvider, backup rules |
 | `shared/src/commonMain/kotlin/…/shared/Koin.kt` | `initKoin()` — the single composition root |
 | `…/data/dualis/remote/services/AuthenticationService.kt` | Login + redirect chain + re-auth logic |
 | `…/data/dualis/remote/DualisApiClient.kt` | Raw HTTP GET; no parsing |

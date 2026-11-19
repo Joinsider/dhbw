@@ -26,7 +26,7 @@ cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -configuration 
 
 ```bash
 ./gradlew desktopTest          # module suites plus the Compose UI tests (JVM)
-./gradlew testDebugUnitTest    # Android unit tests
+./gradlew testAndroidHostTest testDebugUnitTest   # Android host tests (libraries, app)
 ```
 
 Shared logic is tested in the modules' own suites; the SwiftUI layer has no automated tests.

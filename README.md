@@ -3,6 +3,12 @@ This is a Kotlin Multiplatform project targeting Android, iOS, macOS and Desktop
 Android, Windows, Linux and macOS builds are provided. The iOS and macOS app is a native SwiftUI app
 (see `documentation/macOS/README.md` for the Mac distribution channels).
 
+# Building:
+`androidApp/` builds the Android APK (`./gradlew :androidApp:assembleRelease`, signed through the
+`SIGNING_*` environment variables), `composeApp/` holds the Compose UI shared by Android and the
+desktop app (`./gradlew :composeApp:packageDistributionForCurrentOS`), and `iosApp/` is the SwiftUI
+app for iOS and macOS. `AGENTS.md` describes the module layout.
+
 # Releases:
 You can find the current version under [Releases](https://github.com/Joinsider/dhbw/releases)
 

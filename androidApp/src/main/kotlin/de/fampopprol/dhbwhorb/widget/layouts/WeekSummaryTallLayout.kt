@@ -58,7 +58,7 @@ fun WeekSummaryTallLayout(state: TimetableWidgetState) {
                     DayHeader(day.date)
                     Spacer(GlanceModifier.height(6.dp))
                     day.classes.forEach { cls ->
-                        ClassCard(cls)
+                        ClassCard(cls, tintLocationForTest = false)
                         Spacer(GlanceModifier.height(4.dp))
                     }
                 }
@@ -77,56 +77,6 @@ private fun DayHeader(date: LocalDate) {
             fontWeight = FontWeight.Bold,
         ),
     )
-}
-
-@Composable
-private fun ClassCard(cls: WidgetClassState) {
-    Box(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .cornerRadius(12.dp)
-            .background(
-                if (cls.isTest) GlanceTheme.colors.errorContainer
-                else GlanceTheme.colors.surface
-            )
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-    ) {
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "${cls.formattedStartTime}–${cls.formattedEndTime}",
-                    style = TextStyle(
-                        color = if (cls.isTest) GlanceTheme.colors.onErrorContainer else GlanceTheme.colors.secondary,
-                        fontSize = 10.sp,
-                    ),
-                )
-                if (cls.isTest) {
-                    Spacer(GlanceModifier.width(4.dp))
-                    Text(
-                        text = "TEST",
-                        style = TextStyle(
-                            color = GlanceTheme.colors.error,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                    )
-                }
-            }
-            Text(
-                text = cls.shortName,
-                style = TextStyle(
-                    color = if (cls.isTest) GlanceTheme.colors.onErrorContainer else GlanceTheme.colors.onSurface,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                ),
-                maxLines = 1,
-            )
-            Text(
-                text = cls.location,
-                style = TextStyle(color = GlanceTheme.colors.secondary, fontSize = 10.sp),
-            )
-        }
-    }
 }
 
 @Composable

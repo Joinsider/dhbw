@@ -32,7 +32,7 @@ jobs:
       - name: Read versionCode from build.gradle.kts
         id: version
         run: |
-          VERSION_CODE=$(grep -m1 'versionCode' composeApp/build.gradle.kts \
+          VERSION_CODE=$(grep -m1 'versionCode' androidApp/build.gradle.kts \
             | sed -E 's/.*versionCode\s*=\s*([0-9]+).*/\1/')
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "Detected versionCode: $VERSION_CODE"

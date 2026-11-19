@@ -14,7 +14,7 @@
   from the cache, which needs neither a session nor the network. It also replans when the user
   allows exact alarms, so reminders planned inexactly before become exact straight away.
 
-  Declared here rather than in :composeApp so the permission sits next to the code that needs it;
+  Declared here rather than in :androidApp so the permission sits next to the code that needs it;
   the manifest merger folds it into the app.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">

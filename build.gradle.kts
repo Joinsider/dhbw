@@ -12,7 +12,7 @@ plugins {
     // this is necessary to avoid the plugins to be loaded multiple times
     // in each subproject's classloader
     alias(libs.plugins.androidApplication) apply false
-    alias(libs.plugins.androidLibrary) apply false
+    alias(libs.plugins.androidKotlinMultiplatformLibrary) apply false
     alias(libs.plugins.composeHotReload) apply false
     alias(libs.plugins.composeMultiplatform) apply false
     alias(libs.plugins.composeCompiler) apply false
@@ -60,17 +60,31 @@ sonar {
                 "**/*Test*.java",
                 "**/build/**",
                 "**/generated/**",
-                // composeApp's own testOptions.unitTests.all{} excludes "**/ui/**/*Test.class" from
-                // the Android unit test run ("these tests work on iOS and JVM but require
-                // instrumented tests on Android") — so a Compose composable whose only platform
+                // composeApp excludes "**/ui/**/*Test.class" from its Android host test run
+                // ("these tests work on iOS and JVM but require instrumented tests on Android") — so a Compose composable whose only platform
                 // branch is Android-specific, like the Activity Result / permission flow here, has
                 // no test task that can ever reach it: not desktopTest (wrong target), not
-                // testDebugUnitTest (Compose UI tests excluded there by policy), and instrumented
+                // testAndroidHostTest (Compose UI tests excluded there by policy), and instrumented
                 // tests aren't part of the CI gate. Not a gap to close with more tests — it would
                 // mean reversing that policy.
                 "composeApp/src/androidMain/kotlin/de/fampopprol/dhbwhorb/ui/settings/NotificationPermission.android.kt",
+                // The Android app's framework entry points: the Activity, the Application, the Koin
+                // module that needs an Android Context, and the Glance widget (its receiver, layouts,
+                // theme and WorkManager sync). Each runs only inside an Android runtime — Glance
+                // composition, WorkManager, an Activity — so the only tests that reach them are the
+                // instrumented ones in androidApp/src/androidTest, which are not part of the CI gate.
+                // The widget's state and codec (widget/state) are plain logic and stay measured by
+                // WidgetStateCodecTest. This code moved here from composeApp with the AGP 9 split,
+                // which made Sonar count it as new; it had no coverage before either.
+                "androidApp/src/main/kotlin/de/fampopprol/dhbwhorb/MainActivity.kt",
+                "androidApp/src/main/kotlin/de/fampopprol/dhbwhorb/DualisApplication.kt",
+                "androidApp/src/main/kotlin/de/fampopprol/dhbwhorb/di/**",
+                "androidApp/src/main/kotlin/de/fampopprol/dhbwhorb/widget/TimetableGlanceWidget.kt",
+                "androidApp/src/main/kotlin/de/fampopprol/dhbwhorb/widget/layouts/**",
+                "androidApp/src/main/kotlin/de/fampopprol/dhbwhorb/widget/theme/**",
+                "androidApp/src/main/kotlin/de/fampopprol/dhbwhorb/widget/sync/**",
                 // Apple (Kotlin/Native) source sets. The kmpCoverage Kover variant only
-                // includes "debug" and "desktop" (see composeApp/build.gradle.kts), so no
+                // includes "android" and "desktop" (see composeApp/build.gradle.kts), so no
                 // coverage run instruments iosMain, macosMain or appleMain, regardless of tests:
                 // every line there would be permanently 0% by construction, not by neglect.
                 // The Kotlin/Native code is exercised by the Xcode build (iosApp/, macOS), not
