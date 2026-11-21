@@ -35,7 +35,7 @@ You can find the current version under [Releases](https://github.com/Joinsider/d
 ## Windows
 You can always download the current .msi file from the releases tab or you can download it through the [Microsoft Store](https://apps.microsoft.com/detail/9pl3rffqhmqb?ocid=webpdpshare). 
 
-**!!! I must add a warning: Every desktop version stores your password in the current OS' keyring. On Windows only .msix packages (MS Store version of dhbw-next) are truly secure as other apps don't have access to the applications' secrets!!!**
+**!!! I must add a warning: Every desktop version stores your password in the current OS' keyring. On Windows only .msix packages (MS Store version of Horb Studenten App) are truly secure as other apps don't have access to the applications' secrets!!!**
 
 ## Linux
 

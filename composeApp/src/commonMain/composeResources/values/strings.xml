@@ -1,14 +1,14 @@
 <resources>
     <!-- App general -->
-    <string name="app_name">DHBW Horb</string>
+    <string name="app_name">Horb Students App</string>
 
     <!-- Login screen -->
     <string name="login_with_dualis_account">Login with your Dualis Account</string>
     <string name="login">Login</string>
     <string name="username">Email</string>
     <string name="password">Password</string>
-    <string name="enter_username">Enter DHBW Email</string>
-    <string name="enter_password">Enter DHBW password</string>
+    <string name="enter_username">Enter Student email</string>
+    <string name="enter_password">Enter Dualis Account password</string>
     <string name="username_cannot_be_empty">Email cannot be empty</string>
     <string name="username_must_be_valid_email">Email must be a valid email address ending with @hb.dhbw-stuttgart.de.</string>
     <string name="password_cannot_be_empty">Password cannot be empty</string>
@@ -168,7 +168,7 @@
     <string name="login_required_for_grades">Please log in to view your grades.</string>
     <string name="grade_trend">Grade trend</string>
     <string name="grade_trend_overall">Overall</string>
-    <!-- Disclaimer: the app is not an official DHBW product -->
-    <string name="disclaimer_unofficial">This app is a private project. It is not developed, operated or endorsed by DHBW.</string>
-    <string name="disclaimer_complaints">Please submit complaints and feedback about this app only as an issue on GitHub, not to DHBW.</string>
+    <!-- Disclaimer: the app is not an official university product -->
+    <string name="disclaimer_unofficial">This app is a private project. It is not developed, operated or endorsed by the university or Dualis.</string>
+    <string name="disclaimer_complaints">Please submit complaints and feedback about this app only as an issue on GitHub, not to the university or Dualis.</string>
 </resources>
