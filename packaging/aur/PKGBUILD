@@ -2,7 +2,7 @@
 pkgname=dhbw-next-git
 pkgver=2.0.5
 pkgrel=1
-pkgdesc='DHBW Horb Studenten App - Desktop application for DHBW Stuttgart students'
+pkgdesc='Horb Studenten App - Desktop application for students in Horb using Dualis'
 arch=('x86_64' 'aarch64')
 url='https://github.com/Joinsider/dhbw'
 license=('AGPL-3.0-or-later')
@@ -67,7 +67,7 @@ EOF
     install -Dm644 /dev/stdin "${pkgdir}/usr/share/applications/${pkgname%-git}.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=DHBW Horb Studenten App
+Name=Horb Studenten App
 Comment=${pkgdesc}
 Exec=${pkgname%-git}
 Icon=${pkgname%-git}

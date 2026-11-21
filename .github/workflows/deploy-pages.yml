@@ -125,13 +125,13 @@ jobs:
           apt-ftparchive release . > "$RUNNER_TEMP/release-checksums"
 
           cat > Release << 'EOF'
-          Origin: DHBW Next
-          Label: DHBW Next Repository
+          Origin: Horb Studenten App
+          Label: Horb Studenten App Repository
           Suite: stable
           Codename: stable
           Architectures: amd64
           Components: main
-          Description: DHBW Next Kotlin Multiplatform Application
+          Description: Horb Studenten App Kotlin Multiplatform Application
           EOF
           
           # Add file checksums
@@ -179,7 +179,7 @@ jobs:
           <!DOCTYPE html>
           <html>
           <head>
-              <title>DHBW Next APT Repository</title>
+              <title>Horb Studenten App APT Repository</title>
               <style>
                   body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
                   code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }
@@ -187,7 +187,7 @@ jobs:
               </style>
           </head>
           <body>
-              <h1>DHBW Next APT Repository</h1>
+              <h1>Horb Studenten App APT Repository</h1>
               <p>Add this repository to your Debian/Ubuntu system (AMD64 only):</p>
           
               <h2>Step 1: Add GPG Key</h2>

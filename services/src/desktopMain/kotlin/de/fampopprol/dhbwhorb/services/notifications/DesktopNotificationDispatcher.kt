@@ -42,7 +42,7 @@ class DesktopNotificationDispatcher : NotificationDispatcher {
 
             // Create a simple tray icon (use a default icon for now)
             val image = Toolkit.getDefaultToolkit().createImage(ByteArray(0))
-            trayIcon = TrayIcon(image, "DHBW Next").apply {
+            trayIcon = TrayIcon(image, "Horb Studenten App").apply {
                 isImageAutoSize = true
             }
 

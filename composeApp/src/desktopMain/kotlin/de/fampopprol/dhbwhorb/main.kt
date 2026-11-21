@@ -57,7 +57,7 @@ fun main() {
                 GlobalContext.stopKoin()
                 exitApplication()
             },
-            title = "dhbw",
+            title = "Horb Studenten App",
         ) {
             App()
         }
