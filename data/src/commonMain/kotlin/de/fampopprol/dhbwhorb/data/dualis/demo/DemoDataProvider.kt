@@ -454,7 +454,7 @@ object DemoDataProvider {
             DEMO_DOCUMENT_CERTIFICATE -> DemoPdf.render(
                 title = "Studienbescheinigung",
                 lines = listOf(
-                    "Duale Hochschule Baden-Württemberg",
+                    "Musterhochschule",
                     "Studiengang Informatik (T3INF)",
                     "",
                     student,
@@ -529,61 +529,61 @@ object DemoDataProvider {
             LecturerEntity(
                 lecturerId = 1L,
                 lecturerName = "Prof. Dr. Schmidt",
-                lecturerEmail = "schmidt@dhbw.de",
+                lecturerEmail = "schmidt@example.edu",
                 lecturerPhoneNumber = "+49 711 1234-101"
             ),
             LecturerEntity(
                 lecturerId = 2L,
                 lecturerName = "Prof. Dr. Müller",
-                lecturerEmail = "mueller@dhbw.de",
+                lecturerEmail = "mueller@example.edu",
                 lecturerPhoneNumber = "+49 711 1234-102"
             ),
             LecturerEntity(
                 lecturerId = 3L,
                 lecturerName = "Prof. Dr. Weber",
-                lecturerEmail = "weber@dhbw.de",
+                lecturerEmail = "weber@example.edu",
                 lecturerPhoneNumber = "+49 711 1234-103"
             ),
             LecturerEntity(
                 lecturerId = 4L,
                 lecturerName = "Prof. Dr. Fischer",
-                lecturerEmail = "fischer@dhbw.de",
+                lecturerEmail = "fischer@example.edu",
                 lecturerPhoneNumber = "+49 711 1234-104"
             ),
             LecturerEntity(
                 lecturerId = 5L,
                 lecturerName = "Prof. Dr. Meyer",
-                lecturerEmail = "meyer@dhbw.de",
+                lecturerEmail = "meyer@example.edu",
                 lecturerPhoneNumber = "+49 711 1234-105"
             ),
             LecturerEntity(
                 lecturerId = 6L,
                 lecturerName = "Prof. Dr. Wagner",
-                lecturerEmail = "wagner@dhbw.de",
+                lecturerEmail = "wagner@example.edu",
                 lecturerPhoneNumber = "+49 711 1234-106"
             ),
             LecturerEntity(
                 lecturerId = 7L,
                 lecturerName = "Prof. Dr. Becker",
-                lecturerEmail = "becker@dhbw.de",
+                lecturerEmail = "becker@example.edu",
                 lecturerPhoneNumber = "+49 711 1234-107"
             ),
             LecturerEntity(
                 lecturerId = 8L,
                 lecturerName = "Prof. Dr. Schulz",
-                lecturerEmail = "schulz@dhbw.de",
+                lecturerEmail = "schulz@example.edu",
                 lecturerPhoneNumber = "+49 711 1234-108"
             ),
             LecturerEntity(
                 lecturerId = 9L,
                 lecturerName = "Prof. Dr. Hoffmann",
-                lecturerEmail = "hoffmann@dhbw.de",
+                lecturerEmail = "hoffmann@example.edu",
                 lecturerPhoneNumber = "+49 711 1234-109"
             ),
             LecturerEntity(
                 lecturerId = 10L,
                 lecturerName = "Prof. Dr. Koch",
-                lecturerEmail = "koch@dhbw.de",
+                lecturerEmail = "koch@example.edu",
                 lecturerPhoneNumber = "+49 711 1234-110"
             )
         )

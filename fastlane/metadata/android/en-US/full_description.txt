@@ -1,6 +1,6 @@
-🎓 Specially developed for DHBW Horb
+🎓 Specially developed for students in Horb
 
-This app was exclusively developed for students at DHBW Stuttgart Campus Horb and provides you with a complete overview of your daily study life.
+This unofficial app provides students in Horb with a Dualis account a complete overview of their daily study life.
 
 ⏰ Main Features
 

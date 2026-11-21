@@ -216,7 +216,7 @@ jobs:
     env:
       APPLE_TEAM_ID: 56T6W6Z755
       BUNDLE_ID: de.fampopprol.dhbw
-      DMG_VOLUME: DHBW-Horb
+      DMG_VOLUME: Horb-Studenten-App
     steps:
       # Fails first and names every missing secret, instead of failing later inside `security import`.
       - name: Check signing secrets

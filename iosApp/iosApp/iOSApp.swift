@@ -67,7 +67,7 @@ struct iOSApp: App {
         // One window, not a group: `openWindow` from the menu bar must bring the existing window
         // forward rather than open a second one. A login launch starts without it, and state
         // restoration is off for that launch so the window does not come back through the back door.
-        Window("DHBW Horb", id: MacWindow.mainID) {
+        Window("Horb Students", id: MacWindow.mainID) {
             RootView()
                 .environment(model)
                 // A Mac window has no screen edge to fill, so it gets a default size and a floor
