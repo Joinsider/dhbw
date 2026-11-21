@@ -48,7 +48,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        resValue("string", "app_name", "DHBW Horb Studenten App")
+        resValue("string", "app_name", "Horb Studenten App")
     }
     packaging {
         resources {

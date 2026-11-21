@@ -5,10 +5,10 @@ AuthorName: Johannes
 SourceCode: https://github.com/joinsider/dhbw
 IssueTracker: https://github.com/joinsider/dhbw/issues
 
-Name: DHBW Horb Student App
-Summary: Timetable and Dualis grades app for DHBW Horb students
+Name: Horb Students App
+Summary: Timetable and Dualis grades app for students in Horb
 Description: |-
-  Specially developed for students at DHBW Stuttgart Campus Horb.
+  Unofficial app developed for students in Horb using Dualis.
 
   This app provides a complete overview of your daily study life:
 

@@ -1,6 +1,6 @@
-🎓 Speziell für DHBW Horb entwickelt
+🎓 Speziell für Studierende in Horb entwickelt
 
-Diese App wurde exklusiv für Studierende der DHBW Stuttgart Campus Horb entwickelt und bietet Ihnen den kompletten Überblick über Ihren Studienalltag.
+Diese inoffizielle App bietet Studierenden am Standort Horb mit Dualis-Zugang den kompletten Überblick über den Studienalltag.
 
 ⏰ Hauptfunktionen
 
