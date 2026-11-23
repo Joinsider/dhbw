@@ -2,7 +2,7 @@
 # Held at the newest AGP that the current stable Android Studio supports; Studio refuses to sync
 # a project on a newer AGP (9.5.1 was rejected: "Latest supported version is AGP 9.4.0").
 #noinspection AndroidGradlePluginVersion
-agp = "9.4.1"
+agp = "9.5.2"
 android-compileSdk = "37"
 android-minSdk = "24"
 android-targetSdk = "36"
