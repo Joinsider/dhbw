@@ -88,6 +88,6 @@ kover {
 
 dependencies {
     constraints {
-        add("androidHostTestImplementation", "org.bouncycastle:bcprov-jdk18on:1.86")
+        add("androidHostTestImplementation", "org.bouncycastle:bcprov-jdk18on:1.87")
     }
 }
