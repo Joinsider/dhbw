@@ -21,7 +21,7 @@ composeHotReload = "1.2.0"
 composeMultiplatform = "1.12.2"
 # Material 3 Expressive is alpha-only; see the note in composeApp/build.gradle.kts before bumping.
 #noinspection NewerVersionAvailable
-composeMaterial3 = "1.12.0-alpha03"
+composeMaterial3 = "1.13.0-rc01"
 javaKeyring = "1.0.4"
 junit = "4.13.2"
 kotlin = "2.4.21"
